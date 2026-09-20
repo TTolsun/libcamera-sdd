@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>libcamera 설계 문서 · 검토용</title><style>
+:root { --fg:#1f2328; --muted:#59636e; --line:#d8dee4; --bg:#fff; --side:#f6f8fa; --ok:#1a7f37; --warn:#9a6700; --code:#f6f8fa; }
+* { box-sizing:border-box; }
+body { margin:0; font-family:-apple-system,"Segoe UI","Pretendard","Noto Sans KR",sans-serif; color:var(--fg); background:var(--bg); line-height:1.65; }
+nav { position:fixed; top:0; left:0; bottom:0; width:280px; overflow:auto; background:var(--side); border-right:1px solid var(--line); padding:20px 16px; font-size:14px; }
+nav h1 { font-size:15px; margin:0 0 14px; }
+nav .group { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em; margin:14px 0 4px; }
+nav a { display:block; color:var(--fg); text-decoration:none; padding:4px 6px; border-radius:6px; }
+nav a:hover { background:#eaeef2; }
+nav a.sub { padding-left:18px; font-size:13px; }
+main { margin-left:280px; padding:32px 48px 80px; max-width:980px; }
+section.page { border-top:1px solid var(--line); padding-top:32px; margin-top:32px; }
+section.page:first-child { border-top:0; margin-top:0; padding-top:0; }
+h1 { font-size:28px; margin:0 0 6px; } h2 { font-size:20px; margin:28px 0 10px; border-bottom:1px solid var(--line); padding-bottom:4px; }
+.meta { color:var(--muted); font-size:13px; margin-bottom:16px; }
+.badge { display:inline-block; font-size:12px; padding:1px 8px; border-radius:10px; border:1px solid; margin-right:6px; }
+.badge.ok { color:var(--ok); border-color:var(--ok); } .badge.needs-review { color:var(--warn); border-color:var(--warn); }
+table { border-collapse:collapse; width:100%; margin:12px 0; font-size:14px; }
+th, td { border:1px solid var(--line); padding:6px 10px; text-align:left; vertical-align:top; }
+th { background:var(--side); }
+code { background:var(--code); padding:1px 5px; border-radius:4px; font-size:.92em; }
+pre { background:var(--code); padding:12px; overflow:auto; border-radius:6px; }
+pre.mermaid { background:#fff; border:1px solid var(--line); text-align:center; }
+details { border:1px solid var(--line); border-radius:6px; padding:8px 12px; margin:16px 0; background:var(--side); }
+summary { cursor:pointer; font-weight:600; }
+p.lead { font-weight:600; font-size:16px; }
+@media (max-width: 860px) { nav { position:static; width:auto; border-right:0; border-bottom:1px solid var(--line); } main { margin:0; padding:16px; } }
+</style></head>
+<body><nav><h1>libcamera 설계 문서 · 검토용</h1><a href="#page-camera-model">camera-model <span class="badge needs-review">needs-review</span></a><a href="#page-ipa">ipa <span class="badge ok">ok</span></a><a href="#page-pipeline-handler">pipeline-handler <span class="badge ok">ok</span></a></nav>
+<main><section class="page" id="page-camera-model"><h1>카메라와 요청 모델</h1><div class="meta"><span class="badge needs-review">needs-review</span>generated_at: 2026-09-20 14:09:01+00:00 · source_commit: 279d355ef8f7a4f98bb0a3004c0f788387814506 · agent: ollama/qwen3.5:4b</div><p class="lead"><strong>CameraManager, Camera, Request의 선언과 메서드 위치부터 확인하세요.</strong></p>
+<table>
+<thead>
+<tr>
+<th>지금 확인할 내용</th>
+<th>이동할 절</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>관련 클래스 절을 확인합니다.</td>
+<td><a href="#page-camera-model--관련-클래스">관련 클래스</a></td>
+</tr>
+<tr>
+<td>구조 설명 절을 확인합니다.</td>
+<td><a href="#page-camera-model--구조-설명">구조 설명</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="page-camera-model--관련-클래스">관련 클래스</h2>
+<table>
+<thead>
+<tr>
+<th>클래스</th>
+<th>선언 위치</th>
+<th>상속</th>
+<th>책임 (주석)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>libcamera::Camera</code></td>
+<td><code>include/libcamera/camera.h:114</code></td>
+<td><code>libcamera::Object</code>, <code>libcamera::Extensible</code></td>
+<td>확인 필요</td>
+</tr>
+<tr>
+<td><code>libcamera::CameraManager</code></td>
+<td><code>include/libcamera/camera_manager.h:24</code></td>
+<td><code>libcamera::Object</code>, <code>libcamera::Extensible</code></td>
+<td>확인 필요</td>
+</tr>
+<tr>
+<td><code>libcamera::Request</code></td>
+<td><code>include/libcamera/request.h:29</code></td>
+<td><code>libcamera::Extensible</code></td>
+<td>확인 필요</td>
+</tr>
+</tbody>
+</table>
+<h2 id="page-camera-model--구조-설명">구조 설명</h2>
+<p>카메라 탐색과 요청 처리는 <code>libcamera::CameraManager</code> [include/libcamera/camera_manager.h:24] 와 <code>libcamera::Camera</code> [include/libcamera/camera.h:114] 클래스로 나뉘며, 카메라 생성은 <code>create()</code> [src/libcamera/camera.cpp:860] 메서드를 통해 수행됩니다. <code>libcamera::Camera</code> 의 ID 를 확인하거나 <code>acquire()</code> [src/libcamera/camera.cpp:1007] 와 같은 접근 권한을 관리하는 메서드들은 해당 클래스의 내부 구현에 의존합니다.</p>
+<details class="note">
+<summary>근거와 검토 정보</summary>
+<ul>
+<li>근거 파일: <code>include/libcamera/camera.h</code>, <code>include/libcamera/camera_manager.h</code>, <code>include/libcamera/request.h</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/camera_manager.cpp</code>, <code>src/libcamera/request.cpp</code></li>
+<li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>279d355ef8</code>)</li>
+<li>인용 검증: 실패 (인용이 하나도 없습니다.; 클래스나 함수를 언급하면서 인용이 없는 문단 1 개)</li>
+<li>검토: 2026-09-20 · ollama/qwen3.5:4b · 사람 검토 전</li>
+</ul>
+</details>
+<p>다음 단계: <a href="#page-pipeline-handler">Pipeline Handler</a></p></section><section class="page" id="page-ipa"><h1>IPA 관리와 구현 진입점</h1><div class="meta"><span class="badge ok">ok</span>generated_at: 2026-09-20 14:07:03+00:00 · source_commit: 279d355ef8f7a4f98bb0a3004c0f788387814506 · agent: ollama/qwen3.5:4b</div><p class="lead"><strong>IPA 관리자, 모듈, 프록시와 IPU3·RKISP1 구현의 근거 위치를 먼저 확인하세요.</strong></p>
+<table>
+<thead>
+<tr>
+<th>지금 확인할 내용</th>
+<th>이동할 절</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>관련 클래스 절을 확인합니다.</td>
+<td><a href="#page-ipa--관련-클래스">관련 클래스</a></td>
+</tr>
+<tr>
+<td>구조 설명 절을 확인합니다.</td>
+<td><a href="#page-ipa--구조-설명">구조 설명</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="page-ipa--관련-클래스">관련 클래스</h2>
+<table>
+<thead>
+<tr>
+<th>클래스</th>
+<th>선언 위치</th>
+<th>상속</th>
+<th>책임 (주석)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>libcamera::IPAManager</code></td>
+<td><code>include/libcamera/internal/ipa_manager.h:29</code></td>
+<td>–</td>
+<td>확인 필요</td>
+</tr>
+<tr>
+<td><code>libcamera::IPAModule</code></td>
+<td><code>include/libcamera/internal/ipa_module.h:21</code></td>
+<td><code>libcamera::Loggable</code></td>
+<td>확인 필요</td>
+</tr>
+<tr>
+<td><code>libcamera::IPAProxy</code></td>
+<td><code>include/libcamera/internal/ipa_proxy.h:22</code></td>
+<td><code>libcamera::IPAInterface</code></td>
+<td>확인 필요</td>
+</tr>
+<tr>
+<td><code>libcamera::ipa::ipu3::IPAIPU3</code></td>
+<td><code>src/ipa/ipu3/ipu3.cpp:139</code></td>
+<td><code>libcamera::ipa::ipu3::IPAIPU3Interface</code>, <code>libcamera::ipa::ipu3::Module</code></td>
+<td>The IPU3 IPA implementation</td>
+</tr>
+<tr>
+<td><code>libcamera::ipa::rkisp1::IPARkISP1</code></td>
+<td><code>src/ipa/rkisp1/rkisp1.cpp:46</code></td>
+<td><code>libcamera::ipa::rkisp1::IPARkISP1Interface</code>, <code>libcamera::ipa::rkisp1::Module</code></td>
+<td>확인 필요</td>
+</tr>
+</tbody>
+</table>
+<h2 id="page-ipa--구조-설명">구조 설명</h2>
+<p>IPA 관리와 구현 진입점을 분석하기 위해 <code>libcamera::IPAManager</code> 클래스의 생성자 및 파싱 메서드를 먼저 확인해야 합니다. <code>IPAManager</code>는 <code>src/libcamera/ipa_manager.cpp:107</code> 에서 인스턴스가 생성되고, <code>src/libcamera/ipa_manager.cpp:175</code> 의 <code>parseDir()</code> 를 통해 공유 라이브러jeti 객체를 식별하며, <code>src/libcamera/ipa_manager.cpp:224</code> 의 <code>addDir()</code> 를 호출하여 디렉토리에서 IPA 모듈을 로드합니다. 이 과정에서 <code>src/libcamera/ipa_manager.cpp:254</code> 의 <code>module()</code> 메서드는 파이프라인 핸들러에 맞는 IPA 모듈을 검색하고, <code>src/libcamera/ipa_manager.cpp:289</code> 의 <code>isSignatureValid()</code> 는 서명 유효성을 검증합니다.</p>
+<p>알고리즘과 프록시 간의 경계를 명확히 하기 위해 <code>libcamera::IPAModule</code> 과 <code>libcamera::IPAProxy</code> 클래스의 초기화 및 인터페이스 생성 메서드를 확인해야 합니다. <code>IPAModule</code> 은 <code>src/libcamera/ipa_module.cpp:406</code> 의 <code>load()</code> 를 통해 공유 객체에서 구현 팩토리를 로드하고, <code>src/libcamera/ipa_module.cpp:451</code> 의 <code>createInterface()</code> 를 호출하여 IPA 인터페이스를 인스턴스화합니다. 반면 <code>libcamera::IPAProxy</code> 는 <code>src/libcamera/ipa_proxy.cpp:217</code> 의 <code>resolvePath()</code> 를 통해 프로세스 워커의 유효한 전체 경로를 찾습니다. 구체적인 스레드 동기화나 콜백 전달 순서는 설계 근거가 부족하므로 확인이 필요합니다.</p>
+<details class="note">
+<summary>근거와 검토 정보</summary>
+<ul>
+<li>근거 파일: <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/ipa_module.h</code>, <code>include/libcamera/internal/ipa_proxy.h</code>, <code>src/ipa/ipu3/ipu3.cpp</code>, <code>src/ipa/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/ipa_module.cpp</code>, <code>src/libcamera/ipa_proxy.cpp</code></li>
+<li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>279d355ef8</code>)</li>
+<li>인용 검증: 통과</li>
+<li>검토: 2026-09-20 · ollama/qwen3.5:4b · 사람 검토 전</li>
+</ul>
+</details>
+<p>다음 단계: <a href="#page-camera-model">카메라와 요청 모델</a></p></section><section class="page" id="page-pipeline-handler"><h1>Pipeline Handler</h1><div class="meta"><span class="badge ok">ok</span>generated_at: 2026-09-20 14:09:12+00:00 · source_commit: 279d355ef8f7a4f98bb0a3004c0f788387814506 · agent: ollama/qwen3.5:4b</div><p class="lead"><strong>공통 PipelineHandler와 빌드에 포함된 구현의 관계를 확인하세요.</strong></p>
+<table>
+<thead>
+<tr>
+<th>지금 확인할 내용</th>
+<th>이동할 절</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>관련 클래스 절을 확인합니다.</td>
+<td><a href="#page-pipeline-handler--관련-클래스">관련 클래스</a></td>
+</tr>
+<tr>
+<td>구조 설명 절을 확인합니다.</td>
+<td><a href="#page-pipeline-handler--구조-설명">구조 설명</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="page-pipeline-handler--관련-클래스">관련 클래스</h2>
+<table>
+<thead>
+<tr>
+<th>클래스</th>
+<th>선언 위치</th>
+<th>상속</th>
+<th>책임 (주석)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>libcamera::PipelineHandler</code></td>
+<td><code>include/libcamera/internal/pipeline_handler.h:34</code></td>
+<td><code>libcamera::Object</code></td>
+<td>확인 필요</td>
+</tr>
+<tr>
+<td><code>libcamera::PipelineHandlerFactory</code></td>
+<td><code>include/libcamera/internal/pipeline_handler.h:144</code></td>
+<td><code>libcamera::PipelineHandlerFactoryBase</code></td>
+<td>확인 필요</td>
+</tr>
+<tr>
+<td><code>libcamera::PipelineHandlerFactoryBase</code></td>
+<td><code>include/libcamera/internal/pipeline_handler.h:121</code></td>
+<td>–</td>
+<td>확인 필요</td>
+</tr>
+<tr>
+<td><code>libcamera::PipelineHandlerIPU3</code></td>
+<td><code>src/libcamera/pipeline/ipu3/ipu3.cpp:124</code></td>
+<td><code>libcamera::PipelineHandler</code></td>
+<td>확인 필요</td>
+</tr>
+<tr>
+<td><code>libcamera::PipelineHandlerIPU3::IPU3PipeModes</code></td>
+<td><code>src/libcamera/pipeline/ipu3/ipu3.cpp:130</code></td>
+<td>–</td>
+<td>확인 필요</td>
+</tr>
+<tr>
+<td><code>libcamera::PipelineHandlerRkISP1</code></td>
+<td><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp:184</code></td>
+<td><code>libcamera::PipelineHandler</code></td>
+<td>확인 필요</td>
+</tr>
+<tr>
+<td><code>libcamera::PipelineHandlerUVC</code></td>
+<td><code>src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:81</code></td>
+<td><code>libcamera::PipelineHandler</code></td>
+<td>확인 필요</td>
+</tr>
+</tbody>
+</table>
+<h2 id="page-pipeline-handler--구조-설명">구조 설명</h2>
+<p><strong>공통 클래스와 하드웨어별 구현의 상속 관계를 확인하고, 설정 및 요청 전달에 직접 사용되는 메서드를 식별하세요.</strong></p>
+<p>기존 본문은 인용 없이 기술적 설명을 작성했습니다. 사실 블록에 명시된 <code>파일:줄</code> 위치를 근거로 문장을 구성합니다.</p>
+<p><code>libcamera::PipelineHandler</code>는 공통 인터페이스를 정의하며, <code>src/libcamera/pipeline_handler.cpp:72</code>에서 생성자 호출이 확인됩니다. 하드웨어별 구현은 이 클래스를 상속받습니다. 예를 들어 <code>libcamera::PipelineHandlerIPU3</code>의 정의를 먼저 확인합니다 <code>src/libcamera/pipeline/ipu3/ipu3.cpp:124</code>.</p>
+<p>설정은 <code>generateConfiguration()</code>과 <code>configure()</code> 메서드를 통해 처리되며, <code>include/libcamera/internal/pipeline_handler.h:49</code>와 <code>include/libcamera/internal/pipeline_handler.h:51</code>에서 선언됩니다. 요청 전달은 <code>queueRequestDevice()</code>를 통해 이루어지는데, <code>src/libcamera/pipeline/ipu3/ipu3.cpp:838</code>와 <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp:1340</code>에 해당 구현이 존재합니다.</p>
+<details class="note">
+<summary>근거와 검토 정보</summary>
+<ul>
+<li>근거 파일: <code>include/libcamera/internal/pipeline_handler.h</code>, <code>src/libcamera/pipeline/ipu3/ipu3.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/pipeline/uvcvideo/uvcvideo.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code></li>
+<li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>279d355ef8</code>)</li>
+<li>인용 검증: 통과</li>
+<li>검토: 2026-09-20 · ollama/qwen3.5:4b · 사람 검토 전</li>
+</ul>
+</details>
+<p>다음 단계: <a href="#page-ipa">IPA 관련 클래스</a></p></section></main>
+<script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs"; mermaid.initialize({ startOnLoad: true, securityLevel: "loose" });</script>
+</body></html>
