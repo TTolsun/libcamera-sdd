@@ -158,7 +158,9 @@
           diagram.innerHTML = svg;
           bindFunctions?.(diagram);
           diagram.dataset.ready = 'true';
-          diagram.dataset.title = '클래스 관계';
+          let heading = diagram.previousElementSibling;
+          while (heading && !/^H[1-6]$/.test(heading.tagName)) heading = heading.previousElementSibling;
+          diagram.dataset.title = heading?.textContent || '다이어그램';
           diagram.tabIndex = 0;
           diagram.setAttribute('role', 'button');
           diagram.setAttribute('aria-label', '다이어그램 확대');
