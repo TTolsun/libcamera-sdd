@@ -8,7 +8,9 @@
 | [Pipeline Handler](docs/pipeline-handler.md) | 인용 검증을 통과했습니다. 내용은 사람 검토 전입니다. |
 | [IPA 관리와 구현 진입점](docs/ipa.md) | 인용 검증을 통과했습니다. 내용은 사람 검토 전입니다. |
 
-[웹 문서 열기](https://ttolsun.github.io/libcamera-sdd/) · [전체 HTML 내려받기](docs/index.html)
+[웹 문서 열기](https://ttolsun.github.io/libcamera-sdd/)
+
+libcamera 공식 문서의 탐색 구조와 OMM의 읽기 중심 디자인을 적용했습니다. 페이지별 목차와 제목 검색, 코드 근거 링크, Mermaid 확대·요소 검색을 제공합니다. 원본 Markdown과 인용 검사 상태는 그대로 유지합니다.
 
 GitHub Pages는 `main` 브랜치의 `docs/`를 게시합니다. 생성 문서의 검토 상태를 확인하고 사용하세요.
 
@@ -18,6 +20,8 @@ GitHub Pages는 `main` 브랜치의 `docs/`를 게시합니다. 생성 문서의
 - 분석 커밋: `279d355ef8f7a4f98bb0a3004c0f788387814506`
 - 생성기: [camera-hal-sdd](https://github.com/TTolsun/camera-hal-sdd)
 - [실행 및 검증 기록](run.json)
+
+분석·문장 생성·사이트 구성 기술은 `camera-hal-sdd`에서 관리합니다. 이 저장소에는 생성된 HTML·CSS·JavaScript와 문서만 배포합니다. OMM은 디자인 규칙을 참고했으며 이력 관리 실행기는 사용하지 않습니다.
 
 ## 브랜치 역할
 
