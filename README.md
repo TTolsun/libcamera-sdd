@@ -8,7 +8,9 @@
 | [Pipeline Handler](docs/pipeline-handler.md) | 인용 검증을 통과했습니다. 내용은 사람 검토 전입니다. |
 | [IPA 관리와 구현 진입점](docs/ipa.md) | 인용 검증을 통과했습니다. 내용은 사람 검토 전입니다. |
 
-[전체 HTML](docs/index.html)을 내려받아 브라우저에서 열 수 있습니다. 웹 배포 주소는 Pages를 활성화한 뒤 추가합니다.
+[웹 문서 열기](https://ttolsun.github.io/libcamera-sdd/) · [전체 HTML 내려받기](docs/index.html)
+
+GitHub Pages는 `main` 브랜치의 `docs/`를 게시합니다. 생성 문서의 검토 상태를 확인하고 사용하세요.
 
 ## 소스와 생성기
 
