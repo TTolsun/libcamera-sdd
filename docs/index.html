@@ -4,28 +4,28 @@
 <body><a class="skip" href="#main">본문으로 이동</a>
 <header class="site-header"><a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera 설계 문서</a>
 <div class="header-actions"><button id="search-open" hidden>문서 찾기 <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>메뉴</button></div></header>
-<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="문서 메뉴"><p class="nav-group">시작하기</p><a href="index.html" aria-current="page">문서 안내</a><p class="nav-group">설계 문서</p><a href="camera-model.html">카메라와 요청 모델</a><a href="pipeline-handler.html">Pipeline Handler</a><a href="ipa.html">IPA 관리와 구현 진입점</a></nav><p class="sidebar-note">코드에서 구조를 추출하고<br>근거와 함께 검토합니다.</p></aside>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="문서 메뉴"><p class="nav-group">시작하기</p><a href="index.html" aria-current="page">문서 안내</a><p class="nav-group">설계 문서</p><a href="camera-model.html">카메라와 요청 모델</a><a href="pipeline-handler.html">Pipeline Handler</a><a href="ipa.html">IPA 관리와 구현 진입점</a><a href="ipu3-lsc.html">IPU3 LSC와 상태 연결</a></nav><p class="sidebar-note">코드에서 구조를 추출하고<br>근거와 함께 검토합니다.</p></aside>
 <main id="main"><p class="breadcrumb">시작하기 <span>/</span> libcamera 설계 문서</p><h1>libcamera 설계 문서</h1><div class="page-state"><span class="review-state">검토용 문서</span></div>
 <details class="mobile-toc"><summary>이 페이지의 목차</summary><div class="toc">
 <ul>
 <li><a href="#읽는-순서">읽는 순서</a></li>
-<li><a href="#검토-상태-읽기">검토 상태 읽기</a></li>
-<li><a href="#분석과-배포-범위">분석과 배포 범위</a></li>
+<li><a href="#설명과-근거">설명과 근거</a></li>
+<li><a href="#검토-상태">검토 상태</a></li>
 <li><a href="#문서-목록">문서 목록</a></li>
 </ul>
 </div>
-</details><article><p><strong>카메라 API부터 Pipeline Handler와 IPA까지, 코드 구조와 근거를 함께 읽는 문서입니다.</strong></p>
-<p>이 문서는 공개 libcamera 소스를 분석해 만든 검토용 설계 문서입니다. libcamera 공식 문서의 탐색 구조와 OMM의 읽기 중심 디자인을 적용했습니다.</p>
+</details><article><p><strong>카메라의 요청·버퍼·종료 계약과 Pipeline Handler·IPA·LSC의 구조를 코드 근거와 함께 확인하세요.</strong></p>
+<p>공개 libcamera 소스에서 생성한 검토용 문서입니다. 분석 기준은 <code>279d355ef8f7a4f98bb0a3004c0f788387814506</code>이며, 사내 Camera HAL의 적용이나 검증을 완료했다는 뜻은 아닙니다.</p>
 <h2 id="읽는-순서">읽는 순서</h2>
-<p>먼저 <strong>카메라와 요청 모델</strong>에서 공개 API의 선언을 확인하세요. <strong>Pipeline Handler</strong>에서는 공통 클래스와 하드웨어별 구현의 관계를, <strong>IPA 관리와 구현 진입점</strong>에서는 알고리즘 모듈의 관리 구조를 살펴볼 수 있습니다.</p>
-<p>각 페이지에는 추출한 클래스, 구조 설명, 관계 그림과 코드 근거가 있습니다. 관계 그림을 누르면 확대하거나 클래스 이름을 검색할 수 있습니다. 소스 링크는 분석에 사용한 커밋의 파일과 줄로 연결됩니다.</p>
-<h2 id="검토-상태-읽기">검토 상태 읽기</h2>
-<p>모든 생성 문서는 <strong>사람 검토 전</strong>입니다. <code>ok</code>는 자동 인용 검사를 통과했다는 뜻이며, 설명의 정확성이 승인되었다는 뜻은 아닙니다. <code>needs-review</code>는 인용 검사에서도 확인할 문제가 남아 있다는 뜻입니다.</p>
-<p>카메라와 요청 모델에는 인용 형식 문제가 남아 있습니다. Pipeline Handler와 IPA 문서도 문장 품질과 동작 설명을 검토해야 합니다. 그림은 정적으로 추출한 상속·필드 관계를 보여 주며 실행 순서나 실기기 동작을 보증하지 않습니다.</p>
-<h2 id="분석과-배포-범위">분석과 배포 범위</h2>
-<p>분석 기준은 libcamera 커밋 <code>279d355ef8f7a4f98bb0a3004c0f788387814506</code>입니다. WSL2에서 IPU3·RKISP1·UVC와 GStreamer를 포함해 빌드했고, 문장은 Windows의 로컬 Ollama로 생성했습니다. 실기기 촬영과 전체 캡처 시나리오 검증은 후속 작업입니다.</p>
-<p><a href="https://github.com/TTolsun/camera-hal-sdd">camera-hal-sdd</a>는 분석·생성·검증·화면 구성 기술을 관리합니다. <a href="https://github.com/TTolsun/libcamera-sdd">libcamera-sdd</a>는 원본 소스 이력과 완성 문서의 배포를 담당합니다. 자동 갱신 작업은 아직 연결하지 않았습니다.</p>
-<p>원래 라이브러리의 사용법은 <a href="https://docs.libcamera.org/master/">libcamera 공식 문서</a>에서 확인할 수 있습니다.</p>
+<p><a href="camera-model.html">카메라와 요청 모델</a>에서는 클래스별 책임, 상태와 허용 호출, 요청 생성과 완료, 소유권과 재사용, 오류와 종료, 동시성과 실행 확인의 여섯 절을 읽을 수 있습니다.</p>
+<p><a href="pipeline-handler.html">Pipeline Handler</a>와 <a href="ipa.html">IPA 관리와 구현 진입점</a>에서 공통 구조를 살펴보고, <a href="ipu3-lsc.html">IPU3 LSC와 상태 연결</a>에서 추가된 알고리즘의 직접 상속과 필드 참조를 확인하세요.</p>
+<h2 id="설명과-근거">설명과 근거</h2>
+<p>카메라의 핵심 계약은 코드와 대조한 설명을 소스 발췌 해시에 연결했습니다. LSC 구조 설명과 그림은 추출 facts에서 직접 생성합니다. Pipeline Handler와 IPA의 설명은 로컬 모델이 작성한 초안입니다. 그림의 관계는 호출 순서나 실행 스레드를 뜻하지 않습니다.</p>
+<p>소스 링크는 해당 분석 커밋의 파일과 줄을 가리킵니다. 관계 그림을 눌러 확대하거나 요소 이름을 검색할 수 있습니다.</p>
+<h2 id="검토-상태">검토 상태</h2>
+<p><code>ok</code>는 해당 생성 방식의 자동 검사를 통과했다는 뜻입니다. 설명의 의미가 모두 검증되었거나 사람이 승인했다는 뜻은 아니며, 문서는 사람 검토 전 상태로 제공합니다.</p>
+<p>A/B 검증에서 LSC 문서 범위 누락은 해소했으나 범위 검토 항목 10개가 남았습니다. 익명 구조체 8개에는 A/B 줄 이동에 따른 중복 식별이 포함되며, 나머지는 빌드 파일과 주석 위주 파일입니다. 실제 콜백 스레드와 하드웨어 종료는 추가 검증이 필요합니다.</p>
+<p><a href="https://github.com/TTolsun/camera-hal-sdd/blob/main/docs/libcamera-design-validation.md">생성기와 검증 기록</a>에서 성공 범위와 한계를 확인할 수 있습니다. 공개 문서의 자동 갱신은 아직 연결하지 않았습니다.</p>
 <h2 id="문서-목록">문서 목록</h2>
 <div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
 <thead>
@@ -38,7 +38,7 @@
 <tbody>
 <tr>
 <td><a href="camera-model.html">카메라와 요청 모델</a></td>
-<td><code>needs-review</code></td>
+<td><code>ok</code></td>
 <td>사람 검토 전</td>
 </tr>
 <tr>
@@ -51,14 +51,19 @@
 <td><code>ok</code></td>
 <td>사람 검토 전</td>
 </tr>
+<tr>
+<td><a href="ipu3-lsc.html">IPU3 LSC와 상태 연결</a></td>
+<td><code>ok</code></td>
+<td>사람 검토 전</td>
+</tr>
 </tbody>
 </table></div></article><nav class="pagination" aria-label="이전과 다음 문서"><a class="next" href="camera-model.html"><small>다음</small>카메라와 요청 모델 →</a></nav>
 <footer>Generated by camera-hal-sdd · 인용 검사와 사람의 내용 검토는 별도입니다.</footer></main>
 <aside class="page-toc"><nav aria-label="현재 페이지 목차"><p>이 페이지에서</p><div class="toc">
 <ul>
 <li><a href="#읽는-순서">읽는 순서</a></li>
-<li><a href="#검토-상태-읽기">검토 상태 읽기</a></li>
-<li><a href="#분석과-배포-범위">분석과 배포 범위</a></li>
+<li><a href="#설명과-근거">설명과 근거</a></li>
+<li><a href="#검토-상태">검토 상태</a></li>
 <li><a href="#문서-목록">문서 목록</a></li>
 </ul>
 </div>
