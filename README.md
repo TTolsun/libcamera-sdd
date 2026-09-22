@@ -10,6 +10,7 @@
 | [Pipeline Handler](docs/pipeline-handler.md) | 구조 근거를 제공한 로컬 LLM 설명입니다. |
 | [IPA 관리와 구현 진입점](docs/ipa.md) | 구조 근거를 제공한 로컬 LLM 설명입니다. |
 | [IPU3 LSC와 상태 연결](docs/ipu3-lsc.md) | 직접 상속과 필드 참조를 facts에서 문장과 그림으로 생성합니다. |
+| [IPU3 LSC의 설정과 프레임 처리](docs/ipu3-lsc-flow.md) | 초기화·요청 처리·파라미터 갱신 설명을 소스 발췌 해시에 연결합니다. |
 
 자동 검사는 모두 통과했으며 사람의 내용 검토는 별도입니다. 문서 범위 검토 항목 10개와 실제 콜백·하드웨어 종료 검증이 남아 있습니다. 사내 Camera HAL의 검증 결과가 아닙니다.
 
@@ -17,7 +18,8 @@
 
 - 원본: [libcamera upstream](https://gitlab.freedesktop.org/camera/libcamera)
 - 분석 커밋: `279d355ef8f7a4f98bb0a3004c0f788387814506`
-- 생성기: [camera-hal-sdd](https://github.com/TTolsun/camera-hal-sdd), 커밋 `f6cf2fbf3ee21cd7d396af08a84ae98e2ea7584a`
+- 생성기: [camera-hal-sdd](https://github.com/TTolsun/camera-hal-sdd), 커밋 `6887f0b3a9feda91e7824e6e64751539068429d0`
+- [LSC 문서 보강과 범위 검토 기록](https://github.com/TTolsun/camera-hal-sdd/blob/6887f0b3a9feda91e7824e6e64751539068429d0/docs/libcamera-lsc-followup.md)
 - [A/B 검증 기록](https://github.com/TTolsun/camera-hal-sdd/blob/main/docs/libcamera-design-validation.md)
 - [배포 기록](run.json)과 [입력·산출물 해시](docs/site-manifest.json)
 
