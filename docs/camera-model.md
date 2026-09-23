@@ -1,10 +1,10 @@
 ---
-generated_at: 2026-09-23T16:34:34+00:00
+generated_at: 2026-09-23T16:52:51+00:00
 source_commit: 279d355ef8f7a4f98bb0a3004c0f788387814506
 agent: ollama/qwen3.5:4b
 status: ok
 section: camera-model
-evidence_fingerprint: 61e2ac41263713ac4dc42490e16d40832320b617d7bca48879db16ea52d3cec3
+evidence_fingerprint: c6f5ba8d8aaa71bab52cdbe28264961346b30d958333d5519d4d5b1d2cd969d2
 semantic_review: human-review-required
 ---
 

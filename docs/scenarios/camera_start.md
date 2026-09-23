@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-09-23T16:34:20+00:00
+generated_at: 2026-09-23T16:52:41+00:00
 source_commit: 279d355ef8f7a4f98bb0a3004c0f788387814506
 agent: ollama/qwen3.5:4b
 status: ok
@@ -73,9 +73,9 @@ sequenceDiagram
 
 ## 이 흐름에서 확인할 것
 
-`Camera::start()` 진입점에서 `Private::isAccessAllowed()` 를 먼저 확인합니다 `src/libcamera/camera.cpp:1404`. 이후 `ControlList` 생성과 제어 정보 매핑을 위해 `ControlInfoMap::find()` 와 같은 내부 메서드를 여러 번 호출하며, 각 단계마다 `Camera` 가 직접 `ControlId::id()` 나 `ControlList::contains()` 를 호출하여 검증합니다 `src/libcamera/camera.cpp:1289`, `src/libcamera/controls.cpp:864`.
+`Camera::start()` 진입점에서 `Private::isAccessAllowed()` 호출과 `ControlList` 초기화 과정을 확인합니다 `src/libcamera/camera.cpp:1404`, `src/libcamera/camera.cpp:1413`. 이후 `patchControlList()` 를 통해 제어 목록을 수정한 후, `get()`, `count()`, `find()` 및 `id()` 와 같은 내부 메서드를 반복 호출하여 각 제어 항목의 존재 여부를 검증합니다 `src/libcamera/camera.cpp:1289`~`1300`.
 
-`Object::invokeMethod()` 를 통해 파이프라인 시작이 예약되지만, 실제 실행 순서는 정적으로 확인되지 않습니다 `src/libcamera/camera.cpp:1415`. `PipelineHandler::start()` 호출은 두 번 반복되며, 최종적으로 `Private::setState()` 가 스레드 상태 변경을 처리합니다 `src/libcamera/camera.cpp:1425`.
+`Object::invokeMethod()` 를 통해 `PipelineHandler::start()` 가 예약된 두 번의 호출이 발생하며, 이 시점 이후 `Private::setState()` 로 상태 변경이 시도됩니다 `src/libcamera/camera.cpp:1415`, `src/libcamera/camera.cpp:1418`, `src/libcamera/camera.cpp:1425`. 그러나 `PipelineHandler::start()` 의 실제 실행 순서는 정적으로 확인 불가능하므로, 해당 메서드의 구현 위치를 직접 검증해야 합니다.
 
 확인 필요: 메서드를 인자로 넘겨 예약한 호출이 2 개 있습니다. 위에서 `예약된 호출, 실행 순서는 정적으로 확인 불가` 로 표시한 단계가 그 자리입니다. 대상 메서드는 확인했지만, 실제 실행 시점과 스레드는 큐나 신호 구현이 정하므로 이 번호 목록은 그 지점 이후의 순서를 보장하지 않습니다. 이후 흐름은 예약을 받는 쪽의 구현에서 직접 확인해야 합니다.
 

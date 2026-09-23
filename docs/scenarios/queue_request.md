@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-09-23T16:34:30+00:00
+generated_at: 2026-09-23T16:52:45+00:00
 source_commit: 279d355ef8f7a4f98bb0a3004c0f788387814506
 agent: ollama/qwen3.5:4b
 status: ok
@@ -94,9 +94,9 @@ sequenceDiagram
 
 ## 이 흐름에서 확인할 것
 
-`Camera::queueRequest()` 진입점에서 `Private::isAccessAllowed()` 를 먼저 확인합니다 `src/libcamera/camera.cpp:1334`. 이후 `Request` 의 상태와 버퍼 정보를 수집하기 위해 `Request::status()`, `Request::toString()`, `Request::buffers()` 등의 메서드를 순차적으로 호출하며, 각 호출은 구체적인 파일과 줄을 통해 정적 위치를 확인할 수 있습니다 `src/libcamera/camera.cpp:1344`, `src/libcamera/camera.cpp:1345`, `src/libcamera/camera.cpp:1361`.
+`Camera::queueRequest()` 호출은 먼저 `Private::isAccessAllowed()` 를 검증한 후, 요청 상태와 제어 정보를 수집하며 `PipelineHandler::queueRequest()` 로 전달됩니다 `src/libcamera/camera.cpp:1334`~`src/libcamera/camera.cpp:1376`. 각 단계는 구체적인 파일과 줄을 확인하여 호출 경로를 추적할 수 있습니다.
 
-`Camera` 가 제어 목록 정보를 처리할 때 `ControlList::infoMap()` 과 `ControlInfoMap::find()` 를 통해 내부 매핑 구조를 확인합니다 `src/libcamera/camera.cpp:1350`, `src/libcamera/controls.cpp:864`. 최종적으로 요청이 파이프라인 핸들러로 전달되기 전까지 `PipelineHandler::queueRequest()` 가 호출되지만, 이 단계의 실행 순서는 정적 분석으로 확인되지 않습니다 `src/libcamera/camera.cpp:1376`.
+분기는 요청 정보 출력 시 발생하며, 정적 추적이 끊기는 지점은 `PipelineHandler::queueRequest()` 의 예약된 호출로 인해 실행 순서를 확인할 수 없습니다 `src/libcamera/camera.cpp:1376`. 추가적인 스레드 동기화나 콜백 전달 메커니즘에 대한 근거는 현재 사실 목록에서 확인되지 않았습니다.
 
 확인 필요: 메서드를 인자로 넘겨 예약한 호출이 1 개 있습니다. 위에서 `예약된 호출, 실행 순서는 정적으로 확인 불가` 로 표시한 단계가 그 자리입니다. 대상 메서드는 확인했지만, 실제 실행 시점과 스레드는 큐나 신호 구현이 정하므로 이 번호 목록은 그 지점 이후의 순서를 보장하지 않습니다. 이후 흐름은 예약을 받는 쪽의 구현에서 직접 확인해야 합니다.
 

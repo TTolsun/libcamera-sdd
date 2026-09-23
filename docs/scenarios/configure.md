@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-09-23T16:34:11+00:00
+generated_at: 2026-09-23T16:52:36+00:00
 source_commit: 279d355ef8f7a4f98bb0a3004c0f788387814506
 agent: ollama/qwen3.5:4b
 status: ok
@@ -110,9 +110,9 @@ sequenceDiagram
 
 ## 이 흐름에서 확인할 것
 
-`Camera::configure()` 진입 시 `Private::isAccessAllowed()` 호출과 `StreamConfiguration::setStream()` 설정이 먼저 처리됩니다 `src/libcamera/camera.cpp:1195`, `src/libcamera/camera.cpp:1201`. 이후 `IPU3CameraConfiguration::validate()` 가 가상 함수를 통해 파이프라인별 로직을 분기시키며, 이 과정에서 `CameraSensorLegacy` 와 `CameraSensorRaw` 의 `computeTransform()` 메서드가 순차적으로 호출됩니다 `src/libcamera/camera.cpp:1203`, `src/libcamera/pipeline/ipu3/ipu3.cpp:191`. 각 센서 클래스는 `transform::operator/()`, `transformFromOrientation()`, `operator*()`, `operator-()` 연산자를 통해 회전과 변환을 계산하며, 이 단계에서 `transform::operator!()` 와 `operator&()` 가 반복적으로 호출됩니다 `src/libcamera/sensor/camera_sensor_legacy.cpp:961`~`978`, `src/libcamera/sensor/camera_sensor_raw.cpp:1073`~`1090`.
+`Camera::configure()` 호출은 먼저 `Private::isAccessAllowed()` 를 통해 접근 권한을 검증한 후, `StreamConfiguration::setStream()` 과 `IPU3CameraConfiguration::validate()` 를 거쳐 시작됩니다 `src/libcamera/camera.cpp:1195`, `src/libcamera/camera.cpp:1201`, `src/libcamera/camera.cpp:1203`. 이 과정에서 `IPU3CameraConfiguration` 는 `CameraSensorLegacy::computeTransform()` 와 `CameraSensorRaw::computeTransform()` 를 순차적으로 호출하며, 각 센서 클래스는 `transform::operator/()`, `transform::transformFromOrientation()`, `transform::operator*()`, `transform::operator-()`, 그리고 논리 연산자 `!()` 와 `&()` 를 통해 회전 변환을 계산합니다 `src/libcamera/pipeline/ipu3/ipu3.cpp:191`, `src/libcamera/sensor/camera_sensor_legacy.cpp:961`, `src/libcamera/transform.cpp:349`, `src/libcamera/transform.cpp:352`, `src/libcamera/sensor/camera_sensor_raw.cpp:1073`.
 
-`IPU3CameraConfiguration` 는 센서 초기화 후 `CIO2Device::sensor()` 를 호출하여 하드웨어 연결을 확인하고, `Size::Size()` 생성자를 통해 이미지 크기를 설정합니다 `src/libcamera/pipeline/ipu3/ipu3.cpp:191`, `src/libcamera/pipeline/ipu3/ipu3.cpp:213`. `Size` 클래스의 정의는 `include/libcamera/geometry.h:54` 에 위치하며, 이 호출은 메모리 할당과 초기화 과정에 해당합니다 `src/libcamera/pipeline/ipu3/ipu3.cpp:214`. 가상 함수와 다형성 호출이 발생하는지, 스레드 안전성이 보장되는지는 현재 사실 목록에서 명시되지 않았습니다.
+`IPU3CameraConfiguration` 는 또한 `CIO2Device::sensor()` 를 호출하여 센서 정보를 가져오고, `Size::Size()` 를 통해 크기 객체를 생성합니다 `src/libcamera/pipeline/ipu3/ipu3.cpp:191`, `src/libcamera/pipeline/ipu3/ipu3.cpp:213`, `include/libcamera/geometry.h:54`. 호출 경로는 가상 함수를 통한 다형성으로 분기하며, 정적 추적이 끊기는 지점은 현재 문서에는 명시되지 않았습니다. 스레드 동기화나 콜백 전달 순서는 설계 근거가 부족하여 확인 필요: 확인할 항목입니다.
 
 확인 필요: 메서드를 인자로 넘겨 예약한 호출이 1 개 있습니다. 위에서 `예약된 호출, 실행 순서는 정적으로 확인 불가` 로 표시한 단계가 그 자리입니다. 대상 메서드는 확인했지만, 실제 실행 시점과 스레드는 큐나 신호 구현이 정하므로 이 번호 목록은 그 지점 이후의 순서를 보장하지 않습니다. 이후 흐름은 예약을 받는 쪽의 구현에서 직접 확인해야 합니다.
 

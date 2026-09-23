@@ -1,10 +1,10 @@
 ---
-generated_at: 2026-09-23T16:34:40+00:00
+generated_at: 2026-09-23T16:53:02+00:00
 source_commit: 279d355ef8f7a4f98bb0a3004c0f788387814506
 agent: ollama/qwen3.5:4b
 status: ok
 section: pipeline-handler
-evidence_fingerprint: 7abb77d540bf0fcb9063101cf9e9645dfc63f0f60945a3d140ff036a7bcda00e
+evidence_fingerprint: 65b1bdbeae4e19bf74f4a8e92a8c6c89e103997c2f9c9b65c07eaa2e8ad717ee
 semantic_review: human-review-required
 ---
 
@@ -20,9 +20,9 @@ semantic_review: human-review-required
 
 ## 구조 설명
 
-`libcamera::PipelineHandler`는 `libcamera::Object`를 직접 기반으로 하며, 하드웨어별 구현은 이를 상속받아 `PipelineHandlerIPU3`, `PipelineHandlerRkISP1`, `PipelineHandlerUVC`가 생성됩니다. `PipelineHandlerIPU3`와 `PipelineHandlerRkISP1`의 상속 관계는 각각 해당 클래스 정의 위치에서 확인 가능합니다 `src/libcamera/pipeline/ipu3/ipu3.cpp:124`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp:184`.
+`libcamera::PipelineHandler`는 `libcamera::Object`를 직접 기반으로 하며, 하드웨어별 구현은 이를 상속받아 `libcamera::PipelineHandlerIPU3`, `libcamera::PipelineHandlerRkISP1`, `libcamera::PipelineHandlerUVC`와 같은 하위 클래스로 확장됩니다. 각 하위 클래스의 정의는 해당 소스 파일의 특정 줄에서 확인되며, 예를 들어 `libcamera::PipelineHandlerIPU3`는 `src/libcamera/pipeline/ipu3/ipu3.cpp:124`에서, `libcamera::PipelineHandlerRkISP1`은 `src/libcamera/pipeline/rkisp1/rkisp1.cpp:184`에서 정의됩니다.
 
-설정과 요청 전달을 위한 메서드는 `PipelineHandler`와 하위 클래스에 공통적으로 존재하며, 구체적인 구현 위치는 각 파일의 해당 라인에서 확인합니다. `PipelineHandlerIPU3`의 `generateConfiguration()` 및 `configure()`는 `src/libcamera/pipeline/ipu3/ipu3.cpp:393`, `src/libcamera/pipeline/ipu3/ipu3.cpp:480`에 정의되고, `PipelineHandlerRkISP1`의 대응 메서드는 `src/libcamera/pipeline/rkisp1/rkisp1.cpp:790`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp:913`에서 찾을 수 있습니다.
+설정과 요청 전달을 위한 주요 메서드는 공통 클래스와 하위 클래스에 걸쳐 존재하며, `match()`는 장치 패턴 매칭을 위해 `include/libcamera/internal/pipeline_handler.h:42`를 확인하고, `acquireMediaDevice()`는 `src/libcamera/pipeline_handler.cpp:136`에서 검색 및 획득 과정을 수행합니다. 또한 `generateConfiguration()`은 `include/libcamera/internal/pipeline_handler.h:49`에 정의되어 있으며, `configure()`와 `start()`는 각각 설정 적용과 스트림 시작을 담당합니다.
 
 
 <!-- sdd:class-diagram -->

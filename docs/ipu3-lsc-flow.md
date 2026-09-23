@@ -1,10 +1,10 @@
 ---
-generated_at: 2026-09-23T16:34:48+00:00
+generated_at: 2026-09-23T16:53:17+00:00
 source_commit: 279d355ef8f7a4f98bb0a3004c0f788387814506
 agent: ollama/qwen3.5:4b
 status: ok
 section: ipu3-lsc-flow
-evidence_fingerprint: 07328d98a0aea1ce43320d92f8f88b02fa9f08f685aedac5b2044898cad98afe
+evidence_fingerprint: fa66a69dc687106f0790e3976f5d07e2b571fd74508b93dd2b34078fff74d49e
 semantic_review: human-review-required
 ---
 
