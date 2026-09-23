@@ -1,10 +1,10 @@
 ---
-generated_at: 2026-09-21T14:54:39+00:00
+generated_at: 2026-09-23T16:34:40+00:00
 source_commit: 279d355ef8f7a4f98bb0a3004c0f788387814506
 agent: ollama/qwen3.5:4b
 status: ok
 section: pipeline-handler
-evidence_fingerprint: d587d15c7edbf02954be1384f4f15a7c6c752170b5861efe367fd3219ee8bfd6
+evidence_fingerprint: 7abb77d540bf0fcb9063101cf9e9645dfc63f0f60945a3d140ff036a7bcda00e
 semantic_review: human-review-required
 ---
 
@@ -20,9 +20,9 @@ semantic_review: human-review-required
 
 ## 구조 설명
 
-직접 상속 계층 구조는 `libcamera::PipelineHandler`가 `libcamera::Object`를 기반으로 하며, 하드웨어별 구현은 이를 직접 상속받습니다. `libcamera::PipelineHandlerIPU3`, `libcamera::PipelineHandlerRkISP1`, `libcamera::PipelineHandlerUVC`는 각각 `src/libcamera/pipeline/ipu3/ipu3.cpp:124`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp:184`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:81`에서 `libcamera::PipelineHandler`를 직접 기반으로 합니다. 반면 `libcamera::PipelineHandlerFactory`는 `libcamera::PipelineHandlerFactoryBase`를 기반으로 하며, 이 기본 클래스는 별도의 기반 클래스가 없습니다.
+`libcamera::PipelineHandler`는 `libcamera::Object`를 직접 기반으로 하며, 하드웨어별 구현은 이를 상속받아 `PipelineHandlerIPU3`, `PipelineHandlerRkISP1`, `PipelineHandlerUVC`가 생성됩니다. `PipelineHandlerIPU3`와 `PipelineHandlerRkISP1`의 상속 관계는 각각 해당 클래스 정의 위치에서 확인 가능합니다 `src/libcamera/pipeline/ipu3/ipu3.cpp:124`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp:184`.
 
-설정과 요청 전달을 위한 주요 메서드는 `libcamera::PipelineHandler`의 정의를 먼저 확인합니다 `include/libcamera/internal/pipeline_handler.h:34`. `match()` 메서드는 `include/libcamera/internal/pipeline_handler.h:42`에서 정의되며, `acquireMediaDevice()`는 `src/libcamera/pipeline_handler.cpp:136`에서 매칭된 장치 패턴에 맞는 장치를 검색하고 획득합니다. `configure()`와 `generateConfiguration()`는 각각 `include/libcamera/internal/pipeline_handler.h:51`과 `include/libcamera/internal/pipeline_handler.h:49`에서 정의되며, 하드웨어별 구현에서는 `src/libcamera/pipeline/ipu3/ipu3.cpp:393`와 같은 위치에서 구체적인 설정 로직이 추가됩니다.
+설정과 요청 전달을 위한 메서드는 `PipelineHandler`와 하위 클래스에 공통적으로 존재하며, 구체적인 구현 위치는 각 파일의 해당 라인에서 확인합니다. `PipelineHandlerIPU3`의 `generateConfiguration()` 및 `configure()`는 `src/libcamera/pipeline/ipu3/ipu3.cpp:393`, `src/libcamera/pipeline/ipu3/ipu3.cpp:480`에 정의되고, `PipelineHandlerRkISP1`의 대응 메서드는 `src/libcamera/pipeline/rkisp1/rkisp1.cpp:790`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp:913`에서 찾을 수 있습니다.
 
 
 <!-- sdd:class-diagram -->
@@ -67,6 +67,6 @@ flowchart LR
     - 근거 파일: `include/libcamera/internal/pipeline_handler.h`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp`, `src/libcamera/pipeline_handler.cpp`
     - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `279d355ef8`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토: 2026-09-21 · ollama/qwen3.5:4b · 사람 검토 전
+    - 검토: 2026-09-24 · ollama/qwen3.5:4b · 사람 검토 전
 
 다음 단계: [IPA 관련 클래스](ipa.md)

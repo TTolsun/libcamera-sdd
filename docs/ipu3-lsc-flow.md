@@ -1,10 +1,10 @@
 ---
-generated_at: 2026-09-22T15:54:41+00:00
+generated_at: 2026-09-23T16:34:48+00:00
 source_commit: 279d355ef8f7a4f98bb0a3004c0f788387814506
 agent: ollama/qwen3.5:4b
 status: ok
 section: ipu3-lsc-flow
-evidence_fingerprint: 7fc7a01e889f953784d9436139a8fc762b3d974f31255aaee3f157d30fae6b57
+evidence_fingerprint: 07328d98a0aea1ce43320d92f8f88b02fa9f08f685aedac5b2044898cad98afe
 semantic_review: human-review-required
 ---
 
@@ -103,6 +103,6 @@ flowchart LR
     - 근거 파일: `src/ipa/ipu3/algorithms/lsc.cpp`, `src/ipa/ipu3/algorithms/lsc.h`, `src/ipa/ipu3/ipa_context.h`, `src/ipa/libipa/lsc.h`
     - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `279d355ef8`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토: 2026-09-23 · ollama/qwen3.5:4b · 사람 검토 전
+    - 검토: 2026-09-24 · ollama/qwen3.5:4b · 사람 검토 전
 
-다음 단계: [IPU3 LSC와 상태 연결](ipu3-lsc.md)
+다음 단계: [시스템 개요](overview.md)

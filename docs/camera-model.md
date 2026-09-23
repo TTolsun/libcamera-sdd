@@ -1,10 +1,10 @@
 ---
-generated_at: 2026-09-21T14:54:28+00:00
+generated_at: 2026-09-23T16:34:34+00:00
 source_commit: 279d355ef8f7a4f98bb0a3004c0f788387814506
 agent: ollama/qwen3.5:4b
 status: ok
 section: camera-model
-evidence_fingerprint: 1fe00a0de1867122d8022005999df88057a8f50567d571bf9a171af77e142c77
+evidence_fingerprint: 61e2ac41263713ac4dc42490e16d40832320b617d7bca48879db16ea52d3cec3
 semantic_review: human-review-required
 ---
 
@@ -107,6 +107,6 @@ flowchart LR
     - 근거 파일: `include/libcamera/camera.h`, `include/libcamera/camera_manager.h`, `include/libcamera/request.h`, `src/libcamera/camera.cpp`, `src/libcamera/camera_manager.cpp`, `src/libcamera/request.cpp`
     - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `279d355ef8`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토: 2026-09-21 · ollama/qwen3.5:4b · 사람 검토 전
+    - 검토: 2026-09-24 · ollama/qwen3.5:4b · 사람 검토 전
 
 다음 단계: [Pipeline Handler](pipeline-handler.md)
