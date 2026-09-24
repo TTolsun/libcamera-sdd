@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-09-23T16:59:39+00:00
+generated_at: 2026-09-24T12:17:51+00:00
 source_commit: 279d355ef8f7a4f98bb0a3004c0f788387814506
 agent: ollama/qwen3.5:4b
 status: ok
@@ -20,9 +20,9 @@ semantic_review: human-review-required
 
 ## 구조 설명
 
-IPAManager, IPAModule, IPAProxy 및 구체적인 구현 클래스(IPAIPU3, IPARkISP1)는 각각 `include/libcamera/internal/ipa_manager.h:29`, `include/libcamera/internal/ipa_module.h:21`, `include/libcamera/internal/ipa_proxy.h:22` 및 `src/ipa/ipu3/ipu3.cpp:139`, `src/ipa/rkisp1/rkisp1.cpp:46`에서 정의됩니다. IPAManager는 CameraManager와 연결되며, createIPA() 메서드를 통해 IPA 모듈을 생성하고 parseDir()를 호출하여 공유 라이브러리를 식별합니다 `include/libcamera/internal/ipa_manager.h:36`, `src/libcamera/ipa_manager.cpp:175`. IPAModule은 Loggable을 상속받으며 load()와 createInterface()를 통해 구현 팩토리를 로드하고 인터페이스 인스턴스를 생성합니다 `src/libcamera/ipa_module.cpp:406`, `src/libcamera/ipa_module.cpp:451`. IPAProxy는 IPAInterface를 상속받아 configurationFile()과 resolvePath()를 통해 설정 파일 경로를 관리하며, IPAModule과 연결됩니다 `src/libcamera/ipa_proxy.cpp:174`, `src/libcamera/ipa_proxy.cpp:217`.
+IPA 관련 클래스는 `libcamera::IPAManager`, `libcamera::IPAModule`, `libcamera::IPAProxy` 및 하드웨어 구현체인 `libcamera::ipa::ipu3::IPAIPU3`, `libcamera::ipa::rkisp1::IPARkISP1`으로 구분됩니다. `IPAManager`는 카메라 관리자와 연결되며 `createIPA()`와 `parseDir()` 메서드를 통해 모듈을 로드합니다 `include/libcamera/internal/ipa_manager.h:29` `src/libcamera/ipa_manager.cpp:175`. `IPAModule`은 `Loggable`을 상속받아 유효성 검사와 정보 조회를 수행하며 `load()`와 `createInterface()`를 통해 구현 팩토리를 인스턴타합니다 `include/libcamera/internal/ipa_module.h:21` `src/libcamera/ipa_module.cpp:406`. `IPAProxy`는 `IPAInterface`를 상속받아 프로세스 경계에서 실행되며 `resolvePath()`를 통해 유효한 경로로 해결합니다 `include/libcamera/internal/ipa_proxy.h:22` `src/libcamera/ipa_proxy.cpp:217`.
 
-구현 클래스인 IPAIPU3와 IPARkISP1은 각각 init(), start(), configure(), mapBuffers() 등의 메서드를 통해 초기화, 시작, 설정 및 버퍼 매핑을 수행합니다 `src/ipa/ipu3/ipu3.cpp:218`, `src/ipa/ipu3/ipu3.cpp:415`. queueRequest()와 computeParams()는 프레임 처리 요청을 큐에 추가하고 ISP 파라미터를 계산하며 processStats()는 통계 데이터를 처리합니다 `src/ipa/ipu3/ipu3.cpp:534`, `src/ipa/ipu3/ipu3.cpp:447`. IPAModule의 isValid()와 info()는 모듈 유효성을 확인하고 정보를 반환하지만, 실제 스레드 경계나 콜백 전달 순서는 설계 문서에 명시되지 않았습니다. IPAProxy의 ProxyState 상태 관리와 IPAManager의 isSignatureValid() 검증은 호출 관계가 명확하지 않아 추가 확인이 필요합니다 `include/libcamera/internal/ipa_proxy.h:34`, `src/libcamera/ipa_manager.cpp:289`.
+하드웨어 구현 클래스인 `IPAIPU3`와 `IPARkISP1`은 각각 해당 인터페이스와 `Module`을 상속받아 초기화부터 요청 큐잉까지의 처리 흐름을 정의합니다. `IPAIPU3`는 `init()`, `start()`, `configure()` 및 `queueRequest()`를 통해 IPU3 제어기를 설정하고 애플리케이션의 컨트롤 리스트를 처리합니다 `src/ipa/ipu3/ipu3.cpp:218` `src/ipa/ipu3/ipu3.cpp:534`. `IPARkISP1`은 유사한 순서로 `init()`, `start()` 및 `computeParams()`를 호출하여 ISP 파라미터를 계산합니다 `src/ipa/rkisp1/rkisp1.cpp:131` `src/ipa/rkisp1/rkisp1.cpp:301`. 스레드 동기화나 콜백 전달의 구체적인 순서는 메서드 목록만으로는 판단하기 어렵습니다.
 
 
 <!-- sdd:class-diagram -->
