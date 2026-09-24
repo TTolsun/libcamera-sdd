@@ -1,10 +1,10 @@
 ---
-generated_at: 2026-09-23T16:53:02+00:00
+generated_at: 2026-09-24T14:05:21+00:00
 source_commit: 279d355ef8f7a4f98bb0a3004c0f788387814506
 agent: ollama/qwen3.5:4b
 status: ok
 section: pipeline-handler
-evidence_fingerprint: 65b1bdbeae4e19bf74f4a8e92a8c6c89e103997c2f9c9b65c07eaa2e8ad717ee
+evidence_fingerprint: 210a0b74ff0ba00085043bce0b5ec66f4f1be09d65afda79276a4db7686e33e1
 semantic_review: human-review-required
 ---
 
@@ -20,9 +20,9 @@ semantic_review: human-review-required
 
 ## 구조 설명
 
-`libcamera::PipelineHandler`는 `libcamera::Object`를 직접 기반으로 하며, 하드웨어별 구현은 이를 상속받아 `libcamera::PipelineHandlerIPU3`, `libcamera::PipelineHandlerRkISP1`, `libcamera::PipelineHandlerUVC`와 같은 하위 클래스로 확장됩니다. 각 하위 클래스의 정의는 해당 소스 파일의 특정 줄에서 확인되며, 예를 들어 `libcamera::PipelineHandlerIPU3`는 `src/libcamera/pipeline/ipu3/ipu3.cpp:124`에서, `libcamera::PipelineHandlerRkISP1`은 `src/libcamera/pipeline/rkisp1/rkisp1.cpp:184`에서 정의됩니다.
+`libcamera::PipelineHandler`는 `libcamera::Object`를 직접 기반으로 하며, 하드웨어별 구현은 이를 상속받아 `PipelineHandlerIPU3`, `PipelineHandlerRkISP1`, `PipelineHandlerUVC`가 생성됩니다. 각 하위 클래스의 생성자 정의와 상속 관계를 확인합니다 `include/libcamera/internal/pipeline_handler.h:34`, `src/libcamera/pipeline/ipu3/ipu3.cpp:124`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp:184`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:81`.
 
-설정과 요청 전달을 위한 주요 메서드는 공통 클래스와 하위 클래스에 걸쳐 존재하며, `match()`는 장치 패턴 매칭을 위해 `include/libcamera/internal/pipeline_handler.h:42`를 확인하고, `acquireMediaDevice()`는 `src/libcamera/pipeline_handler.cpp:136`에서 검색 및 획득 과정을 수행합니다. 또한 `generateConfiguration()`은 `include/libcamera/internal/pipeline_handler.h:49`에 정의되어 있으며, `configure()`와 `start()`는 각각 설정 적용과 스트림 시작을 담당합니다.
+설정과 요청 전달을 위한 메서드는 공통적으로 `PipelineHandler`에 정의되어 있으며, 구체적인 동작은 각 하드웨어 클래스에서 재정의됩니다. `PipelineHandlerFactoryBase`를 통해 팩토리 인스턴스를 생성하고 등록하는 과정을 확인합니다 `include/libcamera/internal/pipeline_handler.h:121`, `src/libcamera/pipeline_handler.cpp:890`.
 
 
 <!-- sdd:class-diagram -->
@@ -55,9 +55,9 @@ flowchart LR
 
 | 클래스 | 선언 위치 | 상속 | 책임 (주석) |
 |---|---|---|---|
-| `libcamera::PipelineHandler` | `include/libcamera/internal/pipeline_handler.h:34` | `libcamera::Object` | 확인 필요 |
-| `libcamera::PipelineHandlerFactory` | `include/libcamera/internal/pipeline_handler.h:144` | `libcamera::PipelineHandlerFactoryBase` | 확인 필요 |
-| `libcamera::PipelineHandlerFactoryBase` | `include/libcamera/internal/pipeline_handler.h:121` | – | 확인 필요 |
+| `libcamera::PipelineHandler` | `include/libcamera/internal/pipeline_handler.h:34` | `libcamera::Object` | Create and manage cameras based on a set of media devices |
+| `libcamera::PipelineHandlerFactory` | `include/libcamera/internal/pipeline_handler.h:144` | `libcamera::PipelineHandlerFactoryBase` | Registration of PipelineHandler classes and creation of instances |
+| `libcamera::PipelineHandlerFactoryBase` | `include/libcamera/internal/pipeline_handler.h:121` | – | Base class for pipeline handler factories |
 | `libcamera::PipelineHandlerIPU3` | `src/libcamera/pipeline/ipu3/ipu3.cpp:124` | `libcamera::PipelineHandler` | 확인 필요 |
 | `libcamera::PipelineHandlerIPU3::IPU3PipeModes` | `src/libcamera/pipeline/ipu3/ipu3.cpp:130` | – | 확인 필요 |
 | `libcamera::PipelineHandlerRkISP1` | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:184` | `libcamera::PipelineHandler` | 확인 필요 |

@@ -1,10 +1,10 @@
 ---
-generated_at: 2026-09-23T16:52:51+00:00
+generated_at: 2026-09-24T14:05:15+00:00
 source_commit: 279d355ef8f7a4f98bb0a3004c0f788387814506
 agent: ollama/qwen3.5:4b
 status: ok
 section: camera-model
-evidence_fingerprint: c6f5ba8d8aaa71bab52cdbe28264961346b30d958333d5519d4d5b1d2cd969d2
+evidence_fingerprint: 07983819eafa6bd15da0e34caedc02712eac4d1e56ce44dd79b70b035c75d61a
 semantic_review: human-review-required
 ---
 
@@ -99,9 +99,9 @@ flowchart LR
 
 | 클래스 | 선언 위치 | 상속 | 책임 (주석) |
 |---|---|---|---|
-| `libcamera::Camera` | `include/libcamera/camera.h:114` | `libcamera::Object`, `libcamera::Extensible` | 확인 필요 |
-| `libcamera::CameraManager` | `include/libcamera/camera_manager.h:24` | `libcamera::Object`, `libcamera::Extensible` | 확인 필요 |
-| `libcamera::Request` | `include/libcamera/request.h:29` | `libcamera::Extensible` | 확인 필요 |
+| `libcamera::Camera` | `include/libcamera/camera.h:114` | `libcamera::Object`, `libcamera::Extensible` | Camera device |
+| `libcamera::CameraManager` | `include/libcamera/camera_manager.h:24` | `libcamera::Object`, `libcamera::Extensible` | Provide access and manage all cameras in the system |
+| `libcamera::Request` | `include/libcamera/request.h:29` | `libcamera::Extensible` | A frame capture request |
 
 ??? note "근거와 검토 정보"
     - 근거 파일: `include/libcamera/camera.h`, `include/libcamera/camera_manager.h`, `include/libcamera/request.h`, `src/libcamera/camera.cpp`, `src/libcamera/camera_manager.cpp`, `src/libcamera/request.cpp`

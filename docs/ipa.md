@@ -1,10 +1,10 @@
 ---
-generated_at: 2026-09-24T12:17:51+00:00
+generated_at: 2026-09-24T14:05:26+00:00
 source_commit: 279d355ef8f7a4f98bb0a3004c0f788387814506
 agent: ollama/qwen3.5:4b
 status: ok
 section: ipa
-evidence_fingerprint: 14c9a89e2ce5766568f800f99425cb02ee1e5ef1db1697bff4f40361d3bd8ea8
+evidence_fingerprint: 04d537bd7aed60fbbe6ce6d3e0b5b779424d346d88d1cace35da535f621b1266
 semantic_review: human-review-required
 ---
 
@@ -20,9 +20,9 @@ semantic_review: human-review-required
 
 ## 구조 설명
 
-IPA 관련 클래스는 `libcamera::IPAManager`, `libcamera::IPAModule`, `libcamera::IPAProxy` 및 하드웨어 구현체인 `libcamera::ipa::ipu3::IPAIPU3`, `libcamera::ipa::rkisp1::IPARkISP1`으로 구분됩니다. `IPAManager`는 카메라 관리자와 연결되며 `createIPA()`와 `parseDir()` 메서드를 통해 모듈을 로드합니다 `include/libcamera/internal/ipa_manager.h:29` `src/libcamera/ipa_manager.cpp:175`. `IPAModule`은 `Loggable`을 상속받아 유효성 검사와 정보 조회를 수행하며 `load()`와 `createInterface()`를 통해 구현 팩토리를 인스턴타합니다 `include/libcamera/internal/ipa_module.h:21` `src/libcamera/ipa_module.cpp:406`. `IPAProxy`는 `IPAInterface`를 상속받아 프로세스 경계에서 실행되며 `resolvePath()`를 통해 유효한 경로로 해결합니다 `include/libcamera/internal/ipa_proxy.h:22` `src/libcamera/ipa_proxy.cpp:217`.
+IPA 관련 클래스는 `libcamera::IPAManager`와 하위 모듈 구현체인 `libcamera::ipa::ipu3::IPAIPU3`, `libcamera::ipa::rkisp1::IPARkISP1`이며, 각각의 생성자나 초기화 메서드 위치를 확인합니다 `src/libcamera/ipa_manager.cpp:107`, `src/ipa/ipu3/ipu3.cpp:218`, `src/ipa/rkisp1/rkisp1.cpp:131`.
 
-하드웨어 구현 클래스인 `IPAIPU3`와 `IPARkISP1`은 각각 해당 인터페이스와 `Module`을 상속받아 초기화부터 요청 큐잉까지의 처리 흐름을 정의합니다. `IPAIPU3`는 `init()`, `start()`, `configure()` 및 `queueRequest()`를 통해 IPU3 제어기를 설정하고 애플리케이션의 컨트롤 리스트를 처리합니다 `src/ipa/ipu3/ipu3.cpp:218` `src/ipa/ipu3/ipu3.cpp:534`. `IPARkISP1`은 유사한 순서로 `init()`, `start()` 및 `computeParams()`를 호출하여 ISP 파라미터를 계산합니다 `src/ipa/rkisp1/rkisp1.cpp:131` `src/ipa/rkisp1/rkisp1.cpp:301`. 스레드 동기화나 콜백 전달의 구체적인 순서는 메서드 목록만으로는 판단하기 어렵습니다.
+프록시와 알고리즘 사이에서 추가 확인이 필요한 경계는 `libcamera::IPAProxy`가 `libcamera::IPAModule`과 연결되는 방식이며, 해당 연결 관계나 구체적인 호출 흐름은 현재 문서에 명시되지 않았습니다 `include/libcamera/internal/ipa_proxy.h:22`.
 
 
 <!-- sdd:class-diagram -->
@@ -61,9 +61,9 @@ flowchart LR
 
 | 클래스 | 선언 위치 | 상속 | 책임 (주석) |
 |---|---|---|---|
-| `libcamera::IPAManager` | `include/libcamera/internal/ipa_manager.h:29` | – | 확인 필요 |
-| `libcamera::IPAModule` | `include/libcamera/internal/ipa_module.h:21` | `libcamera::Loggable` | 확인 필요 |
-| `libcamera::IPAProxy` | `include/libcamera/internal/ipa_proxy.h:22` | `libcamera::IPAInterface` | 확인 필요 |
+| `libcamera::IPAManager` | `include/libcamera/internal/ipa_manager.h:29` | – | Manager for IPA modules |
+| `libcamera::IPAModule` | `include/libcamera/internal/ipa_module.h:21` | `libcamera::Loggable` | Wrapper around IPA module shared object |
+| `libcamera::IPAProxy` | `include/libcamera/internal/ipa_proxy.h:22` | `libcamera::IPAInterface` | IPA Proxy |
 | `libcamera::ipa::ipu3::IPAIPU3` | `src/ipa/ipu3/ipu3.cpp:139` | `libcamera::ipa::ipu3::IPAIPU3Interface`, `libcamera::ipa::ipu3::Module` | The IPU3 IPA implementation |
 | `libcamera::ipa::rkisp1::IPARkISP1` | `src/ipa/rkisp1/rkisp1.cpp:46` | `libcamera::ipa::rkisp1::IPARkISP1Interface`, `libcamera::ipa::rkisp1::Module` | 확인 필요 |
 

@@ -1,10 +1,10 @@
 ---
-generated_at: 2026-09-23T16:53:17+00:00
+generated_at: 2026-09-24T14:05:26+00:00
 source_commit: 279d355ef8f7a4f98bb0a3004c0f788387814506
 agent: ollama/qwen3.5:4b
 status: ok
 section: ipu3-lsc
-evidence_fingerprint: d78475b064aeffdf74934b6a05420b14bd8b432c7c3f137be415075749382880
+evidence_fingerprint: 8e5b032947d9174a6a96a7641e807fbc567a24808b6d5c32c8822115ce88f48d
 semantic_review: human-review-required
 ---
 
@@ -81,12 +81,12 @@ flowchart LR
 
 | 클래스 | 선언 위치 | 상속 | 책임 (주석) |
 |---|---|---|---|
-| `libcamera::ipa::LscAlgorithm` | `src/ipa/libipa/lsc.h:78` | `libcamera::ipa::LscAlgorithmBase` | 확인 필요 |
-| `libcamera::ipa::ipu3::IPAActiveState` | `src/ipa/ipu3/ipa_context.h:46` | – | 확인 필요 |
-| `libcamera::ipa::ipu3::IPAContext` | `src/ipa/ipu3/ipa_context.h:73` | – | 확인 필요 |
-| `libcamera::ipa::ipu3::IPAFrameContext` | `src/ipa/ipu3/ipa_context.h:60` | `libcamera::ipa::FrameContext` | 확인 필요 |
-| `libcamera::ipa::ipu3::IPASessionConfiguration` | `src/ipa/ipu3/ipa_context.h:32` | – | 확인 필요 |
-| `libcamera::ipa::ipu3::algorithms::Lsc` | `src/ipa/ipu3/algorithms/lsc.h:21` | `libcamera::ipa::ipu3::Algorithm` | 확인 필요 |
+| `libcamera::ipa::LscAlgorithm` | `src/ipa/libipa/lsc.h:78` | `libcamera::ipa::LscAlgorithmBase` | libIPA LSC algorithm implementation |
+| `libcamera::ipa::ipu3::IPAActiveState` | `src/ipa/ipu3/ipa_context.h:46` | – | The active state of the IPA algorithms |
+| `libcamera::ipa::ipu3::IPAContext` | `src/ipa/ipu3/ipa_context.h:73` | – | Global IPA context data shared between all algorithms |
+| `libcamera::ipa::ipu3::IPAFrameContext` | `src/ipa/ipu3/ipa_context.h:60` | `libcamera::ipa::FrameContext` | IPU3-specific FrameContext |
+| `libcamera::ipa::ipu3::IPASessionConfiguration` | `src/ipa/ipu3/ipa_context.h:32` | – | Session configuration for the IPA module |
+| `libcamera::ipa::ipu3::algorithms::Lsc` | `src/ipa/ipu3/algorithms/lsc.h:21` | `libcamera::ipa::ipu3::Algorithm` | IPU3 Lens Shading Correction algorithm |
 | `libcamera::ipa::lsc::ActiveState` | `src/ipa/libipa/lsc.h:27` | – | 확인 필요 |
 | `libcamera::ipa::lsc::FrameContext` | `src/ipa/libipa/lsc.h:31` | – | 확인 필요 |
 

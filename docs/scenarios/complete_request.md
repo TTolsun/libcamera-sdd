@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-09-23T16:52:51+00:00
+generated_at: 2026-09-24T14:05:15+00:00
 source_commit: 279d355ef8f7a4f98bb0a3004c0f788387814506
 agent: ollama/qwen3.5:4b
 status: ok
@@ -115,9 +115,9 @@ sequenceDiagram
 
 ## 이 흐름에서 확인할 것
 
-`PipelineHandler::completeRequest()` 호출은 `src/libcamera/pipeline_handler.cpp:586` 에서 시작하여 `Camera::requestComplete()` 를 거쳐 다시 `PipelineHandlerIPU3::queueRequestDevice()` 와 같은 가상 함수를 통해 하위 구현체로 분기합니다. 각 단계의 메서드 정의 위치는 해당 파일과 줄 번호로 확인해야 하며, 호출 경로의 일부는 `src/libcamera/request.cpp:127` 에서 `Request::status()` 를 통해 로그 생성으로 전환된 후 다시 `PipelineHandler` 로 돌아오는 구조를 가집니다.
+`PipelineHandler::completeRequest()` 호출은 `Private::camera()` 를 거쳐 `Camera::requestComplete()` 콜백을 발생시키고, 이후 `doQueueRequests()` 로 이어집니다 `src/libcamera/pipeline_handler.cpp:586~603`. 이 경로는 `tracepoints::unused()` 와 같은 로그 호출이 스레드 경계나 콜백 순서를 명확히 하지 않으며, 가상 함수 분기점인 `queueRequestDevice()` 이후의 실행 흐름은 구체적인 구현에 따라 달라질 수 있습니다 `src/libcamera/pipeline_handler.cpp:498`.
 
-설계 의도나 스레드 동기화 근거가 명시되지 않았으므로, 콜백 전달 순서와 정적 추적이 끊기는 지점은 "확인 필요: 확인할 항목"으로 남겨두어야 합니다. 특히 `src/libcamera/pipeline_handler.cpp:498` 에서 호출되는 가상 함수의 실제 실행 흐름과 `facts.json` 에 남아있는 57 개의 숨겨진 호출이 전체 순서에 미치는 영향은 추가 사실 확인이 필요합니다.
+`PipelineHandlerIPU3::queueRequestDevice()` 와 `PipelineHandlerRkISP1::queueRequestDevice()` 등 가상 함수 후보가 존재하지만, 실제 호출 대상과 내부 동작은 해당 클래스의 정의 위치를 확인해야 합니다 `src/libcamera/pipeline/ipu3/ipu3.cpp:840`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1342`. 설계 의도가 부족하여 스레드 동기화나 실행 순서를 추측할 수 없으므로, 관련 메서드의 구현 코드를 직접 검토해야 합니다.
 
 ??? note "근거와 검토 정보"
     - 근거 파일: `src/libcamera/camera.cpp`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/pipeline_handler.cpp`, `src/libcamera/request.cpp`
