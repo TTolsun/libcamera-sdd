@@ -18,12 +18,12 @@
 
 - 원본: [libcamera upstream](https://gitlab.freedesktop.org/camera/libcamera)
 - 분석 커밋: `279d355ef8f7a4f98bb0a3004c0f788387814506`
-- 생성기: [camera-hal-sdd](https://github.com/TTolsun/camera-hal-sdd), 커밋 `6887f0b3a9feda91e7824e6e64751539068429d0`
-- [LSC 문서 보강과 범위 검토 기록](https://github.com/TTolsun/camera-hal-sdd/blob/6887f0b3a9feda91e7824e6e64751539068429d0/docs/libcamera-lsc-followup.md)
-- [A/B 검증 기록](https://github.com/TTolsun/camera-hal-sdd/blob/main/docs/libcamera-design-validation.md)
+- 생성기: [camera-hal-sdd-generator](https://github.com/TTolsun/camera-hal-sdd-generator), 커밋 `c034625f0ed4b8a631b3f03dc97198aea0313157`
+- [LSC 문서 보강과 범위 검토 기록](https://github.com/TTolsun/camera-hal-sdd-generator/blob/6887f0b3a9feda91e7824e6e64751539068429d0/docs/libcamera-lsc-followup.md)
+- [A/B 검증 기록](https://github.com/TTolsun/camera-hal-sdd-generator/blob/main/docs/libcamera-design-validation.md)
 - [배포 기록](run.json)과 [입력·산출물 해시](docs/site-manifest.json)
 
-기존에 빌드와 구조 추출을 검증한 facts를 사용했으며, 이번 배포에서 libcamera를 다시 빌드하지 않았습니다. 생성·검증 기술은 camera-hal-sdd에서 관리하고 이 저장소에는 공개 libcamera 문서와 정적 산출물만 배포합니다.
+기존에 빌드와 구조 추출을 검증한 facts를 사용했으며, 이번 배포에서 libcamera를 다시 빌드하지 않았습니다. 생성·검증 기술은 camera-hal-sdd-generator에서 관리하고 이 저장소에는 공개 libcamera 문서와 정적 산출물만 배포합니다.
 
 ## 브랜치와 게시
 
