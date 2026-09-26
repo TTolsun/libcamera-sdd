@@ -4,7 +4,7 @@
 <body><a class="skip" href="#main">본문으로 이동</a>
 <header class="site-header"><a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera 설계 문서</a>
 <div class="header-actions"><button id="search-open" hidden>문서 찾기 <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>메뉴</button></div></header>
-<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="문서 메뉴"><p class="nav-group">시작하기</p><a href="index.html" aria-current="page">문서 안내</a><p class="nav-group">For Vendors</p><a href="pipeline-handler.html">Pipeline Handler</a><a href="ipa.html">IPA 관리와 구현 진입점</a><a href="ipu3-lsc.html">IPU3 LSC와 상태 연결</a><a href="ipu3-lsc-flow.html">IPU3 LSC의 설정과 프레임 처리</a><p class="nav-group">For Developers</p><a href="overview.html">시스템 개요</a><a href="scenarios/index.html">핵심 시나리오 시퀀스</a><details class="nav-branch"><summary>하위 문서 5 편</summary><a class="nav-sub" href="scenarios/manager_start.html">카메라 탐색 (CameraManager::start)</a><a class="nav-sub" href="scenarios/configure.html">스트림 구성 (Camera::configure)</a><a class="nav-sub" href="scenarios/camera_start.html">캡처 시작 (Camera::start)</a><a class="nav-sub" href="scenarios/queue_request.html">요청 제출 (Camera::queueRequest)</a><a class="nav-sub" href="scenarios/complete_request.html">요청 완료 통지 (PipelineHandler::completeRequest)</a></details><a href="camera-model.html">카메라와 요청 모델</a></nav><p class="sidebar-note">코드에서 구조를 추출하고<br>근거와 함께 검토합니다.</p></aside>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="문서 메뉴"><p class="nav-group">시작하기</p><a href="index.html" aria-current="page">문서 안내</a><p class="nav-group">For Vendors</p><a href="pipeline-handler.html">Pipeline Handler</a><a href="ipa.html">IPA 관리와 구현 진입점</a><a href="ipu3-lsc.html">IPU3 LSC와 상태 연결</a><a href="ipu3-lsc-flow.html">IPU3 LSC의 설정과 프레임 처리</a><p class="nav-group">For Developers</p><a href="overview.html">시스템 개요</a><a href="scenarios/index.html">핵심 시나리오</a><details class="nav-branch"><summary>하위 문서 5 편</summary><a class="nav-sub" href="scenarios/manager_start.html">카메라 탐색 (CameraManager::start)</a><a class="nav-sub" href="scenarios/configure.html">스트림 구성 (Camera::configure)</a><a class="nav-sub" href="scenarios/camera_start.html">캡처 시작 (Camera::start)</a><a class="nav-sub" href="scenarios/queue_request.html">요청 제출 (Camera::queueRequest)</a><a class="nav-sub" href="scenarios/complete_request.html">요청 완료 통지 (PipelineHandler::completeRequest)</a></details><a href="camera-model.html">카메라와 요청 모델</a></nav><p class="sidebar-note">코드에서 구조를 추출하고<br>근거와 함께 검토합니다.</p></aside>
 <main id="main"><p class="breadcrumb">시작하기 <span>/</span> libcamera 설계 문서</p><h1>libcamera 설계 문서</h1><div class="page-state"><span class="review-state">검토용 문서</span></div>
 <details class="mobile-toc"><summary>이 페이지의 목차</summary><div class="toc">
 <ul>
@@ -18,21 +18,22 @@
 <p>이 문서는 공개 libcamera 소스를 분석해 만든 검토용 설계 문서입니다. libcamera 공식 문서의 탐색 구조와 OMM의 읽기 중심 디자인을 적용했습니다.</p>
 <h2 id="읽는-순서">읽는 순서</h2>
 <ol>
-<li><strong>시스템 개요</strong>에서 소스가 어떤 패키지로 나뉘는지, 패키지 사이의 의존이 어느 방향인지 먼저 확인하세요.</li>
-<li><strong>핵심 시나리오 시퀀스</strong>에서 요청이 제출되고 완료될 때까지 호출이 지나가는 순서를 따라가세요.</li>
-<li><strong>카메라와 요청 모델</strong>에서 공개 API의 선언을, <strong>Pipeline Handler</strong>에서 공통 클래스와 하드웨어별 구현의 관계를, <strong>IPA 관리와 구현 진입점</strong>에서 알고리즘 모듈의 관리 구조를 확인하세요.</li>
+<li><strong>시스템 개요</strong>에서 카메라 탐색·요청 생성·완료의 책임과 캡처 세션의 상태를 확인한 뒤 관련 패키지를 찾으세요.</li>
+<li><strong>핵심 시나리오</strong>에서 요청 제출과 완료에 관련된 주요 호출과 정적 추적의 경계를 확인하세요.</li>
+<li><strong>카메라와 요청 모델</strong>에서 소유권과 상태 전이를, <strong>Pipeline Handler</strong>에서 요청 큐·완료·정지 계약을, <strong>IPA 관리와 구현 진입점</strong>에서 모듈 선택·실행 경계·입출력·오류 처리를 확인하세요.</li>
 <li><strong>IPU3 LSC</strong> 두 문서는 한 알고리즘을 끝까지 따라가는 예입니다.</li>
 </ol>
 <p>각 페이지 끝의 "다음 단계" 링크가 이 순서를 그대로 잇습니다.</p>
 <p>클래스 표의 "책임" 칸은 소스의 문서 주석에서 가져옵니다. libcamera는 클래스 설명을 헤더가 아니라 구현 파일에 따로 적기 때문에, 선언에 붙은 주석만 읽으면 <code>Camera</code>와 <code>CameraManager</code>를 포함해 대부분이 비어 있었습니다. 이번 갱신부터 그 주석을 함께 읽어 1,005개 클래스 중 546개에 설명이 붙습니다.</p>
 <p>각 페이지에는 추출한 클래스, 구조 설명, 관계 그림과 코드 근거가 있습니다. 관계 그림을 누르면 확대하거나 클래스 이름을 검색할 수 있습니다. 소스 링크는 분석에 사용한 커밋의 파일과 줄로 연결됩니다.</p>
+<p>설계 계약 문서는 질문별 설명 위치를 안내하고, 설명 아래에서 연결된 소스 발췌 원문을 펼쳐 볼 수 있습니다. 실행 확인 항목은 코드에서 설명한 동작과 구분하여 읽으세요.</p>
 <p>왼쪽 메뉴에서 목차에 딸린 하위 문서는 접었다 펼 수 있습니다. 읽고 있는 가지만 펴 둡니다.</p>
-<p>시나리오 문서의 번호 목록에는 로깅과 단순 접근자 호출을 싣지 않고, 뺀 개수를 각 페이지에 적었습니다. 메서드를 큐나 신호에 넘기는 자리는 <strong>예약된 호출</strong>로 표시했습니다. 그 지점부터는 실행 시점과 스레드를 정적 분석으로 확인할 수 없으므로, 번호 목록이 이후의 순서를 보증하지 않습니다.</p>
+<p>시나리오의 주요 확인 지점과 관계도는 설정에서 선택한 호출 근거로 만듭니다. 가상 호출 후보와 예약 대상은 추적 경계 표에서 확인할 수 있습니다. 관계도는 실행 순서를 뜻하지 않습니다. 로깅과 접근자 호출을 포함한 전체 추적 기록은 페이지 안에서 구간별로 펼쳐 볼 수 있습니다.</p>
 <h2 id="검토-상태-읽기">검토 상태 읽기</h2>
-<p>모든 생성 문서는 <strong>사람 검토 전</strong>입니다. <code>ok</code>는 자동 인용 검사를 통과했다는 뜻이며, 설명의 정확성이 승인되었다는 뜻은 아닙니다. <code>needs-review</code>는 인용 검사에서도 확인할 문제가 남아 있다는 뜻입니다.</p>
-<p>이번 갱신에서는 12개 페이지 모두 자동 검사를 통과했습니다. 문장의 정확성은 아직 사람이 확인하지 않았습니다. 자동 검사는 인용 위치가 실제로 존재하는지, 문장이 가리키는 이름이 추출한 사실에 있는지, 문장 형태가 규칙을 지키는지만 봅니다. 클래스 관계 그림은 정적으로 추출한 상속·필드 관계를 보여 주며 실행 순서나 실기기 동작을 보증하지 않습니다.</p>
+<p>사람이 승인하지 않은 생성 문서는 <strong>사람 검토 전</strong>으로 표시합니다. <code>ok</code>는 해당 생성 방식에 적용된 자동 검사를 통과했다는 뜻이며, 설명의 정확성이 승인되었다는 뜻은 아닙니다. <code>needs-review</code>는 자동 검사에서 확인할 문제가 남아 있다는 뜻입니다.</p>
+<p>현재 검사 결과와 승인 상태는 아래 문서 목록에서 확인하세요. 각 페이지에는 추출 사실로 만든 설명, 소스 발췌에 연결한 설계 설명, LLM 설명 등 생성 방식과 검증 범위를 표시합니다. 발췌 해시 일치나 자동 검사 통과가 사람의 내용 검토를 대신하지 않습니다. 클래스 관계 그림도 실행 순서나 실기기 동작을 보증하지 않습니다.</p>
 <h2 id="분석과-배포-범위">분석과 배포 범위</h2>
-<p>분석 기준은 libcamera 커밋 <code>279d355ef8f7a4f98bb0a3004c0f788387814506</code>입니다. WSL2에서 IPU3·RKISP1·UVC와 GStreamer를 포함해 빌드했고, 문장은 Windows의 로컬 Ollama로 생성했습니다. 호출 순서는 libclang으로 추적했으며 진입 함수 5개를 모두 찾았습니다. 실기기 촬영과 실행 검증은 후속 작업입니다.</p>
+<p>분석 기준은 libcamera 커밋 <code>279d355ef8f7a4f98bb0a3004c0f788387814506</code>입니다. WSL2에서 IPU3·RKISP1·UVC와 GStreamer를 포함해 빌드한 추출 결과를 사용합니다. 개요·카메라·Pipeline·IPA·LSC 처리 설명은 예제 설정에 작성된 계약을 소스 발췌와 대조하여 생성합니다. 시나리오는 libclang으로 추출한 호출 관계와 경계를 표시하며 진입 함수 5개를 모두 찾았습니다. 실기기 촬영과 실행 검증은 후속 작업입니다.</p>
 <p><a href="https://github.com/TTolsun/camera-hal-sdd-generator">camera-hal-sdd-generator</a>는 분석·생성·검증·화면 구성 기술을 관리합니다. <a href="https://github.com/TTolsun/libcamera-sdd">libcamera-sdd</a>는 원본 소스 이력과 완성 문서의 배포를 담당합니다. 자동 갱신 작업은 아직 연결하지 않았습니다.</p>
 <p>원래 라이브러리의 사용법은 <a href="https://docs.libcamera.org/master/">libcamera 공식 문서</a>에서 확인할 수 있습니다.</p>
 <h2 id="문서-목록">문서 목록</h2>
@@ -40,7 +41,7 @@
 <thead>
 <tr>
 <th>문서</th>
-<th>인용 검사</th>
+<th>자동 검사</th>
 <th>검토 상태</th>
 </tr>
 </thead>
@@ -71,7 +72,7 @@
 <td>사람 검토 전</td>
 </tr>
 <tr>
-<td><a href="scenarios/index.html">핵심 시나리오 시퀀스</a></td>
+<td><a href="scenarios/index.html">핵심 시나리오</a></td>
 <td><code>ok</code></td>
 <td>사람 검토 전</td>
 </tr>

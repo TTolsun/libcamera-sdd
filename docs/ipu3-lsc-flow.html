@@ -4,10 +4,11 @@
 <body><a class="skip" href="#main">본문으로 이동</a>
 <header class="site-header"><a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera 설계 문서</a>
 <div class="header-actions"><button id="search-open" hidden>문서 찾기 <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>메뉴</button></div></header>
-<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="문서 메뉴"><p class="nav-group">시작하기</p><a href="index.html">문서 안내</a><p class="nav-group">For Vendors</p><a href="pipeline-handler.html">Pipeline Handler</a><a href="ipa.html">IPA 관리와 구현 진입점</a><a href="ipu3-lsc.html">IPU3 LSC와 상태 연결</a><a href="ipu3-lsc-flow.html" aria-current="page">IPU3 LSC의 설정과 프레임 처리</a><p class="nav-group">For Developers</p><a href="overview.html">시스템 개요</a><a href="scenarios/index.html">핵심 시나리오 시퀀스</a><details class="nav-branch"><summary>하위 문서 5 편</summary><a class="nav-sub" href="scenarios/manager_start.html">카메라 탐색 (CameraManager::start)</a><a class="nav-sub" href="scenarios/configure.html">스트림 구성 (Camera::configure)</a><a class="nav-sub" href="scenarios/camera_start.html">캡처 시작 (Camera::start)</a><a class="nav-sub" href="scenarios/queue_request.html">요청 제출 (Camera::queueRequest)</a><a class="nav-sub" href="scenarios/complete_request.html">요청 완료 통지 (PipelineHandler::completeRequest)</a></details><a href="camera-model.html">카메라와 요청 모델</a></nav><p class="sidebar-note">코드에서 구조를 추출하고<br>근거와 함께 검토합니다.</p></aside>
-<main id="main"><p class="breadcrumb">For Vendors <span>/</span> IPU3 LSC의 설정과 프레임 처리</p><h1>IPU3 LSC의 설정과 프레임 처리</h1><div class="page-state"><span class="review-state">사람 검토 전</span><span>자동 검사 통과 · <code>ok</code></span></div>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="문서 메뉴"><p class="nav-group">시작하기</p><a href="index.html">문서 안내</a><p class="nav-group">For Vendors</p><a href="pipeline-handler.html">Pipeline Handler</a><a href="ipa.html">IPA 관리와 구현 진입점</a><a href="ipu3-lsc.html">IPU3 LSC와 상태 연결</a><a href="ipu3-lsc-flow.html" aria-current="page">IPU3 LSC의 설정과 프레임 처리</a><p class="nav-group">For Developers</p><a href="overview.html">시스템 개요</a><a href="scenarios/index.html">핵심 시나리오</a><details class="nav-branch"><summary>하위 문서 5 편</summary><a class="nav-sub" href="scenarios/manager_start.html">카메라 탐색 (CameraManager::start)</a><a class="nav-sub" href="scenarios/configure.html">스트림 구성 (Camera::configure)</a><a class="nav-sub" href="scenarios/camera_start.html">캡처 시작 (Camera::start)</a><a class="nav-sub" href="scenarios/queue_request.html">요청 제출 (Camera::queueRequest)</a><a class="nav-sub" href="scenarios/complete_request.html">요청 완료 통지 (PipelineHandler::completeRequest)</a></details><a href="camera-model.html">카메라와 요청 모델</a></nav><p class="sidebar-note">코드에서 구조를 추출하고<br>근거와 함께 검토합니다.</p></aside>
+<main id="main"><p class="breadcrumb">For Vendors <span>/</span> IPU3 LSC의 설정과 프레임 처리</p><h1>IPU3 LSC의 설정과 프레임 처리</h1><div class="page-state"><span class="review-state">사람 검토 전</span><span>자동 검사 통과 · <code>ok</code></span><span class="generation-method">소스 발췌에 연결한 설계 설명</span></div>
 <details class="mobile-toc"><summary>이 페이지의 목차</summary><div class="toc">
 <ul>
+<li><a href="#설계-항목과-근거">설계 항목과 근거</a></li>
 <li><a href="#빌드와-상태-연결">빌드와 상태 연결</a></li>
 <li><a href="#초기화와-크롭-설정">초기화와 크롭 설정</a></li>
 <li><a href="#첫-프레임과-요청별-제어">첫 프레임과 요청별 제어</a></li>
@@ -18,61 +19,444 @@
 </ul>
 </div>
 </details><article><p><strong>LSC를 수정할 때는 초기 그리드 설정, 요청별 활성화 상태, 색온도에 따른 파라미터 갱신 조건을 차례로 확인하세요.</strong></p>
+<h2 id="설계-항목과-근거">설계 항목과 근거</h2>
+<p>아래 항목은 소스에 연결된 설명의 작성 범위를 나타냅니다. 설명의 의미와 실제 실행에 대한 승인은 별도 검토가 필요합니다.</p>
 <div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
 <thead>
 <tr>
-<th>지금 확인할 내용</th>
-<th>이동할 절</th>
+<th>설계 질문</th>
+<th>설명 위치</th>
+<th>확인 범위</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>빌드와 상태 연결 절을 확인합니다.</td>
+<td>LSC 구현 파일과 공유 상태 및 프레임별 상태는 어떻게 연결됩니까?</td>
 <td><a href="#빌드와-상태-연결">빌드와 상태 연결</a></td>
+<td>코드 근거와 설명 연결</td>
 </tr>
 <tr>
-<td>초기화와 크롭 설정 절을 확인합니다.</td>
+<td>센서 크기에서 그리드를 만들고 크롭 설정을 전달하는 과정을 설명하세요.</td>
 <td><a href="#초기화와-크롭-설정">초기화와 크롭 설정</a></td>
+<td>코드 근거와 설명 연결</td>
 </tr>
 <tr>
-<td>첫 프레임과 요청별 제어 절을 확인합니다.</td>
+<td>첫 프레임의 기본 활성화 처리와 공통 알고리즘으로 넘기는 데이터를 설명하세요.</td>
 <td><a href="#첫-프레임과-요청별-제어">첫 프레임과 요청별 제어</a></td>
+<td>코드 근거와 설명 연결</td>
 </tr>
 <tr>
-<td>파라미터 갱신 조건 절을 확인합니다.</td>
+<td>색온도 변경에 따른 생략 조건과 커널에 전달하는 파라미터를 설명하세요.</td>
 <td><a href="#파라미터-갱신-조건">파라미터 갱신 조건</a></td>
+<td>코드 근거와 설명 연결</td>
 </tr>
 <tr>
-<td>메타데이터와 확인 범위 절을 확인합니다.</td>
+<td>프레임 처리 결과를 전달하는 경계와 미검증 사항을 설명하세요.</td>
 <td><a href="#메타데이터와-확인-범위">메타데이터와 확인 범위</a></td>
-</tr>
-<tr>
-<td>클래스 관계 절을 확인합니다.</td>
-<td><a href="#클래스-관계">클래스 관계</a></td>
-</tr>
-<tr>
-<td>관련 클래스 절을 확인합니다.</td>
-<td><a href="#관련-클래스">관련 클래스</a></td>
+<td>코드 근거와 설명 연결</td>
 </tr>
 </tbody>
 </table></div>
 <h2 id="빌드와-상태-연결">빌드와 상태 연결</h2>
 <p>IPU3 알고리즘 빌드 목록에는 lsc.cpp가 포함됩니다. 이 목록에 있다는 사실만으로 실행 중인 카메라에서 LSC가 활성화됐다고 판단할 수는 없습니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/ipa/ipu3/algorithms/meson.build#L3"><code>src/ipa/ipu3/algorithms/meson.build:3</code></a></p>
 <p>IPAContext는 공유 activeState와 프레임 컨텍스트 큐를 보유합니다. IPAActiveState의 lsc 필드와 IPAFrameContext의 lsc 필드가 각각 공유 상태와 프레임별 상태를 연결합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/ipa/ipu3/ipa_context.h#L32"><code>src/ipa/ipu3/ipa_context.h:32</code></a></p>
+<details class="note">
+<summary>소스 근거: build</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/ipa/ipu3/algorithms/meson.build#L3"><code>src/ipa/ipu3/algorithms/meson.build:3</code></a>에서 시작하는 발췌입니다. 종료 줄은 11이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>5b34e175668b4fedb33a633567f049c2738f6368c3b4d8ac26d069e77add82c9</code></p>
+<div class="highlight"><pre><span></span><code>ipu3_ipa_algorithms = files([
+    'af.cpp',
+    'agc.cpp',
+    'awb.cpp',
+    'blc.cpp',
+    'ccm.cpp',
+    'lsc.cpp',
+    'tone_mapping.cpp',
+])
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: context</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/ipa/ipu3/ipa_context.h#L32"><code>src/ipa/ipu3/ipa_context.h:32</code></a>에서 시작하는 발췌입니다. 종료 줄은 91이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>e373aff7c5b5e5f034637b3d9030b0fdef974614261025791afd6e3146b1108d</code></p>
+<div class="highlight"><pre><span></span><code>struct IPASessionConfiguration {
+    struct {
+        ipu3_uapi_grid_config bdsGrid;
+        Size bdsOutputSize;
+        uint32_t stride;
+    } grid;
+
+    struct {
+        ipu3_uapi_grid_config afGrid;
+    } af;
+
+    agc::Session agc;
+};
+
+struct IPAActiveState {
+    struct {
+        uint32_t focus;
+        double maxVariance;
+        bool stable;
+    } af;
+
+    agc::ActiveState agc;
+    ipa::awb::ActiveState awb;
+    ipa::ccm::ActiveState ccm;
+    ipa::gamma::ActiveState gamma;
+    ipa::lsc::ActiveState lsc;
+};
+
+struct IPAFrameContext : public FrameContext {
+    struct {
+        uint32_t exposure;
+        double gain;
+    } sensor;
+
+    agc::FrameContext agc;
+    ipa::awb::FrameContext awb;
+    ipa::ccm::FrameContext ccm;
+    ipa::gamma::FrameContext gamma;
+    ipa::lsc::FrameContext lsc;
+};
+
+struct IPAContext {
+    IPAContext(unsigned int frameContextSize)
+        : frameContexts(frameContextSize)
+    {
+    }
+
+    IPASessionConfiguration configuration;
+    IPACameraSensorInfo sensorInfo;
+    ControlInfoMap sensorControls;
+    IPAActiveState activeState;
+
+    FCQueue&lt;IPAFrameContext&gt; frameContexts;
+
+    std::unique_ptr&lt;CameraSensorHelper&gt; camHelper;
+
+    ControlInfoMap::Map ctrlMap;
+};
+
+} /* namespace ipa::ipu3 */
+</code></pre></div>
+</details>
 <h2 id="초기화와-크롭-설정">초기화와 크롭 설정</h2>
 <p>init()는 센서 activeAreaSize를 기준으로 그리드를 계산합니다. 가로 73개와 세로 56개라는 셀 수 상한에 맞춰 필요한 셀 크기를 계산하고, 이를 2의 거듭제곱으로 올림한 뒤 실제 셀 수와 블록 크기를 정합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/ipa/ipu3/algorithms/lsc.cpp#L31"><code>src/ipa/ipu3/algorithms/lsc.cpp:31</code></a></p>
 <p>튜닝 데이터의 type이 polynomial인지 저장한 뒤, r·gr·gb·b 성분과 샘플 수 및 센서 크기를 공통 LSC 알고리즘의 init()에 전달합니다. 반환값은 호출자에게 그대로 반환합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/ipa/ipu3/algorithms/lsc.cpp#L31"><code>src/ipa/ipu3/algorithms/lsc.cpp:31</code></a></p>
 <p>configure()는 analogCrop의 너비와 높이를 저장합니다. 각 축의 샘플 위치를 0부터 1까지 생성하고, 크롭 영역 및 공유 LSC 상태와 함께 공통 알고리즘의 configure()에 전달합니다. 이 코드는 샘플 수가 1일 때의 나눗셈을 별도로 처리하지 않으므로 지원 센서 크기의 경계 조건은 추가 검증이 필요합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/ipa/ipu3/algorithms/lsc.cpp#L31"><code>src/ipa/ipu3/algorithms/lsc.cpp:31</code></a></p>
+<details class="note">
+<summary>소스 근거: setup</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/ipa/ipu3/algorithms/lsc.cpp#L31"><code>src/ipa/ipu3/algorithms/lsc.cpp:31</code></a>에서 시작하는 발췌입니다. 종료 줄은 121이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>943557ac46750b8b53d8280921b313e4331e786e8ff88766abb0fe02959d2f63</code></p>
+<div class="highlight"><pre><span></span><code>static constexpr unsigned int kMaxNumHCells = 73;
+static constexpr unsigned int kMaxNumVCells = 56;
+static constexpr int kColourTemperatureQuantization = 10;
+
+/**
+ * \copydoc libcamera::ipa::Algorithm::init
+ */
+int Lsc::init(IPAContext &amp;context, const ValueNode &amp;tuningData)
+{
+    /*
+     * The IPU3 lens shading block expects a table of data that isn't of a
+     * fixed size, but rather is configurable based on 4 parameters:
+     *
+     * block_width_log2:    The log2 of the horizontal pixel count per cell
+     * block_height_log2:   The log2 of the vertical pixel count per cell
+     * width:       The number of horizontal cells
+     * height:      The number of vertical cells
+     *
+     * The constructed grid should be capable of covering the image, but
+     * ideally won't extend past the edges of the image. Fixing either set
+     * of parameters for the algorithm as a whole is likely to result in
+     * suboptimal situations for some sensors, so let's determine them
+     * programmatically instead.
+     *
+     * What we want is the densest possible grid that ideally doesn't extend
+     * past the edges of the image at all. The maximum grid size is 73x56,
+     * which gives us the lower bounds on cell size. Unfortunately we can
+     * only specify sizes in powers of two, which can have the effect of
+     * making the grid much more coarse. For example for a 2592x1944 input
+     * image, 2592 / 73 = 35.5...which means we need to set blockWidthLog2
+     * to 6 (I.E. 64) and have just 40.5 (or rather 41) cells horizontally.
+     */
+    sensorWidth_ = context.sensorInfo.activeAreaSize.width;
+    sensorHeight_ = context.sensorInfo.activeAreaSize.height;
+
+    unsigned int cellWidth = (sensorWidth_ + kMaxNumHCells - 1) / kMaxNumHCells;
+    unsigned int cellHeight = (sensorHeight_ + kMaxNumVCells - 1) / kMaxNumVCells;
+
+    unsigned int minCellWidth = std::bit_ceil(cellWidth);
+    unsigned int minCellHeight = std::bit_ceil(cellHeight);
+
+    numHCells_ = (sensorWidth_ + minCellWidth - 1) / minCellWidth;
+    numVCells_ = (sensorHeight_ + minCellHeight - 1) / minCellHeight;
+
+    blockWidthLog2_ = std::bit_width(minCellWidth) - 1;
+    blockHeightLog2_ = std::bit_width(minCellHeight) - 1;
+
+    LOG(IPU3Lsc, Debug) &lt;&lt; "Calculated Grid configuration: "
+                &lt;&lt; numHCells_ &lt;&lt; "x" &lt;&lt; numVCells_ &lt;&lt; " cells of "
+                &lt;&lt; minCellWidth &lt;&lt; "x" &lt;&lt; minCellHeight &lt;&lt; " pixels";
+
+    /*
+     * We need to know if we're running the polynomial algorithm or not as
+     * things will behave slightly differently.
+     */
+    polynomial_ = tuningData["type"].get&lt;std::string&gt;() == "polynomial";
+
+    return lscAlgo_.init(tuningData, context.ctrlMap,
+                 { .keys = { "r", "gr", "gb", "b" },
+                   .numHSamples = numHCells_,
+                   .numVSamples = numVCells_,
+                   .sensorSize = context.sensorInfo.activeAreaSize });
+}
+
+std::vector&lt;double&gt; Lsc::calculatePositions(unsigned int dimension)
+{
+    std::vector&lt;double&gt; positions(dimension);
+    for (double i = 0.0; i &lt; dimension; i++)
+        positions[i] = i / (dimension - 1);
+
+    return positions;
+}
+
+/**
+ * \copydoc libcamera::ipa::Algorithm::configure
+ */
+int Lsc::configure(IPAContext &amp;context, const IPAConfigInfo &amp;configInfo)
+{
+    cropWidth_ = configInfo.sensorInfo.analogCrop.width;
+    cropHeight_ = configInfo.sensorInfo.analogCrop.height;
+    std::vector&lt;double&gt; xPos = calculatePositions(numHCells_);
+    std::vector&lt;double&gt; yPos = calculatePositions(numVCells_);
+
+    return lscAlgo_.configure(context.activeState.lsc,
+                  configInfo.sensorInfo.analogCrop, xPos, yPos);
+}
+
+/**
+ * \copydoc libcamera::ipa::Algorithm::queueRequest
+ */
+void Lsc::queueRequest(
+</code></pre></div>
+</details>
 <h2 id="첫-프레임과-요청별-제어">첫 프레임과 요청별 제어</h2>
 <p>frame이 0이고 요청에 LensShadingCorrectionEnable 제어가 없으면 프레임의 enabled와 update를 true로 설정합니다. 소스 주석은 공통 알고리즘이 알리는 기본값과 IPU3 드라이버의 기본 비활성 상태를 맞추기 위한 처리라고 설명합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/ipa/ipu3/algorithms/lsc.cpp#L121"><code>src/ipa/ipu3/algorithms/lsc.cpp:121</code></a></p>
 <p>이후 공유 LSC 상태, 현재 프레임의 LSC 상태와 요청 controls를 공통 알고리즘의 queueRequest()에 전달합니다. 여기서 설명하는 것은 IPU3 래퍼의 전달 동작이며, 모든 제어 값의 처리 규칙이나 콜백 실행 스레드까지 확인한 것은 아닙니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/ipa/ipu3/algorithms/lsc.cpp#L121"><code>src/ipa/ipu3/algorithms/lsc.cpp:121</code></a></p>
+<details class="note">
+<summary>소스 근거: request</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/ipa/ipu3/algorithms/lsc.cpp#L121"><code>src/ipa/ipu3/algorithms/lsc.cpp:121</code></a>에서 시작하는 발췌입니다. 종료 줄은 142이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>550c83f35d2a4d5218ac10731fe8650d8446e262841f2dd80a54e9238c7da287</code></p>
+<div class="highlight"><pre><span></span><code>void Lsc::queueRequest(IPAContext &amp;context, const uint32_t frame,
+               IPAFrameContext &amp;frameContext,
+               const ControlList &amp;controls)
+{
+    /*
+     * The base algorithm defines the LensShadingCorrectionEnable control
+     * with a default value of true, but actually the IPU3 driver defaults
+     * it to off. If this is the first frame, check for the control, but if
+     * there isn't one, force it on to fulfil the advertised default.
+     */
+    if (frame == 0) {
+        const auto &amp;lscEnable = controls.get(controls::LensShadingCorrectionEnable);
+        if (!lscEnable) {
+            frameContext.lsc.enabled = true;
+            frameContext.lsc.update = true;
+        }
+    }
+
+    lscAlgo_.queueRequest(context.activeState.lsc, frameContext.lsc, controls);
+}
+
+static unsigned int quantize(
+</code></pre></div>
+</details>
 <h2 id="파라미터-갱신-조건">파라미터 갱신 조건</h2>
 <p>prepare()는 현재 프레임 AWB의 색온도를 읽어 10 단위로 반올림합니다. update가 false일 때만 다음 생략 조건을 검사합니다. 비활성 상태이면 바로 반환하고, 활성 상태에서도 직전 적용 색온도와의 차이가 5 미만이거나 양자화된 값이 같으면 갱신을 생략합니다. update가 true이면 이 생략 조건들을 적용하지 않습니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/ipa/ipu3/algorithms/lsc.cpp#L142"><code>src/ipa/ipu3/algorithms/lsc.cpp:142</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/ipa/ipu3/algorithms/lsc.cpp#L31"><code>src/ipa/ipu3/algorithms/lsc.cpp:31</code></a></p>
 <p>갱신 경로에서는 use.acc_shd를 1로 설정하고 shd_enable에 현재 활성 상태를 기록합니다. update가 true이고 enabled가 false인 경우에도 이 플래그를 기록한 뒤 반환하므로, 단순히 비활성 상태의 모든 호출을 생략하는 것은 아닙니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/ipa/ipu3/algorithms/lsc.cpp#L142"><code>src/ipa/ipu3/algorithms/lsc.cpp:142</code></a></p>
 <p>활성 상태에서는 그리드와 크롭 오프셋을 설정하고, 양자화한 색온도로 interpolateComponents()를 호출합니다. 반환된 r·gr·gb·b 배열을 LUT에 복사한 뒤 마지막으로 적용한 색온도 두 값을 저장합니다. 실제 하드웨어의 적용 시점과 LUT 분할 경계의 적합성은 기기에서 별도로 검증해야 합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/ipa/ipu3/algorithms/lsc.cpp#L142"><code>src/ipa/ipu3/algorithms/lsc.cpp:142</code></a></p>
+<details class="note">
+<summary>소스 근거: prepare</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/ipa/ipu3/algorithms/lsc.cpp#L142"><code>src/ipa/ipu3/algorithms/lsc.cpp:142</code></a>에서 시작하는 발췌입니다. 종료 줄은 282이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>1d11fc7397b377f682d4fab45d12dd20480e554176aae94ba2708a5f8f747268</code></p>
+<div class="highlight"><pre><span></span><code>static unsigned int quantize(unsigned int value, unsigned int step)
+{
+    return std::lround(value / static_cast&lt;double&gt;(step)) * step;
+}
+
+/**
+ * \copydoc libcamera::ipa::Algorithm::prepare
+ */
+void Lsc::prepare([[maybe_unused]] IPAContext &amp;context, [[maybe_unused]] const uint32_t frame,
+          IPAFrameContext &amp;frameContext, ipu3_uapi_params *params)
+{
+    uint32_t ct = frameContext.awb.colourTemperature;
+    unsigned int quantizedCt = quantize(ct, kColourTemperatureQuantization);
+
+    if (!frameContext.lsc.update) {
+        if (!frameContext.lsc.enabled)
+            return;
+
+        /*
+         * Add a threshold so that oscillations around a quantization
+         * step don't lead to constant changes.
+         */
+        if (utils::abs_diff(ct, lastAppliedCt_) &lt; kColourTemperatureQuantization / 2)
+            return;
+
+        if (quantizedCt == lastAppliedQuantizedCt_)
+            return;
+    }
+
+    /*
+     * This flag tells the kernel driver that it should read the LSC params
+     * passed from userspace instead of using its cached copy.
+     */
+    params-&gt;use.acc_shd = 1;
+
+    /*
+     * Pass the enabled flag. If we're not enabled, we can then just bail
+     * out.
+     */
+    ipu3_uapi_shd_config_static *config = &amp;params-&gt;acc_param.shd.shd;
+    config-&gt;general.shd_enable = frameContext.lsc.enabled;
+
+    if (!frameContext.lsc.enabled)
+        return;
+
+    config-&gt;grid.width = numHCells_;
+    config-&gt;grid.height = numVCells_;
+    config-&gt;grid.block_width_log2 = blockWidthLog2_;
+    config-&gt;grid.block_height_log2 = blockHeightLog2_;
+    config-&gt;grid.grid_height_per_slice = IPU3_UAPI_SHD_MAX_CELLS_PER_SET / numHCells_;
+
+    /*
+     * The IPU3's documentation describes the x_start and y_start members
+     * as follows:
+     *
+     * "[X/Y] value of top left corner of sensor relative to ROI
+     * s13, [-4096, 0], default 0, only negative values."
+     *
+     * I interpret that as allowing us to configure the cropped rectangle
+     * relative to the full grid. That's useful if we're running the tabular
+     * algorithm, which would otherwise apply the full grid inappropriately.
+     * If we're running the polynomial one though the calculated grid is
+     * probably more appropriate than a coarse application of the full grid
+     * so let's tell the hardware not to bother correcting in that case.
+     */
+    if (polynomial_) {
+        config-&gt;grid.x_start = 0;
+        config-&gt;grid.y_start = 0;
+    } else {
+        config-&gt;grid.x_start = (cropWidth_ - sensorWidth_) / 2;
+        config-&gt;grid.y_start = (cropHeight_ - sensorHeight_) / 2;
+    }
+
+    /* No idea what this is, but the docs say it should be set as so */
+    config-&gt;general.init_set_vrt_offst_ul =
+        config-&gt;grid.y_start &gt;&gt; (config-&gt;grid.block_height_log2 %
+                     config-&gt;grid.grid_height_per_slice);
+
+    /*
+     * Values in the LUT cease taking effect at 4096, and a value of 0.0 is
+     * "no correction" rather than black. The gain factor is described by
+     * the documentation like so:
+     *
+     * "Shift calculated anti shading value. Precision u2. 0x0 - gain factor
+     * [1, 5], means no shift interpolated value. 0x1 - gain factor [1, 9],
+     * means shift interpolated by 1. 0x2 - gain factor [1, 17], means shift
+     * interpolated by 2."
+     *
+     * The simplest interpretation for those pieces of information is I
+     * think that the LUT stores 12-bit Q numbers who's represented values
+     * depend on the gain_factor setting like so:
+     *
+     * 0: UQ&lt;2, 10&gt; representing values in range [0, 4)
+     * 1: UQ&lt;3, 9&gt; representing values in range [0, 8)
+     * 2: UQ&lt;4, 8&gt; representing values in range [0, 16)
+     *
+     * And that a base gain of 1.0 is added to those configured values. As a
+     * gain of more than 5.0 is fairly unlikely, let's fix gain_factor to 0
+     * for now and revisit if needed.
+     */
+    config-&gt;general.gain_factor = 0;
+
+    /*
+     * Disable the black level settings here - we do that through another
+     * parameters block.
+     */
+    config-&gt;black_level.bl_r = 0;
+    config-&gt;black_level.bl_gr = 0;
+    config-&gt;black_level.bl_gb = 0;
+    config-&gt;black_level.bl_b = 0;
+
+    ipu3_uapi_shd_lut *lut = &amp;params-&gt;acc_param.shd.shd_lut;
+
+    const auto &amp;set = lscAlgo_.interpolateComponents(quantizedCt);
+
+    unsigned int totalCells = numHCells_ * numVCells_;
+    unsigned int cellsPerSet = numHCells_ * config-&gt;grid.grid_height_per_slice;
+    unsigned int numSets = (numHCells_ + config-&gt;grid.grid_height_per_slice - 1) /
+                   config-&gt;grid.grid_height_per_slice;
+    unsigned int i = 0;
+
+    for (unsigned int s = 0; s &lt; numSets; s++) {
+        for (unsigned int c = 0; c &lt; cellsPerSet &amp;&amp; i &lt; totalCells; c++, i++) {
+            lut-&gt;sets[s].r_and_gr[c].r = set.at("r")[i];
+            lut-&gt;sets[s].r_and_gr[c].gr = set.at("gr")[i];
+            lut-&gt;sets[s].gb_and_b[c].gb = set.at("gb")[i];
+            lut-&gt;sets[s].gb_and_b[c].b = set.at("b")[i];
+        }
+    }
+
+    lastAppliedCt_ = ct;
+    lastAppliedQuantizedCt_ = quantizedCt;
+    LOG(IPU3Lsc, Debug)
+        &lt;&lt; "ct is " &lt;&lt; ct &lt;&lt; ", quantized to "
+        &lt;&lt; quantizedCt;
+}
+
+/**
+ * \copydoc libcamera::ipa::Algorithm::process
+ */
+void Lsc::process(
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: constants</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/ipa/ipu3/algorithms/lsc.cpp#L31"><code>src/ipa/ipu3/algorithms/lsc.cpp:31</code></a>에서 시작하는 발췌입니다. 종료 줄은 38이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>7807718b4ae9327f1ca428627d2b00f59ba38ced03261465ee8c79312ea27833</code></p>
+<div class="highlight"><pre><span></span><code>static constexpr unsigned int kMaxNumHCells = 73;
+static constexpr unsigned int kMaxNumVCells = 56;
+static constexpr int kColourTemperatureQuantization = 10;
+
+/**
+ * \copydoc libcamera::ipa::Algorithm::init
+ */
+int Lsc::init(
+</code></pre></div>
+</details>
 <h2 id="메타데이터와-확인-범위">메타데이터와 확인 범위</h2>
 <p>IPU3의 process()는 프레임 LSC 상태와 출력 metadata를 공통 알고리즘의 process()에 전달합니다. 이 래퍼는 전달받은 통계를 직접 읽지 않습니다. 파일 끝에서는 Lsc라는 이름으로 알고리즘을 등록합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/ipa/ipu3/algorithms/lsc.cpp#L282"><code>src/ipa/ipu3/algorithms/lsc.cpp:282</code></a></p>
 <p>이 문서는 고정된 libcamera 커밋의 구현을 설명합니다. 센서별 화질, 실행 스레드, 실제 프레임의 파라미터 적용 시점과 사내 Camera HAL 동작을 검증한 결과는 아닙니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/ipa/ipu3/algorithms/lsc.cpp#L282"><code>src/ipa/ipu3/algorithms/lsc.cpp:282</code></a></p>
+<details class="note">
+<summary>소스 근거: process</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/ipa/ipu3/algorithms/lsc.cpp#L282"><code>src/ipa/ipu3/algorithms/lsc.cpp:282</code></a>에서 시작하는 발췌입니다. 종료 줄은 291이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>e1411dc6710e62f774ea84588792a3f6fd547beb3442bc7cc49495eb19dff05e</code></p>
+<div class="highlight"><pre><span></span><code>void Lsc::process([[maybe_unused]] IPAContext &amp;context,
+          [[maybe_unused]] const uint32_t frame,
+          IPAFrameContext &amp;frameContext,
+          [[maybe_unused]] const ipu3_uapi_stats_3a *stats,
+          ControlList &amp;metadata)
+{
+    lscAlgo_.process(frameContext.lsc, metadata);
+}
+
+REGISTER_IPA_ALGORITHM(Lsc, "Lsc")
+</code></pre></div>
+</details>
 <!-- sdd:class-diagram -->
 <h2 id="클래스-관계">클래스 관계</h2>
 <p>화살표의 글자는 추출한 관계를 나타내며, 점선은 상속입니다. 화살표는 참조 대상 또는 기반 클래스를 향합니다. 호출 순서를 뜻하지 않습니다.</p>
@@ -155,16 +539,19 @@
 <details class="note">
 <summary>근거와 검토 정보</summary>
 <ul>
+<li>생성 방식: 소스 발췌에 연결한 설계 설명</li>
+<li>검증 범위: 설정에 작성된 설명을 발췌 해시와 대조합니다. 해시 일치는 설명의 의미를 승인하지 않습니다.</li>
 <li>근거 파일: <code>src/ipa/ipu3/algorithms/lsc.cpp</code>, <code>src/ipa/ipu3/algorithms/lsc.h</code>, <code>src/ipa/ipu3/ipa_context.h</code>, <code>src/ipa/libipa/lsc.h</code></li>
 <li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>279d355ef8</code>)</li>
 <li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li>
-<li>검토: 2026-09-24 · ollama/qwen3.5:4b · 사람 검토 전</li>
+<li>검토 상태 기록일: 2026-09-26 · 사람 검토 전</li>
 </ul>
 </details>
-<p>다음 단계: <a href="overview.html">시스템 개요</a></p></article><section class="evidence"><h2 id="page-evidence">생성 근거</h2><dl><dt>분석 기준 커밋</dt><dd><code>279d355ef8f7a4f98bb0a3004c0f788387814506</code></dd><dt>문서 생성 시각</dt><dd><code>2026-09-24 14:05:26+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>ollama/qwen3.5:4b</code></dd></dl><a href="ipu3-lsc-flow.md">Markdown 원문 ↗</a> <a href="ipu3-lsc-flow.mmd">Mermaid 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="ipu3-lsc.html"><small>이전</small>IPU3 LSC와 상태 연결 ←</a><a class="next" href="overview.html"><small>다음</small>시스템 개요 →</a></nav>
+<p>다음 단계: <a href="overview.html">시스템 개요</a></p></article><section class="evidence"><h2 id="page-evidence">생성 근거</h2><dl><dt>생성 방식</dt><dd>소스 발췌에 연결한 설계 설명</dd><dt>검증 범위</dt><dd>설정에 작성된 설명을 발췌 해시와 대조합니다. 해시 일치는 설명의 의미를 승인하지 않습니다.</dd><dt>분석 기준 커밋</dt><dd><code>279d355ef8f7a4f98bb0a3004c0f788387814506</code></dd><dt>문서 생성 시각</dt><dd><code>2026-09-26 13:32:24+00:00</code></dd></dl><a href="ipu3-lsc-flow.md">Markdown 원문 ↗</a> <a href="ipu3-lsc-flow.mmd">Mermaid 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="ipu3-lsc.html"><small>이전</small>IPU3 LSC와 상태 연결 ←</a><a class="next" href="overview.html"><small>다음</small>시스템 개요 →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · 인용 검사와 사람의 내용 검토는 별도입니다.</footer></main>
 <aside class="page-toc"><nav aria-label="현재 페이지 목차"><p>이 페이지에서</p><div class="toc">
 <ul>
+<li><a href="#설계-항목과-근거">설계 항목과 근거</a></li>
 <li><a href="#빌드와-상태-연결">빌드와 상태 연결</a></li>
 <li><a href="#초기화와-크롭-설정">초기화와 크롭 설정</a></li>
 <li><a href="#첫-프레임과-요청별-제어">첫 프레임과 요청별 제어</a></li>

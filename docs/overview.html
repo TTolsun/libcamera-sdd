@@ -4,18 +4,23 @@
 <body><a class="skip" href="#main">본문으로 이동</a>
 <header class="site-header"><a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera 설계 문서</a>
 <div class="header-actions"><button id="search-open" hidden>문서 찾기 <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>메뉴</button></div></header>
-<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="문서 메뉴"><p class="nav-group">시작하기</p><a href="index.html">문서 안내</a><p class="nav-group">For Vendors</p><a href="pipeline-handler.html">Pipeline Handler</a><a href="ipa.html">IPA 관리와 구현 진입점</a><a href="ipu3-lsc.html">IPU3 LSC와 상태 연결</a><a href="ipu3-lsc-flow.html">IPU3 LSC의 설정과 프레임 처리</a><p class="nav-group">For Developers</p><a href="overview.html" aria-current="page">시스템 개요</a><a href="scenarios/index.html">핵심 시나리오 시퀀스</a><details class="nav-branch"><summary>하위 문서 5 편</summary><a class="nav-sub" href="scenarios/manager_start.html">카메라 탐색 (CameraManager::start)</a><a class="nav-sub" href="scenarios/configure.html">스트림 구성 (Camera::configure)</a><a class="nav-sub" href="scenarios/camera_start.html">캡처 시작 (Camera::start)</a><a class="nav-sub" href="scenarios/queue_request.html">요청 제출 (Camera::queueRequest)</a><a class="nav-sub" href="scenarios/complete_request.html">요청 완료 통지 (PipelineHandler::completeRequest)</a></details><a href="camera-model.html">카메라와 요청 모델</a></nav><p class="sidebar-note">코드에서 구조를 추출하고<br>근거와 함께 검토합니다.</p></aside>
-<main id="main"><p class="breadcrumb">For Developers <span>/</span> 시스템 개요</p><h1>시스템 개요</h1><div class="page-state"><span class="review-state">사람 검토 전</span><span>인용 검사 통과 · <code>ok</code></span></div>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="문서 메뉴"><p class="nav-group">시작하기</p><a href="index.html">문서 안내</a><p class="nav-group">For Vendors</p><a href="pipeline-handler.html">Pipeline Handler</a><a href="ipa.html">IPA 관리와 구현 진입점</a><a href="ipu3-lsc.html">IPU3 LSC와 상태 연결</a><a href="ipu3-lsc-flow.html">IPU3 LSC의 설정과 프레임 처리</a><p class="nav-group">For Developers</p><a href="overview.html" aria-current="page">시스템 개요</a><a href="scenarios/index.html">핵심 시나리오</a><details class="nav-branch"><summary>하위 문서 5 편</summary><a class="nav-sub" href="scenarios/manager_start.html">카메라 탐색 (CameraManager::start)</a><a class="nav-sub" href="scenarios/configure.html">스트림 구성 (Camera::configure)</a><a class="nav-sub" href="scenarios/camera_start.html">캡처 시작 (Camera::start)</a><a class="nav-sub" href="scenarios/queue_request.html">요청 제출 (Camera::queueRequest)</a><a class="nav-sub" href="scenarios/complete_request.html">요청 완료 통지 (PipelineHandler::completeRequest)</a></details><a href="camera-model.html">카메라와 요청 모델</a></nav><p class="sidebar-note">코드에서 구조를 추출하고<br>근거와 함께 검토합니다.</p></aside>
+<main id="main"><p class="breadcrumb">For Developers <span>/</span> 시스템 개요</p><h1>시스템 개요</h1><div class="page-state"><span class="review-state">사람 검토 전</span><span>자동 검사 통과 · <code>ok</code></span><span class="generation-method">소스 발췌에 연결한 설계 설명</span></div>
 <details class="mobile-toc"><summary>이 페이지의 목차</summary><div class="toc">
 <ul>
-<li><a href="#구조-설명">구조 설명</a></li>
+<li><a href="#설계-항목과-근거">설계 항목과 근거</a></li>
+<li><a href="#컴포넌트별-책임">컴포넌트별 책임</a></li>
+<li><a href="#탐색과-파이프라인-선택">탐색과 파이프라인 선택</a></li>
+<li><a href="#캡처-세션의-상태와-자원">캡처 세션의 상태와 자원</a></li>
+<li><a href="#요청-제출과-완료">요청 제출과 완료</a></li>
+<li><a href="#스레드-경계와-확인-범위">스레드 경계와 확인 범위</a></li>
 <li><a href="#클래스-관계">클래스 관계</a></li>
 <li><a href="#패키지별-역할">패키지별 역할</a></li>
 <li><a href="#패키지-사이의-의존">패키지 사이의 의존</a></li>
 <li><a href="#코드를-처음-읽는-순서">코드를 처음 읽는 순서</a></li>
 </ul>
 </div>
-</details><article><p><strong>수정할 코드가 어느 패키지에 있는지 아래 표에서 먼저 찾으세요.</strong></p>
+</details><article><p><strong>카메라 탐색, 요청 생성과 완료의 책임을 구분한 뒤 수정할 패키지를 찾으세요.</strong></p>
 <div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
 <thead>
 <tr>
@@ -33,7 +38,7 @@
 <td><a href="#패키지-사이의-의존">패키지 사이의 의존</a></td>
 </tr>
 <tr>
-<td>요청이 처리되는 순서를 처음 봅니다.</td>
+<td>요청 코드를 읽을 시작점을 찾습니다.</td>
 <td><a href="#코드를-처음-읽는-순서">코드를 처음 읽는 순서</a></td>
 </tr>
 <tr>
@@ -42,12 +47,1039 @@
 </tr>
 </tbody>
 </table></div>
-<h2 id="구조-설명">구조 설명</h2>
-<p><code>include/libcamera</code>, <code>src/libcamera</code>, <code>src/apps/common</code> 등의 패키지에서 클래스를 정의하고, <code>include/libcamera/internal</code>과 <code>src/ipa/*</code> 패키지에서 구체적인 구현을 담당합니다. <code>libcamera::Camera</code>의 <code>create()</code> 정의를 먼저 확인합니다 <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L860"><code>src/libcamera/camera.cpp:860</code></a>. <code>libcamera::CameraManager</code>의 <code>start()</code> 호출은 <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera_manager.cpp#L338"><code>src/libcamera/camera_manager.cpp:338</code></a>에 있으며, 이는 카메라를 시작하기 전에 필요한 초기화를 수행합니다.</p>
-<p>각 패키지는 특정 역할을 담당하며, <code>include/libcamera/internal</code>은 120 개의 클래스로 가장 많은 구현을 포함하고 있습니다. <code>libcamera::IPAManager</code>의 <code>createIPA()</code>는 <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/include/libcamera/internal/ipa_manager.h#L36"><code>include/libcamera/internal/ipa_manager.h:36</code></a>에 정의되어 있으며, IPA 모듈을 생성하는 데 사용됩니다. <code>PipelineHandler</code>의 <code>acquireMediaDevice()</code>는 <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline_handler.cpp#L136"><code>src/libcamera/pipeline_handler.cpp:136</code></a>에서 매칭된 미디어 장치를 찾습니다.</p>
-<p>상속과 필드 참조 관계는 <code>include/libcamera/internal</code>이 <code>include/libcamera/base</code>를 13 번 상속하고 32 번 필드를 참조합니다. <code>src/ipa/rkisp1</code>은 <code>src/ipa/libipa</code>를 9 번 상속하고 19 번 필드를 참조하며, 하드웨어 설정을 관리합니다. <code>PipelineHandler</code>는 <code>Camera</code>와 <code>CameraManager</code>에 연관되어 있으며, 이 관계는 <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/include/libcamera/internal/pipeline_handler.h#L34"><code>include/libcamera/internal/pipeline_handler.h:34</code></a>에서 확인할 수 있습니다.</p>
-<p><code>Camera::queueRequest()</code> 시나리오의 호출 경로는 <code>Camera::createRequest()</code>를 거쳐 <code>PipelineHandler</code>로 이어집니다. <code>libcamera::Request</code>의 <code>addBuffer()</code>는 <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/request.cpp#L475"><code>src/libcamera/request.cpp:475</code></a>에서 프레임 버퍼를 추가하며, 이는 요청에 데이터를 포함시킵니다. <code>PipelineHandler</code>의 <code>configure()</code>는 <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/include/libcamera/internal/pipeline_handler.h#L51"><code>include/libcamera/internal/pipeline_handler.h:51</code></a>에서 카메라 설정을 적용합니다.</p>
-<p>스레드, 프로세스 경계, 콜백 순서, 설계 의도는 근거가 부족하여 명시하지 않습니다. 메서드 목록은 호출 순서나 내부 호출 관계의 근거가 아닙니다.</p>
+<h2 id="설계-항목과-근거">설계 항목과 근거</h2>
+<p>아래 항목은 소스에 연결된 설명의 작성 범위를 나타냅니다. 설명의 의미와 실제 실행에 대한 승인은 별도 검토가 필요합니다.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>설계 질문</th>
+<th>설명 위치</th>
+<th>확인 범위</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>카메라 탐색과 요청 생성은 누가 담당합니까?</td>
+<td><a href="#컴포넌트별-책임">컴포넌트별 책임</a></td>
+<td>코드 근거와 설명 연결</td>
+</tr>
+<tr>
+<td>여러 파이프라인 구현은 어떻게 선택됩니까?</td>
+<td><a href="#탐색과-파이프라인-선택">탐색과 파이프라인 선택</a></td>
+<td>코드 근거와 설명 연결</td>
+</tr>
+<tr>
+<td>캡처를 시작하고 끝내기 위한 API 계약은 무엇입니까?</td>
+<td><a href="#캡처-세션의-상태와-자원">캡처 세션의 상태와 자원</a></td>
+<td>코드 근거와 설명 연결</td>
+</tr>
+<tr>
+<td>요청의 입력과 완료 통지는 어떤 경계를 통과합니까?</td>
+<td><a href="#요청-제출과-완료">요청 제출과 완료</a></td>
+<td>코드 근거와 설명 연결</td>
+</tr>
+<tr>
+<td>코드에서 확인한 호출 경계와 실행 검증 범위는 무엇입니까?</td>
+<td><a href="#스레드-경계와-확인-범위">스레드 경계와 확인 범위</a></td>
+<td>코드 근거와 설명 연결 · 실행 확인 항목 별도</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="컴포넌트별-책임">컴포넌트별 책임</h2>
+<p><code>CameraManager</code>의 초기화는 <code>IPAManager</code>와 장치 열거기를 만들고 파이프라인 팩토리의 매칭을 시작합니다. <code>PipelineHandler::match()</code>는 필요한 미디어 장치를 확보하여 하나 이상의 <code>Camera</code>를 만들고 관리자에 등록하는 계약을 갖습니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera_manager.cpp#L94"><code>src/libcamera/camera_manager.cpp:94</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline_handler.cpp#L50"><code>src/libcamera/pipeline_handler.cpp:50</code></a></p>
+<p><code>Camera</code>는 단일 이미지 소스의 스트림 구성과 캡처를 제어하는 공개 객체입니다. 애플리케이션이 <code>Camera::createRequest()</code>를 호출하면 <code>Camera</code>가 <code>Request</code>를 생성하여 호출자에게 소유권을 넘기고, 파이프라인에는 <code>registerRequest()</code>로 등록합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L758"><code>src/libcamera/camera.cpp:758</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1243"><code>src/libcamera/camera.cpp:1243</code></a></p>
+<details class="note">
+<summary>소스 근거: camera</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L758"><code>src/libcamera/camera.cpp:758</code></a>에서 시작하는 발췌입니다. 종료 줄은 769이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>e77cee469b7c57430e4bd4b0f08493289c46b57549873521c476df388d591dc2</code></p>
+<div class="highlight"><pre><span></span><code>The Camera class models a camera capable of producing one or more image
+ * streams from a single image source. It provides the main interface to
+ * configuring and controlling the device, and capturing image streams. It is
+ * the central object exposed by libcamera.
+ *
+ * To support the central nature of Camera objects, libcamera manages the
+ * lifetime of camera instances with std::shared_ptr&lt;&gt;. Instances shall be
+ * created with the create() function which returns a shared pointer. The
+ * Camera constructors and destructor are private, to prevent instances from
+ * being constructed and destroyed manually.
+ *
+ * \section camera_operation
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: discovery</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera_manager.cpp#L94"><code>src/libcamera/camera_manager.cpp:94</code></a>에서 시작하는 발췌입니다. 종료 줄은 170이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>3e94e4e80c878774bd0a93076401d4ffb09e141dc8c87ae805eed5cc9349f938</code></p>
+<div class="highlight"><pre><span></span><code>int CameraManager::Private::init()
+{
+    CameraManager *const o = LIBCAMERA_O_PTR();
+    ipaManager_ = std::make_unique&lt;IPAManager&gt;(*o);
+
+    enumerator_ = DeviceEnumerator::create();
+    if (!enumerator_ || enumerator_-&gt;enumerate())
+        return -ENODEV;
+
+    createPipelineHandlers();
+    enumerator_-&gt;devicesAdded.connect(this, &amp;Private::createPipelineHandlers);
+
+    return 0;
+}
+
+void CameraManager::Private::createPipelineHandlers()
+{
+    /*
+     * \todo Try to read handlers and order from configuration
+     * file and only fallback on environment variable or all handlers, if
+     * there is no configuration file.
+     */
+    const auto pipesList =
+        configuration().listOption({ "pipelines_match_list" });
+    if (pipesList.has_value()) {
+        /*
+         * When a list of preferred pipelines is defined, iterate
+         * through the ordered list to match the enumerated devices.
+         */
+        for (const auto &amp;pipeName : pipesList.value()) {
+            const PipelineHandlerFactoryBase *factory;
+            factory = PipelineHandlerFactoryBase::getFactoryByName(pipeName);
+            if (!factory)
+                continue;
+
+            LOG(Camera, Debug)
+                &lt;&lt; "Found listed pipeline handler '"
+                &lt;&lt; pipeName &lt;&lt; "'";
+            pipelineFactoryMatch(factory);
+        }
+
+        return;
+    }
+
+    const std::vector&lt;PipelineHandlerFactoryBase *&gt; &amp;factories =
+        PipelineHandlerFactoryBase::factories();
+
+    /* Match all the registered pipeline handlers. */
+    for (const PipelineHandlerFactoryBase *factory : factories) {
+        LOG(Camera, Debug)
+            &lt;&lt; "Found registered pipeline handler '"
+            &lt;&lt; factory-&gt;name() &lt;&lt; "'";
+        /*
+         * Try each pipeline handler until it exhaust
+         * all pipelines it can provide.
+         */
+        pipelineFactoryMatch(factory);
+    }
+}
+
+void CameraManager::Private::pipelineFactoryMatch(const PipelineHandlerFactoryBase *factory)
+{
+    CameraManager *const o = LIBCAMERA_O_PTR();
+
+    /* Provide as many matching pipelines as possible. */
+    while (1) {
+        std::shared_ptr&lt;PipelineHandler&gt; pipe = factory-&gt;create(o);
+        if (!pipe-&gt;match(enumerator_.get()))
+            break;
+
+        LOG(Camera, Debug)
+            &lt;&lt; "Pipeline handler \"" &lt;&lt; factory-&gt;name()
+            &lt;&lt; "\" matched";
+    }
+}
+
+void CameraManager::Private::cleanup()
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: handler</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline_handler.cpp#L50"><code>src/libcamera/pipeline_handler.cpp:50</code></a>에서 시작하는 발췌입니다. 종료 줄은 119이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>e05278df0a06cb963fe79f772e62d4560b62df15c1411a6b49e32f7ca84d9e74</code></p>
+<div class="highlight"><pre><span></span><code>\class PipelineHandler
+ * \brief Create and manage cameras based on a set of media devices
+ *
+ * The PipelineHandler matches the media devices provided by a DeviceEnumerator
+ * with the pipelines it supports and creates corresponding Camera devices.
+ *
+ * Pipeline handler instances are reference-counted through std::shared_ptr&lt;&gt;.
+ * They implement std::enable_shared_from_this&lt;&gt; in order to create new
+ * std::shared_ptr&lt;&gt; in code paths originating from member functions of the
+ * PipelineHandler class where only the 'this' pointer is available.
+ */
+
+/**
+ * \brief Construct a PipelineHandler instance
+ * \param[in] manager The camera manager
+ * \param[in] maxQueuedRequestsDevice The maximum number of requests queued to
+ * the device
+ *
+ * In order to honour the std::enable_shared_from_this&lt;&gt; contract,
+ * PipelineHandler instances shall never be constructed manually, but always
+ * through the PipelineHandlerFactoryBase::create() function.
+ */
+PipelineHandler::PipelineHandler(CameraManager *manager,
+                 unsigned int maxQueuedRequestsDevice)
+    : manager_(manager), maxQueuedRequestsDevice_(maxQueuedRequestsDevice),
+      useCount_(0)
+{
+}
+
+PipelineHandler::~PipelineHandler()
+{
+    for (std::shared_ptr&lt;MediaDevice&gt; &amp;media : mediaDevices_)
+        media-&gt;release();
+}
+
+/**
+ * \fn PipelineHandler::match(DeviceEnumerator *enumerator)
+ * \brief Match media devices and create camera instances
+ * \param[in] enumerator The enumerator providing all media devices found in the
+ * system
+ *
+ * This function is the main entry point of the pipeline handler. It is called
+ * by the camera manager with the \a enumerator passed as an argument. It shall
+ * acquire from the \a enumerator all the media devices it needs for a single
+ * pipeline, create one or multiple Camera instances and register them with the
+ * camera manager.
+ *
+ * If all media devices needed by the pipeline handler are found, they must all
+ * be acquired by a call to MediaDevice::acquire(). This function shall then
+ * create the corresponding Camera instances, store them internally, and return
+ * true. Otherwise it shall not acquire any media device (or shall release all
+ * the media devices is has acquired by calling MediaDevice::release()) and
+ * return false.
+ *
+ * If multiple instances of a pipeline are available in the system, the
+ * PipelineHandler class will be instantiated once per instance, and its match()
+ * function called for every instance. Each call shall acquire media devices for
+ * one pipeline instance, until all compatible media devices are exhausted.
+ *
+ * If this function returns true, a new instance of the pipeline handler will
+ * be created and its match() function called.
+ *
+ * \context This function is called from the CameraManager thread.
+ *
+ * \return true if media devices have been acquired and camera instances
+ * created, or false otherwise
+ */
+
+/**
+ * \brief Search and acquire a MediaDevice
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: create</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1243"><code>src/libcamera/camera.cpp:1243</code></a>에서 시작하는 발췌입니다. 종료 줄은 1281이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>67f9f4155bfff91e13d4c04e35fb427f6f76615a4c9d2ce06b4fc6ad5ac33108</code></p>
+<div class="highlight"><pre><span></span><code>\brief Create a request object for the camera
+ * \param[in] cookie Opaque cookie for application use
+ *
+ * This function creates an empty request for the application to fill with
+ * buffers and parameters, and queue for capture.
+ *
+ * The \a cookie is stored in the request and is accessible through the
+ * Request::cookie() function at any time. It is typically used by applications
+ * to map the request to an external resource in the request completion
+ * handler, and is completely opaque to libcamera.
+ *
+ * The ownership of the returned request is passed to the caller, which is
+ * responsible for deleting it. The request may be deleted in the completion
+ * handler, or reused after resetting its state with Request::reuse().
+ *
+ * \context This function is \threadsafe. It may only be called when the camera
+ * is in the Configured or Running state as defined in \ref camera_operation.
+ *
+ * \return A pointer to the newly created request, or nullptr on error
+ */
+std::unique_ptr&lt;Request&gt; Camera::createRequest(uint64_t cookie)
+{
+    Private *const d = _d();
+
+    int ret = d-&gt;isAccessAllowed(Private::CameraConfigured,
+                     Private::CameraRunning);
+    if (ret &lt; 0)
+        return nullptr;
+
+    std::unique_ptr&lt;Request&gt; request = std::make_unique&lt;Request&gt;(this, cookie);
+
+    /* Associate the request with the pipeline handler. */
+    d-&gt;pipe_-&gt;registerRequest(request.get());
+
+    return request;
+}
+
+/**
+ * \brief Patch a control list
+</code></pre></div>
+</details>
+<h2 id="탐색과-파이프라인-선택">탐색과 파이프라인 선택</h2>
+<p>장치 열거기 생성 또는 열거가 실패하면 초기화는 <code>-ENODEV</code>를 반환합니다. 성공하면 설정의 <code>pipelines_match_list</code>가 있을 때 지정된 팩토리를 그 순서대로 시도하고, 없으면 등록된 팩토리를 순회합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera_manager.cpp#L94"><code>src/libcamera/camera_manager.cpp:94</code></a></p>
+<p>각 팩토리는 핸들러 인스턴스를 만들고 <code>match()</code>가 실패할 때까지 반복합니다. 성공한 인스턴스는 한 파이프라인에 필요한 장치를 확보합니다. 등록된 IPU3·RKISP1·UVC 구현이 하나의 캡처 요청에서 차례로 실행된다는 뜻은 아닙니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera_manager.cpp#L94"><code>src/libcamera/camera_manager.cpp:94</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline_handler.cpp#L50"><code>src/libcamera/pipeline_handler.cpp:50</code></a></p>
+<details class="note">
+<summary>소스 근거: discovery</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera_manager.cpp#L94"><code>src/libcamera/camera_manager.cpp:94</code></a>에서 시작하는 발췌입니다. 종료 줄은 170이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>3e94e4e80c878774bd0a93076401d4ffb09e141dc8c87ae805eed5cc9349f938</code></p>
+<div class="highlight"><pre><span></span><code>int CameraManager::Private::init()
+{
+    CameraManager *const o = LIBCAMERA_O_PTR();
+    ipaManager_ = std::make_unique&lt;IPAManager&gt;(*o);
+
+    enumerator_ = DeviceEnumerator::create();
+    if (!enumerator_ || enumerator_-&gt;enumerate())
+        return -ENODEV;
+
+    createPipelineHandlers();
+    enumerator_-&gt;devicesAdded.connect(this, &amp;Private::createPipelineHandlers);
+
+    return 0;
+}
+
+void CameraManager::Private::createPipelineHandlers()
+{
+    /*
+     * \todo Try to read handlers and order from configuration
+     * file and only fallback on environment variable or all handlers, if
+     * there is no configuration file.
+     */
+    const auto pipesList =
+        configuration().listOption({ "pipelines_match_list" });
+    if (pipesList.has_value()) {
+        /*
+         * When a list of preferred pipelines is defined, iterate
+         * through the ordered list to match the enumerated devices.
+         */
+        for (const auto &amp;pipeName : pipesList.value()) {
+            const PipelineHandlerFactoryBase *factory;
+            factory = PipelineHandlerFactoryBase::getFactoryByName(pipeName);
+            if (!factory)
+                continue;
+
+            LOG(Camera, Debug)
+                &lt;&lt; "Found listed pipeline handler '"
+                &lt;&lt; pipeName &lt;&lt; "'";
+            pipelineFactoryMatch(factory);
+        }
+
+        return;
+    }
+
+    const std::vector&lt;PipelineHandlerFactoryBase *&gt; &amp;factories =
+        PipelineHandlerFactoryBase::factories();
+
+    /* Match all the registered pipeline handlers. */
+    for (const PipelineHandlerFactoryBase *factory : factories) {
+        LOG(Camera, Debug)
+            &lt;&lt; "Found registered pipeline handler '"
+            &lt;&lt; factory-&gt;name() &lt;&lt; "'";
+        /*
+         * Try each pipeline handler until it exhaust
+         * all pipelines it can provide.
+         */
+        pipelineFactoryMatch(factory);
+    }
+}
+
+void CameraManager::Private::pipelineFactoryMatch(const PipelineHandlerFactoryBase *factory)
+{
+    CameraManager *const o = LIBCAMERA_O_PTR();
+
+    /* Provide as many matching pipelines as possible. */
+    while (1) {
+        std::shared_ptr&lt;PipelineHandler&gt; pipe = factory-&gt;create(o);
+        if (!pipe-&gt;match(enumerator_.get()))
+            break;
+
+        LOG(Camera, Debug)
+            &lt;&lt; "Pipeline handler \"" &lt;&lt; factory-&gt;name()
+            &lt;&lt; "\" matched";
+    }
+}
+
+void CameraManager::Private::cleanup()
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: handler</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline_handler.cpp#L50"><code>src/libcamera/pipeline_handler.cpp:50</code></a>에서 시작하는 발췌입니다. 종료 줄은 119이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>e05278df0a06cb963fe79f772e62d4560b62df15c1411a6b49e32f7ca84d9e74</code></p>
+<div class="highlight"><pre><span></span><code>\class PipelineHandler
+ * \brief Create and manage cameras based on a set of media devices
+ *
+ * The PipelineHandler matches the media devices provided by a DeviceEnumerator
+ * with the pipelines it supports and creates corresponding Camera devices.
+ *
+ * Pipeline handler instances are reference-counted through std::shared_ptr&lt;&gt;.
+ * They implement std::enable_shared_from_this&lt;&gt; in order to create new
+ * std::shared_ptr&lt;&gt; in code paths originating from member functions of the
+ * PipelineHandler class where only the 'this' pointer is available.
+ */
+
+/**
+ * \brief Construct a PipelineHandler instance
+ * \param[in] manager The camera manager
+ * \param[in] maxQueuedRequestsDevice The maximum number of requests queued to
+ * the device
+ *
+ * In order to honour the std::enable_shared_from_this&lt;&gt; contract,
+ * PipelineHandler instances shall never be constructed manually, but always
+ * through the PipelineHandlerFactoryBase::create() function.
+ */
+PipelineHandler::PipelineHandler(CameraManager *manager,
+                 unsigned int maxQueuedRequestsDevice)
+    : manager_(manager), maxQueuedRequestsDevice_(maxQueuedRequestsDevice),
+      useCount_(0)
+{
+}
+
+PipelineHandler::~PipelineHandler()
+{
+    for (std::shared_ptr&lt;MediaDevice&gt; &amp;media : mediaDevices_)
+        media-&gt;release();
+}
+
+/**
+ * \fn PipelineHandler::match(DeviceEnumerator *enumerator)
+ * \brief Match media devices and create camera instances
+ * \param[in] enumerator The enumerator providing all media devices found in the
+ * system
+ *
+ * This function is the main entry point of the pipeline handler. It is called
+ * by the camera manager with the \a enumerator passed as an argument. It shall
+ * acquire from the \a enumerator all the media devices it needs for a single
+ * pipeline, create one or multiple Camera instances and register them with the
+ * camera manager.
+ *
+ * If all media devices needed by the pipeline handler are found, they must all
+ * be acquired by a call to MediaDevice::acquire(). This function shall then
+ * create the corresponding Camera instances, store them internally, and return
+ * true. Otherwise it shall not acquire any media device (or shall release all
+ * the media devices is has acquired by calling MediaDevice::release()) and
+ * return false.
+ *
+ * If multiple instances of a pipeline are available in the system, the
+ * PipelineHandler class will be instantiated once per instance, and its match()
+ * function called for every instance. Each call shall acquire media devices for
+ * one pipeline instance, until all compatible media devices are exhausted.
+ *
+ * If this function returns true, a new instance of the pipeline handler will
+ * be created and its match() function called.
+ *
+ * \context This function is called from the CameraManager thread.
+ *
+ * \return true if media devices have been acquired and camera instances
+ * created, or false otherwise
+ */
+
+/**
+ * \brief Search and acquire a MediaDevice
+</code></pre></div>
+</details>
+<h2 id="캡처-세션의-상태와-자원">캡처 세션의 상태와 자원</h2>
+<p>애플리케이션은 카메라를 <code>acquire()</code>하고 <code>configure()</code>한 뒤 <code>start()</code>하여 요청을 제출합니다. <code>stop()</code>은 Running에서 Stopping을 거쳐 Configured로 돌아가는 경로이며, 사용을 마치면 <code>release()</code>합니다. 해제 전에는 재구성과 반복 시작·정지가 가능합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L769"><code>src/libcamera/camera.cpp:769</code></a></p>
+<p><code>createRequest()</code>는 Configured 또는 Running에서 허용됩니다. 반환된 요청은 호출자가 소유하며 완료 처리에서 삭제하거나 <code>Request::reuse()</code>로 초기화하여 다시 사용할 수 있습니다. 상태를 바꾸는 함수 사이의 동기화는 호출자가 담당합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1243"><code>src/libcamera/camera.cpp:1243</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L769"><code>src/libcamera/camera.cpp:769</code></a></p>
+<details class="note">
+<summary>소스 근거: state</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L769"><code>src/libcamera/camera.cpp:769</code></a>에서 시작하는 발췌입니다. 종료 줄은 814이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>e85796df194551ecbd587ba1a7bb356a1409fa1d606762865e7eb989c92d2f72</code></p>
+<div class="highlight"><pre><span></span><code>\section camera_operation Operating the Camera
+ *
+ * An application needs to perform a sequence of operations on a camera before
+ * it is ready to process requests. The camera needs to be acquired and
+ * configured to prepare the camera for capture. Once started the camera can
+ * process requests until it is stopped. When an application is done with a
+ * camera, the camera needs to be released.
+ *
+ * An application may start and stop a camera multiple times as long as it is
+ * not released. The camera may also be reconfigured.
+ *
+ * Functions that affect the camera state as defined below are generally not
+ * synchronized with each other by the Camera class. The caller is responsible
+ * for ensuring their synchronization if necessary.
+ *
+ * \subsection Camera States
+ *
+ * To help manage the sequence of operations needed to control the camera a set
+ * of states are defined. Each state describes which operations may be performed
+ * on the camera. Performing an operation not allowed in the camera state
+ * results in undefined behaviour. Operations not listed at all in the state
+ * diagram are allowed in all states.
+ *
+ * \dot
+ * digraph camera_state_machine {
+ *   node [shape = doublecircle ]; Available;
+ *   node [shape = circle ]; Acquired;
+ *   node [shape = circle ]; Configured;
+ *   node [shape = circle ]; Stopping;
+ *   node [shape = circle ]; Running;
+ *
+ *   Available -&gt; Available [label = "release()"];
+ *   Available -&gt; Acquired [label = "acquire()"];
+ *
+ *   Acquired -&gt; Available [label = "release()"];
+ *   Acquired -&gt; Configured [label = "configure()"];
+ *
+ *   Configured -&gt; Available [label = "release()"];
+ *   Configured -&gt; Configured [label = "configure(), createRequest()"];
+ *   Configured -&gt; Running [label = "start()"];
+ *
+ *   Running -&gt; Stopping [label = "stop()"];
+ *   Stopping -&gt; Configured;
+ *   Running -&gt; Running [label = "createRequest(), queueRequest()"];
+ * }
+ * \enddot
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: create</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1243"><code>src/libcamera/camera.cpp:1243</code></a>에서 시작하는 발췌입니다. 종료 줄은 1281이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>67f9f4155bfff91e13d4c04e35fb427f6f76615a4c9d2ce06b4fc6ad5ac33108</code></p>
+<div class="highlight"><pre><span></span><code>\brief Create a request object for the camera
+ * \param[in] cookie Opaque cookie for application use
+ *
+ * This function creates an empty request for the application to fill with
+ * buffers and parameters, and queue for capture.
+ *
+ * The \a cookie is stored in the request and is accessible through the
+ * Request::cookie() function at any time. It is typically used by applications
+ * to map the request to an external resource in the request completion
+ * handler, and is completely opaque to libcamera.
+ *
+ * The ownership of the returned request is passed to the caller, which is
+ * responsible for deleting it. The request may be deleted in the completion
+ * handler, or reused after resetting its state with Request::reuse().
+ *
+ * \context This function is \threadsafe. It may only be called when the camera
+ * is in the Configured or Running state as defined in \ref camera_operation.
+ *
+ * \return A pointer to the newly created request, or nullptr on error
+ */
+std::unique_ptr&lt;Request&gt; Camera::createRequest(uint64_t cookie)
+{
+    Private *const d = _d();
+
+    int ret = d-&gt;isAccessAllowed(Private::CameraConfigured,
+                     Private::CameraRunning);
+    if (ret &lt; 0)
+        return nullptr;
+
+    std::unique_ptr&lt;Request&gt; request = std::make_unique&lt;Request&gt;(this, cookie);
+
+    /* Associate the request with the pipeline handler. */
+    d-&gt;pipe_-&gt;registerRequest(request.get());
+
+    return request;
+}
+
+/**
+ * \brief Patch a control list
+</code></pre></div>
+</details>
+<h2 id="요청-제출과-완료">요청 제출과 완료</h2>
+<p>애플리케이션은 요청에 버퍼와 컨트롤을 넣습니다. <code>Camera::queueRequest()</code>는 Running 상태, 요청이 속한 카메라, 요청 상태, 컨트롤 목록과 활성 스트림을 확인하고 빈 버퍼 요청을 거절합니다. 검사를 통과하면 <code>ConnectionTypeQueued</code>로 파이프라인에 전달하며, 반환값 0은 캡처 완료를 뜻하지 않습니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1308"><code>src/libcamera/camera.cpp:1308</code></a></p>
+<p>공통 파이프라인은 요청을 대기 큐에 넣어 준비한 후 장치 큐에 전달합니다. <code>completeBuffer()</code>는 버퍼 완료를 알리고, 요청 완료는 별도의 <code>completeRequest()</code>가 처리합니다. 완료된 요청은 제출 순서대로 <code>Camera::requestComplete()</code>에 전달됩니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline_handler.cpp#L428"><code>src/libcamera/pipeline_handler.cpp:428</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline_handler.cpp#L547"><code>src/libcamera/pipeline_handler.cpp:547</code></a></p>
+<details class="note">
+<summary>소스 근거: queue</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1308"><code>src/libcamera/camera.cpp:1308</code></a>에서 시작하는 발췌입니다. 종료 줄은 1383이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>96db61baeb32065c966b20942f97518ddbd3a43b36b64e8083eb29a90ecb7f4b</code></p>
+<div class="highlight"><pre><span></span><code>\brief Queue a request to the camera
+ * \param[in] request The request to queue to the camera
+ *
+ * This function queues a \a request to the camera for capture.
+ *
+ * After allocating the request with createRequest(), the application shall
+ * fill it with at least one capture buffer before queuing it. Requests that
+ * contain no buffers are invalid and are rejected without being queued.
+ *
+ * Once the request has been queued, the camera will notify its completion
+ * through the \ref requestCompleted signal.
+ *
+ * \context This function is \threadsafe. It may only be called when the camera
+ * is in the Running state as defined in \ref camera_operation.
+ *
+ * \return 0 on success or a negative error code otherwise
+ * \retval -ENODEV The camera has been disconnected from the system
+ * \retval -EACCES The camera is not running so requests can't be queued
+ * \retval -EXDEV The request does not belong to this camera
+ * \retval -EINVAL The request is invalid
+ * \retval -ENOMEM No buffer memory was available to handle the request
+ */
+int Camera::queueRequest(Request *request)
+{
+    Private *const d = _d();
+
+    int ret = d-&gt;isAccessAllowed(Private::CameraRunning);
+    if (ret &lt; 0)
+        return ret;
+
+    /* Requests can only be queued to the camera that created them. */
+    if (request-&gt;_d()-&gt;camera() != this) {
+        LOG(Camera, Error) &lt;&lt; "Request was not created by this camera";
+        return -EXDEV;
+    }
+
+    if (request-&gt;status() != Request::RequestPending) {
+        LOG(Camera, Error) &lt;&lt; request-&gt;toString() &lt;&lt; " is not valid";
+        return -EINVAL;
+    }
+
+    /* Make sure the Request has a valid control list. */
+    if (request-&gt;controls().infoMap() != &amp;controls()) {
+        LOG(Camera, Error) &lt;&lt; "Overwriting Request::controls() is not allowed";
+        return -EINVAL;
+    }
+
+    /*
+     * The camera state may change until the end of the function. No locking
+     * is however needed as PipelineHandler::queueRequest() will handle
+     * this.
+     */
+
+    if (request-&gt;buffers().empty()) {
+        LOG(Camera, Error) &lt;&lt; "Request contains no buffers";
+        return -EINVAL;
+    }
+
+    for (const auto &amp;[stream, buffer] : request-&gt;buffers()) {
+        if (d-&gt;activeStreams_.find(stream) == d-&gt;activeStreams_.end()) {
+            LOG(Camera, Error) &lt;&lt; "Invalid request";
+            return -EINVAL;
+        }
+    }
+
+    /* Pre-process AeEnable. */
+    patchControlList(request-&gt;controls());
+
+    d-&gt;pipe_-&gt;invokeMethod(&amp;PipelineHandler::queueRequest,
+                   ConnectionTypeQueued, request);
+
+    return 0;
+}
+
+/**
+ * \brief Start capture from camera
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: pipeline-queue</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline_handler.cpp#L428"><code>src/libcamera/pipeline_handler.cpp:428</code></a>에서 시작하는 발췌입니다. 종료 줄은 547이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>5a7a3397a6034a73fe348ae44eb1e2568d2823e95542fe43386e16359d627180</code></p>
+<div class="highlight"><pre><span></span><code>\fn PipelineHandler::registerRequest()
+ * \brief Register a request for use by the pipeline handler
+ * \param[in] request The request to register
+ *
+ * This function is called when the request is created, and allows the pipeline
+ * handler to perform any one-time initialization it requries for the request.
+ */
+void PipelineHandler::registerRequest(Request *request)
+{
+    /*
+     * Connect the request prepared signal to notify the pipeline handler
+     * when a request is ready to be processed.
+     */
+    request-&gt;_d()-&gt;prepared.connect(this, [this, request]() {
+        doQueueRequests(request-&gt;_d()-&gt;camera());
+    });
+}
+
+/**
+ * \fn PipelineHandler::queueRequest()
+ * \brief Queue a request
+ * \param[in] request The request to queue
+ *
+ * This function queues a capture request to the pipeline handler for
+ * processing. The request is first added to the internal list of waiting
+ * requests which have to be prepared to make sure they are ready for being
+ * queued to the pipeline handler.
+ *
+ * The queue of waiting requests is iterated and up to \a
+ * maxQueuedRequestsDevice_ prepared requests are passed to the pipeline handler
+ * in the same order they have been queued by calling this function.
+ *
+ * If a Request fails during the preparation phase or if the pipeline handler
+ * fails in queuing the request to the hardware the request is cancelled.
+ *
+ * Keeping track of queued requests ensures automatic completion of all requests
+ * when the pipeline handler is stopped with stop(). Request completion shall be
+ * signalled by the pipeline handler using the completeRequest() function.
+ *
+ * \context This function is called from the CameraManager thread.
+ */
+void PipelineHandler::queueRequest(Request *request)
+{
+    LIBCAMERA_TRACEPOINT(request_queue, request);
+
+    Camera *camera = request-&gt;_d()-&gt;camera();
+    Camera::Private *data = camera-&gt;_d();
+    data-&gt;waitingRequests_.push(request);
+
+    request-&gt;_d()-&gt;prepare(300ms);
+}
+
+/**
+ * \brief Queue one requests to the device
+ */
+void PipelineHandler::doQueueRequest(Request *request)
+{
+    LIBCAMERA_TRACEPOINT(request_device_queue, request);
+
+    Camera *camera = request-&gt;_d()-&gt;camera();
+    Camera::Private *data = camera-&gt;_d();
+    data-&gt;queuedRequests_.push_back(request);
+
+    request-&gt;_d()-&gt;sequence_ = data-&gt;requestSequence_++;
+
+    if (request-&gt;_d()-&gt;cancelled_) {
+        completeRequest(request);
+        return;
+    }
+
+    int ret = queueRequestDevice(camera, request);
+    if (ret)
+        cancelRequest(request);
+}
+
+/**
+ * \brief Queue prepared requests to the device
+ *
+ * Iterate the list of waiting requests and queue them to the device one
+ * by one if they have been prepared.
+ */
+void PipelineHandler::doQueueRequests(Camera *camera)
+{
+    Camera::Private *data = camera-&gt;_d();
+    while (!data-&gt;waitingRequests_.empty()) {
+        if (data-&gt;queuedRequests_.size() == maxQueuedRequestsDevice_)
+            break;
+
+        Request *request = data-&gt;waitingRequests_.front();
+        if (!request-&gt;_d()-&gt;prepared_)
+            break;
+
+        /*
+         * Pop the request first, in case doQueueRequests() is called
+         * recursively from within doQueueRequest()
+         */
+        data-&gt;waitingRequests_.pop();
+        doQueueRequest(request);
+    }
+}
+
+/**
+ * \fn PipelineHandler::queueRequestDevice()
+ * \brief Queue a request to the device
+ * \param[in] camera The camera to queue the request to
+ * \param[in] request The request to queue
+ *
+ * This function queues a capture request to the device for processing. The
+ * request contains a set of buffers associated with streams and a set of
+ * parameters. The pipeline handler shall program the device to ensure that the
+ * parameters will be applied to the frames captured in the buffers provided in
+ * the request.
+ *
+ * \context This function is called from the CameraManager thread.
+ *
+ * \return 0 on success or a negative error code otherwise
+ */
+
+/**
+ * \brief Complete a buffer for a request
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: completion</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline_handler.cpp#L547"><code>src/libcamera/pipeline_handler.cpp:547</code></a>에서 시작하는 발췌입니다. 종료 줄은 620이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>514288cc958de9ff5fd19d46393cec3bb3088f4f08486528d4559071138638c9</code></p>
+<div class="highlight"><pre><span></span><code>\brief Complete a buffer for a request
+ * \param[in] request The request the buffer belongs to
+ * \param[in] buffer The buffer that has completed
+ *
+ * This function shall be called by pipeline handlers to signal completion of
+ * the \a buffer part of the \a request. It notifies applications of buffer
+ * completion and updates the request's internal buffer tracking. The request
+ * is not completed automatically when the last buffer completes to give
+ * pipeline handlers a chance to perform any operation that may still be
+ * needed. They shall complete requests explicitly with completeRequest().
+ *
+ * \context This function shall be called from the CameraManager thread.
+ *
+ * \return True if all buffers contained in the request have completed, false
+ * otherwise
+ */
+bool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)
+{
+    Camera *camera = request-&gt;_d()-&gt;camera();
+    camera-&gt;bufferCompleted.emit(request, buffer);
+    return request-&gt;_d()-&gt;completeBuffer(buffer);
+}
+
+/**
+ * \brief Signal request completion
+ * \param[in] request The request that has completed
+ *
+ * The pipeline handler shall call this function to notify the \a camera that
+ * the request has completed. The request is no longer managed by the pipeline
+ * handler and shall not be accessed once this function returns.
+ *
+ * This function ensures that requests will be returned to the application in
+ * submission order, the pipeline handler may call it on any complete request
+ * without any ordering constraint.
+ *
+ * \context This function shall be called from the CameraManager thread.
+ */
+void PipelineHandler::completeRequest(Request *request)
+{
+    Camera *camera = request-&gt;_d()-&gt;camera();
+
+    request-&gt;_d()-&gt;complete();
+
+    Camera::Private *data = camera-&gt;_d();
+
+    while (!data-&gt;queuedRequests_.empty()) {
+        Request *req = data-&gt;queuedRequests_.front();
+        if (req-&gt;status() == Request::RequestPending)
+            break;
+
+        ASSERT(!req-&gt;hasPendingBuffers());
+        data-&gt;queuedRequests_.pop_front();
+        camera-&gt;requestComplete(req);
+    }
+
+    /* Allow any waiting requests to be queued to the pipeline. */
+    doQueueRequests(camera);
+}
+
+/**
+ * \brief Cancel request and signal its completion
+ * \param[in] request The request to cancel
+ *
+ * This function cancels and completes the request. The same rules as for
+ * completeRequest() apply.
+ */
+void PipelineHandler::cancelRequest(Request *request)
+{
+    request-&gt;_d()-&gt;cancel();
+    completeRequest(request);
+}
+
+/**
+ * \brief Retrieve the absolute path to a platform configuration file
+</code></pre></div>
+</details>
+<h2 id="스레드-경계와-확인-범위">스레드 경계와 확인 범위</h2>
+<p><code>Camera::queueRequest()</code>는 API 계약상 threadsafe이며 파이프라인 호출을 큐에 예약합니다. <code>PipelineHandler::completeRequest()</code>의 호출 문맥은 CameraManager 스레드로 명시되어 있습니다. 이 계약을 애플리케이션의 모든 콜백에 동일하게 적용해서는 안 됩니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1308"><code>src/libcamera/camera.cpp:1308</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline_handler.cpp#L547"><code>src/libcamera/pipeline_handler.cpp:547</code></a></p>
+<p>실행 확인 항목: 실제 신호 수신자의 연결 방식, 재진입, 센서별 지연과 하드웨어 오류 복구는 이 정적 문서로 검증되지 않습니다. 실행 구성과 수신자 코드를 확인하고 기기에서 관찰해야 합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1308"><code>src/libcamera/camera.cpp:1308</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline_handler.cpp#L547"><code>src/libcamera/pipeline_handler.cpp:547</code></a></p>
+<details class="note">
+<summary>소스 근거: queue</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1308"><code>src/libcamera/camera.cpp:1308</code></a>에서 시작하는 발췌입니다. 종료 줄은 1383이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>96db61baeb32065c966b20942f97518ddbd3a43b36b64e8083eb29a90ecb7f4b</code></p>
+<div class="highlight"><pre><span></span><code>\brief Queue a request to the camera
+ * \param[in] request The request to queue to the camera
+ *
+ * This function queues a \a request to the camera for capture.
+ *
+ * After allocating the request with createRequest(), the application shall
+ * fill it with at least one capture buffer before queuing it. Requests that
+ * contain no buffers are invalid and are rejected without being queued.
+ *
+ * Once the request has been queued, the camera will notify its completion
+ * through the \ref requestCompleted signal.
+ *
+ * \context This function is \threadsafe. It may only be called when the camera
+ * is in the Running state as defined in \ref camera_operation.
+ *
+ * \return 0 on success or a negative error code otherwise
+ * \retval -ENODEV The camera has been disconnected from the system
+ * \retval -EACCES The camera is not running so requests can't be queued
+ * \retval -EXDEV The request does not belong to this camera
+ * \retval -EINVAL The request is invalid
+ * \retval -ENOMEM No buffer memory was available to handle the request
+ */
+int Camera::queueRequest(Request *request)
+{
+    Private *const d = _d();
+
+    int ret = d-&gt;isAccessAllowed(Private::CameraRunning);
+    if (ret &lt; 0)
+        return ret;
+
+    /* Requests can only be queued to the camera that created them. */
+    if (request-&gt;_d()-&gt;camera() != this) {
+        LOG(Camera, Error) &lt;&lt; "Request was not created by this camera";
+        return -EXDEV;
+    }
+
+    if (request-&gt;status() != Request::RequestPending) {
+        LOG(Camera, Error) &lt;&lt; request-&gt;toString() &lt;&lt; " is not valid";
+        return -EINVAL;
+    }
+
+    /* Make sure the Request has a valid control list. */
+    if (request-&gt;controls().infoMap() != &amp;controls()) {
+        LOG(Camera, Error) &lt;&lt; "Overwriting Request::controls() is not allowed";
+        return -EINVAL;
+    }
+
+    /*
+     * The camera state may change until the end of the function. No locking
+     * is however needed as PipelineHandler::queueRequest() will handle
+     * this.
+     */
+
+    if (request-&gt;buffers().empty()) {
+        LOG(Camera, Error) &lt;&lt; "Request contains no buffers";
+        return -EINVAL;
+    }
+
+    for (const auto &amp;[stream, buffer] : request-&gt;buffers()) {
+        if (d-&gt;activeStreams_.find(stream) == d-&gt;activeStreams_.end()) {
+            LOG(Camera, Error) &lt;&lt; "Invalid request";
+            return -EINVAL;
+        }
+    }
+
+    /* Pre-process AeEnable. */
+    patchControlList(request-&gt;controls());
+
+    d-&gt;pipe_-&gt;invokeMethod(&amp;PipelineHandler::queueRequest,
+                   ConnectionTypeQueued, request);
+
+    return 0;
+}
+
+/**
+ * \brief Start capture from camera
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: completion</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline_handler.cpp#L547"><code>src/libcamera/pipeline_handler.cpp:547</code></a>에서 시작하는 발췌입니다. 종료 줄은 620이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>514288cc958de9ff5fd19d46393cec3bb3088f4f08486528d4559071138638c9</code></p>
+<div class="highlight"><pre><span></span><code>\brief Complete a buffer for a request
+ * \param[in] request The request the buffer belongs to
+ * \param[in] buffer The buffer that has completed
+ *
+ * This function shall be called by pipeline handlers to signal completion of
+ * the \a buffer part of the \a request. It notifies applications of buffer
+ * completion and updates the request's internal buffer tracking. The request
+ * is not completed automatically when the last buffer completes to give
+ * pipeline handlers a chance to perform any operation that may still be
+ * needed. They shall complete requests explicitly with completeRequest().
+ *
+ * \context This function shall be called from the CameraManager thread.
+ *
+ * \return True if all buffers contained in the request have completed, false
+ * otherwise
+ */
+bool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)
+{
+    Camera *camera = request-&gt;_d()-&gt;camera();
+    camera-&gt;bufferCompleted.emit(request, buffer);
+    return request-&gt;_d()-&gt;completeBuffer(buffer);
+}
+
+/**
+ * \brief Signal request completion
+ * \param[in] request The request that has completed
+ *
+ * The pipeline handler shall call this function to notify the \a camera that
+ * the request has completed. The request is no longer managed by the pipeline
+ * handler and shall not be accessed once this function returns.
+ *
+ * This function ensures that requests will be returned to the application in
+ * submission order, the pipeline handler may call it on any complete request
+ * without any ordering constraint.
+ *
+ * \context This function shall be called from the CameraManager thread.
+ */
+void PipelineHandler::completeRequest(Request *request)
+{
+    Camera *camera = request-&gt;_d()-&gt;camera();
+
+    request-&gt;_d()-&gt;complete();
+
+    Camera::Private *data = camera-&gt;_d();
+
+    while (!data-&gt;queuedRequests_.empty()) {
+        Request *req = data-&gt;queuedRequests_.front();
+        if (req-&gt;status() == Request::RequestPending)
+            break;
+
+        ASSERT(!req-&gt;hasPendingBuffers());
+        data-&gt;queuedRequests_.pop_front();
+        camera-&gt;requestComplete(req);
+    }
+
+    /* Allow any waiting requests to be queued to the pipeline. */
+    doQueueRequests(camera);
+}
+
+/**
+ * \brief Cancel request and signal its completion
+ * \param[in] request The request to cancel
+ *
+ * This function cancels and completes the request. The same rules as for
+ * completeRequest() apply.
+ */
+void PipelineHandler::cancelRequest(Request *request)
+{
+    request-&gt;_d()-&gt;cancel();
+    completeRequest(request);
+}
+
+/**
+ * \brief Retrieve the absolute path to a platform configuration file
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: state</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L769"><code>src/libcamera/camera.cpp:769</code></a>에서 시작하는 발췌입니다. 종료 줄은 814이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>e85796df194551ecbd587ba1a7bb356a1409fa1d606762865e7eb989c92d2f72</code></p>
+<div class="highlight"><pre><span></span><code>\section camera_operation Operating the Camera
+ *
+ * An application needs to perform a sequence of operations on a camera before
+ * it is ready to process requests. The camera needs to be acquired and
+ * configured to prepare the camera for capture. Once started the camera can
+ * process requests until it is stopped. When an application is done with a
+ * camera, the camera needs to be released.
+ *
+ * An application may start and stop a camera multiple times as long as it is
+ * not released. The camera may also be reconfigured.
+ *
+ * Functions that affect the camera state as defined below are generally not
+ * synchronized with each other by the Camera class. The caller is responsible
+ * for ensuring their synchronization if necessary.
+ *
+ * \subsection Camera States
+ *
+ * To help manage the sequence of operations needed to control the camera a set
+ * of states are defined. Each state describes which operations may be performed
+ * on the camera. Performing an operation not allowed in the camera state
+ * results in undefined behaviour. Operations not listed at all in the state
+ * diagram are allowed in all states.
+ *
+ * \dot
+ * digraph camera_state_machine {
+ *   node [shape = doublecircle ]; Available;
+ *   node [shape = circle ]; Acquired;
+ *   node [shape = circle ]; Configured;
+ *   node [shape = circle ]; Stopping;
+ *   node [shape = circle ]; Running;
+ *
+ *   Available -&gt; Available [label = "release()"];
+ *   Available -&gt; Acquired [label = "acquire()"];
+ *
+ *   Acquired -&gt; Available [label = "release()"];
+ *   Acquired -&gt; Configured [label = "configure()"];
+ *
+ *   Configured -&gt; Available [label = "release()"];
+ *   Configured -&gt; Configured [label = "configure(), createRequest()"];
+ *   Configured -&gt; Running [label = "start()"];
+ *
+ *   Running -&gt; Stopping [label = "stop()"];
+ *   Stopping -&gt; Configured;
+ *   Running -&gt; Running [label = "createRequest(), queueRequest()"];
+ * }
+ * \enddot
+</code></pre></div>
+</details>
 <!-- sdd:class-diagram -->
 <h2 id="클래스-관계">클래스 관계</h2>
 <p>화살표의 글자는 추출한 관계를 나타내며, 점선은 상속입니다. 화살표는 참조 대상 또는 기반 클래스를 향합니다. 호출 순서를 뜻하지 않습니다.</p>
@@ -269,25 +1301,32 @@
 <h2 id="코드를-처음-읽는-순서">코드를 처음 읽는 순서</h2>
 <ol>
 <li><code>src/libcamera/camera.cpp</code> 에서 <code>isAccessAllowed()</code> 부분을 읽습니다.</li>
-<li><code>src/libcamera/request.cpp</code> 에서 <code>operator&lt;&lt;()</code> 부분을 읽습니다.</li>
+<li><code>src/libcamera/request.cpp</code> 에서 <code>sequence()</code> 부분을 읽습니다.</li>
 <li><code>src/libcamera/controls.cpp</code> 에서 <code>find()</code> 부분을 읽습니다.</li>
 </ol>
 <p>이 순서는 <code>요청 제출 (Camera::queueRequest)</code> 시나리오의 호출 경로에서 만들었습니다. 자세한 흐름은 시나리오 문서 <a href="scenarios/queue_request.html">요청 제출 (Camera::queueRequest)</a> 에서 확인하세요.</p>
-<p>로깅과 접근자 호출 49 개는 <code>hide</code> 규칙에 따라 이 순서에서 뺐습니다.</p>
+<p>로깅과 접근자 호출 51 개는 <code>hide</code> 규칙에 따라 이 순서에서 뺐습니다.</p>
 <details class="note">
 <summary>근거와 검토 정보</summary>
 <ul>
+<li>생성 방식: 소스 발췌에 연결한 설계 설명</li>
+<li>검증 범위: 설정에 작성된 설명을 발췌 해시와 대조합니다. 해시 일치는 설명의 의미를 승인하지 않습니다.</li>
 <li>근거 파일: <code>include/libcamera/base/backtrace.h</code>, <code>include/libcamera/base/bound_method.h</code>, <code>include/libcamera/base/class.h</code>, <code>include/libcamera/base/event_dispatcher.h</code>, <code>include/libcamera/base/event_dispatcher_poll.h</code>, <code>include/libcamera/base/event_notifier.h</code>, <code>include/libcamera/base/file.h</code>, <code>include/libcamera/base/flags.h</code>, <code>include/libcamera/base/log.h</code>, <code>include/libcamera/base/memfd.h</code>, <code>include/libcamera/base/message.h</code>, <code>include/libcamera/base/mutex.h</code>, <code>include/libcamera/base/object.h</code>, <code>include/libcamera/base/semaphore.h</code>, <code>include/libcamera/base/shared_fd.h</code>, <code>include/libcamera/base/signal.h</code>, <code>include/libcamera/base/thread.h</code>, <code>include/libcamera/base/timer.h</code>, <code>include/libcamera/base/unique_fd.h</code>, <code>include/libcamera/base/utils.h</code>, <code>include/libcamera/camera.h</code>, <code>include/libcamera/camera_manager.h</code>, <code>include/libcamera/color_space.h</code>, <code>include/libcamera/controls.h</code>, <code>include/libcamera/fence.h</code>, <code>include/libcamera/framebuffer.h</code>, <code>include/libcamera/framebuffer_allocator.h</code>, <code>include/libcamera/geometry.h</code>, <code>include/libcamera/internal/bayer_format.h</code>, <code>include/libcamera/internal/byte_stream_buffer.h</code>, <code>include/libcamera/internal/camera.h</code>, <code>include/libcamera/internal/camera_controls.h</code>, <code>include/libcamera/internal/camera_lens.h</code>, <code>include/libcamera/internal/camera_manager.h</code>, <code>include/libcamera/internal/camera_sensor.h</code>, <code>include/libcamera/internal/camera_sensor_properties.h</code>, <code>include/libcamera/internal/clock_recovery.h</code>, <code>include/libcamera/internal/control_serializer.h</code>, <code>include/libcamera/internal/control_validator.h</code>, <code>include/libcamera/internal/converter.h</code>, <code>include/libcamera/internal/converter/converter_dw100.h</code>, <code>include/libcamera/internal/converter/converter_dw100_vertexmap.h</code>, <code>include/libcamera/internal/converter/converter_v4l2_m2m.h</code>, <code>include/libcamera/internal/debug_controls.h</code>, <code>include/libcamera/internal/delayed_controls.h</code>, <code>include/libcamera/internal/device_enumerator.h</code>, <code>include/libcamera/internal/device_enumerator_sysfs.h</code>, <code>include/libcamera/internal/device_enumerator_udev.h</code>, <code>include/libcamera/internal/dma_buf_allocator.h</code>, <code>include/libcamera/internal/formats.h</code>, <code>include/libcamera/internal/framebuffer.h</code>, <code>include/libcamera/internal/global_configuration.h</code>, <code>include/libcamera/internal/ipa_data_serializer.h</code>, <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/ipa_module.h</code>, <code>include/libcamera/internal/ipa_proxy.h</code>, <code>include/libcamera/internal/ipc_pipe.h</code>, <code>include/libcamera/internal/ipc_pipe_unixsocket.h</code>, <code>include/libcamera/internal/ipc_unixsocket.h</code>, <code>include/libcamera/internal/mapped_framebuffer.h</code>, <code>include/libcamera/internal/matrix.h</code>, <code>include/libcamera/internal/media_device.h</code>, <code>include/libcamera/internal/media_object.h</code>, <code>include/libcamera/internal/media_pipeline.h</code>, <code>include/libcamera/internal/pipeline_handler.h</code>, <code>include/libcamera/internal/process.h</code>, <code>include/libcamera/internal/pub_key.h</code>, <code>include/libcamera/internal/request.h</code>, <code>include/libcamera/internal/shared_mem_object.h</code>, <code>include/libcamera/internal/v4l2_device.h</code>, <code>include/libcamera/internal/v4l2_pixelformat.h</code>, <code>include/libcamera/internal/v4l2_request.h</code>, <code>include/libcamera/internal/v4l2_subdevice.h</code>, <code>include/libcamera/internal/v4l2_videodevice.h</code>, <code>include/libcamera/internal/value_node.h</code>, <code>include/libcamera/internal/vector.h</code>, <code>include/libcamera/internal/yaml_parser.h</code>, <code>include/libcamera/ipa/ipa_controls.h</code>, <code>include/libcamera/ipa/ipa_interface.h</code>, <code>include/libcamera/ipa/ipa_module_info.h</code>, <code>include/libcamera/logging.h</code>, <code>include/libcamera/orientation.h</code>, <code>include/libcamera/pixel_format.h</code>, <code>include/libcamera/request.h</code>, <code>include/libcamera/stream.h</code>, <code>include/libcamera/transform.h</code>, <code>src/apps/common/image.h</code>, <code>src/apps/common/options.cpp</code>, <code>src/apps/common/options.h</code>, <code>src/apps/common/ppm_writer.h</code>, <code>src/apps/common/stream_options.h</code>, <code>src/gstreamer/gstlibcamera-controls.h</code>, <code>src/gstreamer/gstlibcamera-utils.cpp</code>, <code>src/gstreamer/gstlibcamera-utils.h</code>, <code>src/gstreamer/gstlibcameraallocator.cpp</code>, <code>src/gstreamer/gstlibcameraallocator.h</code>, <code>src/gstreamer/gstlibcamerapad.cpp</code>, <code>src/gstreamer/gstlibcamerapad.h</code>, <code>src/gstreamer/gstlibcamerapool.cpp</code>, <code>src/gstreamer/gstlibcamerapool.h</code>, <code>src/gstreamer/gstlibcameraprovider.cpp</code>, <code>src/gstreamer/gstlibcameraprovider.h</code>, <code>src/gstreamer/gstlibcamerasrc.cpp</code>, <code>src/gstreamer/gstlibcamerasrc.h</code>, <code>src/ipa/ipu3/algorithms/af.h</code>, <code>src/ipa/ipu3/algorithms/agc.cpp</code>, <code>src/ipa/ipu3/algorithms/agc.h</code>, <code>src/ipa/ipu3/algorithms/awb.cpp</code>, <code>src/ipa/ipu3/algorithms/awb.h</code>, <code>src/ipa/ipu3/algorithms/blc.h</code>, <code>src/ipa/ipu3/algorithms/ccm.h</code>, <code>src/ipa/ipu3/algorithms/lsc.h</code>, <code>src/ipa/ipu3/algorithms/tone_mapping.h</code>, <code>src/ipa/ipu3/ipa_context.h</code>, <code>src/ipa/ipu3/ipu3.cpp</code>, <code>src/ipa/libipa/agc.h</code>, <code>src/ipa/libipa/agc_mean_luminance.h</code>, <code>src/ipa/libipa/agc_msv.h</code>, <code>src/ipa/libipa/algorithm.h</code>, <code>src/ipa/libipa/awb.h</code>, <code>src/ipa/libipa/awb_bayes.cpp</code>, <code>src/ipa/libipa/awb_bayes.h</code>, <code>src/ipa/libipa/awb_grey.h</code>, <code>src/ipa/libipa/camera_sensor_helper.cpp</code>, <code>src/ipa/libipa/camera_sensor_helper.h</code>, <code>src/ipa/libipa/ccm.h</code>, <code>src/ipa/libipa/exposure_mode_helper.h</code>, <code>src/ipa/libipa/fc_queue.h</code>, <code>src/ipa/libipa/fixedpoint.h</code>, <code>src/ipa/libipa/gamma.h</code>, <code>src/ipa/libipa/histogram.h</code>, <code>src/ipa/libipa/interpolator.h</code>, <code>src/ipa/libipa/lsc.h</code>, <code>src/ipa/libipa/lsc_base.h</code>, <code>src/ipa/libipa/lsc_polynomial.h</code>, <code>src/ipa/libipa/lsc_table.h</code>, <code>src/ipa/libipa/lux.h</code>, <code>src/ipa/libipa/module.h</code>, <code>src/ipa/libipa/pwl.h</code>, <code>src/ipa/libipa/quantized.h</code>, <code>src/ipa/libipa/v4l2_params.h</code>, <code>src/ipa/libipa/v4l2_stats.h</code>, <code>src/ipa/rkisp1/algorithms/agc.cpp</code>, <code>src/ipa/rkisp1/algorithms/agc.h</code>, <code>src/ipa/rkisp1/algorithms/algorithm.h</code>, <code>src/ipa/rkisp1/algorithms/awb.cpp</code>, <code>src/ipa/rkisp1/algorithms/awb.h</code>, <code>src/ipa/rkisp1/algorithms/blc.h</code>, <code>src/ipa/rkisp1/algorithms/ccm.h</code>, <code>src/ipa/rkisp1/algorithms/compress.h</code>, <code>src/ipa/rkisp1/algorithms/cproc.h</code>, <code>src/ipa/rkisp1/algorithms/dpcc.h</code>, <code>src/ipa/rkisp1/algorithms/dpf.h</code>, <code>src/ipa/rkisp1/algorithms/filter.h</code>, <code>src/ipa/rkisp1/algorithms/goc.h</code>, <code>src/ipa/rkisp1/algorithms/gsl.h</code>, <code>src/ipa/rkisp1/algorithms/lsc.h</code>, <code>src/ipa/rkisp1/algorithms/lux.h</code>, <code>src/ipa/rkisp1/algorithms/wdr.h</code>, <code>src/ipa/rkisp1/ipa_context.h</code>, <code>src/ipa/rkisp1/params.cpp</code>, <code>src/ipa/rkisp1/params.h</code>, <code>src/ipa/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/base/log.cpp</code>, <code>src/libcamera/base/thread.cpp</code>, <code>src/libcamera/base/utils.cpp</code>, <code>src/libcamera/bayer_format.cpp</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/camera_manager.cpp</code>, <code>src/libcamera/controls.cpp</code>, <code>src/libcamera/dma_buf_allocator.cpp</code>, <code>src/libcamera/global_configuration.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/pipeline/ipu3/cio2.h</code>, <code>src/libcamera/pipeline/ipu3/frames.h</code>, <code>src/libcamera/pipeline/ipu3/imgu.cpp</code>, <code>src/libcamera/pipeline/ipu3/imgu.h</code>, <code>src/libcamera/pipeline/ipu3/ipu3.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1_path.h</code>, <code>src/libcamera/pipeline/uvcvideo/uvcvideo.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code>, <code>src/libcamera/request.cpp</code>, <code>src/libcamera/sensor/camera_sensor_legacy.cpp</code>, <code>src/libcamera/sensor/camera_sensor_raw.cpp</code>, <code>src/libcamera/v4l2_subdevice.cpp</code>, <code>src/libcamera/yaml_parser.cpp</code>, <code>src/v4l2/v4l2_camera.h</code>, <code>src/v4l2/v4l2_camera_file.h</code>, <code>src/v4l2/v4l2_camera_proxy.h</code>, <code>src/v4l2/v4l2_compat_manager.h</code></li>
 <li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>279d355ef8</code>)</li>
 <li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li>
-<li>검토: 2026-09-24 · ollama/qwen3.5:4b · 사람 검토 전</li>
+<li>검토 상태 기록일: 2026-09-26 · 사람 검토 전</li>
 </ul>
 </details>
-<p>다음 단계: <a href="scenarios/index.html">핵심 시나리오 시퀀스</a></p></article><section class="evidence"><h2 id="page-evidence">생성 근거</h2><dl><dt>분석 기준 커밋</dt><dd><code>279d355ef8f7a4f98bb0a3004c0f788387814506</code></dd><dt>문서 생성 시각</dt><dd><code>2026-09-24 14:04:48+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>ollama/qwen3.5:4b</code></dd></dl><a href="overview.md">Markdown 원문 ↗</a> <a href="overview.mmd">Mermaid 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="ipu3-lsc-flow.html"><small>이전</small>IPU3 LSC의 설정과 프레임 처리 ←</a><a class="next" href="scenarios/index.html"><small>다음</small>핵심 시나리오 시퀀스 →</a></nav>
+<p>다음 단계: <a href="scenarios/index.html">핵심 시나리오</a></p></article><section class="evidence"><h2 id="page-evidence">생성 근거</h2><dl><dt>생성 방식</dt><dd>소스 발췌에 연결한 설계 설명</dd><dt>검증 범위</dt><dd>설정에 작성된 설명을 발췌 해시와 대조합니다. 해시 일치는 설명의 의미를 승인하지 않습니다.</dd><dt>분석 기준 커밋</dt><dd><code>279d355ef8f7a4f98bb0a3004c0f788387814506</code></dd><dt>문서 생성 시각</dt><dd><code>2026-09-26 13:32:24+00:00</code></dd></dl><a href="overview.md">Markdown 원문 ↗</a> <a href="overview.mmd">Mermaid 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="ipu3-lsc-flow.html"><small>이전</small>IPU3 LSC의 설정과 프레임 처리 ←</a><a class="next" href="scenarios/index.html"><small>다음</small>핵심 시나리오 →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · 인용 검사와 사람의 내용 검토는 별도입니다.</footer></main>
 <aside class="page-toc"><nav aria-label="현재 페이지 목차"><p>이 페이지에서</p><div class="toc">
 <ul>
-<li><a href="#구조-설명">구조 설명</a></li>
+<li><a href="#설계-항목과-근거">설계 항목과 근거</a></li>
+<li><a href="#컴포넌트별-책임">컴포넌트별 책임</a></li>
+<li><a href="#탐색과-파이프라인-선택">탐색과 파이프라인 선택</a></li>
+<li><a href="#캡처-세션의-상태와-자원">캡처 세션의 상태와 자원</a></li>
+<li><a href="#요청-제출과-완료">요청 제출과 완료</a></li>
+<li><a href="#스레드-경계와-확인-범위">스레드 경계와 확인 범위</a></li>
 <li><a href="#클래스-관계">클래스 관계</a></li>
 <li><a href="#패키지별-역할">패키지별 역할</a></li>
 <li><a href="#패키지-사이의-의존">패키지 사이의 의존</a></li>
