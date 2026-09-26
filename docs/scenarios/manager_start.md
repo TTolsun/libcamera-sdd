@@ -1,81 +1,117 @@
 ---
-generated_at: 2026-09-24T14:04:54+00:00
+generated_at: 2026-09-26T13:32:24+00:00
 source_commit: 279d355ef8f7a4f98bb0a3004c0f788387814506
-agent: ollama/qwen3.5:4b
 status: ok
 section: scenarios
 entry: CameraManager::start()
+scenario_id: manager_start
+scenario_fingerprint: 5d13094c971f17cb695881ccf189c950979a5a19df8db1a31a7a176f7b2ff084
+generation_method: extracted-scenario
 ---
 
 # 카메라 탐색 (CameraManager::start)
 
-**`CameraManager::start()` 에서 시작하는 호출 순서를 아래 번호대로 따라가세요.**
+**`CameraManager::start()` 의 주요 호출과 추적 경계를 확인한 뒤 필요한 상세 기록을 펼쳐 보세요.**
 
-
-
-```mermaid
-sequenceDiagram
-    participant CameraManager
-    participant Private
-    participant Thread
-    participant MutexLocker
-    participant ConditionVariable
-    participant EventDispatcherPoll
-    participant UniqueFD
-    participant lambda_at__home_baboess_work_libcamera_ab_validation_20260921_b_source_src_libcamera_base_thread_cpp_409_21 as (lambda at /home/baboess/work/libcamera-ab-validation-20260921/b/source/src/libcamera/base/thread.cpp:409:21)
-    CameraManager->>Private: start()
-    Private->>Thread: start()
-    Thread->>MutexLocker: MutexLocker()
-    Thread-->>Thread: startThread() [예약된 호출, 실행 순서는 정적으로 확인 불가]
-    Thread->>Thread: setThreadAffinityInternal()
-    Private->>MutexLocker: MutexLocker()
-    Private->>ConditionVariable: wait()
-    Private->>Thread: exit()
-    Thread-->>EventDispatcherPoll: interrupt() [virtual, 현재 구현 하나]
-    EventDispatcherPoll->>UniqueFD: get()
-    Private->>Thread: wait()
-    Thread->>MutexLocker: MutexLocker()
-    Thread->>ConditionVariable: wait()
-    Thread->>lambda_at__home_baboess_work_libcamera_ab_validation_20260921_b_source_src_libcamera_base_thread_cpp_409_21: (lambda at /home/baboess/work/libcamera-ab-validation-20260921/b/source/src/libcamera/base/thread.cpp:409:21)()
-    Thread->>ConditionVariable: wait_for()
-    Thread->>lambda_at__home_baboess_work_libcamera_ab_validation_20260921_b_source_src_libcamera_base_thread_cpp_409_21: (lambda at /home/baboess/work/libcamera-ab-validation-20260921/b/source/src/libcamera/base/thread.cpp:409:21)()
-```
-
-## 호출 순서
-
-1. `CameraManager` 가 `Private::start()` 를 호출합니다. `src/libcamera/camera_manager.cpp:342`
-2. `Private` 가 `Thread::start()` 를 호출합니다. `src/libcamera/camera_manager.cpp:51`
-3. `Thread` 가 `MutexLocker::MutexLocker()` 를 호출합니다. `src/libcamera/base/thread.cpp:255`
-4. `Thread` 가 `Thread::startThread()` 를 호출합니다. (예약된 호출, 실행 순서는 정적으로 확인 불가) `src/libcamera/base/thread.cpp:264`
-5. `Thread` 가 `Thread::setThreadAffinityInternal()` 를 호출합니다. `src/libcamera/base/thread.cpp:266`
-6. `Private` 가 `MutexLocker::MutexLocker()` 를 호출합니다. `src/libcamera/camera_manager.cpp:54`
-7. `Private` 가 `ConditionVariable::wait()` 를 호출합니다. `src/libcamera/camera_manager.cpp:55`
-8. `Private` 가 `Thread::exit()` 를 호출합니다. `src/libcamera/camera_manager.cpp:63`
-9. `Thread` 가 `EventDispatcherPoll::interrupt()` 를 호출합니다. (virtual, 현재 구현 하나) `src/libcamera/base/thread.cpp:386`
-10. `EventDispatcherPoll` 가 `UniqueFD::get()` 를 호출합니다. `src/libcamera/base/event_dispatcher_poll.cpp:177`
-11. `Private` 가 `Thread::wait()` 를 호출합니다. `src/libcamera/camera_manager.cpp:64`
-12. `Thread` 가 `MutexLocker::MutexLocker()` 를 호출합니다. `src/libcamera/base/thread.cpp:407`
-13. `Thread` 가 `ConditionVariable::wait()` 를 호출합니다. `src/libcamera/base/thread.cpp:414`
-14. `Thread` 가 `(lambda at /home/baboess/work/libcamera-ab-validation-20260921/b/source/src/libcamera/base/thread.cpp:409:21)::(lambda at /home/baboess/work/libcamera-ab-validation-20260921/b/source/src/libcamera/base/thread.cpp:409:21)()` 를 호출합니다. `src/libcamera/base/thread.cpp:414`
-15. `Thread` 가 `ConditionVariable::wait_for()` 를 호출합니다. `src/libcamera/base/thread.cpp:416`
-16. `Thread` 가 `(lambda at /home/baboess/work/libcamera-ab-validation-20260921/b/source/src/libcamera/base/thread.cpp:409:21)::(lambda at /home/baboess/work/libcamera-ab-validation-20260921/b/source/src/libcamera/base/thread.cpp:409:21)()` 를 호출합니다. `src/libcamera/base/thread.cpp:417`
-
-표시에서 뺀 호출이 17 개 있습니다. `config/scenarios.yaml` 의 `hide` 규칙에 걸린 로깅과 접근자 호출이며, `facts.json` 에는 그대로 남아 있습니다.
+| 지금 확인할 내용 | 이동할 절 |
+|---|---|
+| 이 흐름에서 확인할 것 절을 확인합니다. | [이 흐름에서 확인할 것](#이-흐름에서-확인할-것) |
+| 주요 확인 지점 절을 확인합니다. | [주요 확인 지점](#주요-확인-지점) |
+| 주요 호출 관계 절을 확인합니다. | [주요 호출 관계](#주요-호출-관계) |
+| 추적 범위와 경계 절을 확인합니다. | [추적 범위와 경계](#추적-범위와-경계) |
+| 전체 추적 기록 절을 확인합니다. | [전체 추적 기록](#전체-추적-기록) |
 
 ## 이 흐름에서 확인할 것
 
-`CameraManager::start()` 진입점에서 스레드 생성과 동기화 로직이 어떻게 분기하는지 확인하려면 먼저 `src/libcamera/camera_manager.cpp:342` 의 호출 경로를 추적해야 합니다. `Private::start()` 가 `Thread::start()` 를 통해 스레드를 시작하지만, `Thread::setThreadAffinityInternal()` 와 같은 초기화 작업은 정적 분석으로 실행 순서를 확정하기 어렵습니다.
+`CameraManager::start()`에서 시작한 정적 탐색으로 호출 기록 33개를 수집했습니다. 주요 확인 지점 1개를 아래 표와 관계도에 표시합니다. 선택한 지점의 근거를 먼저 확인하고, 필요한 호출은 전체 추적 기록에서 찾아보세요.
 
-스레드 내부의 대기 및 인터럽트 처리 흐름을 파악하려면 `src/libcamera/base/thread.cpp:264` 의 `startThread()` 호출과 `src/libcamera/camera_manager.cpp:55` 의 `ConditionVariable::wait()` 를 확인해야 합니다. `EventDispatcherPoll::interrupt()` 가 가상 함수이므로 현재 구현 하나만 존재하며, `src/libcamera/base/event_dispatcher_poll.cpp:177` 의 `UniqueFD::get()` 호출은 파일 디스크립터 관리와 직접적인 관련이 없습니다.
+가상 호출 후보·예약 대상 등 확인이 필요한 경계 기록이 2개 있습니다. 추적 범위와 경계 표에서 후보를 구분한 뒤 실제 객체와 연결 방식을 확인해야 합니다.
 
-`Thread::wait()` 와 `ConditionVariable::wait_for()` 사이의 콜백 전달과 스레드 종료 시점의 정확한 순서는 현재 사실 목록에 근거가 부족합니다. `src/libcamera/base/thread.cpp:414` 의 람다 호출과 `src/libcamera/camera_manager.cpp:63` 의 `Thread::exit()` 호출이 어떻게 상호작용하는지 확인해야 합니다.
+## 주요 확인 지점
 
-확인 필요: 메서드를 인자로 넘겨 예약한 호출이 1 개 있습니다. 위에서 `예약된 호출, 실행 순서는 정적으로 확인 불가` 로 표시한 단계가 그 자리입니다. 대상 메서드는 확인했지만, 실제 실행 시점과 스레드는 큐나 신호 구현이 정하므로 이 번호 목록은 그 지점 이후의 순서를 보장하지 않습니다. 이후 흐름은 예약을 받는 쪽의 구현에서 직접 확인해야 합니다.
+아래 항목은 추출한 호출에서 고른 코드 탐색 지점입니다. 나열 순서는 실행 순서가 아닙니다.
+
+| 확인할 내용 | 호출 측과 대상 | 구분 | 근거 |
+|---|---|---|---|
+| 관리자 시작 | `CameraManager` → `Private::start()` | 정적 호출 지점입니다. | `src/libcamera/camera_manager.cpp:342` |
+
+## 주요 호출 관계
+
+화살표는 호출 측과 대상을 연결합니다. 시간 순서나 모든 경로의 실행을 뜻하지 않습니다. 점선에는 가상 호출 후보·예약 대상 등 확인이 필요한 관계를 표시합니다.
+
+```mermaid
+flowchart LR
+  p0["CameraManager"]
+  p1["Private"]
+  p0 -->|"start()"| p1
+```
+
+## 추적 범위와 경계
+
+facts에 기록된 호출은 33개이며, 요약의 hide 규칙에 해당하는 호출은 17개입니다. 전체 추적 기록에는 해당 호출도 모두 보존합니다. 기록 번호는 정적 탐색의 식별자이며 실행 순번이 아닙니다.
+
+조건 분기, 반복 횟수와 실제 실행 스레드는 이 호출 목록만으로 확정할 수 없습니다. 가상 호출 후보는 실제 객체에 따라 선택되며, 예약 대상은 큐나 신호 구현에서 이어서 확인해야 합니다.
+
+| 호출 지점 | 후보 또는 예약 대상 | 확인할 경계 | 근거 |
+|---|---|---|---|
+| `Thread` | `Thread::startThread()` | 예약 대상이며 즉시 실행되는 호출이 아닙니다. | `src/libcamera/base/thread.cpp:264` |
+| `Thread` | `EventDispatcherPoll::interrupt()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/base/thread.cpp:386` |
+
+추출 통계: 미해결 호출 0개, 예약된 호출 1개입니다.
+
+## 전체 추적 기록
+
+아래 구간을 펼치면 요약에서 제외된 호출까지 확인할 수 있습니다. 이 목록은 추출 깊이 안에서 수집한 기록이며, 소스의 모든 실행 경로를 포함한다는 뜻은 아닙니다.
+
+??? note "추적 기록 1–25 / 33개"
+
+    | 기록 | 호출 측 | 대상 | 구분 | 근거 |
+    |---|---|---|---|---|
+    | 1 | `CameraManager` | `log::isLogSeverityEnabled()` | 정적 호출 지점입니다. | `src/libcamera/camera_manager.cpp:340` |
+    | 2 | `CameraManager` | `LogMessageAbortGuard::LogMessageAbortGuard()` | 정적 호출 지점입니다. | `src/libcamera/camera_manager.cpp:340` |
+    | 3 | `CameraManager` | `LogMessage::stream()` | 정적 호출 지점입니다. | `src/libcamera/camera_manager.cpp:340` |
+    | 4 | `CameraManager` | `log::_log()` | 정적 호출 지점입니다. | `src/libcamera/camera_manager.cpp:340` |
+    | 5 | `log` | `LogMessage::LogMessage()` | 정적 호출 지점입니다. | `src/libcamera/base/log.cpp:990` |
+    | 6 | `LogMessage` | `utils::basename()` | 정적 호출 지점입니다. | `src/libcamera/base/log.cpp:858` |
+    | 7 | `CameraManager` | `Private::start()` | 정적 호출 지점입니다. | `src/libcamera/camera_manager.cpp:342` |
+    | 8 | `Private` | `Thread::start()` | 정적 호출 지점입니다. | `src/libcamera/camera_manager.cpp:51` |
+    | 9 | `Thread` | `MutexLocker::MutexLocker()` | 정적 호출 지점입니다. | `src/libcamera/base/thread.cpp:255` |
+    | 10 | `Thread` | `Thread::startThread()` | 예약 대상이며 즉시 실행되는 호출이 아닙니다. | `src/libcamera/base/thread.cpp:264` |
+    | 11 | `Thread` | `Thread::setThreadAffinityInternal()` | 정적 호출 지점입니다. | `src/libcamera/base/thread.cpp:266` |
+    | 12 | `Private` | `MutexLocker::MutexLocker()` | 정적 호출 지점입니다. | `src/libcamera/camera_manager.cpp:54` |
+    | 13 | `Private` | `ConditionVariable::wait()` | 정적 호출 지점입니다. | `src/libcamera/camera_manager.cpp:55` |
+    | 14 | `Private` | `Thread::exit()` | 정적 호출 지점입니다. | `src/libcamera/camera_manager.cpp:63` |
+    | 15 | `Thread` | `EventDispatcherPoll::interrupt()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/base/thread.cpp:386` |
+    | 16 | `EventDispatcherPoll` | `UniqueFD::get()` | 정적 호출 지점입니다. | `src/libcamera/base/event_dispatcher_poll.cpp:177` |
+    | 17 | `EventDispatcherPoll` | `log::isLogSeverityEnabled()` | 정적 호출 지점입니다. | `src/libcamera/base/event_dispatcher_poll.cpp:181` |
+    | 18 | `EventDispatcherPoll` | `LogMessageAbortGuard::LogMessageAbortGuard()` | 정적 호출 지점입니다. | `src/libcamera/base/event_dispatcher_poll.cpp:181` |
+    | 19 | `EventDispatcherPoll` | `LogMessage::stream()` | 정적 호출 지점입니다. | `src/libcamera/base/event_dispatcher_poll.cpp:181` |
+    | 20 | `EventDispatcherPoll` | `log::_log()` | 정적 호출 지점입니다. | `src/libcamera/base/event_dispatcher_poll.cpp:181` |
+    | 21 | `Private` | `Thread::wait()` | 정적 호출 지점입니다. | `src/libcamera/camera_manager.cpp:64` |
+    | 22 | `Thread` | `MutexLocker::MutexLocker()` | 정적 호출 지점입니다. | `src/libcamera/base/thread.cpp:407` |
+    | 23 | `Thread` | `ConditionVariable::wait()` | 정적 호출 지점입니다. | `src/libcamera/base/thread.cpp:414` |
+    | 24 | `Thread` | `(lambda at /home/baboess/work/libcamera-ab-validation-20260921/b/source/src/libcamera/base/thread.cpp:409:21)::(lambda at /home/baboess/work/libcamera-ab-validation-20260921/b/source/src/libcamera/base/thread.cpp:409:21)()` | 정적 호출 지점입니다. | `src/libcamera/base/thread.cpp:414` |
+    | 25 | `Thread` | `ConditionVariable::wait_for()` | 정적 호출 지점입니다. | `src/libcamera/base/thread.cpp:416` |
+
+??? note "추적 기록 26–33 / 33개"
+
+    | 기록 | 호출 측 | 대상 | 구분 | 근거 |
+    |---|---|---|---|---|
+    | 26 | `Thread` | `(lambda at /home/baboess/work/libcamera-ab-validation-20260921/b/source/src/libcamera/base/thread.cpp:409:21)::(lambda at /home/baboess/work/libcamera-ab-validation-20260921/b/source/src/libcamera/base/thread.cpp:409:21)()` | 정적 호출 지점입니다. | `src/libcamera/base/thread.cpp:417` |
+    | 27 | `CameraManager` | `CameraManager::_d()` | 정적 호출 지점입니다. | `src/libcamera/camera_manager.cpp:342` |
+    | 28 | `CameraManager` | `log::isLogSeverityEnabled()` | 정적 호출 지점입니다. | `src/libcamera/camera_manager.cpp:344` |
+    | 29 | `CameraManager` | `LogMessageAbortGuard::LogMessageAbortGuard()` | 정적 호출 지점입니다. | `src/libcamera/camera_manager.cpp:344` |
+    | 30 | `CameraManager` | `LogMessage::stream()` | 정적 호출 지점입니다. | `src/libcamera/camera_manager.cpp:344` |
+    | 31 | `CameraManager` | `log::_log()` | 정적 호출 지점입니다. | `src/libcamera/camera_manager.cpp:344` |
+    | 32 | `log` | `LogMessage::LogMessage()` | 정적 호출 지점입니다. | `src/libcamera/base/log.cpp:990` |
+    | 33 | `LogMessage` | `utils::basename()` | 정적 호출 지점입니다. | `src/libcamera/base/log.cpp:858` |
 
 ??? note "근거와 검토 정보"
-    - 근거 파일: `src/libcamera/base/event_dispatcher_poll.cpp`, `src/libcamera/base/thread.cpp`, `src/libcamera/camera_manager.cpp`
+    - 생성 방식: 추출 호출로 만든 시나리오
+    - 검증 범위: 주요 호출과 경계를 facts에서 구성하고 전체 추적 기록을 보존합니다. 실행 순서를 추정하지 않습니다.
+    - 근거 파일: `src/libcamera/base/event_dispatcher_poll.cpp`, `src/libcamera/base/log.cpp`, `src/libcamera/base/thread.cpp`, `src/libcamera/camera_manager.cpp`
     - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `279d355ef8`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토: 2026-09-24 · ollama/qwen3.5:4b · 사람 검토 전
+    - 검토 상태 기록일: 2026-09-26 · 사람 검토 전
 
 다음 단계: [스트림 구성 (Camera::configure)](configure.md)

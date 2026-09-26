@@ -4,123 +4,1769 @@
 <body><a class="skip" href="#main">본문으로 이동</a>
 <header class="site-header"><a class="brand" href="../index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera 설계 문서</a>
 <div class="header-actions"><button id="search-open" hidden>문서 찾기 <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>메뉴</button></div></header>
-<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="문서 메뉴"><p class="nav-group">시작하기</p><a href="../index.html">문서 안내</a><p class="nav-group">For Vendors</p><a href="../pipeline-handler.html">Pipeline Handler</a><a href="../ipa.html">IPA 관리와 구현 진입점</a><a href="../ipu3-lsc.html">IPU3 LSC와 상태 연결</a><a href="../ipu3-lsc-flow.html">IPU3 LSC의 설정과 프레임 처리</a><p class="nav-group">For Developers</p><a href="../overview.html">시스템 개요</a><a href="index.html">핵심 시나리오 시퀀스</a><details class="nav-branch" open><summary>하위 문서 5 편</summary><a class="nav-sub" href="manager_start.html">카메라 탐색 (CameraManager::start)</a><a class="nav-sub" href="configure.html" aria-current="page">스트림 구성 (Camera::configure)</a><a class="nav-sub" href="camera_start.html">캡처 시작 (Camera::start)</a><a class="nav-sub" href="queue_request.html">요청 제출 (Camera::queueRequest)</a><a class="nav-sub" href="complete_request.html">요청 완료 통지 (PipelineHandler::completeRequest)</a></details><a href="../camera-model.html">카메라와 요청 모델</a></nav><p class="sidebar-note">코드에서 구조를 추출하고<br>근거와 함께 검토합니다.</p></aside>
-<main id="main"><p class="breadcrumb">For Developers <span>/</span> 스트림 구성 (Camera::configure)</p><h1>스트림 구성 (Camera::configure)</h1><div class="page-state"><span class="review-state">사람 검토 전</span><span>인용 검사 통과 · <code>ok</code></span></div>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="문서 메뉴"><p class="nav-group">시작하기</p><a href="../index.html">문서 안내</a><p class="nav-group">For Vendors</p><a href="../pipeline-handler.html">Pipeline Handler</a><a href="../ipa.html">IPA 관리와 구현 진입점</a><a href="../ipu3-lsc.html">IPU3 LSC와 상태 연결</a><a href="../ipu3-lsc-flow.html">IPU3 LSC의 설정과 프레임 처리</a><p class="nav-group">For Developers</p><a href="../overview.html">시스템 개요</a><a href="index.html">핵심 시나리오</a><details class="nav-branch" open><summary>하위 문서 5 편</summary><a class="nav-sub" href="manager_start.html">카메라 탐색 (CameraManager::start)</a><a class="nav-sub" href="configure.html" aria-current="page">스트림 구성 (Camera::configure)</a><a class="nav-sub" href="camera_start.html">캡처 시작 (Camera::start)</a><a class="nav-sub" href="queue_request.html">요청 제출 (Camera::queueRequest)</a><a class="nav-sub" href="complete_request.html">요청 완료 통지 (PipelineHandler::completeRequest)</a></details><a href="../camera-model.html">카메라와 요청 모델</a></nav><p class="sidebar-note">코드에서 구조를 추출하고<br>근거와 함께 검토합니다.</p></aside>
+<main id="main"><p class="breadcrumb">For Developers <span>/</span> 스트림 구성 (Camera::configure)</p><h1>스트림 구성 (Camera::configure)</h1><div class="page-state"><span class="review-state">사람 검토 전</span><span>자동 검사 통과 · <code>ok</code></span><span class="generation-method">추출 호출로 만든 시나리오</span></div>
 <details class="mobile-toc"><summary>이 페이지의 목차</summary><div class="toc">
 <ul>
-<li><a href="#호출-순서">호출 순서</a></li>
 <li><a href="#이-흐름에서-확인할-것">이 흐름에서 확인할 것</a></li>
+<li><a href="#주요-확인-지점">주요 확인 지점</a></li>
+<li><a href="#주요-호출-관계">주요 호출 관계</a></li>
+<li><a href="#추적-범위와-경계">추적 범위와 경계</a></li>
+<li><a href="#전체-추적-기록">전체 추적 기록</a></li>
 </ul>
 </div>
-</details><article><p><strong><code>Camera::configure(CameraConfiguration *)</code> 에서 시작하는 호출 순서를 아래 번호대로 따라가세요.</strong></p>
-<pre class="mermaid">sequenceDiagram
-    participant Camera
-    participant Private
-    participant StreamConfiguration
-    participant IPU3CameraConfiguration
-    participant CameraSensorLegacy
-    participant transform
-    participant CameraSensorRaw
-    participant CIO2Device
-    participant Size
-    participant PixelFormatInfo
-    participant utils
-    participant PixelFormat
-    Camera-&gt;&gt;Private: isAccessAllowed()
-    Camera-&gt;&gt;StreamConfiguration: setStream()
-    Camera--&gt;&gt;IPU3CameraConfiguration: validate() [virtual 후보]
-    IPU3CameraConfiguration--&gt;&gt;CameraSensorLegacy: computeTransform() [virtual 후보]
-    CameraSensorLegacy-&gt;&gt;transform: operator/()
-    transform-&gt;&gt;transform: transformFromOrientation()
-    transform-&gt;&gt;transform: transformFromOrientation()
-    transform-&gt;&gt;transform: operator*()
-    transform-&gt;&gt;transform: operator-()
-    CameraSensorLegacy-&gt;&gt;transform: operator!()
-    CameraSensorLegacy-&gt;&gt;transform: operator&amp;()
-    CameraSensorLegacy-&gt;&gt;transform: operator!()
-    CameraSensorLegacy-&gt;&gt;transform: operator&amp;()
-    CameraSensorLegacy-&gt;&gt;transform: operator!()
-    CameraSensorLegacy-&gt;&gt;transform: operator&amp;()
-    IPU3CameraConfiguration--&gt;&gt;CameraSensorRaw: computeTransform() [virtual 후보]
-    CameraSensorRaw-&gt;&gt;transform: operator/()
-    transform-&gt;&gt;transform: transformFromOrientation()
-    transform-&gt;&gt;transform: transformFromOrientation()
-    transform-&gt;&gt;transform: operator*()
-    transform-&gt;&gt;transform: operator-()
-    CameraSensorRaw-&gt;&gt;transform: operator!()
-    CameraSensorRaw-&gt;&gt;transform: operator&amp;()
-    CameraSensorRaw-&gt;&gt;transform: operator!()
-    CameraSensorRaw-&gt;&gt;transform: operator&amp;()
-    CameraSensorRaw-&gt;&gt;transform: operator!()
-    CameraSensorRaw-&gt;&gt;transform: operator&amp;()
-    IPU3CameraConfiguration-&gt;&gt;CIO2Device: sensor()
-    IPU3CameraConfiguration-&gt;&gt;Size: Size()
-    Size-&gt;&gt;Size: Size()
-    IPU3CameraConfiguration-&gt;&gt;Size: Size()
-    Size-&gt;&gt;Size: Size()
-    IPU3CameraConfiguration-&gt;&gt;Size: Size()
-    Size-&gt;&gt;Size: Size()
-    IPU3CameraConfiguration-&gt;&gt;PixelFormatInfo: info()
-    PixelFormatInfo-&gt;&gt;utils: operator&lt;&lt;()
-    PixelFormatInfo-&gt;&gt;utils: hex()
-    PixelFormatInfo-&gt;&gt;PixelFormat: fourcc()
-    IPU3CameraConfiguration-&gt;&gt;Size: operator=()
-    IPU3CameraConfiguration-&gt;&gt;Size: operator=()</pre>
-<p>그림에는 앞의 40 개 호출만 그렸습니다. 나머지 89 개는 아래 호출 순서와 <code>facts.json</code> 에서 확인하세요.</p>
-<h2 id="호출-순서">호출 순서</h2>
-<ol>
-<li><code>Camera</code> 가 <code>Private::isAccessAllowed()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1195"><code>src/libcamera/camera.cpp:1195</code></a></li>
-<li><code>Camera</code> 가 <code>StreamConfiguration::setStream()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1201"><code>src/libcamera/camera.cpp:1201</code></a></li>
-<li><code>Camera</code> 가 <code>IPU3CameraConfiguration::validate()</code> 를 호출합니다. (virtual 후보) <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1203"><code>src/libcamera/camera.cpp:1203</code></a></li>
-<li><code>IPU3CameraConfiguration</code> 가 <code>CameraSensorLegacy::computeTransform()</code> 를 호출합니다. (virtual 후보) <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L191"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:191</code></a></li>
-<li><code>CameraSensorLegacy</code> 가 <code>transform::operator/()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_legacy.cpp#L961"><code>src/libcamera/sensor/camera_sensor_legacy.cpp:961</code></a></li>
-<li><code>transform</code> 가 <code>transform::transformFromOrientation()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/transform.cpp#L349"><code>src/libcamera/transform.cpp:349</code></a></li>
-<li><code>transform</code> 가 <code>transform::operator*()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/transform.cpp#L352"><code>src/libcamera/transform.cpp:352</code></a></li>
-<li><code>transform</code> 가 <code>transform::operator-()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/transform.cpp#L352"><code>src/libcamera/transform.cpp:352</code></a></li>
-<li><code>CameraSensorLegacy</code> 가 <code>transform::operator!()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_legacy.cpp#L964"><code>src/libcamera/sensor/camera_sensor_legacy.cpp:964</code></a></li>
-<li><code>CameraSensorLegacy</code> 가 <code>transform::operator&amp;()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_legacy.cpp#L964"><code>src/libcamera/sensor/camera_sensor_legacy.cpp:964</code></a></li>
-<li><code>CameraSensorLegacy</code> 가 <code>transform::operator!()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_legacy.cpp#L969"><code>src/libcamera/sensor/camera_sensor_legacy.cpp:969</code></a></li>
-<li><code>CameraSensorLegacy</code> 가 <code>transform::operator&amp;()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_legacy.cpp#L969"><code>src/libcamera/sensor/camera_sensor_legacy.cpp:969</code></a></li>
-<li><code>CameraSensorLegacy</code> 가 <code>transform::operator!()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_legacy.cpp#L978"><code>src/libcamera/sensor/camera_sensor_legacy.cpp:978</code></a></li>
-<li><code>CameraSensorLegacy</code> 가 <code>transform::operator&amp;()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_legacy.cpp#L978"><code>src/libcamera/sensor/camera_sensor_legacy.cpp:978</code></a></li>
-<li><code>IPU3CameraConfiguration</code> 가 <code>CameraSensorRaw::computeTransform()</code> 를 호출합니다. (virtual 후보) <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L191"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:191</code></a></li>
-<li><code>CameraSensorRaw</code> 가 <code>transform::operator/()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_raw.cpp#L1073"><code>src/libcamera/sensor/camera_sensor_raw.cpp:1073</code></a></li>
-<li><code>transform</code> 가 <code>transform::transformFromOrientation()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/transform.cpp#L349"><code>src/libcamera/transform.cpp:349</code></a></li>
-<li><code>transform</code> 가 <code>transform::operator*()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/transform.cpp#L352"><code>src/libcamera/transform.cpp:352</code></a></li>
-<li><code>transform</code> 가 <code>transform::operator-()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/transform.cpp#L352"><code>src/libcamera/transform.cpp:352</code></a></li>
-<li><code>CameraSensorRaw</code> 가 <code>transform::operator!()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_raw.cpp#L1076"><code>src/libcamera/sensor/camera_sensor_raw.cpp:1076</code></a></li>
-<li><code>CameraSensorRaw</code> 가 <code>transform::operator&amp;()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_raw.cpp#L1076"><code>src/libcamera/sensor/camera_sensor_raw.cpp:1076</code></a></li>
-<li><code>CameraSensorRaw</code> 가 <code>transform::operator!()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_raw.cpp#L1081"><code>src/libcamera/sensor/camera_sensor_raw.cpp:1081</code></a></li>
-<li><code>CameraSensorRaw</code> 가 <code>transform::operator&amp;()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_raw.cpp#L1081"><code>src/libcamera/sensor/camera_sensor_raw.cpp:1081</code></a></li>
-<li><code>CameraSensorRaw</code> 가 <code>transform::operator!()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_raw.cpp#L1090"><code>src/libcamera/sensor/camera_sensor_raw.cpp:1090</code></a></li>
-<li><code>CameraSensorRaw</code> 가 <code>transform::operator&amp;()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_raw.cpp#L1090"><code>src/libcamera/sensor/camera_sensor_raw.cpp:1090</code></a></li>
-<li><code>IPU3CameraConfiguration</code> 가 <code>CIO2Device::sensor()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L191"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:191</code></a></li>
-<li><code>IPU3CameraConfiguration</code> 가 <code>Size::Size()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L213"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:213</code></a></li>
-<li><code>Size</code> 가 <code>Size::Size()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/include/libcamera/geometry.h#L54"><code>include/libcamera/geometry.h:54</code></a></li>
-<li><code>IPU3CameraConfiguration</code> 가 <code>Size::Size()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L214"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:214</code></a></li>
-<li><code>Size</code> 가 <code>Size::Size()</code> 를 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/include/libcamera/geometry.h#L54"><code>include/libcamera/geometry.h:54</code></a></li>
-</ol>
-<p>(이후 단계는 생략했습니다. 전체 흐름은 <code>facts.json</code> 의 <code>scenarios</code> 에 있습니다.)</p>
-<p>표시에서 뺀 호출이 79 개 있습니다. <code>config/scenarios.yaml</code> 의 <code>hide</code> 규칙에 걸린 로깅과 접근자 호출이며, <code>facts.json</code> 에는 그대로 남아 있습니다.</p>
+</details><article><p><strong><code>Camera::configure(CameraConfiguration *)</code> 의 주요 호출과 추적 경계를 확인한 뒤 필요한 상세 기록을 펼쳐 보세요.</strong></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>지금 확인할 내용</th>
+<th>이동할 절</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>이 흐름에서 확인할 것 절을 확인합니다.</td>
+<td><a href="#이-흐름에서-확인할-것">이 흐름에서 확인할 것</a></td>
+</tr>
+<tr>
+<td>주요 확인 지점 절을 확인합니다.</td>
+<td><a href="#주요-확인-지점">주요 확인 지점</a></td>
+</tr>
+<tr>
+<td>주요 호출 관계 절을 확인합니다.</td>
+<td><a href="#주요-호출-관계">주요 호출 관계</a></td>
+</tr>
+<tr>
+<td>추적 범위와 경계 절을 확인합니다.</td>
+<td><a href="#추적-범위와-경계">추적 범위와 경계</a></td>
+</tr>
+<tr>
+<td>전체 추적 기록 절을 확인합니다.</td>
+<td><a href="#전체-추적-기록">전체 추적 기록</a></td>
+</tr>
+</tbody>
+</table></div>
 <h2 id="이-흐름에서-확인할-것">이 흐름에서 확인할 것</h2>
-<p><code>Camera::configure()</code> 호출은 <code>Private::isAccessAllowed()</code> 검증과 <code>StreamConfiguration::setStream()</code> 설정을 거쳐 <code>IPU3CameraConfiguration::validate()</code>로 진입하며, 이 과정에서 <code>CameraSensorLegacy</code>와 <code>CameraSensorRaw</code>가 순차적으로 <code>computeTransform()</code>를 수행합니다. 각 센서 클래스는 <code>transform::operator/()</code>, <code>*()</code>, <code>-()</code>, <code>!()</code>, <code>&amp;()</code> 연산자를 호출하여 회전 변환을 계산하지만, 구체적인 실행 순서는 메서드 목록만으로는 판단할 수 없으므로 <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_legacy.cpp#L961"><code>src/libcamera/sensor/camera_sensor_legacy.cpp:961</code></a>와 <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_raw.cpp#L1073"><code>src/libcamera/sensor/camera_sensor_raw.cpp:1073</code></a>의 실제 호출 경로를 확인해야 합니다.</p>
-<p><code>IPU3CameraConfiguration</code>는 <code>CIO2Device::sensor()</code>를 통해 센서 정보를 가져오며, <code>Size::Size()</code> 생성자를 통해 크기 객체를 초기화합니다. <code>Size::Size()</code> 정의는 <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/include/libcamera/geometry.h#L54"><code>include/libcamera/geometry.h:54</code></a>에 위치하지만, 이 호출이 스레드 안전성을 보장하는지 또는 콜백 전달 시점에는 명확한 근거가 부족하므로 해당 동작의 세부 사항을 확인해야 합니다.</p>
-<p>확인 필요: 메서드를 인자로 넘겨 예약한 호출이 1 개 있습니다. 위에서 <code>예약된 호출, 실행 순서는 정적으로 확인 불가</code> 로 표시한 단계가 그 자리입니다. 대상 메서드는 확인했지만, 실제 실행 시점과 스레드는 큐나 신호 구현이 정하므로 이 번호 목록은 그 지점 이후의 순서를 보장하지 않습니다. 이후 흐름은 예약을 받는 쪽의 구현에서 직접 확인해야 합니다.</p>
+<p><code>Camera::configure(CameraConfiguration *)</code>에서 시작한 정적 탐색으로 호출 기록 208개를 수집했습니다. 주요 확인 지점 2개를 아래 표와 관계도에 표시합니다. 선택한 지점의 근거를 먼저 확인하고, 필요한 호출은 전체 추적 기록에서 찾아보세요.</p>
+<p>가상 호출 후보·예약 대상 등 확인이 필요한 경계 기록이 14개 있습니다. 추적 범위와 경계 표에서 후보를 구분한 뒤 실제 객체와 연결 방식을 확인해야 합니다.</p>
+<h2 id="주요-확인-지점">주요 확인 지점</h2>
+<p>아래 항목은 추출한 호출에서 고른 코드 탐색 지점입니다. 나열 순서는 실행 순서가 아닙니다.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>확인할 내용</th>
+<th>호출 측과 대상</th>
+<th>구분</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>구성 검증</td>
+<td><code>Camera</code> → <code>IPU3CameraConfiguration::validate()</code><br><code>Camera</code> → <code>RkISP1CameraConfiguration::validate()</code><br><code>Camera</code> → <code>UVCCameraConfiguration::validate()</code></td>
+<td>동적 디스패치 후보이며 실제 대상은 확인이 필요합니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1203"><code>src/libcamera/camera.cpp:1203</code></a></td>
+</tr>
+<tr>
+<td>파이프라인 구성 대상</td>
+<td><code>Camera</code> → <code>PipelineHandler::configure()</code></td>
+<td>예약 대상이며 즉시 실행되는 호출이 아닙니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1218"><code>src/libcamera/camera.cpp:1218</code></a></td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="주요-호출-관계">주요 호출 관계</h2>
+<p>화살표는 호출 측과 대상을 연결합니다. 시간 순서나 모든 경로의 실행을 뜻하지 않습니다. 점선에는 가상 호출 후보·예약 대상 등 확인이 필요한 관계를 표시합니다.</p>
+<pre class="mermaid">flowchart LR
+  p0[&quot;Camera&quot;]
+  p1[&quot;IPU3CameraConfiguration&quot;]
+  p2[&quot;PipelineHandler&quot;]
+  p3[&quot;RkISP1CameraConfiguration&quot;]
+  p4[&quot;UVCCameraConfiguration&quot;]
+  p0 -.-&gt;|&quot;validate() · virtual 후보&quot;| p1
+  p0 -.-&gt;|&quot;validate() · virtual 후보&quot;| p3
+  p0 -.-&gt;|&quot;validate() · virtual 후보&quot;| p4
+  p0 -.-&gt;|&quot;configure() · 예약된 호출, 실행 순서는 정적으로 확인 불가&quot;| p2</pre>
+<h2 id="추적-범위와-경계">추적 범위와 경계</h2>
+<p>facts에 기록된 호출은 208개이며, 요약의 hide 규칙에 해당하는 호출은 87개입니다. 전체 추적 기록에는 해당 호출도 모두 보존합니다. 기록 번호는 정적 탐색의 식별자이며 실행 순번이 아닙니다.</p>
+<p>조건 분기, 반복 횟수와 실제 실행 스레드는 이 호출 목록만으로 확정할 수 없습니다. 가상 호출 후보는 실제 객체에 따라 선택되며, 예약 대상은 큐나 신호 구현에서 이어서 확인해야 합니다.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>호출 지점</th>
+<th>후보 또는 예약 대상</th>
+<th>확인할 경계</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Camera</code></td>
+<td><code>IPU3CameraConfiguration::validate()</code><br><code>RkISP1CameraConfiguration::validate()</code><br><code>UVCCameraConfiguration::validate()</code></td>
+<td>동적 디스패치 후보이며 실제 대상은 확인이 필요합니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1203"><code>src/libcamera/camera.cpp:1203</code></a></td>
+</tr>
+<tr>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>CameraSensorLegacy::computeTransform()</code><br><code>CameraSensorRaw::computeTransform()</code></td>
+<td>동적 디스패치 후보이며 실제 대상은 확인이 필요합니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L191"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:191</code></a></td>
+</tr>
+<tr>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>CameraSensorLegacy::resolution()</code><br><code>CameraSensorRaw::resolution()</code></td>
+<td>동적 디스패치 후보이며 실제 대상은 확인이 필요합니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L265"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:265</code></a></td>
+</tr>
+<tr>
+<td><code>CIO2Device</code></td>
+<td><code>CameraSensorLegacy::resolution()</code><br><code>CameraSensorRaw::resolution()</code></td>
+<td>동적 디스패치 후보이며 실제 대상은 확인이 필요합니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L227"><code>src/libcamera/pipeline/ipu3/cio2.cpp:227</code></a></td>
+</tr>
+<tr>
+<td><code>CIO2Device</code></td>
+<td><code>CameraSensorLegacy::resolution()</code><br><code>CameraSensorRaw::resolution()</code></td>
+<td>동적 디스패치 후보이며 실제 대상은 확인이 필요합니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L281"><code>src/libcamera/pipeline/ipu3/cio2.cpp:281</code></a></td>
+</tr>
+<tr>
+<td><code>CIO2Device</code></td>
+<td><code>CameraSensorLegacy::sizes()</code><br><code>CameraSensorRaw::sizes()</code></td>
+<td>동적 디스패치 후보이며 실제 대상은 확인이 필요합니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L289"><code>src/libcamera/pipeline/ipu3/cio2.cpp:289</code></a></td>
+</tr>
+<tr>
+<td><code>Camera</code></td>
+<td><code>PipelineHandler::configure()</code></td>
+<td>예약 대상이며 즉시 실행되는 호출이 아닙니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1218"><code>src/libcamera/camera.cpp:1218</code></a></td>
+</tr>
+</tbody>
+</table></div>
+<p>추출 통계: 미해결 호출 0개, 예약된 호출 1개입니다.</p>
+<h2 id="전체-추적-기록">전체 추적 기록</h2>
+<p>아래 구간을 펼치면 요약에서 제외된 호출까지 확인할 수 있습니다. 이 목록은 추출 깊이 안에서 수집한 기록이며, 소스의 모든 실행 경로를 포함한다는 뜻은 아닙니다.</p>
+<details class="note">
+<summary>추적 기록 1–25 / 208개</summary>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>기록</th>
+<th>호출 측</th>
+<th>대상</th>
+<th>구분</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>Camera</code></td>
+<td><code>Camera::_d()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1193"><code>src/libcamera/camera.cpp:1193</code></a></td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>Camera</code></td>
+<td><code>Private::isAccessAllowed()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1195"><code>src/libcamera/camera.cpp:1195</code></a></td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>Private</code></td>
+<td><code>log::isLogSeverityEnabled()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L720"><code>src/libcamera/camera.cpp:720</code></a></td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>Private</code></td>
+<td><code>LogMessageAbortGuard::LogMessageAbortGuard()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L720"><code>src/libcamera/camera.cpp:720</code></a></td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>Private</code></td>
+<td><code>LogMessage::stream()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L720"><code>src/libcamera/camera.cpp:720</code></a></td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>Private</code></td>
+<td><code>log::_log()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L720"><code>src/libcamera/camera.cpp:720</code></a></td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>log</code></td>
+<td><code>LogMessage::LogMessage()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/base/log.cpp#L990"><code>src/libcamera/base/log.cpp:990</code></a></td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>LogMessage</code></td>
+<td><code>utils::basename()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/base/log.cpp#L858"><code>src/libcamera/base/log.cpp:858</code></a></td>
+</tr>
+<tr>
+<td>9</td>
+<td><code>Private</code></td>
+<td><code>log::isLogSeverityEnabled()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L723"><code>src/libcamera/camera.cpp:723</code></a></td>
+</tr>
+<tr>
+<td>10</td>
+<td><code>Private</code></td>
+<td><code>LogMessageAbortGuard::LogMessageAbortGuard()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L723"><code>src/libcamera/camera.cpp:723</code></a></td>
+</tr>
+<tr>
+<td>11</td>
+<td><code>Private</code></td>
+<td><code>LogMessage::stream()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L723"><code>src/libcamera/camera.cpp:723</code></a></td>
+</tr>
+<tr>
+<td>12</td>
+<td><code>Private</code></td>
+<td><code>log::_log()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L723"><code>src/libcamera/camera.cpp:723</code></a></td>
+</tr>
+<tr>
+<td>13</td>
+<td><code>log</code></td>
+<td><code>LogMessage::LogMessage()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/base/log.cpp#L990"><code>src/libcamera/base/log.cpp:990</code></a></td>
+</tr>
+<tr>
+<td>14</td>
+<td><code>LogMessage</code></td>
+<td><code>utils::basename()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/base/log.cpp#L858"><code>src/libcamera/base/log.cpp:858</code></a></td>
+</tr>
+<tr>
+<td>15</td>
+<td><code>Camera</code></td>
+<td><code>StreamConfiguration::setStream()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1201"><code>src/libcamera/camera.cpp:1201</code></a></td>
+</tr>
+<tr>
+<td>16</td>
+<td><code>Camera</code></td>
+<td><code>IPU3CameraConfiguration::validate()</code></td>
+<td>동적 디스패치 후보이며 실제 대상은 확인이 필요합니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1203"><code>src/libcamera/camera.cpp:1203</code></a></td>
+</tr>
+<tr>
+<td>17</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>CameraSensorLegacy::computeTransform()</code></td>
+<td>동적 디스패치 후보이며 실제 대상은 확인이 필요합니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L191"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:191</code></a></td>
+</tr>
+<tr>
+<td>18</td>
+<td><code>CameraSensorLegacy</code></td>
+<td><code>transform::operator/()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_legacy.cpp#L961"><code>src/libcamera/sensor/camera_sensor_legacy.cpp:961</code></a></td>
+</tr>
+<tr>
+<td>19</td>
+<td><code>transform</code></td>
+<td><code>transform::transformFromOrientation()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/transform.cpp#L349"><code>src/libcamera/transform.cpp:349</code></a></td>
+</tr>
+<tr>
+<td>20</td>
+<td><code>transform</code></td>
+<td><code>transform::transformFromOrientation()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/transform.cpp#L350"><code>src/libcamera/transform.cpp:350</code></a></td>
+</tr>
+<tr>
+<td>21</td>
+<td><code>transform</code></td>
+<td><code>transform::operator*()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/transform.cpp#L352"><code>src/libcamera/transform.cpp:352</code></a></td>
+</tr>
+<tr>
+<td>22</td>
+<td><code>transform</code></td>
+<td><code>transform::operator-()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/transform.cpp#L352"><code>src/libcamera/transform.cpp:352</code></a></td>
+</tr>
+<tr>
+<td>23</td>
+<td><code>CameraSensorLegacy</code></td>
+<td><code>transform::operator!()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_legacy.cpp#L964"><code>src/libcamera/sensor/camera_sensor_legacy.cpp:964</code></a></td>
+</tr>
+<tr>
+<td>24</td>
+<td><code>CameraSensorLegacy</code></td>
+<td><code>transform::operator&amp;()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_legacy.cpp#L964"><code>src/libcamera/sensor/camera_sensor_legacy.cpp:964</code></a></td>
+</tr>
+<tr>
+<td>25</td>
+<td><code>CameraSensorLegacy</code></td>
+<td><code>transform::operator!()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_legacy.cpp#L969"><code>src/libcamera/sensor/camera_sensor_legacy.cpp:969</code></a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<details class="note">
+<summary>추적 기록 26–50 / 208개</summary>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>기록</th>
+<th>호출 측</th>
+<th>대상</th>
+<th>구분</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>26</td>
+<td><code>CameraSensorLegacy</code></td>
+<td><code>transform::operator&amp;()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_legacy.cpp#L969"><code>src/libcamera/sensor/camera_sensor_legacy.cpp:969</code></a></td>
+</tr>
+<tr>
+<td>27</td>
+<td><code>CameraSensorLegacy</code></td>
+<td><code>transform::operator!()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_legacy.cpp#L978"><code>src/libcamera/sensor/camera_sensor_legacy.cpp:978</code></a></td>
+</tr>
+<tr>
+<td>28</td>
+<td><code>CameraSensorLegacy</code></td>
+<td><code>transform::operator&amp;()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_legacy.cpp#L978"><code>src/libcamera/sensor/camera_sensor_legacy.cpp:978</code></a></td>
+</tr>
+<tr>
+<td>29</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>CameraSensorRaw::computeTransform()</code></td>
+<td>동적 디스패치 후보이며 실제 대상은 확인이 필요합니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L191"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:191</code></a></td>
+</tr>
+<tr>
+<td>30</td>
+<td><code>CameraSensorRaw</code></td>
+<td><code>transform::operator/()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_raw.cpp#L1073"><code>src/libcamera/sensor/camera_sensor_raw.cpp:1073</code></a></td>
+</tr>
+<tr>
+<td>31</td>
+<td><code>transform</code></td>
+<td><code>transform::transformFromOrientation()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/transform.cpp#L349"><code>src/libcamera/transform.cpp:349</code></a></td>
+</tr>
+<tr>
+<td>32</td>
+<td><code>transform</code></td>
+<td><code>transform::transformFromOrientation()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/transform.cpp#L350"><code>src/libcamera/transform.cpp:350</code></a></td>
+</tr>
+<tr>
+<td>33</td>
+<td><code>transform</code></td>
+<td><code>transform::operator*()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/transform.cpp#L352"><code>src/libcamera/transform.cpp:352</code></a></td>
+</tr>
+<tr>
+<td>34</td>
+<td><code>transform</code></td>
+<td><code>transform::operator-()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/transform.cpp#L352"><code>src/libcamera/transform.cpp:352</code></a></td>
+</tr>
+<tr>
+<td>35</td>
+<td><code>CameraSensorRaw</code></td>
+<td><code>transform::operator!()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_raw.cpp#L1076"><code>src/libcamera/sensor/camera_sensor_raw.cpp:1076</code></a></td>
+</tr>
+<tr>
+<td>36</td>
+<td><code>CameraSensorRaw</code></td>
+<td><code>transform::operator&amp;()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_raw.cpp#L1076"><code>src/libcamera/sensor/camera_sensor_raw.cpp:1076</code></a></td>
+</tr>
+<tr>
+<td>37</td>
+<td><code>CameraSensorRaw</code></td>
+<td><code>transform::operator!()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_raw.cpp#L1081"><code>src/libcamera/sensor/camera_sensor_raw.cpp:1081</code></a></td>
+</tr>
+<tr>
+<td>38</td>
+<td><code>CameraSensorRaw</code></td>
+<td><code>transform::operator&amp;()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_raw.cpp#L1081"><code>src/libcamera/sensor/camera_sensor_raw.cpp:1081</code></a></td>
+</tr>
+<tr>
+<td>39</td>
+<td><code>CameraSensorRaw</code></td>
+<td><code>transform::operator!()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_raw.cpp#L1090"><code>src/libcamera/sensor/camera_sensor_raw.cpp:1090</code></a></td>
+</tr>
+<tr>
+<td>40</td>
+<td><code>CameraSensorRaw</code></td>
+<td><code>transform::operator&amp;()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_raw.cpp#L1090"><code>src/libcamera/sensor/camera_sensor_raw.cpp:1090</code></a></td>
+</tr>
+<tr>
+<td>41</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>CIO2Device::sensor()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L191"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:191</code></a></td>
+</tr>
+<tr>
+<td>42</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>Size::Size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L213"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:213</code></a></td>
+</tr>
+<tr>
+<td>43</td>
+<td><code>Size</code></td>
+<td><code>Size::Size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/include/libcamera/geometry.h#L54"><code>include/libcamera/geometry.h:54</code></a></td>
+</tr>
+<tr>
+<td>44</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>Size::Size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L214"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:214</code></a></td>
+</tr>
+<tr>
+<td>45</td>
+<td><code>Size</code></td>
+<td><code>Size::Size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/include/libcamera/geometry.h#L54"><code>include/libcamera/geometry.h:54</code></a></td>
+</tr>
+<tr>
+<td>46</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>Size::Size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L215"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:215</code></a></td>
+</tr>
+<tr>
+<td>47</td>
+<td><code>Size</code></td>
+<td><code>Size::Size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/include/libcamera/geometry.h#L54"><code>include/libcamera/geometry.h:54</code></a></td>
+</tr>
+<tr>
+<td>48</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>PixelFormatInfo::info()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L218"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:218</code></a></td>
+</tr>
+<tr>
+<td>49</td>
+<td><code>PixelFormatInfo</code></td>
+<td><code>log::isLogSeverityEnabled()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/formats.cpp#L1006"><code>src/libcamera/formats.cpp:1006</code></a></td>
+</tr>
+<tr>
+<td>50</td>
+<td><code>PixelFormatInfo</code></td>
+<td><code>utils::operator&lt;&lt;()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/formats.cpp#L1006"><code>src/libcamera/formats.cpp:1006</code></a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<details class="note">
+<summary>추적 기록 51–75 / 208개</summary>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>기록</th>
+<th>호출 측</th>
+<th>대상</th>
+<th>구분</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>51</td>
+<td><code>PixelFormatInfo</code></td>
+<td><code>LogMessageAbortGuard::LogMessageAbortGuard()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/formats.cpp#L1006"><code>src/libcamera/formats.cpp:1006</code></a></td>
+</tr>
+<tr>
+<td>52</td>
+<td><code>PixelFormatInfo</code></td>
+<td><code>LogMessage::stream()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/formats.cpp#L1006"><code>src/libcamera/formats.cpp:1006</code></a></td>
+</tr>
+<tr>
+<td>53</td>
+<td><code>PixelFormatInfo</code></td>
+<td><code>log::_log()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/formats.cpp#L1006"><code>src/libcamera/formats.cpp:1006</code></a></td>
+</tr>
+<tr>
+<td>54</td>
+<td><code>log</code></td>
+<td><code>LogMessage::LogMessage()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/base/log.cpp#L990"><code>src/libcamera/base/log.cpp:990</code></a></td>
+</tr>
+<tr>
+<td>55</td>
+<td><code>PixelFormatInfo</code></td>
+<td><code>utils::hex()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/formats.cpp#L1008"><code>src/libcamera/formats.cpp:1008</code></a></td>
+</tr>
+<tr>
+<td>56</td>
+<td><code>PixelFormatInfo</code></td>
+<td><code>PixelFormat::fourcc()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/formats.cpp#L1008"><code>src/libcamera/formats.cpp:1008</code></a></td>
+</tr>
+<tr>
+<td>57</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>Size::operator=()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L222"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:222</code></a></td>
+</tr>
+<tr>
+<td>58</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>Size::operator=()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L225"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:225</code></a></td>
+</tr>
+<tr>
+<td>59</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>Size::expandTo()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L226"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:226</code></a></td>
+</tr>
+<tr>
+<td>60</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>log::isLogSeverityEnabled()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L231"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:231</code></a></td>
+</tr>
+<tr>
+<td>61</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>LogMessageAbortGuard::LogMessageAbortGuard()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L231"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:231</code></a></td>
+</tr>
+<tr>
+<td>62</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>LogMessage::stream()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L231"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:231</code></a></td>
+</tr>
+<tr>
+<td>63</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>log::_log()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L231"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:231</code></a></td>
+</tr>
+<tr>
+<td>64</td>
+<td><code>log</code></td>
+<td><code>LogMessage::LogMessage()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/base/log.cpp#L990"><code>src/libcamera/base/log.cpp:990</code></a></td>
+</tr>
+<tr>
+<td>65</td>
+<td><code>LogMessage</code></td>
+<td><code>utils::basename()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/base/log.cpp#L858"><code>src/libcamera/base/log.cpp:858</code></a></td>
+</tr>
+<tr>
+<td>66</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>log::isLogSeverityEnabled()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L244"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:244</code></a></td>
+</tr>
+<tr>
+<td>67</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>LogMessageAbortGuard::LogMessageAbortGuard()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L244"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:244</code></a></td>
+</tr>
+<tr>
+<td>68</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>LogMessage::stream()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L244"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:244</code></a></td>
+</tr>
+<tr>
+<td>69</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>log::_log()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L244"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:244</code></a></td>
+</tr>
+<tr>
+<td>70</td>
+<td><code>log</code></td>
+<td><code>LogMessage::LogMessage()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/base/log.cpp#L990"><code>src/libcamera/base/log.cpp:990</code></a></td>
+</tr>
+<tr>
+<td>71</td>
+<td><code>LogMessage</code></td>
+<td><code>utils::basename()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/base/log.cpp#L858"><code>src/libcamera/base/log.cpp:858</code></a></td>
+</tr>
+<tr>
+<td>72</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>Size::isNull()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L260"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:260</code></a></td>
+</tr>
+<tr>
+<td>73</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>Size::operator=()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L261"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:261</code></a></td>
+</tr>
+<tr>
+<td>74</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>Size::boundedTo()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L261"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:261</code></a></td>
+</tr>
+<tr>
+<td>75</td>
+<td><code>Size</code></td>
+<td><code>Size::Size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/include/libcamera/geometry.h#L137"><code>include/libcamera/geometry.h:137</code></a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<details class="note">
+<summary>추적 기록 76–100 / 208개</summary>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>기록</th>
+<th>호출 측</th>
+<th>대상</th>
+<th>구분</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>76</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>Size::grownBy()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L261"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:261</code></a></td>
+</tr>
+<tr>
+<td>77</td>
+<td><code>Size</code></td>
+<td><code>Size::Size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/include/libcamera/geometry.h#L153"><code>include/libcamera/geometry.h:153</code></a></td>
+</tr>
+<tr>
+<td>78</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>Size::expandedTo()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L261"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:261</code></a></td>
+</tr>
+<tr>
+<td>79</td>
+<td><code>Size</code></td>
+<td><code>Size::Size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/include/libcamera/geometry.h#L145"><code>include/libcamera/geometry.h:145</code></a></td>
+</tr>
+<tr>
+<td>80</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>Size::Size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L261"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:261</code></a></td>
+</tr>
+<tr>
+<td>81</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>Size::Size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L263"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:263</code></a></td>
+</tr>
+<tr>
+<td>82</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>CameraSensorLegacy::resolution()</code></td>
+<td>동적 디스패치 후보이며 실제 대상은 확인이 필요합니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L265"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:265</code></a></td>
+</tr>
+<tr>
+<td>83</td>
+<td><code>CameraSensorLegacy</code></td>
+<td><code>Size::Size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_legacy.cpp#L706"><code>src/libcamera/sensor/camera_sensor_legacy.cpp:706</code></a></td>
+</tr>
+<tr>
+<td>84</td>
+<td><code>CameraSensorLegacy</code></td>
+<td><code>Rectangle::size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_legacy.cpp#L706"><code>src/libcamera/sensor/camera_sensor_legacy.cpp:706</code></a></td>
+</tr>
+<tr>
+<td>85</td>
+<td><code>Rectangle</code></td>
+<td><code>Size::Size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/include/libcamera/geometry.h#L290"><code>include/libcamera/geometry.h:290</code></a></td>
+</tr>
+<tr>
+<td>86</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>CameraSensorRaw::resolution()</code></td>
+<td>동적 디스패치 후보이며 실제 대상은 확인이 필요합니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L265"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:265</code></a></td>
+</tr>
+<tr>
+<td>87</td>
+<td><code>CameraSensorRaw</code></td>
+<td><code>Size::Size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_raw.cpp#L766"><code>src/libcamera/sensor/camera_sensor_raw.cpp:766</code></a></td>
+</tr>
+<tr>
+<td>88</td>
+<td><code>CameraSensorRaw</code></td>
+<td><code>Rectangle::size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_raw.cpp#L766"><code>src/libcamera/sensor/camera_sensor_raw.cpp:766</code></a></td>
+</tr>
+<tr>
+<td>89</td>
+<td><code>Rectangle</code></td>
+<td><code>Size::Size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/include/libcamera/geometry.h#L290"><code>include/libcamera/geometry.h:290</code></a></td>
+</tr>
+<tr>
+<td>90</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>CIO2Device::sensor()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L265"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:265</code></a></td>
+</tr>
+<tr>
+<td>91</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>StreamConfiguration::operator=()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L267"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:267</code></a></td>
+</tr>
+<tr>
+<td>92</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>CIO2Device::generateConfiguration()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L267"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:267</code></a></td>
+</tr>
+<tr>
+<td>93</td>
+<td><code>CIO2Device</code></td>
+<td><code>StreamConfiguration::StreamConfiguration()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L223"><code>src/libcamera/pipeline/ipu3/cio2.cpp:223</code></a></td>
+</tr>
+<tr>
+<td>94</td>
+<td><code>StreamConfiguration</code></td>
+<td><code>PixelFormat::PixelFormat()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/stream.cpp#L283"><code>src/libcamera/stream.cpp:283</code></a></td>
+</tr>
+<tr>
+<td>95</td>
+<td><code>CIO2Device</code></td>
+<td><code>Size::isNull()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L226"><code>src/libcamera/pipeline/ipu3/cio2.cpp:226</code></a></td>
+</tr>
+<tr>
+<td>96</td>
+<td><code>CIO2Device</code></td>
+<td><code>Size::operator=()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L227"><code>src/libcamera/pipeline/ipu3/cio2.cpp:227</code></a></td>
+</tr>
+<tr>
+<td>97</td>
+<td><code>CIO2Device</code></td>
+<td><code>CameraSensorLegacy::resolution()</code></td>
+<td>동적 디스패치 후보이며 실제 대상은 확인이 필요합니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L227"><code>src/libcamera/pipeline/ipu3/cio2.cpp:227</code></a></td>
+</tr>
+<tr>
+<td>98</td>
+<td><code>CameraSensorLegacy</code></td>
+<td><code>Size::Size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_legacy.cpp#L706"><code>src/libcamera/sensor/camera_sensor_legacy.cpp:706</code></a></td>
+</tr>
+<tr>
+<td>99</td>
+<td><code>CameraSensorLegacy</code></td>
+<td><code>Rectangle::size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_legacy.cpp#L706"><code>src/libcamera/sensor/camera_sensor_legacy.cpp:706</code></a></td>
+</tr>
+<tr>
+<td>100</td>
+<td><code>CIO2Device</code></td>
+<td><code>CameraSensorRaw::resolution()</code></td>
+<td>동적 디스패치 후보이며 실제 대상은 확인이 필요합니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L227"><code>src/libcamera/pipeline/ipu3/cio2.cpp:227</code></a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<details class="note">
+<summary>추적 기록 101–125 / 208개</summary>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>기록</th>
+<th>호출 측</th>
+<th>대상</th>
+<th>구분</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>101</td>
+<td><code>CameraSensorRaw</code></td>
+<td><code>Size::Size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_raw.cpp#L766"><code>src/libcamera/sensor/camera_sensor_raw.cpp:766</code></a></td>
+</tr>
+<tr>
+<td>102</td>
+<td><code>CameraSensorRaw</code></td>
+<td><code>Rectangle::size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/sensor/camera_sensor_raw.cpp#L766"><code>src/libcamera/sensor/camera_sensor_raw.cpp:766</code></a></td>
+</tr>
+<tr>
+<td>103</td>
+<td><code>CIO2Device</code></td>
+<td><code>utils::map_keys()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L230"><code>src/libcamera/pipeline/ipu3/cio2.cpp:230</code></a></td>
+</tr>
+<tr>
+<td>104</td>
+<td><code>CIO2Device</code></td>
+<td><code>CIO2Device::getSensorFormat()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L231"><code>src/libcamera/pipeline/ipu3/cio2.cpp:231</code></a></td>
+</tr>
+<tr>
+<td>105</td>
+<td><code>CIO2Device</code></td>
+<td><code>CameraSensorLegacy::resolution()</code></td>
+<td>동적 디스패치 후보이며 실제 대상은 확인이 필요합니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L281"><code>src/libcamera/pipeline/ipu3/cio2.cpp:281</code></a></td>
+</tr>
+<tr>
+<td>106</td>
+<td><code>CIO2Device</code></td>
+<td><code>CameraSensorRaw::resolution()</code></td>
+<td>동적 디스패치 후보이며 실제 대상은 확인이 필요합니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L281"><code>src/libcamera/pipeline/ipu3/cio2.cpp:281</code></a></td>
+</tr>
+<tr>
+<td>107</td>
+<td><code>CIO2Device</code></td>
+<td><code>Size::Size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L285"><code>src/libcamera/pipeline/ipu3/cio2.cpp:285</code></a></td>
+</tr>
+<tr>
+<td>108</td>
+<td><code>CIO2Device</code></td>
+<td><code>CameraSensorLegacy::sizes()</code></td>
+<td>동적 디스패치 후보이며 실제 대상은 확인이 필요합니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L289"><code>src/libcamera/pipeline/ipu3/cio2.cpp:289</code></a></td>
+</tr>
+<tr>
+<td>109</td>
+<td><code>CIO2Device</code></td>
+<td><code>CameraSensorRaw::sizes()</code></td>
+<td>동적 디스패치 후보이며 실제 대상은 확인이 필요합니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L289"><code>src/libcamera/pipeline/ipu3/cio2.cpp:289</code></a></td>
+</tr>
+<tr>
+<td>110</td>
+<td><code>CIO2Device</code></td>
+<td><code>Size::operator=()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L316"><code>src/libcamera/pipeline/ipu3/cio2.cpp:316</code></a></td>
+</tr>
+<tr>
+<td>111</td>
+<td><code>CIO2Device</code></td>
+<td><code>Size::isNull()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L322"><code>src/libcamera/pipeline/ipu3/cio2.cpp:322</code></a></td>
+</tr>
+<tr>
+<td>112</td>
+<td><code>CIO2Device</code></td>
+<td><code>log::isLogSeverityEnabled()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L323"><code>src/libcamera/pipeline/ipu3/cio2.cpp:323</code></a></td>
+</tr>
+<tr>
+<td>113</td>
+<td><code>CIO2Device</code></td>
+<td><code>LogMessageAbortGuard::LogMessageAbortGuard()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L323"><code>src/libcamera/pipeline/ipu3/cio2.cpp:323</code></a></td>
+</tr>
+<tr>
+<td>114</td>
+<td><code>CIO2Device</code></td>
+<td><code>LogMessage::stream()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L323"><code>src/libcamera/pipeline/ipu3/cio2.cpp:323</code></a></td>
+</tr>
+<tr>
+<td>115</td>
+<td><code>CIO2Device</code></td>
+<td><code>log::_log()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L323"><code>src/libcamera/pipeline/ipu3/cio2.cpp:323</code></a></td>
+</tr>
+<tr>
+<td>116</td>
+<td><code>CIO2Device</code></td>
+<td><code>Size::operator=()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L329"><code>src/libcamera/pipeline/ipu3/cio2.cpp:329</code></a></td>
+</tr>
+<tr>
+<td>117</td>
+<td><code>CIO2Device</code></td>
+<td><code>V4L2SubdeviceFormat::V4L2SubdeviceFormat()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L331"><code>src/libcamera/pipeline/ipu3/cio2.cpp:331</code></a></td>
+</tr>
+<tr>
+<td>118</td>
+<td><code>CIO2Device</code></td>
+<td><code>log::isLogSeverityEnabled()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L233"><code>src/libcamera/pipeline/ipu3/cio2.cpp:233</code></a></td>
+</tr>
+<tr>
+<td>119</td>
+<td><code>CIO2Device</code></td>
+<td><code>LogMessageAbortGuard::LogMessageAbortGuard()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L233"><code>src/libcamera/pipeline/ipu3/cio2.cpp:233</code></a></td>
+</tr>
+<tr>
+<td>120</td>
+<td><code>CIO2Device</code></td>
+<td><code>LogMessage::stream()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L233"><code>src/libcamera/pipeline/ipu3/cio2.cpp:233</code></a></td>
+</tr>
+<tr>
+<td>121</td>
+<td><code>CIO2Device</code></td>
+<td><code>log::_log()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L233"><code>src/libcamera/pipeline/ipu3/cio2.cpp:233</code></a></td>
+</tr>
+<tr>
+<td>122</td>
+<td><code>CIO2Device</code></td>
+<td><code>StreamConfiguration::StreamConfiguration()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L234"><code>src/libcamera/pipeline/ipu3/cio2.cpp:234</code></a></td>
+</tr>
+<tr>
+<td>123</td>
+<td><code>CIO2Device</code></td>
+<td><code>Size::operator=()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L237"><code>src/libcamera/pipeline/ipu3/cio2.cpp:237</code></a></td>
+</tr>
+<tr>
+<td>124</td>
+<td><code>CIO2Device</code></td>
+<td><code>PixelFormat::operator=()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L238"><code>src/libcamera/pipeline/ipu3/cio2.cpp:238</code></a></td>
+</tr>
+<tr>
+<td>125</td>
+<td><code>CIO2Device</code></td>
+<td><code>StreamConfiguration::StreamConfiguration()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/cio2.cpp#L241"><code>src/libcamera/pipeline/ipu3/cio2.cpp:241</code></a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<details class="note">
+<summary>추적 기록 126–150 / 208개</summary>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>기록</th>
+<th>호출 측</th>
+<th>대상</th>
+<th>구분</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>126</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>Size::Size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L267"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:267</code></a></td>
+</tr>
+<tr>
+<td>127</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>PixelFormat::isValid()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L268"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:268</code></a></td>
+</tr>
+<tr>
+<td>128</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>log::isLogSeverityEnabled()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L271"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:271</code></a></td>
+</tr>
+<tr>
+<td>129</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>LogMessageAbortGuard::LogMessageAbortGuard()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L271"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:271</code></a></td>
+</tr>
+<tr>
+<td>130</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>LogMessage::stream()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L271"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:271</code></a></td>
+</tr>
+<tr>
+<td>131</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>log::_log()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L271"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:271</code></a></td>
+</tr>
+<tr>
+<td>132</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>StreamConfiguration::toString()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L271"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:271</code></a></td>
+</tr>
+<tr>
+<td>133</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>Size::operator=()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L274"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:274</code></a></td>
+</tr>
+<tr>
+<td>134</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>PixelFormatInfo::info()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L282"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:282</code></a></td>
+</tr>
+<tr>
+<td>135</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>StreamConfiguration::StreamConfiguration()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L283"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:283</code></a></td>
+</tr>
+<tr>
+<td>136</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>log::isLogSeverityEnabled()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L286"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:286</code></a></td>
+</tr>
+<tr>
+<td>137</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>LogMessageAbortGuard::LogMessageAbortGuard()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L286"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:286</code></a></td>
+</tr>
+<tr>
+<td>138</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>LogMessage::stream()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L286"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:286</code></a></td>
+</tr>
+<tr>
+<td>139</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>log::_log()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L286"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:286</code></a></td>
+</tr>
+<tr>
+<td>140</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>StreamConfiguration::toString()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L286"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:286</code></a></td>
+</tr>
+<tr>
+<td>141</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>Size::operator=()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L290"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:290</code></a></td>
+</tr>
+<tr>
+<td>142</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>PixelFormat::operator=()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L291"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:291</code></a></td>
+</tr>
+<tr>
+<td>143</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>PixelFormatInfo::stride()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L293"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:293</code></a></td>
+</tr>
+<tr>
+<td>144</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>PixelFormatInfo::frameSize()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L294"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:294</code></a></td>
+</tr>
+<tr>
+<td>145</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>StreamConfiguration::setStream()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L295"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:295</code></a></td>
+</tr>
+<tr>
+<td>146</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>log::isLogSeverityEnabled()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L297"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:297</code></a></td>
+</tr>
+<tr>
+<td>147</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>LogMessageAbortGuard::LogMessageAbortGuard()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L297"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:297</code></a></td>
+</tr>
+<tr>
+<td>148</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>LogMessage::stream()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L297"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:297</code></a></td>
+</tr>
+<tr>
+<td>149</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>log::_log()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L297"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:297</code></a></td>
+</tr>
+<tr>
+<td>150</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>StreamConfiguration::toString()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L297"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:297</code></a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<details class="note">
+<summary>추적 기록 151–175 / 208개</summary>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>기록</th>
+<th>호출 측</th>
+<th>대상</th>
+<th>구분</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>151</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>utils::alignDown()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L320"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:320</code></a></td>
+</tr>
+<tr>
+<td>152</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>utils::alignDown()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L326"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:326</code></a></td>
+</tr>
+<tr>
+<td>153</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>Size::alignDownTo()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L332"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:332</code></a></td>
+</tr>
+<tr>
+<td>154</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>PixelFormat::operator=()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L335"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:335</code></a></td>
+</tr>
+<tr>
+<td>155</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>PixelFormatInfo::stride()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L337"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:337</code></a></td>
+</tr>
+<tr>
+<td>156</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>PixelFormatInfo::frameSize()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L338"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:338</code></a></td>
+</tr>
+<tr>
+<td>157</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>geometry::operator==()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L346"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:346</code></a></td>
+</tr>
+<tr>
+<td>158</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>StreamConfiguration::setStream()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L347"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:347</code></a></td>
+</tr>
+<tr>
+<td>159</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>Size::operator=()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L350"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:350</code></a></td>
+</tr>
+<tr>
+<td>160</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>Size::operator=()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L352"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:352</code></a></td>
+</tr>
+<tr>
+<td>161</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>log::isLogSeverityEnabled()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L354"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:354</code></a></td>
+</tr>
+<tr>
+<td>162</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>LogMessageAbortGuard::LogMessageAbortGuard()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L354"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:354</code></a></td>
+</tr>
+<tr>
+<td>163</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>LogMessage::stream()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L354"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:354</code></a></td>
+</tr>
+<tr>
+<td>164</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>log::_log()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L354"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:354</code></a></td>
+</tr>
+<tr>
+<td>165</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>StreamConfiguration::toString()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L354"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:354</code></a></td>
+</tr>
+<tr>
+<td>166</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>StreamConfiguration::setStream()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L357"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:357</code></a></td>
+</tr>
+<tr>
+<td>167</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>Size::operator=()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L358"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:358</code></a></td>
+</tr>
+<tr>
+<td>168</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>log::isLogSeverityEnabled()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L360"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:360</code></a></td>
+</tr>
+<tr>
+<td>169</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>LogMessageAbortGuard::LogMessageAbortGuard()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L360"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:360</code></a></td>
+</tr>
+<tr>
+<td>170</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>LogMessage::stream()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L360"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:360</code></a></td>
+</tr>
+<tr>
+<td>171</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>log::_log()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L360"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:360</code></a></td>
+</tr>
+<tr>
+<td>172</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>StreamConfiguration::toString()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L360"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:360</code></a></td>
+</tr>
+<tr>
+<td>173</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>PixelFormat::operator!=()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L365"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:365</code></a></td>
+</tr>
+<tr>
+<td>174</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>geometry::operator!=()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L366"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:366</code></a></td>
+</tr>
+<tr>
+<td>175</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>log::isLogSeverityEnabled()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L367"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:367</code></a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<details class="note">
+<summary>추적 기록 176–200 / 208개</summary>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>기록</th>
+<th>호출 측</th>
+<th>대상</th>
+<th>구분</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>176</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>LogMessageAbortGuard::LogMessageAbortGuard()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L367"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:367</code></a></td>
+</tr>
+<tr>
+<td>177</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>LogMessage::stream()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L367"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:367</code></a></td>
+</tr>
+<tr>
+<td>178</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>log::_log()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L367"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:367</code></a></td>
+</tr>
+<tr>
+<td>179</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>StreamConfiguration::toString()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L369"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:369</code></a></td>
+</tr>
+<tr>
+<td>180</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>PipeConfig::operator=()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L376"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:376</code></a></td>
+</tr>
+<tr>
+<td>181</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>ImgUDevice::calculatePipeConfig()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L376"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:376</code></a></td>
+</tr>
+<tr>
+<td>182</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>PipeConfig::isNull()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L377"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:377</code></a></td>
+</tr>
+<tr>
+<td>183</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>log::isLogSeverityEnabled()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L378"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:378</code></a></td>
+</tr>
+<tr>
+<td>184</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>LogMessageAbortGuard::LogMessageAbortGuard()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L378"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:378</code></a></td>
+</tr>
+<tr>
+<td>185</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>LogMessage::stream()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L378"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:378</code></a></td>
+</tr>
+<tr>
+<td>186</td>
+<td><code>IPU3CameraConfiguration</code></td>
+<td><code>log::_log()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline/ipu3/ipu3.cpp#L378"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:378</code></a></td>
+</tr>
+<tr>
+<td>187</td>
+<td><code>Camera</code></td>
+<td><code>RkISP1CameraConfiguration::validate()</code></td>
+<td>동적 디스패치 후보이며 실제 대상은 확인이 필요합니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1203"><code>src/libcamera/camera.cpp:1203</code></a></td>
+</tr>
+<tr>
+<td>188</td>
+<td><code>Camera</code></td>
+<td><code>UVCCameraConfiguration::validate()</code></td>
+<td>동적 디스패치 후보이며 실제 대상은 확인이 필요합니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1203"><code>src/libcamera/camera.cpp:1203</code></a></td>
+</tr>
+<tr>
+<td>189</td>
+<td><code>Camera</code></td>
+<td><code>log::isLogSeverityEnabled()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1204"><code>src/libcamera/camera.cpp:1204</code></a></td>
+</tr>
+<tr>
+<td>190</td>
+<td><code>Camera</code></td>
+<td><code>LogMessageAbortGuard::LogMessageAbortGuard()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1204"><code>src/libcamera/camera.cpp:1204</code></a></td>
+</tr>
+<tr>
+<td>191</td>
+<td><code>Camera</code></td>
+<td><code>LogMessage::stream()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1204"><code>src/libcamera/camera.cpp:1204</code></a></td>
+</tr>
+<tr>
+<td>192</td>
+<td><code>Camera</code></td>
+<td><code>log::_log()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1204"><code>src/libcamera/camera.cpp:1204</code></a></td>
+</tr>
+<tr>
+<td>193</td>
+<td><code>Camera</code></td>
+<td><code>CameraConfiguration::size()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1211"><code>src/libcamera/camera.cpp:1211</code></a></td>
+</tr>
+<tr>
+<td>194</td>
+<td><code>Camera</code></td>
+<td><code>CameraConfiguration::at()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1212"><code>src/libcamera/camera.cpp:1212</code></a></td>
+</tr>
+<tr>
+<td>195</td>
+<td><code>Camera</code></td>
+<td><code>StreamConfiguration::toString()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1213"><code>src/libcamera/camera.cpp:1213</code></a></td>
+</tr>
+<tr>
+<td>196</td>
+<td><code>Camera</code></td>
+<td><code>log::isLogSeverityEnabled()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1216"><code>src/libcamera/camera.cpp:1216</code></a></td>
+</tr>
+<tr>
+<td>197</td>
+<td><code>Camera</code></td>
+<td><code>LogMessageAbortGuard::LogMessageAbortGuard()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1216"><code>src/libcamera/camera.cpp:1216</code></a></td>
+</tr>
+<tr>
+<td>198</td>
+<td><code>Camera</code></td>
+<td><code>LogMessage::stream()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1216"><code>src/libcamera/camera.cpp:1216</code></a></td>
+</tr>
+<tr>
+<td>199</td>
+<td><code>Camera</code></td>
+<td><code>log::_log()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1216"><code>src/libcamera/camera.cpp:1216</code></a></td>
+</tr>
+<tr>
+<td>200</td>
+<td><code>Camera</code></td>
+<td><code>Object::invokeMethod()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1218"><code>src/libcamera/camera.cpp:1218</code></a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<details class="note">
+<summary>추적 기록 201–208 / 208개</summary>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>기록</th>
+<th>호출 측</th>
+<th>대상</th>
+<th>구분</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>201</td>
+<td><code>Camera</code></td>
+<td><code>PipelineHandler::configure()</code></td>
+<td>예약 대상이며 즉시 실행되는 호출이 아닙니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1218"><code>src/libcamera/camera.cpp:1218</code></a></td>
+</tr>
+<tr>
+<td>202</td>
+<td><code>Camera</code></td>
+<td><code>StreamConfiguration::stream()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1225"><code>src/libcamera/camera.cpp:1225</code></a></td>
+</tr>
+<tr>
+<td>203</td>
+<td><code>Camera</code></td>
+<td><code>log::isLogSeverityEnabled()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1227"><code>src/libcamera/camera.cpp:1227</code></a></td>
+</tr>
+<tr>
+<td>204</td>
+<td><code>Camera</code></td>
+<td><code>LogMessageAbortGuard::LogMessageAbortGuard()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1227"><code>src/libcamera/camera.cpp:1227</code></a></td>
+</tr>
+<tr>
+<td>205</td>
+<td><code>Camera</code></td>
+<td><code>LogMessage::stream()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1227"><code>src/libcamera/camera.cpp:1227</code></a></td>
+</tr>
+<tr>
+<td>206</td>
+<td><code>Camera</code></td>
+<td><code>log::_log()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1227"><code>src/libcamera/camera.cpp:1227</code></a></td>
+</tr>
+<tr>
+<td>207</td>
+<td><code>Camera</code></td>
+<td><code>StreamConfiguration::operator=()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1233"><code>src/libcamera/camera.cpp:1233</code></a></td>
+</tr>
+<tr>
+<td>208</td>
+<td><code>Camera</code></td>
+<td><code>Private::setState()</code></td>
+<td>정적 호출 지점입니다.</td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1237"><code>src/libcamera/camera.cpp:1237</code></a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
 <details class="note">
 <summary>근거와 검토 정보</summary>
 <ul>
-<li>근거 파일: <code>include/libcamera/geometry.h</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/pipeline/ipu3/ipu3.cpp</code>, <code>src/libcamera/sensor/camera_sensor_legacy.cpp</code>, <code>src/libcamera/sensor/camera_sensor_raw.cpp</code>, <code>src/libcamera/transform.cpp</code></li>
+<li>생성 방식: 추출 호출로 만든 시나리오</li>
+<li>검증 범위: 주요 호출과 경계를 facts에서 구성하고 전체 추적 기록을 보존합니다. 실행 순서를 추정하지 않습니다.</li>
+<li>근거 파일: <code>include/libcamera/geometry.h</code>, <code>src/libcamera/base/log.cpp</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/formats.cpp</code>, <code>src/libcamera/pipeline/ipu3/cio2.cpp</code>, <code>src/libcamera/pipeline/ipu3/ipu3.cpp</code>, <code>src/libcamera/sensor/camera_sensor_legacy.cpp</code>, <code>src/libcamera/sensor/camera_sensor_raw.cpp</code>, <code>src/libcamera/stream.cpp</code>, <code>src/libcamera/transform.cpp</code></li>
 <li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>279d355ef8</code>)</li>
 <li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li>
-<li>검토: 2026-09-24 · ollama/qwen3.5:4b · 사람 검토 전</li>
+<li>검토 상태 기록일: 2026-09-26 · 사람 검토 전</li>
 </ul>
 </details>
-<p>다음 단계: <a href="camera_start.html">캡처 시작 (Camera::start)</a></p></article><section class="evidence"><h2 id="page-evidence">생성 근거</h2><dl><dt>분석 기준 커밋</dt><dd><code>279d355ef8f7a4f98bb0a3004c0f788387814506</code></dd><dt>문서 생성 시각</dt><dd><code>2026-09-24 14:05:00+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>ollama/qwen3.5:4b</code></dd></dl><a href="configure.md">Markdown 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="manager_start.html"><small>이전</small>카메라 탐색 (CameraManager::start) ←</a><a class="next" href="camera_start.html"><small>다음</small>캡처 시작 (Camera::start) →</a></nav>
+<p>다음 단계: <a href="camera_start.html">캡처 시작 (Camera::start)</a></p></article><section class="evidence"><h2 id="page-evidence">생성 근거</h2><dl><dt>생성 방식</dt><dd>추출 호출로 만든 시나리오</dd><dt>검증 범위</dt><dd>주요 호출과 경계를 facts에서 구성하고 전체 추적 기록을 보존합니다. 실행 순서를 추정하지 않습니다.</dd><dt>분석 기준 커밋</dt><dd><code>279d355ef8f7a4f98bb0a3004c0f788387814506</code></dd><dt>문서 생성 시각</dt><dd><code>2026-09-26 13:32:24+00:00</code></dd></dl><a href="configure.md">Markdown 원문 ↗</a> <a href="configure.mmd">Mermaid 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="manager_start.html"><small>이전</small>카메라 탐색 (CameraManager::start) ←</a><a class="next" href="camera_start.html"><small>다음</small>캡처 시작 (Camera::start) →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · 인용 검사와 사람의 내용 검토는 별도입니다.</footer></main>
 <aside class="page-toc"><nav aria-label="현재 페이지 목차"><p>이 페이지에서</p><div class="toc">
 <ul>
-<li><a href="#호출-순서">호출 순서</a></li>
 <li><a href="#이-흐름에서-확인할-것">이 흐름에서 확인할 것</a></li>
+<li><a href="#주요-확인-지점">주요 확인 지점</a></li>
+<li><a href="#주요-호출-관계">주요 호출 관계</a></li>
+<li><a href="#추적-범위와-경계">추적 범위와 경계</a></li>
+<li><a href="#전체-추적-기록">전체 추적 기록</a></li>
 </ul>
 </div>
 </nav></aside></div>

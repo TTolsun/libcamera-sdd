@@ -4,10 +4,11 @@
 <body><a class="skip" href="#main">본문으로 이동</a>
 <header class="site-header"><a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera 설계 문서</a>
 <div class="header-actions"><button id="search-open" hidden>문서 찾기 <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>메뉴</button></div></header>
-<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="문서 메뉴"><p class="nav-group">시작하기</p><a href="index.html">문서 안내</a><p class="nav-group">For Vendors</p><a href="pipeline-handler.html">Pipeline Handler</a><a href="ipa.html">IPA 관리와 구현 진입점</a><a href="ipu3-lsc.html">IPU3 LSC와 상태 연결</a><a href="ipu3-lsc-flow.html">IPU3 LSC의 설정과 프레임 처리</a><p class="nav-group">For Developers</p><a href="overview.html">시스템 개요</a><a href="scenarios/index.html">핵심 시나리오 시퀀스</a><details class="nav-branch"><summary>하위 문서 5 편</summary><a class="nav-sub" href="scenarios/manager_start.html">카메라 탐색 (CameraManager::start)</a><a class="nav-sub" href="scenarios/configure.html">스트림 구성 (Camera::configure)</a><a class="nav-sub" href="scenarios/camera_start.html">캡처 시작 (Camera::start)</a><a class="nav-sub" href="scenarios/queue_request.html">요청 제출 (Camera::queueRequest)</a><a class="nav-sub" href="scenarios/complete_request.html">요청 완료 통지 (PipelineHandler::completeRequest)</a></details><a href="camera-model.html" aria-current="page">카메라와 요청 모델</a></nav><p class="sidebar-note">코드에서 구조를 추출하고<br>근거와 함께 검토합니다.</p></aside>
-<main id="main"><p class="breadcrumb">For Developers <span>/</span> 카메라와 요청 모델</p><h1>카메라와 요청 모델</h1><div class="page-state"><span class="review-state">사람 검토 전</span><span>자동 검사 통과 · <code>ok</code></span></div>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="문서 메뉴"><p class="nav-group">시작하기</p><a href="index.html">문서 안내</a><p class="nav-group">For Vendors</p><a href="pipeline-handler.html">Pipeline Handler</a><a href="ipa.html">IPA 관리와 구현 진입점</a><a href="ipu3-lsc.html">IPU3 LSC와 상태 연결</a><a href="ipu3-lsc-flow.html">IPU3 LSC의 설정과 프레임 처리</a><p class="nav-group">For Developers</p><a href="overview.html">시스템 개요</a><a href="scenarios/index.html">핵심 시나리오</a><details class="nav-branch"><summary>하위 문서 5 편</summary><a class="nav-sub" href="scenarios/manager_start.html">카메라 탐색 (CameraManager::start)</a><a class="nav-sub" href="scenarios/configure.html">스트림 구성 (Camera::configure)</a><a class="nav-sub" href="scenarios/camera_start.html">캡처 시작 (Camera::start)</a><a class="nav-sub" href="scenarios/queue_request.html">요청 제출 (Camera::queueRequest)</a><a class="nav-sub" href="scenarios/complete_request.html">요청 완료 통지 (PipelineHandler::completeRequest)</a></details><a href="camera-model.html" aria-current="page">카메라와 요청 모델</a></nav><p class="sidebar-note">코드에서 구조를 추출하고<br>근거와 함께 검토합니다.</p></aside>
+<main id="main"><p class="breadcrumb">For Developers <span>/</span> 카메라와 요청 모델</p><h1>카메라와 요청 모델</h1><div class="page-state"><span class="review-state">사람 검토 전</span><span>자동 검사 통과 · <code>ok</code></span><span class="generation-method">소스 발췌에 연결한 설계 설명</span></div>
 <details class="mobile-toc"><summary>이 페이지의 목차</summary><div class="toc">
 <ul>
+<li><a href="#설계-항목과-근거">설계 항목과 근거</a></li>
 <li><a href="#클래스별-책임">클래스별 책임</a></li>
 <li><a href="#상태와-허용-호출">상태와 허용 호출</a></li>
 <li><a href="#요청-생성과-완료">요청 생성과 완료</a></li>
@@ -19,45 +20,46 @@
 </ul>
 </div>
 </details><article><p><strong>클래스의 책임, 요청과 버퍼의 수명, 상태 전이와 종료·동기화 계약을 코드 근거로 확인하세요.</strong></p>
+<h2 id="설계-항목과-근거">설계 항목과 근거</h2>
+<p>아래 항목은 소스에 연결된 설명의 작성 범위를 나타냅니다. 설명의 의미와 실제 실행에 대한 승인은 별도 검토가 필요합니다.</p>
 <div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
 <thead>
 <tr>
-<th>지금 확인할 내용</th>
-<th>이동할 절</th>
+<th>설계 질문</th>
+<th>설명 위치</th>
+<th>확인 범위</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>클래스별 책임 절을 확인합니다.</td>
+<td>CameraManager, Camera, Request의 책임과 객체 수명은 어떻게 나뉩니까?</td>
 <td><a href="#클래스별-책임">클래스별 책임</a></td>
+<td>코드 근거와 설명 연결</td>
 </tr>
 <tr>
-<td>상태와 허용 호출 절을 확인합니다.</td>
+<td>상태 전이와 허용 호출을 설명하고, 상태를 바꾸는 함수의 동기화 책임을 구분하세요.</td>
 <td><a href="#상태와-허용-호출">상태와 허용 호출</a></td>
+<td>코드 근거와 설명 연결</td>
 </tr>
 <tr>
-<td>요청 생성과 완료 절을 확인합니다.</td>
+<td>요청 생성, 버퍼 연결, 큐잉, 완료 통지의 순서와 제출 조건을 설명하세요.</td>
 <td><a href="#요청-생성과-완료">요청 생성과 완료</a></td>
+<td>코드 근거와 설명 연결</td>
 </tr>
 <tr>
-<td>소유권과 재사용 절을 확인합니다.</td>
+<td>요청 소유권과 완료 뒤 재사용, ReuseBuffers, fence 이전 조건을 설명하세요. 근거에 없는 버퍼 소유권은 추정하지 마세요.</td>
 <td><a href="#소유권과-재사용">소유권과 재사용</a></td>
+<td>코드 근거와 설명 연결</td>
 </tr>
 <tr>
-<td>오류와 종료 절을 확인합니다.</td>
+<td>queueRequest의 오류 조건과 stop의 취소·완료·복귀 상태를 설명하세요.</td>
 <td><a href="#오류와-종료">오류와 종료</a></td>
+<td>코드 근거와 설명 연결</td>
 </tr>
 <tr>
-<td>동시성과 실행 확인 절을 확인합니다.</td>
+<td>threadsafe 보장, 호출자의 동기화 책임과 파이프라인의 완료 통지 계약을 구분하세요. 애플리케이션 콜백 전달 방식과 실기기 검증은 별도로 확인하세요.</td>
 <td><a href="#동시성과-실행-확인">동시성과 실행 확인</a></td>
-</tr>
-<tr>
-<td>클래스 관계 절을 확인합니다.</td>
-<td><a href="#클래스-관계">클래스 관계</a></td>
-</tr>
-<tr>
-<td>관련 클래스 절을 확인합니다.</td>
-<td><a href="#관련-클래스">관련 클래스</a></td>
+<td>코드 근거와 설명 연결 · 실행 확인 항목 별도</td>
 </tr>
 </tbody>
 </table></div>
@@ -65,26 +67,829 @@
 <p>CameraManager는 장치를 열거하고 파이프라인과 연결하여 애플리케이션에 카메라를 제공합니다. 동시에 한 인스턴스만 존재해야 하며, 카메라 참조를 모두 해제한 뒤 관리자를 정지해야 합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera_manager.cpp#L280"><code>src/libcamera/camera_manager.cpp:280</code></a></p>
 <p>Camera는 단일 이미지 소스의 스트림 구성과 캡처를 제어합니다. create()가 반환하는 shared_ptr로 수명을 관리하며 생성자와 소멸자는 비공개입니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L758"><code>src/libcamera/camera.cpp:758</code></a></p>
 <p>Request는 프레임별 버퍼와 컨트롤을 묶는 캡처 요청입니다. cookie는 완료 처리에서 외부 자원과 요청을 연결할 수 있도록 애플리케이션이 지정하는 값입니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/request.cpp#L343"><code>src/libcamera/request.cpp:343</code></a></p>
+<details class="note">
+<summary>소스 근거: manager</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera_manager.cpp#L280"><code>src/libcamera/camera_manager.cpp:280</code></a>에서 시작하는 발췌입니다. 종료 줄은 304이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>adcd6d49b0c989ec78a81cacece7f6c871a8e0ddf3aa52e42648fae2760a6e84</code></p>
+<div class="highlight"><pre><span></span><code>\class CameraManager
+ * \brief Provide access and manage all cameras in the system
+ *
+ * The camera manager is the entry point to libcamera. It enumerates devices,
+ * associates them with pipeline managers, and provides access to the cameras
+ * in the system to applications. The manager owns all Camera objects and
+ * handles hot-plugging and hot-unplugging to manage the lifetime of cameras.
+ *
+ * To interact with libcamera, an application starts by creating a camera
+ * manager instance. Only a single instance of the camera manager may exist at
+ * a time. Attempting to create a second instance without first deleting the
+ * existing instance results in undefined behaviour.
+ *
+ * The manager is initially stopped, and shall be started with start(). This
+ * will enumerate all the cameras present in the system, which can then be
+ * listed with list() and retrieved with get().
+ *
+ * Cameras are shared through std::shared_ptr&lt;&gt;, ensuring that a camera will
+ * stay valid until the last reference is released without requiring any special
+ * action from the application. Once the application has released all the
+ * references it held to cameras, the camera manager can be stopped with
+ * stop().
+ */
+
+CameraManager *CameraManager::self_
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: camera</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L758"><code>src/libcamera/camera.cpp:758</code></a>에서 시작하는 발췌입니다. 종료 줄은 769이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>e77cee469b7c57430e4bd4b0f08493289c46b57549873521c476df388d591dc2</code></p>
+<div class="highlight"><pre><span></span><code>The Camera class models a camera capable of producing one or more image
+ * streams from a single image source. It provides the main interface to
+ * configuring and controlling the device, and capturing image streams. It is
+ * the central object exposed by libcamera.
+ *
+ * To support the central nature of Camera objects, libcamera manages the
+ * lifetime of camera instances with std::shared_ptr&lt;&gt;. Instances shall be
+ * created with the create() function which returns a shared pointer. The
+ * Camera constructors and destructor are private, to prevent instances from
+ * being constructed and destroyed manually.
+ *
+ * \section camera_operation
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: request</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/request.cpp#L343"><code>src/libcamera/request.cpp:343</code></a>에서 시작하는 발췌입니다. 종료 줄은 360이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>948968e35cb0d98957bc63aa2d6b613d2a8203e66855db23974f035e9d679764</code></p>
+<div class="highlight"><pre><span></span><code>\class Request
+ * \brief A frame capture request
+ *
+ * A Request allows an application to associate buffers and controls on a
+ * per-frame basis to be queued to the camera device for processing.
+ */
+
+/**
+ * \brief Create a capture request for a camera
+ * \param[in] camera The camera that creates the request
+ * \param[in] cookie Opaque cookie for application use
+ *
+ * The \a cookie is stored in the request and is accessible through the
+ * cookie() function at any time. It is typically used by applications to map
+ * the request to an external resource in the request completion handler, and is
+ * completely opaque to libcamera.
+ */
+Request::Request(Camera *camera, uint64_t cookie)
+</code></pre></div>
+</details>
 <h2 id="상태와-허용-호출">상태와 허용 호출</h2>
 <p>일반적인 순서는 Available → acquire() → Acquired → configure() → Configured → start() → Running입니다. Configured에서는 재구성과 요청 생성이 가능하고, Running에서는 요청 생성과 큐잉이 가능합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L769"><code>src/libcamera/camera.cpp:769</code></a></p>
-<p>Running에서 stop()을 호출하면 Stopping을 거쳐 Configured로 돌아갑니다. Acquired 또는 Configured에서 release()를 호출하면 Available로 돌아갑니다. 이 상태도에 없는 호출까지 금지된 것으로 해석하지 않습니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L769"><code>src/libcamera/camera.cpp:769</code></a></p>
+<p>Running에서 stop()을 호출하면 Stopping을 거쳐 Configured로 돌아갑니다. Acquired 또는 Configured에서 release()를 호출하면 Available로 돌아갑니다. 현재 상태에서 허용되지 않은 연산의 동작은 정의되지 않으며, 상태도에 아예 없는 연산은 모든 상태에서 허용됩니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L769"><code>src/libcamera/camera.cpp:769</code></a></p>
 <p>start()는 Configured에서만 호출하며, 호출자가 다른 상태 변경 함수와 동기화해야 합니다. 상태 변경 함수 전반의 동기화를 Camera가 대신 보장하지 않습니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L769"><code>src/libcamera/camera.cpp:769</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1383"><code>src/libcamera/camera.cpp:1383</code></a></p>
+<details class="note">
+<summary>소스 근거: states</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L769"><code>src/libcamera/camera.cpp:769</code></a>에서 시작하는 발췌입니다. 종료 줄은 814이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>e85796df194551ecbd587ba1a7bb356a1409fa1d606762865e7eb989c92d2f72</code></p>
+<div class="highlight"><pre><span></span><code>\section camera_operation Operating the Camera
+ *
+ * An application needs to perform a sequence of operations on a camera before
+ * it is ready to process requests. The camera needs to be acquired and
+ * configured to prepare the camera for capture. Once started the camera can
+ * process requests until it is stopped. When an application is done with a
+ * camera, the camera needs to be released.
+ *
+ * An application may start and stop a camera multiple times as long as it is
+ * not released. The camera may also be reconfigured.
+ *
+ * Functions that affect the camera state as defined below are generally not
+ * synchronized with each other by the Camera class. The caller is responsible
+ * for ensuring their synchronization if necessary.
+ *
+ * \subsection Camera States
+ *
+ * To help manage the sequence of operations needed to control the camera a set
+ * of states are defined. Each state describes which operations may be performed
+ * on the camera. Performing an operation not allowed in the camera state
+ * results in undefined behaviour. Operations not listed at all in the state
+ * diagram are allowed in all states.
+ *
+ * \dot
+ * digraph camera_state_machine {
+ *   node [shape = doublecircle ]; Available;
+ *   node [shape = circle ]; Acquired;
+ *   node [shape = circle ]; Configured;
+ *   node [shape = circle ]; Stopping;
+ *   node [shape = circle ]; Running;
+ *
+ *   Available -&gt; Available [label = "release()"];
+ *   Available -&gt; Acquired [label = "acquire()"];
+ *
+ *   Acquired -&gt; Available [label = "release()"];
+ *   Acquired -&gt; Configured [label = "configure()"];
+ *
+ *   Configured -&gt; Available [label = "release()"];
+ *   Configured -&gt; Configured [label = "configure(), createRequest()"];
+ *   Configured -&gt; Running [label = "start()"];
+ *
+ *   Running -&gt; Stopping [label = "stop()"];
+ *   Stopping -&gt; Configured;
+ *   Running -&gt; Running [label = "createRequest(), queueRequest()"];
+ * }
+ * \enddot
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: start</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1383"><code>src/libcamera/camera.cpp:1383</code></a>에서 시작하는 발췌입니다. 종료 줄은 1400이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>e0abda64dc6b1bdd78d1326c8dd8651e842c03181dcf28e3b8b7eac1a4c70fcf</code></p>
+<div class="highlight"><pre><span></span><code>\brief Start capture from camera
+ * \param[in] controls Controls to be applied before starting the Camera
+ *
+ * Start the camera capture session, optionally providing a list of controls to
+ * apply before starting. Once the camera is started the application can queue
+ * requests to the camera to process and return to the application until the
+ * capture session is terminated with \a stop().
+ *
+ * \context This function may only be called when the camera is in the
+ * Configured state as defined in \ref camera_operation, and shall be
+ * synchronized by the caller with other functions that affect the camera
+ * state.
+ *
+ * \return 0 on success or a negative error code otherwise
+ * \retval -ENODEV The camera has been disconnected from the system
+ * \retval -EACCES The camera is not in a state where it can be started
+ */
+int Camera::start(const ControlList *controls)
+</code></pre></div>
+</details>
 <h2 id="요청-생성과-완료">요청 생성과 완료</h2>
 <p>Configured 또는 Running 상태에서 createRequest()로 빈 요청을 만들고 addBuffer()로 스트림과 버퍼를 연결합니다. 요청에는 최소 하나의 캡처 버퍼가 있어야 합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1243"><code>src/libcamera/camera.cpp:1243</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1308"><code>src/libcamera/camera.cpp:1308</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/request.cpp#L442"><code>src/libcamera/request.cpp:442</code></a></p>
 <p>Running 상태에서 queueRequest()를 호출하여 제출합니다. 완료 시 requestCompleted 신호를 받으며, 요청 소유자인 호출자는 완료 핸들러에서 삭제하거나 reuse()로 초기화한 뒤 다시 사용할 수 있습니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1308"><code>src/libcamera/camera.cpp:1308</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1243"><code>src/libcamera/camera.cpp:1243</code></a></p>
+<p><code>queueRequest()</code>는 검사를 통과한 요청을 <code>ConnectionTypeQueued</code>로 PipelineHandler에 전달합니다. 반환값 0은 이 큐잉을 마쳤다는 뜻이며, 장치 제출이나 캡처 완료를 보장하지 않습니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1308"><code>src/libcamera/camera.cpp:1308</code></a></p>
 <p>유효한 fence를 addBuffer()에 전달하면 성공한 경우에만 fence가 버퍼로 이동합니다. 모든 버퍼의 fence가 신호를 보내야 장치에 요청을 큐잉할 수 있습니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/request.cpp#L442"><code>src/libcamera/request.cpp:442</code></a></p>
+<details class="note">
+<summary>소스 근거: create</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1243"><code>src/libcamera/camera.cpp:1243</code></a>에서 시작하는 발췌입니다. 종료 줄은 1263이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>9f251ecf5ba569606e9753d3619b88e1aef5a4ce15f816ae97efd283e34b823b</code></p>
+<div class="highlight"><pre><span></span><code>\brief Create a request object for the camera
+ * \param[in] cookie Opaque cookie for application use
+ *
+ * This function creates an empty request for the application to fill with
+ * buffers and parameters, and queue for capture.
+ *
+ * The \a cookie is stored in the request and is accessible through the
+ * Request::cookie() function at any time. It is typically used by applications
+ * to map the request to an external resource in the request completion
+ * handler, and is completely opaque to libcamera.
+ *
+ * The ownership of the returned request is passed to the caller, which is
+ * responsible for deleting it. The request may be deleted in the completion
+ * handler, or reused after resetting its state with Request::reuse().
+ *
+ * \context This function is \threadsafe. It may only be called when the camera
+ * is in the Configured or Running state as defined in \ref camera_operation.
+ *
+ * \return A pointer to the newly created request, or nullptr on error
+ */
+std::unique_ptr&lt;Request&gt; Camera::createRequest(uint64_t cookie)
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: queue</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1308"><code>src/libcamera/camera.cpp:1308</code></a>에서 시작하는 발췌입니다. 종료 줄은 1383이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>96db61baeb32065c966b20942f97518ddbd3a43b36b64e8083eb29a90ecb7f4b</code></p>
+<div class="highlight"><pre><span></span><code>\brief Queue a request to the camera
+ * \param[in] request The request to queue to the camera
+ *
+ * This function queues a \a request to the camera for capture.
+ *
+ * After allocating the request with createRequest(), the application shall
+ * fill it with at least one capture buffer before queuing it. Requests that
+ * contain no buffers are invalid and are rejected without being queued.
+ *
+ * Once the request has been queued, the camera will notify its completion
+ * through the \ref requestCompleted signal.
+ *
+ * \context This function is \threadsafe. It may only be called when the camera
+ * is in the Running state as defined in \ref camera_operation.
+ *
+ * \return 0 on success or a negative error code otherwise
+ * \retval -ENODEV The camera has been disconnected from the system
+ * \retval -EACCES The camera is not running so requests can't be queued
+ * \retval -EXDEV The request does not belong to this camera
+ * \retval -EINVAL The request is invalid
+ * \retval -ENOMEM No buffer memory was available to handle the request
+ */
+int Camera::queueRequest(Request *request)
+{
+    Private *const d = _d();
+
+    int ret = d-&gt;isAccessAllowed(Private::CameraRunning);
+    if (ret &lt; 0)
+        return ret;
+
+    /* Requests can only be queued to the camera that created them. */
+    if (request-&gt;_d()-&gt;camera() != this) {
+        LOG(Camera, Error) &lt;&lt; "Request was not created by this camera";
+        return -EXDEV;
+    }
+
+    if (request-&gt;status() != Request::RequestPending) {
+        LOG(Camera, Error) &lt;&lt; request-&gt;toString() &lt;&lt; " is not valid";
+        return -EINVAL;
+    }
+
+    /* Make sure the Request has a valid control list. */
+    if (request-&gt;controls().infoMap() != &amp;controls()) {
+        LOG(Camera, Error) &lt;&lt; "Overwriting Request::controls() is not allowed";
+        return -EINVAL;
+    }
+
+    /*
+     * The camera state may change until the end of the function. No locking
+     * is however needed as PipelineHandler::queueRequest() will handle
+     * this.
+     */
+
+    if (request-&gt;buffers().empty()) {
+        LOG(Camera, Error) &lt;&lt; "Request contains no buffers";
+        return -EINVAL;
+    }
+
+    for (const auto &amp;[stream, buffer] : request-&gt;buffers()) {
+        if (d-&gt;activeStreams_.find(stream) == d-&gt;activeStreams_.end()) {
+            LOG(Camera, Error) &lt;&lt; "Invalid request";
+            return -EINVAL;
+        }
+    }
+
+    /* Pre-process AeEnable. */
+    patchControlList(request-&gt;controls());
+
+    d-&gt;pipe_-&gt;invokeMethod(&amp;PipelineHandler::queueRequest,
+                   ConnectionTypeQueued, request);
+
+    return 0;
+}
+
+/**
+ * \brief Start capture from camera
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: buffer</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/request.cpp#L442"><code>src/libcamera/request.cpp:442</code></a>에서 시작하는 발췌입니다. 종료 줄은 475이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>65cd8b0501b7f6545dd10eaaec4a4fe46c52a096a3bbd94ea6b4813e4a670876</code></p>
+<div class="highlight"><pre><span></span><code>\brief Add a FrameBuffer with its associated Stream to the Request
+ * \param[in] stream The stream the buffer belongs to
+ * \param[in] buffer The FrameBuffer to add to the request
+ * \param[in] fence The optional fence
+ *
+ * A reference to the buffer is stored in the request. The caller is responsible
+ * for ensuring that the buffer will remain valid until the request complete
+ * callback is called.
+ *
+ * A request can only contain one buffer per stream. If a buffer has already
+ * been added to the request for the same stream, this function returns -EEXIST.
+ *
+ * A Fence can be optionally associated with the \a buffer.
+ *
+ * When a valid Fence is provided to this function, \a fence is moved to \a
+ * buffer and this Request will only be queued to the device once the
+ * fences of all its buffers have been correctly signalled. Ownership of the
+ * fence will only be taken in case of success, otherwise the fence will
+ * be left unmodified.
+ *
+ * If the \a fence associated with \a buffer isn't signalled, the request will
+ * fail after a timeout. The buffer will still contain the fence, which
+ * applications must retrieve with FrameBuffer::releaseFence() before the buffer
+ * can be reused in another request. Attempting to add a buffer that still
+ * contains a fence to a request will result in this function returning -EEXIST.
+ *
+ * \sa FrameBuffer::releaseFence()
+ *
+ * \return 0 on success or a negative error code otherwise
+ * \retval -EEXIST The request already contains a buffer for the stream
+ *  or the buffer still references a fence
+ * \retval -EINVAL The buffer does not reference a valid Stream
+ */
+int Request::addBuffer(const Stream *stream, FrameBuffer *buffer,
+</code></pre></div>
+</details>
 <h2 id="소유권과-재사용">소유권과 재사용</h2>
-<p>createRequest()가 반환한 요청의 소유권은 호출자에게 있습니다. 요청을 완료 핸들러에서 삭제하거나 Request::reuse()로 초기화하여 재사용합니다. 이 근거만으로 프레임 버퍼 자체의 소유권 이전을 단정하지 않습니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1243"><code>src/libcamera/camera.cpp:1243</code></a></p>
+<p>createRequest()가 반환한 요청의 소유권은 호출자에게 있습니다. 요청을 완료 핸들러에서 삭제하거나 Request::reuse()로 초기화하여 재사용합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1243"><code>src/libcamera/camera.cpp:1243</code></a></p>
+<p><code>addBuffer()</code>는 버퍼의 참조를 요청에 저장합니다. 호출자는 요청 완료 콜백이 호출될 때까지 해당 버퍼가 유효하도록 보장해야 합니다. 스트림 하나에 버퍼 하나만 연결할 수 있으며, 같은 스트림에 이미 버퍼가 있거나 버퍼에 fence가 남아 있으면 <code>-EEXIST</code>를 반환합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/request.cpp#L442"><code>src/libcamera/request.cpp:442</code></a></p>
 <p>reuse()는 요청 상태와 컨트롤·메타데이터를 초기화합니다. ReuseBuffers를 지정하면 기존 버퍼 연결을 재사용하고, 지정하지 않으면 버퍼 맵을 비웁니다. 새 요청 대신 재사용하는 경우 재큐잉 전에 호출합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/request.cpp#L376"><code>src/libcamera/request.cpp:376</code></a></p>
 <p>fence의 소유권은 addBuffer() 성공 시 버퍼로 이동합니다. 신호를 받지 못해 타임아웃된 fence는 버퍼에 남으므로, 다른 요청에 버퍼를 재사용하기 전에 releaseFence()로 꺼내야 합니다. 실패한 addBuffer() 호출은 전달된 fence를 변경하지 않습니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/request.cpp#L442"><code>src/libcamera/request.cpp:442</code></a></p>
+<details class="note">
+<summary>소스 근거: create</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1243"><code>src/libcamera/camera.cpp:1243</code></a>에서 시작하는 발췌입니다. 종료 줄은 1263이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>9f251ecf5ba569606e9753d3619b88e1aef5a4ce15f816ae97efd283e34b823b</code></p>
+<div class="highlight"><pre><span></span><code>\brief Create a request object for the camera
+ * \param[in] cookie Opaque cookie for application use
+ *
+ * This function creates an empty request for the application to fill with
+ * buffers and parameters, and queue for capture.
+ *
+ * The \a cookie is stored in the request and is accessible through the
+ * Request::cookie() function at any time. It is typically used by applications
+ * to map the request to an external resource in the request completion
+ * handler, and is completely opaque to libcamera.
+ *
+ * The ownership of the returned request is passed to the caller, which is
+ * responsible for deleting it. The request may be deleted in the completion
+ * handler, or reused after resetting its state with Request::reuse().
+ *
+ * \context This function is \threadsafe. It may only be called when the camera
+ * is in the Configured or Running state as defined in \ref camera_operation.
+ *
+ * \return A pointer to the newly created request, or nullptr on error
+ */
+std::unique_ptr&lt;Request&gt; Camera::createRequest(uint64_t cookie)
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: reuse</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/request.cpp#L376"><code>src/libcamera/request.cpp:376</code></a>에서 시작하는 발췌입니다. 종료 줄은 407이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>22294a6809bd4c6655824af9603fb3879603cec256c6845e00d3d2a0e6bf7679</code></p>
+<div class="highlight"><pre><span></span><code>\brief Reset the request for reuse
+ * \param[in] flags Indicate whether or not to reuse the buffers
+ *
+ * Reset the status and controls associated with the request, to allow it to
+ * be reused and requeued without destruction. This function shall be called
+ * prior to queueing the request to the camera, in lieu of constructing a new
+ * request. The application can reuse the buffers that were previously added
+ * to the request via addBuffer() by setting \a flags to ReuseBuffers.
+ */
+void Request::reuse(ReuseFlag flags)
+{
+    LIBCAMERA_TRACEPOINT(request_reuse, this);
+
+    _d()-&gt;reset();
+
+    if (flags &amp; ReuseBuffers) {
+        for (const auto &amp;[stream, buffer] : bufferMap_) {
+            buffer-&gt;_d()-&gt;setRequest(this);
+            _d()-&gt;pending_.insert(buffer);
+        }
+    } else {
+        bufferMap_.clear();
+    }
+
+    status_ = RequestPending;
+
+    controls_.clear();
+    _d()-&gt;metadata_.clear();
+}
+
+/**
+ * \fn Request::controls()
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: buffer</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/request.cpp#L442"><code>src/libcamera/request.cpp:442</code></a>에서 시작하는 발췌입니다. 종료 줄은 475이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>65cd8b0501b7f6545dd10eaaec4a4fe46c52a096a3bbd94ea6b4813e4a670876</code></p>
+<div class="highlight"><pre><span></span><code>\brief Add a FrameBuffer with its associated Stream to the Request
+ * \param[in] stream The stream the buffer belongs to
+ * \param[in] buffer The FrameBuffer to add to the request
+ * \param[in] fence The optional fence
+ *
+ * A reference to the buffer is stored in the request. The caller is responsible
+ * for ensuring that the buffer will remain valid until the request complete
+ * callback is called.
+ *
+ * A request can only contain one buffer per stream. If a buffer has already
+ * been added to the request for the same stream, this function returns -EEXIST.
+ *
+ * A Fence can be optionally associated with the \a buffer.
+ *
+ * When a valid Fence is provided to this function, \a fence is moved to \a
+ * buffer and this Request will only be queued to the device once the
+ * fences of all its buffers have been correctly signalled. Ownership of the
+ * fence will only be taken in case of success, otherwise the fence will
+ * be left unmodified.
+ *
+ * If the \a fence associated with \a buffer isn't signalled, the request will
+ * fail after a timeout. The buffer will still contain the fence, which
+ * applications must retrieve with FrameBuffer::releaseFence() before the buffer
+ * can be reused in another request. Attempting to add a buffer that still
+ * contains a fence to a request will result in this function returning -EEXIST.
+ *
+ * \sa FrameBuffer::releaseFence()
+ *
+ * \return 0 on success or a negative error code otherwise
+ * \retval -EEXIST The request already contains a buffer for the stream
+ *  or the buffer still references a fence
+ * \retval -EINVAL The buffer does not reference a valid Stream
+ */
+int Request::addBuffer(const Stream *stream, FrameBuffer *buffer,
+</code></pre></div>
+</details>
 <h2 id="오류와-종료">오류와 종료</h2>
 <p>queueRequest()는 연결이 끊긴 카메라에 -ENODEV, 실행 중이 아닌 카메라에 -EACCES, 다른 카메라의 요청에 -EXDEV를 반환합니다. 유효하지 않은 요청에는 -EINVAL, 처리할 버퍼 메모리가 부족하면 -ENOMEM을 반환한다고 API가 명시합니다. 빈 버퍼 요청은 큐잉하지 않습니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1308"><code>src/libcamera/camera.cpp:1308</code></a></p>
 <p>stop()은 대기 중인 요청을 오류 상태로 취소하여 동기적으로 완료합니다. 구현은 실행 중이 아니면 즉시 0을 반환하므로, 이 경로가 -EACCES를 반환한다고 해석하면 안 됩니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1431"><code>src/libcamera/camera.cpp:1431</code></a></p>
 <p>실행 중인 카메라는 CameraStopping으로 전환한 뒤 ConnectionTypeBlocking으로 PipelineHandler::stop을 호출합니다. 대기 요청이 없음을 확인하고 CameraConfigured로 돌아갑니다. 하드웨어별 자원 해제 완료는 별도의 실행 검증이 필요합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1431"><code>src/libcamera/camera.cpp:1431</code></a></p>
+<details class="note">
+<summary>소스 근거: queue</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1308"><code>src/libcamera/camera.cpp:1308</code></a>에서 시작하는 발췌입니다. 종료 줄은 1383이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>96db61baeb32065c966b20942f97518ddbd3a43b36b64e8083eb29a90ecb7f4b</code></p>
+<div class="highlight"><pre><span></span><code>\brief Queue a request to the camera
+ * \param[in] request The request to queue to the camera
+ *
+ * This function queues a \a request to the camera for capture.
+ *
+ * After allocating the request with createRequest(), the application shall
+ * fill it with at least one capture buffer before queuing it. Requests that
+ * contain no buffers are invalid and are rejected without being queued.
+ *
+ * Once the request has been queued, the camera will notify its completion
+ * through the \ref requestCompleted signal.
+ *
+ * \context This function is \threadsafe. It may only be called when the camera
+ * is in the Running state as defined in \ref camera_operation.
+ *
+ * \return 0 on success or a negative error code otherwise
+ * \retval -ENODEV The camera has been disconnected from the system
+ * \retval -EACCES The camera is not running so requests can't be queued
+ * \retval -EXDEV The request does not belong to this camera
+ * \retval -EINVAL The request is invalid
+ * \retval -ENOMEM No buffer memory was available to handle the request
+ */
+int Camera::queueRequest(Request *request)
+{
+    Private *const d = _d();
+
+    int ret = d-&gt;isAccessAllowed(Private::CameraRunning);
+    if (ret &lt; 0)
+        return ret;
+
+    /* Requests can only be queued to the camera that created them. */
+    if (request-&gt;_d()-&gt;camera() != this) {
+        LOG(Camera, Error) &lt;&lt; "Request was not created by this camera";
+        return -EXDEV;
+    }
+
+    if (request-&gt;status() != Request::RequestPending) {
+        LOG(Camera, Error) &lt;&lt; request-&gt;toString() &lt;&lt; " is not valid";
+        return -EINVAL;
+    }
+
+    /* Make sure the Request has a valid control list. */
+    if (request-&gt;controls().infoMap() != &amp;controls()) {
+        LOG(Camera, Error) &lt;&lt; "Overwriting Request::controls() is not allowed";
+        return -EINVAL;
+    }
+
+    /*
+     * The camera state may change until the end of the function. No locking
+     * is however needed as PipelineHandler::queueRequest() will handle
+     * this.
+     */
+
+    if (request-&gt;buffers().empty()) {
+        LOG(Camera, Error) &lt;&lt; "Request contains no buffers";
+        return -EINVAL;
+    }
+
+    for (const auto &amp;[stream, buffer] : request-&gt;buffers()) {
+        if (d-&gt;activeStreams_.find(stream) == d-&gt;activeStreams_.end()) {
+            LOG(Camera, Error) &lt;&lt; "Invalid request";
+            return -EINVAL;
+        }
+    }
+
+    /* Pre-process AeEnable. */
+    patchControlList(request-&gt;controls());
+
+    d-&gt;pipe_-&gt;invokeMethod(&amp;PipelineHandler::queueRequest,
+                   ConnectionTypeQueued, request);
+
+    return 0;
+}
+
+/**
+ * \brief Start capture from camera
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: stop</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1431"><code>src/libcamera/camera.cpp:1431</code></a>에서 시작하는 발췌입니다. 종료 줄은 1475이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>0009c665993b995489738e48affc81643a7159d82b5326e5f182e30fe11e4901</code></p>
+<div class="highlight"><pre><span></span><code>\brief Stop capture from camera
+ *
+ * This function stops capturing and processing requests immediately. All
+ * pending requests are cancelled and complete synchronously in an error state.
+ *
+ * \context This function may be called in any camera state as defined in \ref
+ * camera_operation, and shall be synchronized by the caller with other
+ * functions that affect the camera state. If called when the camera isn't
+ * running, it is a no-op.
+ *
+ * \return 0 on success or a negative error code otherwise
+ * \retval -ENODEV The camera has been disconnected from the system
+ * \retval -EACCES The camera is not running so can't be stopped
+ */
+int Camera::stop()
+{
+    Private *const d = _d();
+
+    /*
+     * \todo Make calling stop() when not in 'Running' part of the state
+     * machine rather than take this shortcut
+     */
+    if (!d-&gt;isRunning())
+        return 0;
+
+    int ret = d-&gt;isAccessAllowed(Private::CameraRunning);
+    if (ret &lt; 0)
+        return ret;
+
+    LOG(Camera, Debug) &lt;&lt; "Stopping capture";
+
+    d-&gt;setState(Private::CameraStopping);
+
+    d-&gt;pipe_-&gt;invokeMethod(&amp;PipelineHandler::stop, ConnectionTypeBlocking,
+                   this);
+
+    ASSERT(!d-&gt;pipe_-&gt;hasPendingRequests(this));
+
+    d-&gt;setState(Private::CameraConfigured);
+
+    return 0;
+}
+
+/**
+ * \brief Handle request completion and notify application
+</code></pre></div>
+</details>
 <h2 id="동시성과-실행-확인">동시성과 실행 확인</h2>
 <p>createRequest()와 queueRequest()는 API 주석에 threadsafe로 명시되어 있습니다. 허용 상태는 각각 Configured 또는 Running과 Running이며, 이 보장을 모든 Request 메서드로 확대하지 않습니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1243"><code>src/libcamera/camera.cpp:1243</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1308"><code>src/libcamera/camera.cpp:1308</code></a></p>
 <p>start()와 stop()을 다른 상태 변경 함수와 동기화하는 책임은 호출자에게 있습니다. stop() 내부의 파이프라인 호출은 ConnectionTypeBlocking이며 비동기 호출로 설명하면 안 됩니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1383"><code>src/libcamera/camera.cpp:1383</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1431"><code>src/libcamera/camera.cpp:1431</code></a></p>
-<p>확인 필요: 이 발췌만으로 requestCompleted 콜백의 실제 실행 스레드, 재진입 가능성, 하드웨어별 종료 시점은 확정하지 않습니다. 해당 연결 방식과 파이프라인 구현을 추가로 검토하고 실행으로 확인해야 합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1308"><code>src/libcamera/camera.cpp:1308</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1431"><code>src/libcamera/camera.cpp:1431</code></a></p>
+<p>실행 확인 항목: 확인 필요: 이 발췌만으로 requestCompleted 콜백의 실제 실행 스레드, 재진입 가능성, 하드웨어별 종료 시점은 확정하지 않습니다. 해당 연결 방식과 파이프라인 구현을 추가로 검토하고 실행으로 확인해야 합니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1308"><code>src/libcamera/camera.cpp:1308</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1431"><code>src/libcamera/camera.cpp:1431</code></a></p>
+<p><code>PipelineHandler::completeRequest()</code>는 CameraManager 스레드에서 호출해야 합니다. 요청은 애플리케이션에 제출 순서대로 반환되며, 함수가 돌아온 뒤 파이프라인은 해당 요청에 접근해서는 안 됩니다. 이 호출 문맥을 모든 애플리케이션 콜백의 실행 스레드 보장으로 확대하지 않습니다. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline_handler.cpp#L547"><code>src/libcamera/pipeline_handler.cpp:547</code></a></p>
+<details class="note">
+<summary>소스 근거: create</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1243"><code>src/libcamera/camera.cpp:1243</code></a>에서 시작하는 발췌입니다. 종료 줄은 1263이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>9f251ecf5ba569606e9753d3619b88e1aef5a4ce15f816ae97efd283e34b823b</code></p>
+<div class="highlight"><pre><span></span><code>\brief Create a request object for the camera
+ * \param[in] cookie Opaque cookie for application use
+ *
+ * This function creates an empty request for the application to fill with
+ * buffers and parameters, and queue for capture.
+ *
+ * The \a cookie is stored in the request and is accessible through the
+ * Request::cookie() function at any time. It is typically used by applications
+ * to map the request to an external resource in the request completion
+ * handler, and is completely opaque to libcamera.
+ *
+ * The ownership of the returned request is passed to the caller, which is
+ * responsible for deleting it. The request may be deleted in the completion
+ * handler, or reused after resetting its state with Request::reuse().
+ *
+ * \context This function is \threadsafe. It may only be called when the camera
+ * is in the Configured or Running state as defined in \ref camera_operation.
+ *
+ * \return A pointer to the newly created request, or nullptr on error
+ */
+std::unique_ptr&lt;Request&gt; Camera::createRequest(uint64_t cookie)
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: queue</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1308"><code>src/libcamera/camera.cpp:1308</code></a>에서 시작하는 발췌입니다. 종료 줄은 1383이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>96db61baeb32065c966b20942f97518ddbd3a43b36b64e8083eb29a90ecb7f4b</code></p>
+<div class="highlight"><pre><span></span><code>\brief Queue a request to the camera
+ * \param[in] request The request to queue to the camera
+ *
+ * This function queues a \a request to the camera for capture.
+ *
+ * After allocating the request with createRequest(), the application shall
+ * fill it with at least one capture buffer before queuing it. Requests that
+ * contain no buffers are invalid and are rejected without being queued.
+ *
+ * Once the request has been queued, the camera will notify its completion
+ * through the \ref requestCompleted signal.
+ *
+ * \context This function is \threadsafe. It may only be called when the camera
+ * is in the Running state as defined in \ref camera_operation.
+ *
+ * \return 0 on success or a negative error code otherwise
+ * \retval -ENODEV The camera has been disconnected from the system
+ * \retval -EACCES The camera is not running so requests can't be queued
+ * \retval -EXDEV The request does not belong to this camera
+ * \retval -EINVAL The request is invalid
+ * \retval -ENOMEM No buffer memory was available to handle the request
+ */
+int Camera::queueRequest(Request *request)
+{
+    Private *const d = _d();
+
+    int ret = d-&gt;isAccessAllowed(Private::CameraRunning);
+    if (ret &lt; 0)
+        return ret;
+
+    /* Requests can only be queued to the camera that created them. */
+    if (request-&gt;_d()-&gt;camera() != this) {
+        LOG(Camera, Error) &lt;&lt; "Request was not created by this camera";
+        return -EXDEV;
+    }
+
+    if (request-&gt;status() != Request::RequestPending) {
+        LOG(Camera, Error) &lt;&lt; request-&gt;toString() &lt;&lt; " is not valid";
+        return -EINVAL;
+    }
+
+    /* Make sure the Request has a valid control list. */
+    if (request-&gt;controls().infoMap() != &amp;controls()) {
+        LOG(Camera, Error) &lt;&lt; "Overwriting Request::controls() is not allowed";
+        return -EINVAL;
+    }
+
+    /*
+     * The camera state may change until the end of the function. No locking
+     * is however needed as PipelineHandler::queueRequest() will handle
+     * this.
+     */
+
+    if (request-&gt;buffers().empty()) {
+        LOG(Camera, Error) &lt;&lt; "Request contains no buffers";
+        return -EINVAL;
+    }
+
+    for (const auto &amp;[stream, buffer] : request-&gt;buffers()) {
+        if (d-&gt;activeStreams_.find(stream) == d-&gt;activeStreams_.end()) {
+            LOG(Camera, Error) &lt;&lt; "Invalid request";
+            return -EINVAL;
+        }
+    }
+
+    /* Pre-process AeEnable. */
+    patchControlList(request-&gt;controls());
+
+    d-&gt;pipe_-&gt;invokeMethod(&amp;PipelineHandler::queueRequest,
+                   ConnectionTypeQueued, request);
+
+    return 0;
+}
+
+/**
+ * \brief Start capture from camera
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: start</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1383"><code>src/libcamera/camera.cpp:1383</code></a>에서 시작하는 발췌입니다. 종료 줄은 1400이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>e0abda64dc6b1bdd78d1326c8dd8651e842c03181dcf28e3b8b7eac1a4c70fcf</code></p>
+<div class="highlight"><pre><span></span><code>\brief Start capture from camera
+ * \param[in] controls Controls to be applied before starting the Camera
+ *
+ * Start the camera capture session, optionally providing a list of controls to
+ * apply before starting. Once the camera is started the application can queue
+ * requests to the camera to process and return to the application until the
+ * capture session is terminated with \a stop().
+ *
+ * \context This function may only be called when the camera is in the
+ * Configured state as defined in \ref camera_operation, and shall be
+ * synchronized by the caller with other functions that affect the camera
+ * state.
+ *
+ * \return 0 on success or a negative error code otherwise
+ * \retval -ENODEV The camera has been disconnected from the system
+ * \retval -EACCES The camera is not in a state where it can be started
+ */
+int Camera::start(const ControlList *controls)
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: stop</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/camera.cpp#L1431"><code>src/libcamera/camera.cpp:1431</code></a>에서 시작하는 발췌입니다. 종료 줄은 1475이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>0009c665993b995489738e48affc81643a7159d82b5326e5f182e30fe11e4901</code></p>
+<div class="highlight"><pre><span></span><code>\brief Stop capture from camera
+ *
+ * This function stops capturing and processing requests immediately. All
+ * pending requests are cancelled and complete synchronously in an error state.
+ *
+ * \context This function may be called in any camera state as defined in \ref
+ * camera_operation, and shall be synchronized by the caller with other
+ * functions that affect the camera state. If called when the camera isn't
+ * running, it is a no-op.
+ *
+ * \return 0 on success or a negative error code otherwise
+ * \retval -ENODEV The camera has been disconnected from the system
+ * \retval -EACCES The camera is not running so can't be stopped
+ */
+int Camera::stop()
+{
+    Private *const d = _d();
+
+    /*
+     * \todo Make calling stop() when not in 'Running' part of the state
+     * machine rather than take this shortcut
+     */
+    if (!d-&gt;isRunning())
+        return 0;
+
+    int ret = d-&gt;isAccessAllowed(Private::CameraRunning);
+    if (ret &lt; 0)
+        return ret;
+
+    LOG(Camera, Debug) &lt;&lt; "Stopping capture";
+
+    d-&gt;setState(Private::CameraStopping);
+
+    d-&gt;pipe_-&gt;invokeMethod(&amp;PipelineHandler::stop, ConnectionTypeBlocking,
+                   this);
+
+    ASSERT(!d-&gt;pipe_-&gt;hasPendingRequests(this));
+
+    d-&gt;setState(Private::CameraConfigured);
+
+    return 0;
+}
+
+/**
+ * \brief Handle request completion and notify application
+</code></pre></div>
+</details>
+<details class="note">
+<summary>소스 근거: completion</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/279d355ef8f7a4f98bb0a3004c0f788387814506/src/libcamera/pipeline_handler.cpp#L547"><code>src/libcamera/pipeline_handler.cpp:547</code></a>에서 시작하는 발췌입니다. 종료 줄은 620이며, 아래 원문을 설명과 대조할 수 있습니다.</p>
+<p>SHA-256: <code>514288cc958de9ff5fd19d46393cec3bb3088f4f08486528d4559071138638c9</code></p>
+<div class="highlight"><pre><span></span><code>\brief Complete a buffer for a request
+ * \param[in] request The request the buffer belongs to
+ * \param[in] buffer The buffer that has completed
+ *
+ * This function shall be called by pipeline handlers to signal completion of
+ * the \a buffer part of the \a request. It notifies applications of buffer
+ * completion and updates the request's internal buffer tracking. The request
+ * is not completed automatically when the last buffer completes to give
+ * pipeline handlers a chance to perform any operation that may still be
+ * needed. They shall complete requests explicitly with completeRequest().
+ *
+ * \context This function shall be called from the CameraManager thread.
+ *
+ * \return True if all buffers contained in the request have completed, false
+ * otherwise
+ */
+bool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)
+{
+    Camera *camera = request-&gt;_d()-&gt;camera();
+    camera-&gt;bufferCompleted.emit(request, buffer);
+    return request-&gt;_d()-&gt;completeBuffer(buffer);
+}
+
+/**
+ * \brief Signal request completion
+ * \param[in] request The request that has completed
+ *
+ * The pipeline handler shall call this function to notify the \a camera that
+ * the request has completed. The request is no longer managed by the pipeline
+ * handler and shall not be accessed once this function returns.
+ *
+ * This function ensures that requests will be returned to the application in
+ * submission order, the pipeline handler may call it on any complete request
+ * without any ordering constraint.
+ *
+ * \context This function shall be called from the CameraManager thread.
+ */
+void PipelineHandler::completeRequest(Request *request)
+{
+    Camera *camera = request-&gt;_d()-&gt;camera();
+
+    request-&gt;_d()-&gt;complete();
+
+    Camera::Private *data = camera-&gt;_d();
+
+    while (!data-&gt;queuedRequests_.empty()) {
+        Request *req = data-&gt;queuedRequests_.front();
+        if (req-&gt;status() == Request::RequestPending)
+            break;
+
+        ASSERT(!req-&gt;hasPendingBuffers());
+        data-&gt;queuedRequests_.pop_front();
+        camera-&gt;requestComplete(req);
+    }
+
+    /* Allow any waiting requests to be queued to the pipeline. */
+    doQueueRequests(camera);
+}
+
+/**
+ * \brief Cancel request and signal its completion
+ * \param[in] request The request to cancel
+ *
+ * This function cancels and completes the request. The same rules as for
+ * completeRequest() apply.
+ */
+void PipelineHandler::cancelRequest(Request *request)
+{
+    request-&gt;_d()-&gt;cancel();
+    completeRequest(request);
+}
+
+/**
+ * \brief Retrieve the absolute path to a platform configuration file
+</code></pre></div>
+</details>
 <!-- sdd:class-diagram -->
 <h2 id="클래스-관계">클래스 관계</h2>
 <p>화살표의 글자는 추출한 관계를 나타내며, 점선은 상속입니다. 화살표는 참조 대상 또는 기반 클래스를 향합니다. 호출 순서를 뜻하지 않습니다.</p>
@@ -136,16 +941,19 @@
 <details class="note">
 <summary>근거와 검토 정보</summary>
 <ul>
-<li>근거 파일: <code>include/libcamera/camera.h</code>, <code>include/libcamera/camera_manager.h</code>, <code>include/libcamera/request.h</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/camera_manager.cpp</code>, <code>src/libcamera/request.cpp</code></li>
+<li>생성 방식: 소스 발췌에 연결한 설계 설명</li>
+<li>검증 범위: 설정에 작성된 설명을 발췌 해시와 대조합니다. 해시 일치는 설명의 의미를 승인하지 않습니다.</li>
+<li>근거 파일: <code>include/libcamera/camera.h</code>, <code>include/libcamera/camera_manager.h</code>, <code>include/libcamera/request.h</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/camera_manager.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code>, <code>src/libcamera/request.cpp</code></li>
 <li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>279d355ef8</code>)</li>
 <li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li>
-<li>검토: 2026-09-24 · ollama/qwen3.5:4b · 사람 검토 전</li>
+<li>검토 상태 기록일: 2026-09-26 · 사람 검토 전</li>
 </ul>
 </details>
-<p>다음 단계: <a href="pipeline-handler.html">Pipeline Handler</a></p></article><section class="evidence"><h2 id="page-evidence">생성 근거</h2><dl><dt>분석 기준 커밋</dt><dd><code>279d355ef8f7a4f98bb0a3004c0f788387814506</code></dd><dt>문서 생성 시각</dt><dd><code>2026-09-24 14:05:15+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>ollama/qwen3.5:4b</code></dd></dl><a href="camera-model.md">Markdown 원문 ↗</a> <a href="camera-model.mmd">Mermaid 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="scenarios/complete_request.html"><small>이전</small>요청 완료 통지 (PipelineHandler::completeRequest) ←</a></nav>
+<p>다음 단계: <a href="pipeline-handler.html">Pipeline Handler</a></p></article><section class="evidence"><h2 id="page-evidence">생성 근거</h2><dl><dt>생성 방식</dt><dd>소스 발췌에 연결한 설계 설명</dd><dt>검증 범위</dt><dd>설정에 작성된 설명을 발췌 해시와 대조합니다. 해시 일치는 설명의 의미를 승인하지 않습니다.</dd><dt>분석 기준 커밋</dt><dd><code>279d355ef8f7a4f98bb0a3004c0f788387814506</code></dd><dt>문서 생성 시각</dt><dd><code>2026-09-26 13:32:24+00:00</code></dd></dl><a href="camera-model.md">Markdown 원문 ↗</a> <a href="camera-model.mmd">Mermaid 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="scenarios/complete_request.html"><small>이전</small>요청 완료 통지 (PipelineHandler::completeRequest) ←</a></nav>
 <footer>Generated by camera-hal-sdd-generator · 인용 검사와 사람의 내용 검토는 별도입니다.</footer></main>
 <aside class="page-toc"><nav aria-label="현재 페이지 목차"><p>이 페이지에서</p><div class="toc">
 <ul>
+<li><a href="#설계-항목과-근거">설계 항목과 근거</a></li>
 <li><a href="#클래스별-책임">클래스별 책임</a></li>
 <li><a href="#상태와-허용-호출">상태와 허용 호출</a></li>
 <li><a href="#요청-생성과-완료">요청 생성과 완료</a></li>
