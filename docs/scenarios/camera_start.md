@@ -1,11 +1,11 @@
 ---
-generated_at: 2026-09-26T13:32:24+00:00
-source_commit: 279d355ef8f7a4f98bb0a3004c0f788387814506
+generated_at: 2026-09-29T15:35:02+00:00
+source_commit: d48b72e710fb1a72b0d291b912c179c93619e1d8
 status: ok
 section: scenarios
 entry: Camera::start(const ControlList *)
 scenario_id: camera_start
-scenario_fingerprint: 4bf181397527316a3b31f482cdbd76e3f88b3aa10d5e416aecfb36bd68bc307e
+scenario_fingerprint: 1b229ec7351d7c0b2944ce25ecd8b35cef3f8d02ba9585b713c9422e081ce937
 generation_method: extracted-scenario
 ---
 
@@ -33,7 +33,7 @@ generation_method: extracted-scenario
 
 | 확인할 내용 | 호출 측과 대상 | 구분 | 근거 |
 |---|---|---|---|
-| 시작 요청 대상 | `Camera` → `PipelineHandler::start()` | 예약 대상이며 즉시 실행되는 호출이 아닙니다. | `src/libcamera/camera.cpp:1415`, `src/libcamera/camera.cpp:1418` |
+| 시작 요청 대상 | `Camera` → `PipelineHandler::start()` | 메서드 전달 대상이며 동기·비동기 여부는 호출부에서 확인해야 합니다. | `src/libcamera/camera.cpp:1415`, `src/libcamera/camera.cpp:1418` |
 | 상태 반영 | `Camera` → `Private::setState()` | 정적 호출 지점입니다. | `src/libcamera/camera.cpp:1425` |
 
 ## 주요 호출 관계
@@ -53,12 +53,12 @@ flowchart LR
 
 facts에 기록된 호출은 48개이며, 요약의 hide 규칙에 해당하는 호출은 27개입니다. 전체 추적 기록에는 해당 호출도 모두 보존합니다. 기록 번호는 정적 탐색의 식별자이며 실행 순번이 아닙니다.
 
-조건 분기, 반복 횟수와 실제 실행 스레드는 이 호출 목록만으로 확정할 수 없습니다. 가상 호출 후보는 실제 객체에 따라 선택되며, 예약 대상은 큐나 신호 구현에서 이어서 확인해야 합니다.
+조건 분기, 반복 횟수와 실제 실행 스레드는 이 호출 목록만으로 확정할 수 없습니다. 가상 호출 후보는 실제 객체에 따라 선택됩니다. 예약 표시는 인자로 전달한 메서드 대상을 뜻하며, 비동기 실행을 보증하지 않습니다. 호출부의 연결 방식과 동기화 계약을 확인해야 합니다.
 
 | 호출 지점 | 후보 또는 예약 대상 | 확인할 경계 | 근거 |
 |---|---|---|---|
-| `Camera` | `PipelineHandler::start()` | 예약 대상이며 즉시 실행되는 호출이 아닙니다. | `src/libcamera/camera.cpp:1415` |
-| `Camera` | `PipelineHandler::start()` | 예약 대상이며 즉시 실행되는 호출이 아닙니다. | `src/libcamera/camera.cpp:1418` |
+| `Camera` | `PipelineHandler::start()` | 메서드 전달 대상이며 동기·비동기 여부는 호출부에서 확인해야 합니다. | `src/libcamera/camera.cpp:1415` |
+| `Camera` | `PipelineHandler::start()` | 메서드 전달 대상이며 동기·비동기 여부는 호출부에서 확인해야 합니다. | `src/libcamera/camera.cpp:1418` |
 
 추출 통계: 미해결 호출 0개, 예약된 호출 2개입니다.
 
@@ -119,17 +119,17 @@ facts에 기록된 호출은 48개이며, 요약의 hide 규칙에 해당하는 
     | 42 | `Camera` | `ControlId::id()` | 정적 호출 지점입니다. | `src/libcamera/camera.cpp:1299` |
     | 43 | `Camera` | `ControlList::set()` | 정적 호출 지점입니다. | `src/libcamera/camera.cpp:1300` |
     | 44 | `Camera` | `Object::invokeMethod()` | 정적 호출 지점입니다. | `src/libcamera/camera.cpp:1415` |
-    | 45 | `Camera` | `PipelineHandler::start()` | 예약 대상이며 즉시 실행되는 호출이 아닙니다. | `src/libcamera/camera.cpp:1415` |
+    | 45 | `Camera` | `PipelineHandler::start()` | 메서드 전달 대상이며 동기·비동기 여부는 호출부에서 확인해야 합니다. | `src/libcamera/camera.cpp:1415` |
     | 46 | `Camera` | `Object::invokeMethod()` | 정적 호출 지점입니다. | `src/libcamera/camera.cpp:1418` |
-    | 47 | `Camera` | `PipelineHandler::start()` | 예약 대상이며 즉시 실행되는 호출이 아닙니다. | `src/libcamera/camera.cpp:1418` |
+    | 47 | `Camera` | `PipelineHandler::start()` | 메서드 전달 대상이며 동기·비동기 여부는 호출부에서 확인해야 합니다. | `src/libcamera/camera.cpp:1418` |
     | 48 | `Camera` | `Private::setState()` | 정적 호출 지점입니다. | `src/libcamera/camera.cpp:1425` |
 
 ??? note "근거와 검토 정보"
     - 생성 방식: 추출 호출로 만든 시나리오
     - 검증 범위: 주요 호출과 경계를 facts에서 구성하고 전체 추적 기록을 보존합니다. 실행 순서를 추정하지 않습니다.
     - 근거 파일: `src/libcamera/base/log.cpp`, `src/libcamera/camera.cpp`, `src/libcamera/controls.cpp`
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `279d355ef8`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `d48b72e710`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-09-26 · 사람 검토 전
+    - 검토 상태 기록일: 2026-09-30 · 사람 검토 전
 
 다음 단계: [요청 제출 (Camera::queueRequest)](queue_request.md)

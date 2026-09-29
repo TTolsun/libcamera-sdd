@@ -1,0 +1,24 @@
+name: Sync public libcamera upstream
+on:
+  schedule:
+    # 21:00 Asia/Seoul. Change this UTC expression to change the sync time.
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: libcamera-upstream-sync
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Fetch official source and fast-forward the mirror branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags https://gitlab.freedesktop.org/camera/libcamera.git master
+          source_sha=$(git rev-parse FETCH_HEAD)
+          git push origin "$source_sha:refs/heads/upstream/master"
+          printf 'Mirrored official libcamera commit: %s\n' "$source_sha" >> "$GITHUB_STEP_SUMMARY"

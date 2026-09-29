@@ -1,10 +1,10 @@
 ---
-generated_at: 2026-09-26T13:32:24+00:00
-source_commit: 279d355ef8f7a4f98bb0a3004c0f788387814506
+generated_at: 2026-09-29T15:35:02+00:00
+source_commit: d48b72e710fb1a72b0d291b912c179c93619e1d8
 status: ok
 section: camera-model
 generation_method: source-bound-contract
-evidence_fingerprint: fe593e65a1d01574bff623145197d2322851a3fc133c705ef64524b32c096bc4
+evidence_fingerprint: d2424fe7e22c73b823b2a8484f493dfe3df69ea55c297c83918b21340e3f7fce
 semantic_review: human-review-required
 ---
 
@@ -26,6 +26,7 @@ semantic_review: human-review-required
 | 요청 소유권과 완료 뒤 재사용, ReuseBuffers, fence 이전 조건을 설명하세요. 근거에 없는 버퍼 소유권은 추정하지 마세요. | [소유권과 재사용](#소유권과-재사용) | 코드 근거와 설명 연결 |
 | queueRequest의 오류 조건과 stop의 취소·완료·복귀 상태를 설명하세요. | [오류와 종료](#오류와-종료) | 코드 근거와 설명 연결 |
 | threadsafe 보장, 호출자의 동기화 책임과 파이프라인의 완료 통지 계약을 구분하세요. 애플리케이션 콜백 전달 방식과 실기기 검증은 별도로 확인하세요. | [동시성과 실행 확인](#동시성과-실행-확인) | 코드 근거와 설명 연결 · 실행 확인 항목 별도 |
+| 카메라 연결이 끊어지면 상태·API 접근·대기 요청에 어떤 변화와 확인 한계가 있습니까? | [연결 해제와 대기 요청](#연결-해제와-대기-요청) | 코드 근거와 설명 연결 |
 
 ## 클래스별 책임
 
@@ -917,6 +918,106 @@ start()와 stop()을 다른 상태 변경 함수와 동기화하는 책임은 �
      * \brief Retrieve the absolute path to a platform configuration file
     ```
 
+## 연결 해제와 대기 요청
+
+Camera::disconnect()는 내부 disconnect()를 호출한 다음 disconnected 신호를 보냅니다. 내부 구현은 실행 중인 카메라의 상태를 CameraConfigured로 바꾸고 disconnected_를 설정합니다. 소스 주석은 애플리케이션이 자원을 해제하고 release()를 호출할 수 있도록 이 상태를 선택한다고 설명합니다. `src/libcamera/camera.cpp:690`, `src/libcamera/camera.cpp:944`
+
+접근 검사 isAccessAllowed()는 연결이 끊겼고 allowDisconnected가 false이면 -ENODEV를 반환합니다. 따라서 개별 API의 동작은 해당 API가 이 검사를 호출하는지와 allowDisconnected 인자를 함께 확인해야 합니다. `src/libcamera/camera.cpp:690`
+
+disconnect()의 문서 주석에는 실행 중 연결 해제 시 대기 요청 처리가 TODO로 남아 있습니다. 이 발췌만으로 연결 해제가 stop()과 같은 취소·동기 완료 계약을 보장한다고 해석할 수 없습니다. 장치별 연결 해제 경로와 미완료 요청의 실제 완료 통지는 별도 검증이 필요합니다. `src/libcamera/camera.cpp:944`
+
+??? note "소스 근거: access"
+    `src/libcamera/camera.cpp:690`에서 시작하는 발췌입니다. 종료 줄은 745이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `1e0ac0e45422136580c0722ca5a356f17a7c0b8ae18dbb64090f7734afdbfaae`
+    
+    ```text
+    int Camera::Private::isAccessAllowed(State state, bool allowDisconnected,
+    				     const char *from) const
+    {
+    	if (!allowDisconnected && disconnected_)
+    		return -ENODEV;
+    
+    	State currentState = state_.load(std::memory_order_acquire);
+    	if (currentState == state)
+    		return 0;
+    
+    	ASSERT(static_cast<unsigned int>(state) < std::size(camera_state_names));
+    
+    	LOG(Camera, Error) << "Camera in " << camera_state_names[currentState]
+    			   << " state trying " << from << "() requiring state "
+    			   << camera_state_names[state];
+    
+    	return -EACCES;
+    }
+    
+    int Camera::Private::isAccessAllowed(State low, State high,
+    				     bool allowDisconnected,
+    				     const char *from) const
+    {
+    	if (!allowDisconnected && disconnected_)
+    		return -ENODEV;
+    
+    	State currentState = state_.load(std::memory_order_acquire);
+    	if (currentState >= low && currentState <= high)
+    		return 0;
+    
+    	ASSERT(static_cast<unsigned int>(low) < std::size(camera_state_names) &&
+    	       static_cast<unsigned int>(high) < std::size(camera_state_names));
+    
+    	LOG(Camera, Error) << "Camera in " << camera_state_names[currentState]
+    			   << " state trying " << from
+    			   << "() requiring state between "
+    			   << camera_state_names[low] << " and "
+    			   << camera_state_names[high];
+    
+    	return -EACCES;
+    }
+    
+    void Camera::Private::disconnect()
+    {
+    	/*
+    	 * If the camera was running when the hardware was removed force the
+    	 * state to Configured state to allow applications to free resources
+    	 * and call release() before deleting the camera.
+    	 */
+    	if (state_.load(std::memory_order_acquire) == Private::CameraRunning)
+    		state_.store(Private::CameraConfigured, std::memory_order_release);
+    
+    	disconnected_ = true;
+    }
+    
+    void Camera::Private::setState(State state)
+    ```
+
+??? note "소스 근거: notification"
+    `src/libcamera/camera.cpp:944`에서 시작하는 발췌입니다. 종료 줄은 963이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `cbc12aaba21898e519c8599faec5e998b408162912a507880b162ee6787cf8b0`
+    
+    ```text
+    \brief Notify camera disconnection
+     *
+     * This function is used to notify the camera instance that the underlying
+     * hardware has been unplugged. In response to the disconnection the camera
+     * instance notifies the application by emitting the #disconnected signal, and
+     * ensures that all new calls to the application-facing Camera API return an
+     * error immediately.
+     *
+     * \todo Deal with pending requests if the camera is disconnected in a
+     * running state.
+     */
+    void Camera::disconnect()
+    {
+    	LOG(Camera, Debug) << "Disconnecting camera " << id();
+    
+    	_d()->disconnect();
+    	disconnected.emit();
+    }
+    
+    int Camera::exportFrameBuffers(Stream *stream,
+    ```
+
 
 <!-- sdd:class-diagram -->
 ## 클래스 관계
@@ -953,8 +1054,8 @@ flowchart LR
     - 생성 방식: 소스 발췌에 연결한 설계 설명
     - 검증 범위: 설정에 작성된 설명을 발췌 해시와 대조합니다. 해시 일치는 설명의 의미를 승인하지 않습니다.
     - 근거 파일: `include/libcamera/camera.h`, `include/libcamera/camera_manager.h`, `include/libcamera/request.h`, `src/libcamera/camera.cpp`, `src/libcamera/camera_manager.cpp`, `src/libcamera/pipeline_handler.cpp`, `src/libcamera/request.cpp`
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `279d355ef8`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `d48b72e710`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-09-26 · 사람 검토 전
+    - 검토 상태 기록일: 2026-09-30 · 사람 검토 전
 
 다음 단계: [Pipeline Handler](pipeline-handler.md)
