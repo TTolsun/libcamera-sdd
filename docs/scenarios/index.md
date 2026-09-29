@@ -1,6 +1,6 @@
 ---
-generated_at: 2026-09-26T13:32:24+00:00
-source_commit: 279d355ef8f7a4f98bb0a3004c0f788387814506
+generated_at: 2026-09-29T15:35:02+00:00
+source_commit: d48b72e710fb1a72b0d291b912c179c93619e1d8
 status: ok
 section: scenarios
 generation_method: deterministic
@@ -17,6 +17,7 @@ generation_method: deterministic
 | 캡처 시작 (Camera::start) 흐름을 추적합니다. | [캡처 시작 (Camera::start)](camera_start.md) |
 | 요청 제출 (Camera::queueRequest) 흐름을 추적합니다. | [요청 제출 (Camera::queueRequest)](queue_request.md) |
 | 요청 완료 통지 (PipelineHandler::completeRequest) 흐름을 추적합니다. | [요청 완료 통지 (PipelineHandler::completeRequest)](complete_request.md) |
+| 캡처 종료 요청 (Camera::stop) 흐름을 추적합니다. | [캡처 종료 요청 (Camera::stop)](camera_stop.md) |
 
 ## 시나리오 목록
 
@@ -27,13 +28,14 @@ generation_method: deterministic
 | [캡처 시작 (Camera::start)](camera_start.md) | `Camera::start(const ControlList *)` | 21 | 27 | 2 | 0 |
 | [요청 제출 (Camera::queueRequest)](queue_request.md) | `Camera::queueRequest(Request *)` | 29 | 51 | 1 | 0 |
 | [요청 완료 통지 (PipelineHandler::completeRequest)](complete_request.md) | `PipelineHandler::completeRequest(Request *)` | 43 | 62 | 0 | 0 |
+| [캡처 종료 요청 (Camera::stop)](camera_stop.md) | `Camera::stop()` | 7 | 26 | 1 | 0 |
 
 ??? note "근거와 검토 정보"
     - 생성 방식: 추출 사실과 설정으로 생성
     - 검증 범위: 표와 목록을 facts 또는 문서 설정에서 구성합니다. LLM을 호출하지 않습니다.
     - 근거 파일: (없음)
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `279d355ef8`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `d48b72e710`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-09-26 · 사람 검토 전
+    - 검토 상태 기록일: 2026-09-30 · 사람 검토 전
 
 다음 단계: [카메라와 요청 모델](../camera-model.md)
