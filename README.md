@@ -13,7 +13,7 @@
 ## 재현 기준
 
 - 공식 소스: [libcamera](https://gitlab.freedesktop.org/camera/libcamera), `d48b72e710fb1a72b0d291b912c179c93619e1d8`
-- 생성기: [camera-hal-sdd-generator](https://github.com/TTolsun/camera-hal-sdd-generator), `d8701dae6dea5b4897cd89c65f109ee2236d4a55`
+- 생성기: [camera-hal-sdd-generator](https://github.com/TTolsun/camera-hal-sdd-generator), `4bb2f88be57dcb8538703daba9ba76eaaa91bf3d`
 - WSL에서 Meson/Ninja로 다시 빌드하고 TU 171개를 전체 추출했습니다. 파싱 오류와 시나리오 진입점 누락은 0개입니다.
 - 빌드 범위는 IPU3·RKISP1·UVC와 GStreamer입니다. Raspberry Pi·software ISP 변경 이력도 보관하지만 해당 하드웨어의 빌드·동작 검증을 뜻하지 않습니다.
 - [배포 기록](run.json)과 [입력·산출물 해시](docs/site-manifest.json)를 확인할 수 있습니다.
@@ -22,8 +22,8 @@ Hermes/QWEN은 연결 해제 누락 후보를 제안했지만 자동 검증을 �
 
 ## 동기화와 배포
 
-`upstream/master`는 공식 원본 이력을 보관합니다. [동기화 워크플로](.github/workflows/sync-upstream.yml)는 매일 한국 시간 21시에 실행하며 수동 실행도 가능합니다. 시간은 workflow의 UTC cron 값에서 바꿉니다. force push는 하지 않습니다.
+`upstream/master`는 공식 원본 이력을 보관합니다. [동기화 워크플로](.github/workflows/sync-upstream.yml)는 수동 실행만 지원하며 force push는 하지 않습니다. 공개 환경에는 정기 예약을 두지 않습니다.
 
-`main`은 문서와 배포 기록을 관리하고 GitHub Pages는 `docs/`를 게시합니다. 이번 문서는 PR 검토·병합 후 게시합니다. upstream 이력 동기화와 문서 재생성은 별도 단계이며, 무인 문서 갱신·배포 예약은 아직 설치되지 않았습니다.
+`main`은 문서와 배포 기록을 관리하고 GitHub Pages는 `docs/`를 게시합니다. 생성기 저장소에서 작업할 때 공식 upstream을 확인·동기화하고 문서 갱신·PR 병합·배포 확인까지 함께 수행합니다. 새 커밋이 없으면 기존 카테고리에서 근거가 있는 누락을 보완합니다. 매일 21시 등의 정기 예약은 사내 운영을 위한 공통 실행기 기능이며 이 공개 환경에서는 사용하지 않습니다.
 
 생성 HTML을 직접 수정하지 않습니다. 원고·설정·테마는 생성기에서 관리하고 이 저장소에는 공개 libcamera 산출물만 배포합니다. 사내 Camera HAL의 소스·facts·문서·프롬프트·로그를 올리지 않습니다.
