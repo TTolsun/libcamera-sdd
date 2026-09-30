@@ -1,10 +1,10 @@
 ---
-generated_at: 2026-09-30T18:11:11+00:00
+generated_at: 2026-09-30T18:17:51+00:00
 source_commit: 0f0450158f4eaa37de633520822a9c4a1c25c5ea
 status: ok
 section: camera-model
 generation_method: source-bound-contract
-evidence_fingerprint: f86894d85c274d18470e493a2399906cc5291eceb537ff3a3f6f40e93ffe7bd2
+evidence_fingerprint: abb04140229a75bafbb29e30c73de049c2fd9866c169e42d84edaff1def65bce
 semantic_review: human-review-required
 ---
 
@@ -209,7 +209,7 @@ Configured 또는 Running 상태에서 createRequest()로 빈 요청을 만들�
 
 Running 상태에서 queueRequest()를 호출하여 제출합니다. 완료 시 requestCompleted 신호를 받으며, 요청 소유자인 호출자는 완료 핸들러에서 삭제하거나 reuse()로 초기화한 뒤 다시 사용할 수 있습니다. `src/libcamera/camera.cpp:1308`, `src/libcamera/camera.cpp:1243`
 
-`queueRequest()`는 검사를 통과한 요청을 `ConnectionTypeQueued`로 PipelineHandler에 전달합니다. 반환값 0은 이 큐잉을 마쳤다는 뜻이며, 장치 제출이나 캡처 완료를 보장하지 않습니다. `src/libcamera/camera.cpp:1308`
+요청을 보냈다고 사진 촬영이 끝난 것은 아닙니다. `queueRequest()`는 검사를 통과한 요청을 `ConnectionTypeQueued`로 PipelineHandler에 전달하도록 예약합니다. 반환값 0은 이 예약이 성공했다는 뜻입니다. 장치에 요청을 넘기는 일이나 촬영까지 끝났다는 뜻은 아닙니다. 성공이라고 해서 벌써 사진을 찾으면 조금 이릅니다. `src/libcamera/camera.cpp:1308`
 
 유효한 fence를 addBuffer()에 전달하면 성공한 경우에만 fence가 버퍼로 이동합니다. 모든 버퍼의 fence가 신호를 보내야 장치에 요청을 큐잉할 수 있습니다. `src/libcamera/request.cpp:442`
 
@@ -374,7 +374,7 @@ createRequest()가 반환한 요청의 소유권은 호출자에게 있습니다
 
 `addBuffer()`는 버퍼의 참조를 요청에 저장합니다. 호출자는 요청 완료 콜백이 호출될 때까지 해당 버퍼가 유효하도록 보장해야 합니다. 스트림 하나에 버퍼 하나만 연결할 수 있으며, 같은 스트림에 이미 버퍼가 있거나 버퍼에 fence가 남아 있으면 `-EEXIST`를 반환합니다. `src/libcamera/request.cpp:442`
 
-reuse()는 요청 상태와 컨트롤·메타데이터를 초기화합니다. ReuseBuffers를 지정하면 기존 버퍼 연결을 재사용하고, 지정하지 않으면 버퍼 맵을 비웁니다. 새 요청 대신 재사용하는 경우 재큐잉 전에 호출합니다. `src/libcamera/request.cpp:376`
+요청 객체는 한 번 쓰고 버리지 않아도 됩니다. 다시 제출하기 전에 `reuse()`를 호출하면 요청 상태는 `RequestPending`으로 돌아가고, 촬영 설정값인 컨트롤과 촬영 결과 정보인 메타데이터는 비워집니다. `ReuseBuffers`를 지정하면 사진을 담는 버퍼의 연결은 유지합니다. 구현은 각 버퍼를 요청에 다시 연결하고 완료를 기다릴 버퍼 목록에 넣습니다. 지정하지 않으면 버퍼 연결 목록을 비웁니다. 요청을 재사용해도 지난 촬영의 설정값과 결과 정보까지 남는 것은 아닙니다. `src/libcamera/request.cpp:376`
 
 fence의 소유권은 addBuffer() 성공 시 버퍼로 이동합니다. 신호를 받지 못해 타임아웃된 fence는 버퍼에 남으므로, 다른 요청에 버퍼를 재사용하기 전에 releaseFence()로 꺼내야 합니다. 실패한 addBuffer() 호출은 전달된 fence를 변경하지 않습니다. `src/libcamera/request.cpp:442`
 

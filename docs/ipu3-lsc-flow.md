@@ -1,10 +1,10 @@
 ---
-generated_at: 2026-09-30T18:11:11+00:00
+generated_at: 2026-09-30T18:17:51+00:00
 source_commit: 0f0450158f4eaa37de633520822a9c4a1c25c5ea
 status: ok
 section: ipu3-lsc-flow
 generation_method: source-bound-contract
-evidence_fingerprint: 8d95f0bfc74f48dc9175cecfebe7c633d07876967adf380aa3ec72fc5c5bc125
+evidence_fingerprint: d620159964064992bcacd78f58d5700000db57788d69f59364081a28aaa4c0c5
 semantic_review: human-review-required
 ---
 
@@ -28,7 +28,7 @@ semantic_review: human-review-required
 
 ## 빌드와 상태 연결
 
-IPU3 알고리즘 빌드 목록에는 lsc.cpp가 포함됩니다. 이 목록에 있다는 사실만으로 실행 중인 카메라에서 LSC가 활성화됐다고 판단할 수는 없습니다. `src/ipa/ipu3/algorithms/meson.build:3`
+IPU3 알고리즘을 빌드할 때 `lsc.cpp`도 포함합니다. 하지만 코드를 빌드했다는 사실과 카메라가 지금 그 기능을 사용한다는 것은 다릅니다. 이 목록만 보고 LSC가 켜져 있다고 판단해서는 안 됩니다. `src/ipa/ipu3/algorithms/meson.build:3`
 
 IPAContext는 공유 activeState와 프레임 컨텍스트 큐를 보유합니다. IPAActiveState의 lsc 필드와 IPAFrameContext의 lsc 필드가 각각 공유 상태와 프레임별 상태를 연결합니다. `src/ipa/ipu3/ipa_context.h:32`
 
