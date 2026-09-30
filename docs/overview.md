@@ -1,10 +1,10 @@
 ---
-generated_at: 2026-09-30T17:54:23+00:00
+generated_at: 2026-09-30T18:15:32+00:00
 source_commit: 0f0450158f4eaa37de633520822a9c4a1c25c5ea
 status: ok
 section: overview
 generation_method: source-bound-contract
-evidence_fingerprint: 037269fafc8383d9358d2f0e1235d21442448d3122073f5006fb0ada235aa0bb
+evidence_fingerprint: 1f63e48ccb60d4537c5b20e1c734aaff4e5b7ede23a7e337447a90bdef04ec77
 semantic_review: human-review-required
 ---
 
@@ -271,7 +271,7 @@ semantic_review: human-review-required
 
 장치 열거기 생성 또는 열거가 실패하면 초기화는 `-ENODEV`를 반환합니다. 성공하면 설정의 `pipelines_match_list`가 있을 때 지정된 팩토리를 그 순서대로 시도하고, 없으면 등록된 팩토리를 순회합니다. `src/libcamera/camera_manager.cpp:94`
 
-각 팩토리는 핸들러 인스턴스를 만들고 `match()`가 실패할 때까지 반복합니다. 성공한 인스턴스는 한 파이프라인에 필요한 장치를 확보합니다. 등록된 IPU3·RKISP1·UVC 구현이 하나의 캡처 요청에서 차례로 실행된다는 뜻은 아닙니다. `src/libcamera/camera_manager.cpp:94`, `src/libcamera/pipeline_handler.cpp:50`
+각 팩토리는 핸들러 인스턴스를 만들고 `match()`가 실패할 때까지 반복합니다. 성공한 인스턴스는 한 파이프라인에 필요한 장치를 확보합니다. 등록된 IPU3·RKISP1·UVC 구현이 하나의 캡처 요청에서 차례로 실행된다는 뜻은 아닙니다. 명단에 함께 있다고 단체 출근하는 것은 아닙니다. `src/libcamera/camera_manager.cpp:94`, `src/libcamera/pipeline_handler.cpp:50`
 
 ??? note "소스 근거: discovery"
     `src/libcamera/camera_manager.cpp:94`에서 시작하는 발췌입니다. 종료 줄은 170이며, 아래 원문을 설명과 대조할 수 있습니다.

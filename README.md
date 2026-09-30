@@ -2,7 +2,7 @@
 
 **[공개 설계 문서 열기](https://ttolsun.github.io/libcamera-sdd/)**
 
-이번 갱신은 공식 upstream의 software ISP 커밋 2개를 이력에 반영하고 기존 빌드 범위에서 문서 13편을 다시 생성했습니다. software ISP는 이번 빌드·실행 검증 범위에 포함되지 않습니다.
+이번 갱신은 공식 upstream에 새 커밋이 없음을 확인한 뒤 기존 공개 facts로 문서 13편을 다시 생성했습니다. 설명에 가벼운 비유를 더하고, 요청 재사용 시 상태와 완료 대기 버퍼를 복원하는 동작을 소스 근거로 보완했습니다. facts를 재추출하거나 기기 실행을 검증한 것은 아닙니다.
 
 - [캡처 종료 요청](docs/scenarios/camera_stop.md): Camera::stop()의 상태 검사·종료 호출 대상·대기 요청 확인과 정적 추적 경계를 설명합니다.
 - [카메라와 요청 모델](docs/camera-model.md): 연결 해제의 상태 변화·API 접근 제한과 대기 요청 처리의 확인 한계를 소스 근거에 연결합니다.
@@ -13,7 +13,7 @@
 ## 재현 기준
 
 - 공식 소스: [libcamera](https://gitlab.freedesktop.org/camera/libcamera), `0f0450158f4eaa37de633520822a9c4a1c25c5ea`
-- 생성기: [camera-hal-sdd-generator](https://github.com/TTolsun/camera-hal-sdd-generator), `fae96c9073b6206a1cbdf8eaab8cc23805cd05b9`
+- 생성기: [camera-hal-sdd-generator](https://github.com/TTolsun/camera-hal-sdd-generator), `82c8440be3743bc4d4d2ab52a476ae8af46ad013`
 - WSL에서 Meson/Ninja로 다시 빌드하고 TU 171개를 전체 추출했습니다. 파싱 오류와 시나리오 진입점 누락은 0개입니다.
 - 빌드 범위는 IPU3·RKISP1·UVC와 GStreamer입니다. Raspberry Pi·software ISP 변경 이력도 보관하지만 해당 하드웨어의 빌드·동작 검증을 뜻하지 않습니다.
 - [배포 기록](run.json)과 [입력·산출물 해시](docs/site-manifest.json)를 확인할 수 있습니다.
