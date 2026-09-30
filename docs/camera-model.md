@@ -1,10 +1,10 @@
 ---
-generated_at: 2026-09-30T17:54:23+00:00
+generated_at: 2026-09-30T18:11:11+00:00
 source_commit: 0f0450158f4eaa37de633520822a9c4a1c25c5ea
 status: ok
 section: camera-model
 generation_method: source-bound-contract
-evidence_fingerprint: d2424fe7e22c73b823b2a8484f493dfe3df69ea55c297c83918b21340e3f7fce
+evidence_fingerprint: f86894d85c274d18470e493a2399906cc5291eceb537ff3a3f6f40e93ffe7bd2
 semantic_review: human-review-required
 ---
 
@@ -492,6 +492,8 @@ fence의 소유권은 addBuffer() 성공 시 버퍼로 이동합니다. 신호�
 ## 오류와 종료
 
 queueRequest()는 연결이 끊긴 카메라에 -ENODEV, 실행 중이 아닌 카메라에 -EACCES, 다른 카메라의 요청에 -EXDEV를 반환합니다. 유효하지 않은 요청에는 -EINVAL, 처리할 버퍼 메모리가 부족하면 -ENOMEM을 반환한다고 API가 명시합니다. 빈 버퍼 요청은 큐잉하지 않습니다. `src/libcamera/camera.cpp:1308`
+
+`queueRequest()`는 요청 상태가 `RequestPending`이 아니거나, 요청의 컨트롤 목록이 해당 카메라의 컨트롤 정보 맵을 참조하지 않거나, 요청 버퍼의 스트림이 활성 스트림에 포함되지 않으면 `-EINVAL`을 반환합니다. 이 검사는 파이프라인에 요청을 전달하기 전에 수행합니다. `src/libcamera/camera.cpp:1308`
 
 stop()은 대기 중인 요청을 오류 상태로 취소하여 동기적으로 완료합니다. 구현은 실행 중이 아니면 즉시 0을 반환하므로, 이 경로가 -EACCES를 반환한다고 해석하면 안 됩니다. `src/libcamera/camera.cpp:1431`
 
