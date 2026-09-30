@@ -2,18 +2,18 @@
 
 **[공개 설계 문서 열기](https://ttolsun.github.io/libcamera-sdd/)**
 
-이번 갱신은 공식 upstream에 새 커밋이 없음을 확인한 뒤 기존 공개 facts로 문서 13편을 다시 생성했습니다. 요청 제출·재사용 설명을 쉬운 단어와 짧은 문장으로 고치고, 재사용 시 상태와 완료 대기 버퍼를 복원하는 동작을 소스 근거로 보완했습니다. 앞선 배포의 요청 거부 조건 설명도 유지합니다. facts를 재추출하거나 기기 실행을 검증한 것은 아닙니다.
+이번 갱신은 상단 메뉴에서 한국어와 English를 전환할 수 있도록 영어판 14페이지를 추가했습니다. [영어 문서 열기](https://ttolsun.github.io/libcamera-sdd/en/)에서 본문·메뉴·목차·검색과 그림을 영어로 읽을 수 있습니다. 공식 upstream에 새 커밋이 없음을 확인하고 기존 공개 facts를 재사용했습니다. 카메라 문서에서 빠진 addBuffer의 -EINVAL 계약을 기존 소스 근거에 연결해 보완하고 해당 원고만 다시 생성했습니다. facts 재추출이나 기기 실행 검증은 수행하지 않았습니다.
 
 - [캡처 종료 요청](docs/scenarios/camera_stop.md): Camera::stop()의 상태 검사·종료 호출 대상·대기 요청 확인과 정적 추적 경계를 설명합니다.
 - [카메라와 요청 모델](docs/camera-model.md): 연결 해제의 상태 변화·API 접근 제한과 대기 요청 처리의 확인 한계를 소스 근거에 연결합니다.
 - [Pipeline Handler](docs/pipeline-handler.md): 대기 큐 분리, 장치 정지, 취소와 완료 계약을 확인할 수 있습니다.
 
-문서 13편과 HTML 14페이지를 생성했습니다. 시나리오 6개의 전체 호출 기록 507개를 보존하며, 설계 질문 27개와 소스 발췌 66개의 연결을 검사했습니다. 사람의 내용 승인과 실제 장치 동작 검증은 별도입니다.
+한국어 원고 13편에서 한국어 14페이지와 영어 14페이지를 생성했습니다. 영어 번역은 사람 검토 전이며 원문의 승인 상태를 상속하지 않습니다. 시나리오 6개의 전체 호출 기록 507개를 보존하며, 설계 질문 27개와 소스 발췌 66개의 연결을 검사했습니다. 사람의 내용 승인과 실제 장치 동작 검증은 별도입니다.
 
 ## 재현 기준
 
 - 공식 소스: [libcamera](https://gitlab.freedesktop.org/camera/libcamera), `0f0450158f4eaa37de633520822a9c4a1c25c5ea`
-- 생성기: [camera-hal-sdd-generator](https://github.com/TTolsun/camera-hal-sdd-generator), `16aee63f1ba07f22e1c05fe6729ba2e954f85cab`
+- 생성기: [camera-hal-sdd-generator](https://github.com/TTolsun/camera-hal-sdd-generator), `3957d117942b3fde3290c69cfc8f87de2e61279a`
 - 앞선 WSL Meson/Ninja 빌드에서 전체 추출·검증한 TU 171개의 facts를 같은 소스 커밋에서 재사용했습니다. 해당 추출의 파싱 오류와 시나리오 진입점 누락은 0개입니다.
 - 빌드 범위는 IPU3·RKISP1·UVC와 GStreamer입니다. Raspberry Pi·software ISP 변경 이력도 보관하지만 해당 하드웨어의 빌드·동작 검증을 뜻하지 않습니다.
 - [배포 기록](run.json)과 [입력·산출물 해시](docs/site-manifest.json)를 확인할 수 있습니다.

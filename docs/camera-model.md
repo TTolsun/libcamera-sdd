@@ -1,10 +1,10 @@
 ---
-generated_at: 2026-09-30T18:17:51+00:00
+generated_at: 2026-09-30T18:40:36+00:00
 source_commit: 0f0450158f4eaa37de633520822a9c4a1c25c5ea
 status: ok
 section: camera-model
 generation_method: source-bound-contract
-evidence_fingerprint: abb04140229a75bafbb29e30c73de049c2fd9866c169e42d84edaff1def65bce
+evidence_fingerprint: 902dec1d9682f4669755f72cda3cba2666a25bad25cfae357eb23affb277524c
 semantic_review: human-review-required
 ---
 
@@ -372,7 +372,7 @@ Running 상태에서 queueRequest()를 호출하여 제출합니다. 완료 시 
 
 createRequest()가 반환한 요청의 소유권은 호출자에게 있습니다. 요청을 완료 핸들러에서 삭제하거나 Request::reuse()로 초기화하여 재사용합니다. `src/libcamera/camera.cpp:1243`
 
-`addBuffer()`는 버퍼의 참조를 요청에 저장합니다. 호출자는 요청 완료 콜백이 호출될 때까지 해당 버퍼가 유효하도록 보장해야 합니다. 스트림 하나에 버퍼 하나만 연결할 수 있으며, 같은 스트림에 이미 버퍼가 있거나 버퍼에 fence가 남아 있으면 `-EEXIST`를 반환합니다. `src/libcamera/request.cpp:442`
+`addBuffer()`는 버퍼의 참조를 요청에 저장합니다. 호출자는 요청 완료 콜백이 호출될 때까지 해당 버퍼가 유효하도록 보장해야 합니다. 스트림 하나에 버퍼 하나만 연결할 수 있으며, 같은 스트림에 이미 버퍼가 있거나 버퍼에 fence가 남아 있으면 `-EEXIST`를 반환합니다. 유효한 스트림이 없는 버퍼에는 API 계약상 `-EINVAL`을 반환합니다. `src/libcamera/request.cpp:442`
 
 요청 객체는 한 번 쓰고 버리지 않아도 됩니다. 다시 제출하기 전에 `reuse()`를 호출하면 요청 상태는 `RequestPending`으로 돌아가고, 촬영 설정값인 컨트롤과 촬영 결과 정보인 메타데이터는 비워집니다. `ReuseBuffers`를 지정하면 사진을 담는 버퍼의 연결은 유지합니다. 구현은 각 버퍼를 요청에 다시 연결하고 완료를 기다릴 버퍼 목록에 넣습니다. 지정하지 않으면 버퍼 연결 목록을 비웁니다. 요청을 재사용해도 지난 촬영의 설정값과 결과 정보까지 남는 것은 아닙니다. `src/libcamera/request.cpp:376`
 
