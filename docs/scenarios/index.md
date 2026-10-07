@@ -1,6 +1,6 @@
 ---
-generated_at: 2026-09-30T18:17:51+00:00
-source_commit: 0f0450158f4eaa37de633520822a9c4a1c25c5ea
+generated_at: 2026-10-07T16:35:59+00:00
+source_commit: 8103c3f29fba61dbd1d3bbf1a099280c5f3217e3
 status: ok
 section: scenarios
 generation_method: deterministic
@@ -34,8 +34,8 @@ generation_method: deterministic
     - 생성 방식: 추출 사실과 설정으로 생성
     - 검증 범위: 표와 목록을 facts 또는 문서 설정에서 구성합니다. LLM을 호출하지 않습니다.
     - 근거 파일: (없음)
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `0f0450158f`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `8103c3f29f`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-10-01 · 사람 검토 전
+    - 검토 상태 기록일: 2026-10-08 · 사람 검토 전
 
-다음 단계: [카메라와 요청 모델](../camera-model.md)
+다음 단계: [요청 처리와 문제 진단](../request-lifecycle.md)

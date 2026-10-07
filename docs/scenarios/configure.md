@@ -1,11 +1,11 @@
 ---
-generated_at: 2026-09-30T18:17:51+00:00
-source_commit: 0f0450158f4eaa37de633520822a9c4a1c25c5ea
+generated_at: 2026-10-07T16:35:59+00:00
+source_commit: 8103c3f29fba61dbd1d3bbf1a099280c5f3217e3
 status: ok
 section: scenarios
 entry: Camera::configure(CameraConfiguration *)
 scenario_id: configure
-scenario_fingerprint: 70a3416ece3b94127eda893df035871b8660b0beaa83390afd4a06772dbd4b44
+scenario_fingerprint: f9b7949744f0c9cbacb6e0efd7e2ccbef9dd64c6512547e17b04d5f21ae37b6e
 generation_method: extracted-scenario
 ---
 
@@ -113,17 +113,17 @@ facts에 기록된 호출은 208개이며, 요약의 hide 규칙에 해당하는
     | 27 | `CameraSensorLegacy` | `transform::operator!()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_legacy.cpp:978` |
     | 28 | `CameraSensorLegacy` | `transform::operator&()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_legacy.cpp:978` |
     | 29 | `IPU3CameraConfiguration` | `CameraSensorRaw::computeTransform()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline/ipu3/ipu3.cpp:191` |
-    | 30 | `CameraSensorRaw` | `transform::operator/()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_raw.cpp:1073` |
+    | 30 | `CameraSensorRaw` | `transform::operator/()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_raw.cpp:1075` |
     | 31 | `transform` | `transform::transformFromOrientation()` | 정적 호출 지점입니다. | `src/libcamera/transform.cpp:349` |
     | 32 | `transform` | `transform::transformFromOrientation()` | 정적 호출 지점입니다. | `src/libcamera/transform.cpp:350` |
     | 33 | `transform` | `transform::operator*()` | 정적 호출 지점입니다. | `src/libcamera/transform.cpp:352` |
     | 34 | `transform` | `transform::operator-()` | 정적 호출 지점입니다. | `src/libcamera/transform.cpp:352` |
-    | 35 | `CameraSensorRaw` | `transform::operator!()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_raw.cpp:1076` |
-    | 36 | `CameraSensorRaw` | `transform::operator&()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_raw.cpp:1076` |
-    | 37 | `CameraSensorRaw` | `transform::operator!()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_raw.cpp:1081` |
-    | 38 | `CameraSensorRaw` | `transform::operator&()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_raw.cpp:1081` |
-    | 39 | `CameraSensorRaw` | `transform::operator!()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_raw.cpp:1090` |
-    | 40 | `CameraSensorRaw` | `transform::operator&()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_raw.cpp:1090` |
+    | 35 | `CameraSensorRaw` | `transform::operator!()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_raw.cpp:1078` |
+    | 36 | `CameraSensorRaw` | `transform::operator&()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_raw.cpp:1078` |
+    | 37 | `CameraSensorRaw` | `transform::operator!()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_raw.cpp:1083` |
+    | 38 | `CameraSensorRaw` | `transform::operator&()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_raw.cpp:1083` |
+    | 39 | `CameraSensorRaw` | `transform::operator!()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_raw.cpp:1092` |
+    | 40 | `CameraSensorRaw` | `transform::operator&()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_raw.cpp:1092` |
     | 41 | `IPU3CameraConfiguration` | `CIO2Device::sensor()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/ipu3/ipu3.cpp:191` |
     | 42 | `IPU3CameraConfiguration` | `Size::Size()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/ipu3/ipu3.cpp:213` |
     | 43 | `Size` | `Size::Size()` | 정적 호출 지점입니다. | `include/libcamera/geometry.h:54` |
@@ -176,12 +176,12 @@ facts에 기록된 호출은 208개이며, 요약의 hide 규칙에 해당하는
     | 80 | `IPU3CameraConfiguration` | `Size::Size()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/ipu3/ipu3.cpp:261` |
     | 81 | `IPU3CameraConfiguration` | `Size::Size()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/ipu3/ipu3.cpp:263` |
     | 82 | `IPU3CameraConfiguration` | `CameraSensorLegacy::resolution()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline/ipu3/ipu3.cpp:265` |
-    | 83 | `CameraSensorLegacy` | `Size::Size()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_legacy.cpp:706` |
-    | 84 | `CameraSensorLegacy` | `Rectangle::size()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_legacy.cpp:706` |
+    | 83 | `CameraSensorLegacy` | `Size::Size()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_legacy.cpp:716` |
+    | 84 | `CameraSensorLegacy` | `Rectangle::size()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_legacy.cpp:716` |
     | 85 | `Rectangle` | `Size::Size()` | 정적 호출 지점입니다. | `include/libcamera/geometry.h:290` |
     | 86 | `IPU3CameraConfiguration` | `CameraSensorRaw::resolution()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline/ipu3/ipu3.cpp:265` |
-    | 87 | `CameraSensorRaw` | `Size::Size()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_raw.cpp:766` |
-    | 88 | `CameraSensorRaw` | `Rectangle::size()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_raw.cpp:766` |
+    | 87 | `CameraSensorRaw` | `Size::Size()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_raw.cpp:778` |
+    | 88 | `CameraSensorRaw` | `Rectangle::size()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_raw.cpp:778` |
     | 89 | `Rectangle` | `Size::Size()` | 정적 호출 지점입니다. | `include/libcamera/geometry.h:290` |
     | 90 | `IPU3CameraConfiguration` | `CIO2Device::sensor()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/ipu3/ipu3.cpp:265` |
     | 91 | `IPU3CameraConfiguration` | `StreamConfiguration::operator=()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/ipu3/ipu3.cpp:267` |
@@ -191,16 +191,16 @@ facts에 기록된 호출은 208개이며, 요약의 hide 규칙에 해당하는
     | 95 | `CIO2Device` | `Size::isNull()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/ipu3/cio2.cpp:226` |
     | 96 | `CIO2Device` | `Size::operator=()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/ipu3/cio2.cpp:227` |
     | 97 | `CIO2Device` | `CameraSensorLegacy::resolution()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline/ipu3/cio2.cpp:227` |
-    | 98 | `CameraSensorLegacy` | `Size::Size()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_legacy.cpp:706` |
-    | 99 | `CameraSensorLegacy` | `Rectangle::size()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_legacy.cpp:706` |
+    | 98 | `CameraSensorLegacy` | `Size::Size()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_legacy.cpp:716` |
+    | 99 | `CameraSensorLegacy` | `Rectangle::size()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_legacy.cpp:716` |
     | 100 | `CIO2Device` | `CameraSensorRaw::resolution()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline/ipu3/cio2.cpp:227` |
 
 ??? note "추적 기록 101–125 / 208개"
 
     | 기록 | 호출 측 | 대상 | 구분 | 근거 |
     |---|---|---|---|---|
-    | 101 | `CameraSensorRaw` | `Size::Size()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_raw.cpp:766` |
-    | 102 | `CameraSensorRaw` | `Rectangle::size()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_raw.cpp:766` |
+    | 101 | `CameraSensorRaw` | `Size::Size()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_raw.cpp:778` |
+    | 102 | `CameraSensorRaw` | `Rectangle::size()` | 정적 호출 지점입니다. | `src/libcamera/sensor/camera_sensor_raw.cpp:778` |
     | 103 | `CIO2Device` | `utils::map_keys()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/ipu3/cio2.cpp:230` |
     | 104 | `CIO2Device` | `CIO2Device::getSensorFormat()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/ipu3/cio2.cpp:231` |
     | 105 | `CIO2Device` | `CameraSensorLegacy::resolution()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline/ipu3/cio2.cpp:281` |
@@ -332,8 +332,8 @@ facts에 기록된 호출은 208개이며, 요약의 hide 규칙에 해당하는
     - 생성 방식: 추출 호출로 만든 시나리오
     - 검증 범위: 주요 호출과 경계를 facts에서 구성하고 전체 추적 기록을 보존합니다. 실행 순서를 추정하지 않습니다.
     - 근거 파일: `include/libcamera/geometry.h`, `src/libcamera/base/log.cpp`, `src/libcamera/camera.cpp`, `src/libcamera/formats.cpp`, `src/libcamera/pipeline/ipu3/cio2.cpp`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/sensor/camera_sensor_legacy.cpp`, `src/libcamera/sensor/camera_sensor_raw.cpp`, `src/libcamera/stream.cpp`, `src/libcamera/transform.cpp`
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `0f0450158f`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `8103c3f29f`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-10-01 · 사람 검토 전
+    - 검토 상태 기록일: 2026-10-08 · 사람 검토 전
 
 다음 단계: [캡처 시작 (Camera::start)](camera_start.md)

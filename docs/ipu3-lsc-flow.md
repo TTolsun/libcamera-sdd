@@ -1,10 +1,10 @@
 ---
-generated_at: 2026-09-30T18:17:51+00:00
-source_commit: 0f0450158f4eaa37de633520822a9c4a1c25c5ea
+generated_at: 2026-10-07T16:36:00+00:00
+source_commit: 8103c3f29fba61dbd1d3bbf1a099280c5f3217e3
 status: ok
 section: ipu3-lsc-flow
 generation_method: source-bound-contract
-evidence_fingerprint: d620159964064992bcacd78f58d5700000db57788d69f59364081a28aaa4c0c5
+evidence_fingerprint: 3b5c0becf640ce98c8ba12d5b845d8dc56b4d37bb0e6a01ca6351173b1701c0a
 semantic_review: human-review-required
 ---
 
@@ -119,7 +119,7 @@ IPAContext는 공유 activeState와 프레임 컨텍스트 큐를 보유합니�
 
 ## 초기화와 크롭 설정
 
-init()는 센서 activeAreaSize를 기준으로 그리드를 계산합니다. 가로 73개와 세로 56개라는 셀 수 상한에 맞춰 필요한 셀 크기를 계산하고, 이를 2의 거듭제곱으로 올림한 뒤 실제 셀 수와 블록 크기를 정합니다. `src/ipa/ipu3/algorithms/lsc.cpp:31`
+init()는 센서 activeArea의 너비와 높이를 기준으로 그리드를 계산합니다. 가로 73개와 세로 56개라는 셀 수 상한에 맞춰 필요한 셀 크기를 계산하고, 이를 2의 거듭제곱으로 올림한 뒤 실제 셀 수와 블록 크기를 정합니다. `src/ipa/ipu3/algorithms/lsc.cpp:31`
 
 튜닝 데이터의 type이 polynomial인지 저장한 뒤, r·gr·gb·b 성분과 샘플 수 및 센서 크기를 공통 LSC 알고리즘의 init()에 전달합니다. 반환값은 호출자에게 그대로 반환합니다. `src/ipa/ipu3/algorithms/lsc.cpp:31`
 
@@ -128,7 +128,7 @@ configure()는 analogCrop의 너비와 높이를 저장합니다. 각 축의 샘
 ??? note "소스 근거: setup"
     `src/ipa/ipu3/algorithms/lsc.cpp:31`에서 시작하는 발췌입니다. 종료 줄은 121이며, 아래 원문을 설명과 대조할 수 있습니다.
     
-    SHA-256: `943557ac46750b8b53d8280921b313e4331e786e8ff88766abb0fe02959d2f63`
+    SHA-256: `b4b73b83ec5f1caeb1e654f00aace0f49abf402b43c0ff6bd30528176ea8a566`
     
     ```text
     static constexpr unsigned int kMaxNumHCells = 73;
@@ -163,8 +163,8 @@ configure()는 analogCrop의 너비와 높이를 저장합니다. 각 축의 샘
     	 * image, 2592 / 73 = 35.5...which means we need to set blockWidthLog2
     	 * to 6 (I.E. 64) and have just 40.5 (or rather 41) cells horizontally.
     	 */
-    	sensorWidth_ = context.sensorInfo.activeAreaSize.width;
-    	sensorHeight_ = context.sensorInfo.activeAreaSize.height;
+    	sensorWidth_ = context.sensorInfo.activeArea.width;
+    	sensorHeight_ = context.sensorInfo.activeArea.height;
     
     	unsigned int cellWidth = (sensorWidth_ + kMaxNumHCells - 1) / kMaxNumHCells;
     	unsigned int cellHeight = (sensorHeight_ + kMaxNumVCells - 1) / kMaxNumVCells;
@@ -192,7 +192,7 @@ configure()는 analogCrop의 너비와 높이를 저장합니다. 각 축의 샘
     			     { .keys = { "r", "gr", "gb", "b" },
     			       .numHSamples = numHCells_,
     			       .numVSamples = numVCells_,
-    			       .sensorSize = context.sensorInfo.activeAreaSize });
+    			       .sensorSize = context.sensorInfo.activeArea.size() });
     }
     
     std::vector<double> Lsc::calculatePositions(unsigned int dimension)
@@ -267,6 +267,15 @@ prepare()는 현재 프레임 AWB의 색온도를 읽어 10 단위로 반올림�
 갱신 경로에서는 use.acc_shd를 1로 설정하고 shd_enable에 현재 활성 상태를 기록합니다. update가 true이고 enabled가 false인 경우에도 이 플래그를 기록한 뒤 반환하므로, 단순히 비활성 상태의 모든 호출을 생략하는 것은 아닙니다. `src/ipa/ipu3/algorithms/lsc.cpp:142`
 
 활성 상태에서는 그리드와 크롭 오프셋을 설정하고, 양자화한 색온도로 interpolateComponents()를 호출합니다. 반환된 r·gr·gb·b 배열을 LUT에 복사한 뒤 마지막으로 적용한 색온도 두 값을 저장합니다. 실제 하드웨어의 적용 시점과 LUT 분할 경계의 적합성은 기기에서 별도로 검증해야 합니다. `src/ipa/ipu3/algorithms/lsc.cpp:142`
+
+| 조건 | prepare()의 처리 | 변경 검토 지점 |
+|---|---|---|
+| `update=false`, 비활성 상태입니다. | 파라미터를 갱신하지 않고 반환합니다. | 비활성 상태 유지와 비활성화 전환을 구분합니다. |
+| `update=false`, 활성 상태이며 직전 색온도와의 차이가 5 미만이거나 양자화한 값이 같습니다. | LUT 갱신을 생략합니다. | 원래 색온도의 차이와 10 단위로 반올림한 값을 모두 확인합니다. |
+| `update=true`, 비활성 상태입니다. | 갱신 경로에서 `use.acc_shd`와 비활성 `shd_enable`을 기록합니다. | 비활성화 전환을 전달하는 경로를 조기 반환으로 없애지 않습니다. |
+| 갱신 경로이며 활성 상태입니다. | 그리드·크롭 오프셋과 보간 LUT를 기록하고 색온도를 저장합니다. | 출력 파라미터와 프레임 상태를 함께 대조합니다. |
+
+ `src/ipa/ipu3/algorithms/lsc.cpp:142`
 
 ??? note "소스 근거: prepare"
     `src/ipa/ipu3/algorithms/lsc.cpp:142`에서 시작하는 발췌입니다. 종료 줄은 282이며, 아래 원문을 설명과 대조할 수 있습니다.
@@ -504,8 +513,8 @@ flowchart LR
     - 생성 방식: 소스 발췌에 연결한 설계 설명
     - 검증 범위: 설정에 작성된 설명을 발췌 해시와 대조합니다. 해시 일치는 설명의 의미를 승인하지 않습니다.
     - 근거 파일: `src/ipa/ipu3/algorithms/lsc.cpp`, `src/ipa/ipu3/algorithms/lsc.h`, `src/ipa/ipu3/ipa_context.h`, `src/ipa/libipa/lsc.h`
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `0f0450158f`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `8103c3f29f`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-10-01 · 사람 검토 전
+    - 검토 상태 기록일: 2026-10-08 · 사람 검토 전
 
 다음 단계: [시스템 개요](overview.md)
