@@ -1,6 +1,6 @@
 ---
-generated_at: 2026-09-30T18:17:51+00:00
-source_commit: 0f0450158f4eaa37de633520822a9c4a1c25c5ea
+generated_at: 2026-10-07T16:36:00+00:00
+source_commit: 8103c3f29fba61dbd1d3bbf1a099280c5f3217e3
 status: ok
 section: ipa
 generation_method: source-bound-contract
@@ -1329,8 +1329,8 @@ flowchart LR
     - 생성 방식: 소스 발췌에 연결한 설계 설명
     - 검증 범위: 설정에 작성된 설명을 발췌 해시와 대조합니다. 해시 일치는 설명의 의미를 승인하지 않습니다.
     - 근거 파일: `include/libcamera/internal/ipa_manager.h`, `include/libcamera/internal/ipa_module.h`, `include/libcamera/internal/ipa_proxy.h`, `src/ipa/ipu3/ipu3.cpp`, `src/ipa/rkisp1/rkisp1.cpp`, `src/libcamera/ipa_manager.cpp`, `src/libcamera/ipa_module.cpp`, `src/libcamera/ipa_proxy.cpp`, `src/libcamera/ipc_pipe_unixsocket.cpp`, `utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl`, `utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl`
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `0f0450158f`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `8103c3f29f`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-10-01 · 사람 검토 전
+    - 검토 상태 기록일: 2026-10-08 · 사람 검토 전
 
 다음 단계: [IPU3 LSC와 상태 연결](ipu3-lsc.md)
