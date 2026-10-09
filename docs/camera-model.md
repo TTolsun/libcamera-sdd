@@ -1,6 +1,6 @@
 ---
-generated_at: 2026-10-07T16:36:00+00:00
-source_commit: 8103c3f29fba61dbd1d3bbf1a099280c5f3217e3
+generated_at: 2026-10-09T16:52:35+00:00
+source_commit: 06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb
 status: ok
 section: camera-model
 generation_method: source-bound-contract
@@ -1056,8 +1056,8 @@ flowchart LR
     - 생성 방식: 소스 발췌에 연결한 설계 설명
     - 검증 범위: 설정에 작성된 설명을 발췌 해시와 대조합니다. 해시 일치는 설명의 의미를 승인하지 않습니다.
     - 근거 파일: `include/libcamera/camera.h`, `include/libcamera/camera_manager.h`, `include/libcamera/request.h`, `src/libcamera/camera.cpp`, `src/libcamera/camera_manager.cpp`, `src/libcamera/pipeline_handler.cpp`, `src/libcamera/request.cpp`
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `8103c3f29f`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `06c3e2d719`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-10-08 · 사람 검토 전
+    - 검토 상태 기록일: 2026-10-10 · 사람 검토 전
 
 다음 단계: [Pipeline Handler](pipeline-handler.md)
