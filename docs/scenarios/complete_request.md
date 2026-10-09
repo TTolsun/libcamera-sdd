@@ -1,11 +1,11 @@
 ---
-generated_at: 2026-10-07T16:35:59+00:00
-source_commit: 8103c3f29fba61dbd1d3bbf1a099280c5f3217e3
+generated_at: 2026-10-09T16:52:35+00:00
+source_commit: 06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb
 status: ok
 section: scenarios
 entry: PipelineHandler::completeRequest(Request *)
 scenario_id: complete_request
-scenario_fingerprint: 337aa8f89798c7c13733094aca3d9ab9720c08ebfe1a886a08b5044c27edd961
+scenario_fingerprint: a1ae640b64b9440d581e9512cb384b7100c1f23d77f4015ed563b074d2c199c5
 generation_method: extracted-scenario
 ---
 
@@ -67,8 +67,8 @@ facts에 기록된 호출은 105개이며, 요약의 hide 규칙에 해당하는
 | 호출 지점 | 후보 또는 예약 대상 | 확인할 경계 | 근거 |
 |---|---|---|---|
 | `PipelineHandler` | `PipelineHandlerIPU3::queueRequestDevice()`<br>`PipelineHandlerRkISP1::queueRequestDevice()`<br>`PipelineHandlerUVC::queueRequestDevice()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline_handler.cpp:498` |
-| `PipelineHandlerRkISP1` | `IPAProxyRkISP1Threaded::queueRequest()`<br>`IPAProxyRkISP1Isolated::queueRequest()`<br>`IPARkISP1::queueRequest()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1348` |
-| `PipelineHandlerRkISP1` | `IPAProxyRkISP1Threaded::computeParams()`<br>`IPAProxyRkISP1Isolated::computeParams()`<br>`IPARkISP1::computeParams()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1356` |
+| `PipelineHandlerRkISP1` | `IPAProxyRkISP1Threaded::queueRequest()`<br>`IPAProxyRkISP1Isolated::queueRequest()`<br>`IPARkISP1::queueRequest()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1349` |
+| `PipelineHandlerRkISP1` | `IPAProxyRkISP1Threaded::computeParams()`<br>`IPAProxyRkISP1Isolated::computeParams()`<br>`IPARkISP1::computeParams()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1357` |
 
 ## 전체 추적 기록
 
@@ -172,18 +172,18 @@ facts에 기록된 호출은 105개이며, 요약의 hide 규칙에 해당하는
     | 77 | `PipelineHandlerIPU3` | `PipelineHandlerIPU3::cameraData()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/ipu3/ipu3.cpp:840` |
     | 78 | `PipelineHandlerIPU3` | `IPU3CameraData::queuePendingRequests()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/ipu3/ipu3.cpp:843` |
     | 79 | `PipelineHandler` | `PipelineHandlerRkISP1::queueRequestDevice()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline_handler.cpp:498` |
-    | 80 | `PipelineHandlerRkISP1` | `PipelineHandlerRkISP1::cameraData()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1342` |
-    | 81 | `PipelineHandlerRkISP1` | `RkISP1Frames::create()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1344` |
-    | 82 | `PipelineHandlerRkISP1` | `IPAProxyRkISP1Threaded::queueRequest()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1348` |
-    | 83 | `PipelineHandlerRkISP1` | `IPAProxyRkISP1Isolated::queueRequest()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1348` |
-    | 84 | `PipelineHandlerRkISP1` | `IPARkISP1::queueRequest()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1348` |
-    | 85 | `PipelineHandlerRkISP1` | `Request::controls()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1348` |
-    | 86 | `PipelineHandlerRkISP1` | `RkISP1Path::queueBuffer()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1351` |
-    | 87 | `PipelineHandlerRkISP1` | `RkISP1Path::queueBuffer()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1354` |
-    | 88 | `PipelineHandlerRkISP1` | `IPAProxyRkISP1Threaded::computeParams()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1356` |
-    | 89 | `PipelineHandlerRkISP1` | `IPAProxyRkISP1Isolated::computeParams()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1356` |
-    | 90 | `PipelineHandlerRkISP1` | `IPARkISP1::computeParams()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1356` |
-    | 91 | `PipelineHandlerRkISP1` | `FrameBuffer::cookie()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1357` |
+    | 80 | `PipelineHandlerRkISP1` | `PipelineHandlerRkISP1::cameraData()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1343` |
+    | 81 | `PipelineHandlerRkISP1` | `RkISP1Frames::create()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1345` |
+    | 82 | `PipelineHandlerRkISP1` | `IPAProxyRkISP1Threaded::queueRequest()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1349` |
+    | 83 | `PipelineHandlerRkISP1` | `IPAProxyRkISP1Isolated::queueRequest()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1349` |
+    | 84 | `PipelineHandlerRkISP1` | `IPARkISP1::queueRequest()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1349` |
+    | 85 | `PipelineHandlerRkISP1` | `Request::controls()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1349` |
+    | 86 | `PipelineHandlerRkISP1` | `RkISP1Path::queueBuffer()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1352` |
+    | 87 | `PipelineHandlerRkISP1` | `RkISP1Path::queueBuffer()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1355` |
+    | 88 | `PipelineHandlerRkISP1` | `IPAProxyRkISP1Threaded::computeParams()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1357` |
+    | 89 | `PipelineHandlerRkISP1` | `IPAProxyRkISP1Isolated::computeParams()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1357` |
+    | 90 | `PipelineHandlerRkISP1` | `IPARkISP1::computeParams()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1357` |
+    | 91 | `PipelineHandlerRkISP1` | `FrameBuffer::cookie()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:1358` |
     | 92 | `PipelineHandler` | `PipelineHandlerUVC::queueRequestDevice()` | 동적 디스패치 후보이며 실제 대상은 확인이 필요합니다. | `src/libcamera/pipeline_handler.cpp:498` |
     | 93 | `PipelineHandlerUVC` | `PipelineHandlerUVC::cameraData()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:450` |
     | 94 | `PipelineHandlerUVC` | `Request::findBuffer()` | 정적 호출 지점입니다. | `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:451` |
@@ -208,8 +208,8 @@ facts에 기록된 호출은 105개이며, 요약의 hide 규칙에 해당하는
     - 생성 방식: 추출 호출로 만든 시나리오
     - 검증 범위: 주요 호출과 경계를 facts에서 구성하고 전체 추적 기록을 보존합니다. 실행 순서를 추정하지 않습니다.
     - 근거 파일: `src/libcamera/base/log.cpp`, `src/libcamera/camera.cpp`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp`, `src/libcamera/pipeline_handler.cpp`, `src/libcamera/request.cpp`
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `8103c3f29f`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `06c3e2d719`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-10-08 · 사람 검토 전
+    - 검토 상태 기록일: 2026-10-10 · 사람 검토 전
 
 다음 단계: [캡처 종료 요청 (Camera::stop)](camera_stop.md)

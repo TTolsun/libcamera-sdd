@@ -4,7 +4,7 @@
 <body><a class="skip" href="#main">Skip to content</a>
 <header class="site-header"><a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera Design Documentation</a>
 <div class="header-actions"><details class="language-selector"><summary aria-label="Choose language">English ▾</summary><nav><a lang="ko" hreflang="ko" href="../pipeline-handler.html">한국어</a><a lang="en" hreflang="en" href="pipeline-handler.html" aria-current="true">English</a></nav></details><button id="search-open" hidden>Find documents <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button></div></header>
-<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Documentation menu"><p class="nav-group">Getting started</p><a href="index.html">Documentation guide</a><p class="nav-group">For Vendors</p><a href="pipeline-handler.html" aria-current="page">Pipeline Handler</a><a href="ipa.html">IPA management and implementation entry points</a><a href="ipu3-lsc.html">IPU3 LSC and state connections</a><a href="ipu3-lsc-flow.html">IPU3 LSC configuration and frame processing</a><p class="nav-group">For Developers</p><a href="overview.html">System overview</a><a href="scenarios/index.html">Core scenarios</a><details class="nav-branch"><summary>6 child documents</summary><a class="nav-sub" href="scenarios/manager_start.html">Camera discovery (CameraManager::start)</a><a class="nav-sub" href="scenarios/configure.html">Stream configuration (Camera::configure)</a><a class="nav-sub" href="scenarios/camera_start.html">Capture start (Camera::start)</a><a class="nav-sub" href="scenarios/queue_request.html">Request submission (Camera::queueRequest)</a><a class="nav-sub" href="scenarios/complete_request.html">Request completion (PipelineHandler::completeRequest)</a><a class="nav-sub" href="scenarios/camera_stop.html">Capture stop request (Camera::stop)</a></details><a href="request-lifecycle.html">Request lifecycle and troubleshooting</a><a href="camera-model.html">Camera and request model</a></nav><p class="sidebar-note">Extract structure from code<br>and review it with evidence.</p></aside>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Documentation menu"><p class="nav-group">Getting started</p><a href="index.html">Documentation guide</a><p class="nav-group">For Vendors</p><a href="pipeline-handler.html" aria-current="page">Pipeline Handler</a><a href="ipa.html">IPA management and implementation entry points</a><a href="ipu3-lsc.html">IPU3 LSC and state connections</a><a href="ipu3-lsc-flow.html">IPU3 LSC configuration and frame processing</a><a href="rkisp1-dewarp.html">RKISP1 per-camera lens dewarping</a><p class="nav-group">For Developers</p><a href="overview.html">System overview</a><a href="scenarios/index.html">Core scenarios</a><details class="nav-branch"><summary>6 child documents</summary><a class="nav-sub" href="scenarios/manager_start.html">Camera discovery (CameraManager::start)</a><a class="nav-sub" href="scenarios/configure.html">Stream configuration (Camera::configure)</a><a class="nav-sub" href="scenarios/camera_start.html">Capture start (Camera::start)</a><a class="nav-sub" href="scenarios/queue_request.html">Request submission (Camera::queueRequest)</a><a class="nav-sub" href="scenarios/complete_request.html">Request completion (PipelineHandler::completeRequest)</a><a class="nav-sub" href="scenarios/camera_stop.html">Capture stop request (Camera::stop)</a></details><a href="request-lifecycle.html">Request lifecycle and troubleshooting</a><a href="camera-model.html">Camera and request model</a></nav><p class="sidebar-note">Extract structure from code<br>and review it with evidence.</p></aside>
 <main id="main"><p class="breadcrumb">For Vendors <span>/</span> Pipeline Handler</p><h1>Pipeline Handler</h1><div class="page-state"><span class="review-state">Human review pending</span><span>Automatic checks passed · <code>ok</code></span><span class="generation-method">Design explanations bound to source excerpts</span></div>
 <details class="mobile-toc"><summary>Contents of this page</summary><div class="toc">
 <ul>
@@ -58,11 +58,11 @@
 </tbody>
 </table></div>
 <h2 id="장치-매칭과-객체-수명">Device matching and object lifetime</h2>
-<p><code>PipelineHandler::match()</code> acquires the media devices for one pipeline, then creates and registers cameras. If it cannot acquire every required device, it must release those already acquired and return false. Handler instances are created through <code>PipelineHandlerFactoryBase::create()</code> and managed by shared pointers. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline_handler.cpp#L50"><code>src/libcamera/pipeline_handler.cpp:50</code></a></p>
-<p>The contract stores devices obtained through <code>acquireMediaDevice()</code> in the handler and releases them when it is destroyed. Successful <code>acquire()</code> and <code>release()</code> calls for exclusive camera access must balance. Shared resources must not be released before all relevant cameras have been released. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline_handler.cpp#L119"><code>src/libcamera/pipeline_handler.cpp:119</code></a></p>
+<p><code>PipelineHandler::match()</code> acquires the media devices for one pipeline, then creates and registers cameras. If it cannot acquire every required device, it must release those already acquired and return false. Handler instances are created through <code>PipelineHandlerFactoryBase::create()</code> and managed by shared pointers. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline_handler.cpp#L50"><code>src/libcamera/pipeline_handler.cpp:50</code></a></p>
+<p>The contract stores devices obtained through <code>acquireMediaDevice()</code> in the handler and releases them when it is destroyed. Successful <code>acquire()</code> and <code>release()</code> calls for exclusive camera access must balance. Shared resources must not be released before all relevant cameras have been released. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline_handler.cpp#L119"><code>src/libcamera/pipeline_handler.cpp:119</code></a></p>
 <details class="note">
 <summary>Source evidence: handler</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline_handler.cpp#L50"><code>src/libcamera/pipeline_handler.cpp:50</code></a> and ending at line 119. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline_handler.cpp#L50"><code>src/libcamera/pipeline_handler.cpp:50</code></a> and ending at line 119. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>e05278df0a06cb963fe79f772e62d4560b62df15c1411a6b49e32f7ca84d9e74</code></p>
 <pre class="highlight"><code class="language-text">\class PipelineHandler
  * \brief Create and manage cameras based on a set of media devices
@@ -137,7 +137,7 @@ PipelineHandler::~PipelineHandler()
 </details>
 <details class="note">
 <summary>Source evidence: acquisition</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline_handler.cpp#L119"><code>src/libcamera/pipeline_handler.cpp:119</code></a> and ending at line 271. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline_handler.cpp#L119"><code>src/libcamera/pipeline_handler.cpp:119</code></a> and ending at line 271. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>379b17c52a1e97055bf78aaabd964595fb3ec506c568d112e552ed1c29235591</code></p>
 <pre class="highlight"><code class="language-text">\brief Search and acquire a MediaDevice matching a device pattern
  * \param[in] enumerator Enumerator containing all media devices in the system
@@ -294,11 +294,11 @@ void PipelineHandler::unlockMediaDevices()
  * \fn PipelineHandler::generateConfiguration()</code></pre>
 </details>
 <h2 id="구성의-입력과-검증-책임">Configuration inputs and validation duties</h2>
-<p><code>generateConfiguration()</code> returns a default configuration for the requested stream roles, or null if none is possible. It must be safe to call from any thread and must not change camera state within the pipeline. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline_handler.cpp#L271"><code>src/libcamera/pipeline_handler.cpp:271</code></a></p>
-<p>The input to <code>configure()</code> has already passed <code>CameraConfiguration::validate()</code>. The implementation must associate a stream with each <code>StreamConfiguration</code> using <code>setStream()</code>. It runs in the CameraManager thread and returns 0 on success or a negative error code on failure. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline_handler.cpp#L271"><code>src/libcamera/pipeline_handler.cpp:271</code></a></p>
+<p><code>generateConfiguration()</code> returns a default configuration for the requested stream roles, or null if none is possible. It must be safe to call from any thread and must not change camera state within the pipeline. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline_handler.cpp#L271"><code>src/libcamera/pipeline_handler.cpp:271</code></a></p>
+<p>The input to <code>configure()</code> has already passed <code>CameraConfiguration::validate()</code>. The implementation must associate a stream with each <code>StreamConfiguration</code> using <code>setStream()</code>. It runs in the CameraManager thread and returns 0 on success or a negative error code on failure. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline_handler.cpp#L271"><code>src/libcamera/pipeline_handler.cpp:271</code></a></p>
 <details class="note">
 <summary>Source evidence: configuration</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline_handler.cpp#L271"><code>src/libcamera/pipeline_handler.cpp:271</code></a> and ending at line 319. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline_handler.cpp#L271"><code>src/libcamera/pipeline_handler.cpp:271</code></a> and ending at line 319. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>5284e6062c894a77328b372676c42c1c97a4a01f9b2dccc4d09c83b2578b0e20</code></p>
 <pre class="highlight"><code class="language-text">\fn PipelineHandler::generateConfiguration()
  * \brief Generate a camera configuration for a specified camera
@@ -351,12 +351,12 @@ void PipelineHandler::unlockMediaDevices()
  * \fn PipelineHandler::exportFrameBuffers()</code></pre>
 </details>
 <h2 id="요청-준비와-장치-큐">Request preparation and the device queue</h2>
-<p><code>registerRequest()</code> connects the ready signal to <code>doQueueRequests()</code>. <code>queueRequest()</code> puts a request in the waiting queue and calls <code>prepare(300ms)</code>. Further forwarding stops if the first waiting request is not ready or the device queue has reached <code>maxQueuedRequestsDevice_</code>. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline_handler.cpp#L428"><code>src/libcamera/pipeline_handler.cpp:428</code></a></p>
-<p>A request is removed from the waiting queue before forwarding, so a recursive call to <code>doQueueRequests()</code> cannot take the same request again. <code>doQueueRequest()</code> registers it in the device queue and assigns a sequence number. Already canceled requests go to completion handling. An error from <code>queueRequestDevice()</code> cancels the request. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline_handler.cpp#L428"><code>src/libcamera/pipeline_handler.cpp:428</code></a></p>
-<p><code>queueRequestDevice()</code> must apply the request's per-stream buffers and parameters to the hardware. It runs in the CameraManager thread and returns 0 on success or a negative error code on failure. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline_handler.cpp#L428"><code>src/libcamera/pipeline_handler.cpp:428</code></a></p>
+<p><code>registerRequest()</code> connects the ready signal to <code>doQueueRequests()</code>. <code>queueRequest()</code> puts a request in the waiting queue and calls <code>prepare(300ms)</code>. Further forwarding stops if the first waiting request is not ready or the device queue has reached <code>maxQueuedRequestsDevice_</code>. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline_handler.cpp#L428"><code>src/libcamera/pipeline_handler.cpp:428</code></a></p>
+<p>A request is removed from the waiting queue before forwarding, so a recursive call to <code>doQueueRequests()</code> cannot take the same request again. <code>doQueueRequest()</code> registers it in the device queue and assigns a sequence number. Already canceled requests go to completion handling. An error from <code>queueRequestDevice()</code> cancels the request. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline_handler.cpp#L428"><code>src/libcamera/pipeline_handler.cpp:428</code></a></p>
+<p><code>queueRequestDevice()</code> must apply the request's per-stream buffers and parameters to the hardware. It runs in the CameraManager thread and returns 0 on success or a negative error code on failure. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline_handler.cpp#L428"><code>src/libcamera/pipeline_handler.cpp:428</code></a></p>
 <details class="note">
 <summary>Source evidence: queue</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline_handler.cpp#L428"><code>src/libcamera/pipeline_handler.cpp:428</code></a> and ending at line 547. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline_handler.cpp#L428"><code>src/libcamera/pipeline_handler.cpp:428</code></a> and ending at line 547. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>5a7a3397a6034a73fe348ae44eb1e2568d2823e95542fe43386e16359d627180</code></p>
 <pre class="highlight"><code class="language-text">\fn PipelineHandler::registerRequest()
  * \brief Register a request for use by the pipeline handler
@@ -480,12 +480,12 @@ void PipelineHandler::doQueueRequests(Camera *camera)
  * \brief Complete a buffer for a request</code></pre>
 </details>
 <h2 id="버퍼-완료와-요청-반환">Buffer completion and request return</h2>
-<p><code>completeBuffer()</code> notifies the application of buffer completion and updates the request's buffer tracking. Even the last buffer does not automatically complete the request. The pipeline must explicitly call <code>completeRequest()</code> after any required post-processing. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline_handler.cpp#L547"><code>src/libcamera/pipeline_handler.cpp:547</code></a></p>
-<p><code>completeRequest()</code> marks the request complete and returns non-Pending requests from the front of the device queue. The application receives them in submission order regardless of the hardware completion order. After returning eligible requests, it resumes forwarding waiting requests to the device. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline_handler.cpp#L547"><code>src/libcamera/pipeline_handler.cpp:547</code></a></p>
-<p>Completion-notification functions must run in the CameraManager thread. The pipeline must not access the request after <code>completeRequest()</code> returns. The same lifetime rule applies to <code>cancelRequest()</code>. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline_handler.cpp#L547"><code>src/libcamera/pipeline_handler.cpp:547</code></a></p>
+<p><code>completeBuffer()</code> notifies the application of buffer completion and updates the request's buffer tracking. Even the last buffer does not automatically complete the request. The pipeline must explicitly call <code>completeRequest()</code> after any required post-processing. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline_handler.cpp#L547"><code>src/libcamera/pipeline_handler.cpp:547</code></a></p>
+<p><code>completeRequest()</code> marks the request complete and returns non-Pending requests from the front of the device queue. The application receives them in submission order regardless of the hardware completion order. After returning eligible requests, it resumes forwarding waiting requests to the device. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline_handler.cpp#L547"><code>src/libcamera/pipeline_handler.cpp:547</code></a></p>
+<p>Completion-notification functions must run in the CameraManager thread. The pipeline must not access the request after <code>completeRequest()</code> returns. The same lifetime rule applies to <code>cancelRequest()</code>. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline_handler.cpp#L547"><code>src/libcamera/pipeline_handler.cpp:547</code></a></p>
 <details class="note">
 <summary>Source evidence: completion</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline_handler.cpp#L547"><code>src/libcamera/pipeline_handler.cpp:547</code></a> and ending at line 620. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline_handler.cpp#L547"><code>src/libcamera/pipeline_handler.cpp:547</code></a> and ending at line 620. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>514288cc958de9ff5fd19d46393cec3bb3088f4f08486528d4559071138638c9</code></p>
 <pre class="highlight"><code class="language-text">\brief Complete a buffer for a request
  * \param[in] request The request the buffer belongs to
@@ -563,12 +563,12 @@ void PipelineHandler::cancelRequest(Request *request)
  * \brief Retrieve the absolute path to a platform configuration file</code></pre>
 </details>
 <h2 id="정지와-미완료-요청">Stopping and outstanding requests</h2>
-<p><code>stop()</code> moves the waiting queue to a local variable before calling <code>stopDevice()</code>. Therefore, even if <code>completeRequest()</code> runs during device shutdown, existing waiting requests are not sent to the device again. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline_handler.cpp#L359"><code>src/libcamera/pipeline_handler.cpp:359</code></a></p>
-<p>After stopping the device, it cancels remaining waiting requests and preserves sequence numbers and completion order through <code>doQueueRequest()</code>. Finally, it asserts that the device and waiting queues are empty and resets the request sequence to 0. Hardware implementations of <code>stopDevice()</code> must complete outstanding requests with an error. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline_handler.cpp#L359"><code>src/libcamera/pipeline_handler.cpp:359</code></a></p>
-<p>Runtime checks: inspect each driver and test on the device to confirm it meets the stop contract and safely handles races between completion signals and shutdown. The common class contract alone does not validate hardware shutdown. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline_handler.cpp#L359"><code>src/libcamera/pipeline_handler.cpp:359</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline_handler.cpp#L547"><code>src/libcamera/pipeline_handler.cpp:547</code></a></p>
+<p><code>stop()</code> moves the waiting queue to a local variable before calling <code>stopDevice()</code>. Therefore, even if <code>completeRequest()</code> runs during device shutdown, existing waiting requests are not sent to the device again. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline_handler.cpp#L359"><code>src/libcamera/pipeline_handler.cpp:359</code></a></p>
+<p>After stopping the device, it cancels remaining waiting requests and preserves sequence numbers and completion order through <code>doQueueRequest()</code>. Finally, it asserts that the device and waiting queues are empty and resets the request sequence to 0. Hardware implementations of <code>stopDevice()</code> must complete outstanding requests with an error. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline_handler.cpp#L359"><code>src/libcamera/pipeline_handler.cpp:359</code></a></p>
+<p>Runtime checks: inspect each driver and test on the device to confirm it meets the stop contract and safely handles races between completion signals and shutdown. The common class contract alone does not validate hardware shutdown. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline_handler.cpp#L359"><code>src/libcamera/pipeline_handler.cpp:359</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline_handler.cpp#L547"><code>src/libcamera/pipeline_handler.cpp:547</code></a></p>
 <details class="note">
 <summary>Source evidence: stop</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline_handler.cpp#L359"><code>src/libcamera/pipeline_handler.cpp:359</code></a> and ending at line 414. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline_handler.cpp#L359"><code>src/libcamera/pipeline_handler.cpp:359</code></a> and ending at line 414. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>108b1bea5a8314ba57213d15c1e3ba01abe2b3f8a9e0e1e1281864b5492c7304</code></p>
 <pre class="highlight"><code class="language-text">\brief Stop capturing from all running streams and cancel pending requests
  * \param[in] camera The camera to stop
@@ -629,7 +629,7 @@ void PipelineHandler::stop(Camera *camera)
 </details>
 <details class="note">
 <summary>Source evidence: completion</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline_handler.cpp#L547"><code>src/libcamera/pipeline_handler.cpp:547</code></a> and ending at line 620. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline_handler.cpp#L547"><code>src/libcamera/pipeline_handler.cpp:547</code></a> and ending at line 620. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>514288cc958de9ff5fd19d46393cec3bb3088f4f08486528d4559071138638c9</code></p>
 <pre class="highlight"><code class="language-text">\brief Complete a buffer for a request
  * \param[in] request The request the buffer belongs to
@@ -739,43 +739,43 @@ void PipelineHandler::cancelRequest(Request *request)
 <tbody>
 <tr>
 <td><code>libcamera::PipelineHandler</code></td>
-<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/include/libcamera/internal/pipeline_handler.h#L34"><code>include/libcamera/internal/pipeline_handler.h:34</code></a></td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/include/libcamera/internal/pipeline_handler.h#L34"><code>include/libcamera/internal/pipeline_handler.h:34</code></a></td>
 <td><code>libcamera::Object</code></td>
 <td>Create and manage cameras based on a set of media devices</td>
 </tr>
 <tr>
 <td><code>libcamera::PipelineHandlerFactory</code></td>
-<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/include/libcamera/internal/pipeline_handler.h#L144"><code>include/libcamera/internal/pipeline_handler.h:144</code></a></td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/include/libcamera/internal/pipeline_handler.h#L144"><code>include/libcamera/internal/pipeline_handler.h:144</code></a></td>
 <td><code>libcamera::PipelineHandlerFactoryBase</code></td>
 <td>Registration of PipelineHandler classes and creation of instances</td>
 </tr>
 <tr>
 <td><code>libcamera::PipelineHandlerFactoryBase</code></td>
-<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/include/libcamera/internal/pipeline_handler.h#L121"><code>include/libcamera/internal/pipeline_handler.h:121</code></a></td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/include/libcamera/internal/pipeline_handler.h#L121"><code>include/libcamera/internal/pipeline_handler.h:121</code></a></td>
 <td>–</td>
 <td>Base class for pipeline handler factories</td>
 </tr>
 <tr>
 <td><code>libcamera::PipelineHandlerIPU3</code></td>
-<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline/ipu3/ipu3.cpp#L124"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:124</code></a></td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline/ipu3/ipu3.cpp#L124"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:124</code></a></td>
 <td><code>libcamera::PipelineHandler</code></td>
 <td>Needs verification</td>
 </tr>
 <tr>
 <td><code>libcamera::PipelineHandlerIPU3::IPU3PipeModes</code></td>
-<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline/ipu3/ipu3.cpp#L130"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:130</code></a></td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline/ipu3/ipu3.cpp#L130"><code>src/libcamera/pipeline/ipu3/ipu3.cpp:130</code></a></td>
 <td>–</td>
 <td>Needs verification</td>
 </tr>
 <tr>
 <td><code>libcamera::PipelineHandlerRkISP1</code></td>
-<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L184"><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp:184</code></a></td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L185"><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp:185</code></a></td>
 <td><code>libcamera::PipelineHandler</code></td>
 <td>Needs verification</td>
 </tr>
 <tr>
 <td><code>libcamera::PipelineHandlerUVC</code></td>
-<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/8103c3f29fba61dbd1d3bbf1a099280c5f3217e3/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L81"><code>src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:81</code></a></td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L81"><code>src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:81</code></a></td>
 <td><code>libcamera::PipelineHandler</code></td>
 <td>Needs verification</td>
 </tr>
@@ -787,12 +787,12 @@ void PipelineHandler::cancelRequest(Request *request)
 <li>Generation method: design explanations bound to source excerpts</li>
 <li>Validation scope: checks configured explanations against excerpt hashes. A matching hash does not approve the explanation's meaning.</li>
 <li>Evidence files: <code>include/libcamera/internal/pipeline_handler.h</code>, <code>src/libcamera/pipeline/ipu3/ipu3.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/pipeline/uvcvideo/uvcvideo.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code></li>
-<li>Evidence level: code inspection (static analysis, simple_compdb configuration, commit <code>8103c3f29f</code>)</li>
+<li>Evidence level: code inspection (static analysis, simple_compdb configuration, commit <code>06c3e2d719</code>)</li>
 <li>Automatic checks (citations, prose and configured structure checks): passed</li>
-<li>Review status recorded: 2026-10-08 · human review pending</li>
+<li>Review status recorded: 2026-10-10 · Pending human review</li>
 </ul>
 </details>
-<p>Next step: <a href="ipa.html">IPA classes</a></p></article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Design explanations bound to source excerpts</dd><dt>Validation scope</dt><dd>Checks configured explanations against excerpt hashes. A matching hash does not approve the explanation's meaning.</dd><dt>Analyzed source commit</dt><dd><code>8103c3f29fba61dbd1d3bbf1a099280c5f3217e3</code></dd><dt>Document generation time</dt><dd><code>2026-10-07 16:36:00+00:00</code></dd></dl><a href="../pipeline-handler.md">Korean Markdown source ↗</a> <a href="pipeline-handler.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="index.html"><small>Previous</small>Documentation guide ←</a><a class="next" href="ipa.html"><small>Next</small>IPA management and implementation entry points →</a></nav>
+<p>Next step: <a href="ipa.html">IPA classes</a></p></article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Design explanations bound to source excerpts</dd><dt>Validation scope</dt><dd>Checks configured explanations against excerpt hashes. A matching hash does not approve the explanation's meaning.</dd><dt>Analyzed source commit</dt><dd><code>06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb</code></dd><dt>Document generation time</dt><dd><code>2026-10-09 16:52:35+00:00</code></dd></dl><a href="../pipeline-handler.md">Korean Markdown source ↗</a> <a href="pipeline-handler.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="index.html"><small>Previous</small>Documentation guide ←</a><a class="next" href="ipa.html"><small>Next</small>IPA management and implementation entry points →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
 <aside class="page-toc"><nav aria-label="Current page contents"><p>On this page</p><div class="toc">
 <ul>

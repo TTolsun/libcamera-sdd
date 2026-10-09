@@ -1,10 +1,10 @@
 ---
-generated_at: 2026-10-07T16:36:00+00:00
-source_commit: 8103c3f29fba61dbd1d3bbf1a099280c5f3217e3
+generated_at: 2026-10-09T16:52:35+00:00
+source_commit: 06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb
 status: ok
 section: pipeline-handler
 generation_method: source-bound-contract
-evidence_fingerprint: bbb05fa2be0f815f79b77b2d49fe1e7beb6e97d8bc20fba9a926ecd1b830ba54
+evidence_fingerprint: d8749d120335d1ed2f9962486d1cc72d3a058ca66ba1de2c031c2a45d8c6269e
 semantic_review: human-review-required
 ---
 
@@ -750,15 +750,15 @@ flowchart LR
 | `libcamera::PipelineHandlerFactoryBase` | `include/libcamera/internal/pipeline_handler.h:121` | – | Base class for pipeline handler factories |
 | `libcamera::PipelineHandlerIPU3` | `src/libcamera/pipeline/ipu3/ipu3.cpp:124` | `libcamera::PipelineHandler` | 확인 필요 |
 | `libcamera::PipelineHandlerIPU3::IPU3PipeModes` | `src/libcamera/pipeline/ipu3/ipu3.cpp:130` | – | 확인 필요 |
-| `libcamera::PipelineHandlerRkISP1` | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:184` | `libcamera::PipelineHandler` | 확인 필요 |
+| `libcamera::PipelineHandlerRkISP1` | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:185` | `libcamera::PipelineHandler` | 확인 필요 |
 | `libcamera::PipelineHandlerUVC` | `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:81` | `libcamera::PipelineHandler` | 확인 필요 |
 
 ??? note "근거와 검토 정보"
     - 생성 방식: 소스 발췌에 연결한 설계 설명
     - 검증 범위: 설정에 작성된 설명을 발췌 해시와 대조합니다. 해시 일치는 설명의 의미를 승인하지 않습니다.
     - 근거 파일: `include/libcamera/internal/pipeline_handler.h`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp`, `src/libcamera/pipeline_handler.cpp`
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `8103c3f29f`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `06c3e2d719`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-10-08 · 사람 검토 전
+    - 검토 상태 기록일: 2026-10-10 · 사람 검토 전
 
 다음 단계: [IPA 관련 클래스](ipa.md)
