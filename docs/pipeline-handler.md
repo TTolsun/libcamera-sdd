@@ -1,10 +1,10 @@
 ---
-generated_at: 2026-10-09T16:52:35+00:00
-source_commit: 06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb
+generated_at: 2026-10-23T23:16:20+00:00
+source_commit: 4eb2378f21b81b02b2814bde7be86d34f3297de8
 status: ok
 section: pipeline-handler
 generation_method: source-bound-contract
-evidence_fingerprint: d8749d120335d1ed2f9962486d1cc72d3a058ca66ba1de2c031c2a45d8c6269e
+evidence_fingerprint: b28654b57907fe0a2c73f855ee5f6084e16b1860e6c7f34e1d5a26cf089e9d53
 semantic_review: human-review-required
 ---
 
@@ -728,13 +728,31 @@ flowchart LR
   c3["PipelineHandlerFactoryBase"]
   c4["PipelineHandlerIPU3"]
   c5["PipelineHandlerIPU3::IPU3PipeModes"]
-  c6["PipelineHandlerRkISP1"]
-  c7["PipelineHandlerUVC"]
+  c6["PipelineHandlerISI"]
+  c7["PipelineHandlerISI::Pipe"]
+  c8["PipelineHandlerMaliC55"]
+  c9["PipelineHandlerMaliC55::(unnamed enum at src/libcamera/pipeline/mali-c55/mali-c55.cpp:712:2)"]
+  c10["PipelineHandlerMaliC55::MaliC55Pipe"]
+  c11["PipelineHandlerPiSP"]
+  c12["PipelineHandlerRkISP1"]
+  c13["PipelineHandlerUVC"]
+  c14["PipelineHandlerVc4"]
+  c15["PipelineHandlerVimc"]
+  c16["PipelineHandlerVirtual"]
+  c17["RPi::PipelineHandlerBase"]:::context
   c1 -.->|상속| c0
   c2 -.->|상속| c3
   c4 -.->|상속| c1
   c6 -.->|상속| c1
-  c7 -.->|상속| c1
+  c6 -->|필드 참조| c7
+  c8 -.->|상속| c1
+  c8 -->|필드 참조| c10
+  c11 -.->|상속| c17
+  c12 -.->|상속| c1
+  c13 -.->|상속| c1
+  c14 -.->|상속| c17
+  c15 -.->|상속| c1
+  c16 -.->|상속| c1
   classDef context fill:#fafafa,stroke:#aaa,stroke-dasharray:4 3,color:#555
 ```
 <!-- /sdd:class-diagram -->
@@ -750,15 +768,24 @@ flowchart LR
 | `libcamera::PipelineHandlerFactoryBase` | `include/libcamera/internal/pipeline_handler.h:121` | – | Base class for pipeline handler factories |
 | `libcamera::PipelineHandlerIPU3` | `src/libcamera/pipeline/ipu3/ipu3.cpp:124` | `libcamera::PipelineHandler` | 확인 필요 |
 | `libcamera::PipelineHandlerIPU3::IPU3PipeModes` | `src/libcamera/pipeline/ipu3/ipu3.cpp:130` | – | 확인 필요 |
+| `libcamera::PipelineHandlerISI` | `src/libcamera/pipeline/imx8-isi/imx8-isi.cpp:102` | `libcamera::PipelineHandler` | 확인 필요 |
+| `libcamera::PipelineHandlerISI::Pipe` | `src/libcamera/pipeline/imx8-isi/imx8-isi.cpp:129` | – | 확인 필요 |
+| `libcamera::PipelineHandlerMaliC55` | `src/libcamera/pipeline/mali-c55/mali-c55.cpp:676` | `libcamera::PipelineHandler` | 확인 필요 |
+| `libcamera::PipelineHandlerMaliC55::(unnamed enum at src/libcamera/pipeline/mali-c55/mali-c55.cpp:712:2)` | `src/libcamera/pipeline/mali-c55/mali-c55.cpp:712` | – | 확인 필요 |
+| `libcamera::PipelineHandlerMaliC55::MaliC55Pipe` | `src/libcamera/pipeline/mali-c55/mali-c55.cpp:705` | – | 확인 필요 |
+| `libcamera::PipelineHandlerPiSP` | `src/libcamera/pipeline/rpi/pisp/pisp.cpp:852` | `libcamera::RPi::PipelineHandlerBase` | 확인 필요 |
 | `libcamera::PipelineHandlerRkISP1` | `src/libcamera/pipeline/rkisp1/rkisp1.cpp:185` | `libcamera::PipelineHandler` | 확인 필요 |
 | `libcamera::PipelineHandlerUVC` | `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:81` | `libcamera::PipelineHandler` | 확인 필요 |
+| `libcamera::PipelineHandlerVc4` | `src/libcamera/pipeline/rpi/vc4/vc4.cpp:141` | `libcamera::RPi::PipelineHandlerBase` | 확인 필요 |
+| `libcamera::PipelineHandlerVimc` | `src/libcamera/pipeline/vimc/vimc.cpp:84` | `libcamera::PipelineHandler` | 확인 필요 |
+| `libcamera::PipelineHandlerVirtual` | `src/libcamera/pipeline/virtual/virtual.cpp:81` | `libcamera::PipelineHandler` | 확인 필요 |
 
 ??? note "근거와 검토 정보"
     - 생성 방식: 소스 발췌에 연결한 설계 설명
     - 검증 범위: 설정에 작성된 설명을 발췌 해시와 대조합니다. 해시 일치는 설명의 의미를 승인하지 않습니다.
-    - 근거 파일: `include/libcamera/internal/pipeline_handler.h`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp`, `src/libcamera/pipeline_handler.cpp`
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `06c3e2d719`)
+    - 근거 파일: `include/libcamera/internal/pipeline_handler.h`, `src/libcamera/pipeline/imx8-isi/imx8-isi.cpp`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/pipeline/mali-c55/mali-c55.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/pipeline/rpi/pisp/pisp.cpp`, `src/libcamera/pipeline/rpi/vc4/vc4.cpp`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp`, `src/libcamera/pipeline/vimc/vimc.cpp`, `src/libcamera/pipeline/virtual/virtual.cpp`, `src/libcamera/pipeline_handler.cpp`
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `4eb2378f21`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-10-10 · 사람 검토 전
+    - 검토 상태 기록일: 2026-10-24 · 사람 검토 전
 
 다음 단계: [IPA 관련 클래스](ipa.md)
