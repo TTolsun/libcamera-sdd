@@ -1,11 +1,11 @@
 ---
-generated_at: 2026-10-09T16:52:35+00:00
-source_commit: 06c3e2d719490aad8ce789fb5d2ad4dfa1459bfb
+generated_at: 2026-10-23T23:16:20+00:00
+source_commit: 4eb2378f21b81b02b2814bde7be86d34f3297de8
 status: ok
 section: scenarios
 entry: CameraManager::start()
 scenario_id: manager_start
-scenario_fingerprint: 8bf22970a44bee5604086f7ef07e31500d6acd4eb84f15a696c89c688e3b11f1
+scenario_fingerprint: f25548f4d6797a2cb115d519065f3f3f4db6ca2b4085cb81090e3c15ab0c3f6b
 generation_method: extracted-scenario
 ---
 
@@ -90,14 +90,14 @@ facts에 기록된 호출은 33개이며, 요약의 hide 규칙에 해당하는 
     | 21 | `Private` | `Thread::wait()` | 정적 호출 지점입니다. | `src/libcamera/camera_manager.cpp:64` |
     | 22 | `Thread` | `MutexLocker::MutexLocker()` | 정적 호출 지점입니다. | `src/libcamera/base/thread.cpp:407` |
     | 23 | `Thread` | `ConditionVariable::wait()` | 정적 호출 지점입니다. | `src/libcamera/base/thread.cpp:414` |
-    | 24 | `Thread` | `(lambda at /home/baboess/work/libcamera/src/libcamera/base/thread.cpp:409:21)::(lambda at /home/baboess/work/libcamera/src/libcamera/base/thread.cpp:409:21)()` | 정적 호출 지점입니다. | `src/libcamera/base/thread.cpp:414` |
+    | 24 | `Thread` | `(lambda at src/libcamera/base/thread.cpp:409:21)::(lambda at src/libcamera/base/thread.cpp:409:21)()` | 정적 호출 지점입니다. | `src/libcamera/base/thread.cpp:414` |
     | 25 | `Thread` | `ConditionVariable::wait_for()` | 정적 호출 지점입니다. | `src/libcamera/base/thread.cpp:416` |
 
 ??? note "추적 기록 26–33 / 33개"
 
     | 기록 | 호출 측 | 대상 | 구분 | 근거 |
     |---|---|---|---|---|
-    | 26 | `Thread` | `(lambda at /home/baboess/work/libcamera/src/libcamera/base/thread.cpp:409:21)::(lambda at /home/baboess/work/libcamera/src/libcamera/base/thread.cpp:409:21)()` | 정적 호출 지점입니다. | `src/libcamera/base/thread.cpp:417` |
+    | 26 | `Thread` | `(lambda at src/libcamera/base/thread.cpp:409:21)::(lambda at src/libcamera/base/thread.cpp:409:21)()` | 정적 호출 지점입니다. | `src/libcamera/base/thread.cpp:417` |
     | 27 | `CameraManager` | `CameraManager::_d()` | 정적 호출 지점입니다. | `src/libcamera/camera_manager.cpp:342` |
     | 28 | `CameraManager` | `log::isLogSeverityEnabled()` | 정적 호출 지점입니다. | `src/libcamera/camera_manager.cpp:344` |
     | 29 | `CameraManager` | `LogMessageAbortGuard::LogMessageAbortGuard()` | 정적 호출 지점입니다. | `src/libcamera/camera_manager.cpp:344` |
@@ -110,8 +110,8 @@ facts에 기록된 호출은 33개이며, 요약의 hide 규칙에 해당하는 
     - 생성 방식: 추출 호출로 만든 시나리오
     - 검증 범위: 주요 호출과 경계를 facts에서 구성하고 전체 추적 기록을 보존합니다. 실행 순서를 추정하지 않습니다.
     - 근거 파일: `src/libcamera/base/event_dispatcher_poll.cpp`, `src/libcamera/base/log.cpp`, `src/libcamera/base/thread.cpp`, `src/libcamera/camera_manager.cpp`
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `06c3e2d719`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `4eb2378f21`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-10-10 · 사람 검토 전
+    - 검토 상태 기록일: 2026-10-24 · 사람 검토 전
 
 다음 단계: [스트림 구성 (Camera::configure)](configure.md)
