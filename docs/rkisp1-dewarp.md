@@ -1,11 +1,13 @@
 ---
-generated_at: 2026-10-24T05:28:37+00:00
+generated_at: 2026-10-24T08:53:45+00:00
 source_commit: 2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f
 status: ok
 section: rkisp1-dewarp
-generation_method: source-bound-contract
-evidence_fingerprint: fbd3d0a2e16fe25db0e117fd58cbea8f125e51bf831e690310fe6492f1f897e9
+generation_method: facts-and-llm
+evidence_fingerprint: fec1a62fa8a03b453ca7a231326ef83c5ff5e184971df95c17795f3023706c8e
 semantic_review: human-review-required
+agent: response-bundle/codex-session
+generated_design: {"schema": 1, "input_fingerprint": "fec1a62fa8a03b453ca7a231326ef83c5ff5e184971df95c17795f3023706c8e", "answers": {"ownership": [{"text": "왜곡 보정 파라미터는 `RkISP1CameraData`의 `dewarpParams_`에 카메라별로 보관됩니다. 타입은 `std::optional<Dw100VertexMap::DewarpParams>`이며, 보정기 사용 가능 여부와 실제 사용 여부를 나타내는 두 플래그와 구분됩니다.", "covers": ["ownership"], "kind": "behavior", "quote": "bool canUseDewarper_;\n\tbool usesDewarper_;\n\tstd::optional<Dw100VertexMap::DewarpParams> dewarpParams_;", "evidence": ["camera"]}, {"text": "`loadTuningFile()`은 보정기가 없으면 파일을 읽지 않고 0을 반환합니다. 파일 열기 실패는 파일의 오류 코드를 반환하고, YAML 파싱 실패는 `-EINVAL`을 반환합니다. `modules`가 없거나 목록에 `Dewarp` 항목이 없을 때도 0을 반환합니다.", "covers": ["ownership"], "kind": "behavior", "quote": "if (!pipe()->dewarper_)\n\t\t/* Nothing to do without dewarper */\n\t\treturn 0;", "evidence": ["load"]}, {"text": "`loadTuningFile()`은 찾은 `Dewarp` 항목을 보정기의 `loadDewarpParams()`에 전달하고 결과를 이 카메라의 `dewarpParams_`에 받습니다. 오류는 그대로 반환하며, 성공하면 `canUseDewarper_`를 `true`로 설정합니다.", "covers": ["ownership"], "kind": "behavior", "quote": "ret = pipe()->dewarper_->loadDewarpParams(params, dewarpParams_);\n\t\tif (ret)\n\t\t\treturn ret;", "evidence": ["load"]}, {"text": "`PipelineHandlerRkISP1::configure()`는 현재 카메라의 보정기 사용 가능 여부와 원시 영상 출력 여부로 `usesDewarper_`를 정합니다. 보정기를 사용하는 주 경로를 구성할 때에는 현재 카메라의 `data->dewarpParams_`를 보정기의 `configure()`에 전달합니다.", "covers": ["ownership"], "kind": "behavior", "quote": "const PixelFormat &streamFormat = config->at(0).pixelFormat;\n\tconst PixelFormatInfo &info = PixelFormatInfo::info(streamFormat);\n\tisRaw_ = info.colourEncoding == PixelFormatInfo::ColourEncodingRAW;\n\tdata->usesDewarper_ = data->canUseDewarper_ && !isRaw_;", "evidence": ["configure"]}], "parameters": [{"text": "`loadDewarpParams()`는 시작할 때 출력 optional을 비웁니다. `cm`, `coefficients`, `cmNew`가 모두 없으면 비어 있는 상태로 0을 반환하므로, 입력이 전혀 없는 경우와 일부 값만 빠진 경우의 처리가 다릅니다.", "covers": ["parameters"], "kind": "behavior", "quote": "int ConverterDW100Module::loadDewarpParams(const ValueNode &params,\n\t\t\t\t\t   std::optional<Dw100VertexMap::DewarpParams> &dewarpParams)\n{\n\tDw100VertexMap::DewarpParams dp;\n\tdewarpParams.reset();", "evidence": ["parameters"]}, {"text": "일부 입력이 있으면 `cm`과 `coefficients`가 필요합니다. `cm`은 3×3 실수 행렬로 읽으며, 누락되거나 행렬로 읽을 수 없으면 `-EINVAL`을 반환합니다. `coefficients`가 없거나 실수 목록이 아니어도 같은 오류를 반환합니다.", "covers": ["parameters"], "kind": "behavior", "quote": "auto matrix = cm.get<Matrix<double, 3, 3>>();\n\tif (!matrix) {\n\t\tLOG(Converter, Error) << \"Failed to load 'cm' value\";\n\t\treturn -EINVAL;\n\t}", "evidence": ["parameters"]}, {"text": "`loadDewarpParams()`가 허용하는 왜곡 계수 개수는 4, 5, 8, 12개입니다. 제공된 `cmNew`도 3×3 실수 행렬이어야 하고, 생략했다면 `cm` 값을 사용합니다. 모든 검사를 통과한 뒤에만 완성한 파라미터를 출력 optional에 저장합니다.", "covers": ["parameters"], "kind": "behavior", "quote": "int ret = dp.setCoefficients(*coeffs);\n\tif (ret) {\n\t\tLOG(Converter, Error)\n\t\t\t<< \"Dewarp 'coefficients' must have 4, 5, 8 or 12 values\";\n\t\treturn -EINVAL;\n\t}", "evidence": ["parameters"]}], "application": [{"text": "`ConverterDW100Module::configure()`는 기존 vertex map 목록을 비우고 내부 변환기를 구성합니다. 성공하면 입력 버퍼 수와 보정 파라미터 유무를 저장하고, 출력 스트림마다 입력·출력 크기와 센서 크롭을 설정합니다. 보정 파라미터가 있으면 해당 map에 적용하며 각 스트림의 갱신 플래그를 켭니다.", "covers": ["application"], "kind": "behavior", "quote": "vertexMaps_.clear();\n\tret = converter_.configure(inputCfg, outputCfgs);\n\tif (ret)\n\t\treturn ret;", "evidence": ["configure"]}, {"text": "`updateControlInfos()`는 `ScalerCrop` 정보를 등록하고, 보정 파라미터가 있을 때만 `LensDewarpEnable`을 지원 제어 목록에 추가합니다. 이 제어의 범위는 꺼짐부터 켜짐까지이며 기본값은 켜짐입니다. 커널 requests 지원이 없으면 동적 구성이 불가능하다는 경고를 기록합니다.", "covers": ["application"], "kind": "behavior", "quote": "if (hasDewarpParams_)\n\t\tcontrols[&controls::LensDewarpEnable] = ControlInfo(false, true, true);", "evidence": ["controls"]}, {"text": "`setControls()`는 아직 구성하지 않은 스트림이면 바로 반환합니다. 구성된 스트림에서는 전달받은 `LensDewarpEnable`과 `ScalerCrop`을 map에 반영하고 갱신 플래그를 켭니다. 제어는 다음 `queueBuffers()` 호출에서 장치에 적용되는 계약입니다.", "covers": ["application"], "kind": "behavior", "quote": "/**\n * \\brief Set libcamera controls\n * \\param[in] stream The stream to update\n * \\param[in] controls The controls\n *\n * Looks up all supported controls in \\a controls and sets them on stream \\a\n * stream. The controls will be applied to the device on the next call to\n * queueBuffers().\n */\nvoid ConverterDW100Module::setControls(const Stream *stream, const ControlList &controls)\n{\n\tif (!isConfigured(stream))\n\t\treturn;", "evidence": ["controls"]}, {"text": "`setControls()`는 갱신할 내용이 있고 실행 중인데 커널 requests 지원이 없으면 오류를 기록합니다. 이 분기는 실행 중 동적 변경에 필요한 조건을 알리는 것으로, 앞서 저장한 map 값을 되돌리는 코드는 아닙니다.", "covers": ["application"], "kind": "behavior", "quote": "if (info.update && running_ && !converter_.supportsRequests())\n\t\tLOG(Converter, Error)\n\t\t\t<< \"Dynamically setting dw100 specific controls requires\"\n\t\t\t   \" a dw100 kernel driver with requests support\";\n}", "evidence": ["controls"]}, {"text": "`populateMetadata()`도 미설정 스트림이면 바로 반환합니다. 구성된 스트림에는 실제 `ScalerCrop`을 기록하고, 보정 파라미터가 있을 때만 `LensDewarpEnable` 상태를 기록합니다.", "covers": ["application"], "kind": "behavior", "quote": "void ConverterDW100Module::populateMetadata(const Stream *stream, ControlList &meta)\n{\n\tif (!isConfigured(stream))\n\t\treturn;", "evidence": ["metadata"]}, {"text": "`populateMetadata()`의 호출 계약은 `queueBuffers()` 뒤에 결과를 조회하는 것입니다. 스트림에 적용한 값과 그 뒤에 읽은 결과를 구분하는 기준입니다.", "covers": ["application"], "kind": "behavior", "quote": "/**\n * \\brief Retrieve updated metadata\n * \\param[in] stream The stream\n * \\param[in] meta The metadata list\n *\n * This function retrieves the metadata for the provided \\a stream and writes it\n * to \\a list. It shall be called after queueBuffers().\n */\nvoid ConverterDW100Module::populateMetadata(", "evidence": ["controls"]}]}, "body_sha256": "1e95ec0dc15282c902ba742f08feb80d181a661a011318e35ff9779cc4a5c543"}
 ---
 
 # RKISP1 카메라별 왜곡 보정
@@ -20,33 +22,39 @@ semantic_review: human-review-required
 
 ## 카메라별 보정값의 소유권
 
-보정값은 카메라마다 다를 수 있습니다. `RkISP1CameraData`는 카메라별 `dewarpParams_`를 보관하고, 튜닝 파일의 Dewarp 항목을 읽을 때 그 객체에 값을 저장합니다. `src/libcamera/pipeline/rkisp1/rkisp1.cpp:94`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp:434`
+왜곡 보정 파라미터는 `RkISP1CameraData`의 `dewarpParams_`에 카메라별로 보관됩니다. 타입은 `std::optional<Dw100VertexMap::DewarpParams>`이며, 보정기 사용 가능 여부와 실제 사용 여부를 나타내는 두 플래그와 구분됩니다. `src/libcamera/pipeline/rkisp1/rkisp1.cpp:94`
 
-`PipelineHandlerRkISP1`은 보정기를 설정할 때 현재 카메라의 `data->dewarpParams_`를 함께 전달합니다. 보정값을 읽는 시점과 장치에 설정하는 시점을 분리하므로, 어떤 카메라의 값인지 전달 경로에서 확인할 수 있습니다. `src/libcamera/pipeline/rkisp1/rkisp1.cpp:914`
+`loadTuningFile()`은 보정기가 없으면 파일을 읽지 않고 0을 반환합니다. 파일 열기 실패는 파일의 오류 코드를 반환하고, YAML 파싱 실패는 `-EINVAL`을 반환합니다. `modules`가 없거나 목록에 `Dewarp` 항목이 없을 때도 0을 반환합니다. `src/libcamera/pipeline/rkisp1/rkisp1.cpp:434`
 
-보정기가 없으면 튜닝 파일의 보정 설정을 읽지 않고 성공을 반환합니다. 파일 열기나 YAML 해석 실패는 오류를 반환하며, Dewarp 항목을 성공적으로 읽은 경우에 `canUseDewarper_`를 설정합니다. `src/libcamera/pipeline/rkisp1/rkisp1.cpp:434`
+`loadTuningFile()`은 찾은 `Dewarp` 항목을 보정기의 `loadDewarpParams()`에 전달하고 결과를 이 카메라의 `dewarpParams_`에 받습니다. 오류는 그대로 반환하며, 성공하면 `canUseDewarper_`를 `true`로 설정합니다. `src/libcamera/pipeline/rkisp1/rkisp1.cpp:434`
+
+`PipelineHandlerRkISP1::configure()`는 현재 카메라의 보정기 사용 가능 여부와 원시 영상 출력 여부로 `usesDewarper_`를 정합니다. 보정기를 사용하는 주 경로를 구성할 때에는 현재 카메라의 `data->dewarpParams_`를 보정기의 `configure()`에 전달합니다. `src/libcamera/pipeline/rkisp1/rkisp1.cpp:914`
 
 근거 원문: [src/libcamera/pipeline/rkisp1/rkisp1.cpp:94](#source-04546183f68b35f4) · [src/libcamera/pipeline/rkisp1/rkisp1.cpp:434](#source-af6210cb39d0385e) · [src/libcamera/pipeline/rkisp1/rkisp1.cpp:914](#source-c164eb4c00d1c1d6)
 
 ## 튜닝 입력의 기본값과 오류
 
-`loadDewarpParams()`는 출력 optional을 먼저 비웁니다. `cm`, `coefficients`, `cmNew`가 모두 없으면 성공을 반환하지만 보정 파라미터는 없는 상태로 남습니다. 성공 코드만으로 렌즈 보정값이 준비됐다고 판단하면 안 됩니다. `src/libcamera/converter/converter_dw100.cpp:105`
+`loadDewarpParams()`는 시작할 때 출력 optional을 비웁니다. `cm`, `coefficients`, `cmNew`가 모두 없으면 비어 있는 상태로 0을 반환하므로, 입력이 전혀 없는 경우와 일부 값만 빠진 경우의 처리가 다릅니다. `src/libcamera/converter/converter_dw100.cpp:105`
 
-설정값이 하나라도 있으면 유효한 3×3 `cm`과 계수 목록이 필요합니다. 계수는 4개, 5개, 8개 또는 12개여야 합니다. 필수 값이 없거나 형식이 틀리면 `-EINVAL`을 반환합니다. `src/libcamera/converter/converter_dw100.cpp:105`
+일부 입력이 있으면 `cm`과 `coefficients`가 필요합니다. `cm`은 3×3 실수 행렬로 읽으며, 누락되거나 행렬로 읽을 수 없으면 `-EINVAL`을 반환합니다. `coefficients`가 없거나 실수 목록이 아니어도 같은 오류를 반환합니다. `src/libcamera/converter/converter_dw100.cpp:105`
 
-`cmNew`를 생략하면 `cm`을 사용합니다. `cmNew`가 있으면 3×3 행렬로 읽을 수 있어야 합니다. 모든 검사가 끝난 뒤에만 출력 optional에 값을 저장합니다. `src/libcamera/converter/converter_dw100.cpp:105`
+`loadDewarpParams()`가 허용하는 왜곡 계수 개수는 4, 5, 8, 12개입니다. 제공된 `cmNew`도 3×3 실수 행렬이어야 하고, 생략했다면 `cm` 값을 사용합니다. 모든 검사를 통과한 뒤에만 완성한 파라미터를 출력 optional에 저장합니다. `src/libcamera/converter/converter_dw100.cpp:105`
 
 근거 원문: [src/libcamera/converter/converter_dw100.cpp:105](#source-eacff078bd6a9d79)
 
 ## 스트림 적용과 실행 확인 범위
 
-`configure()`는 이전 스트림 맵을 비우고 내부 변환기를 설정합니다. 성공하면 각 출력 스트림의 입력·출력 크기와 센서 크롭을 설정하고, 보정 파라미터가 있을 때 해당 값을 적용한 뒤 갱신 필요 상태로 표시합니다. `src/libcamera/converter/converter_dw100.cpp:178`
+`ConverterDW100Module::configure()`는 기존 vertex map 목록을 비우고 내부 변환기를 구성합니다. 성공하면 입력 버퍼 수와 보정 파라미터 유무를 저장하고, 출력 스트림마다 입력·출력 크기와 센서 크롭을 설정합니다. 보정 파라미터가 있으면 해당 map에 적용하며 각 스트림의 갱신 플래그를 켭니다. `src/libcamera/converter/converter_dw100.cpp:178`
 
-보정 파라미터가 있을 때 `LensDewarpEnable`을 지원 제어 목록과 결과 metadata에 포함합니다. 스트림이 설정되지 않았으면 `setControls()`와 `populateMetadata()`는 그대로 반환합니다. `src/libcamera/converter/converter_dw100.cpp:369`, `src/libcamera/converter/converter_dw100.cpp:434`
+`updateControlInfos()`는 `ScalerCrop` 정보를 등록하고, 보정 파라미터가 있을 때만 `LensDewarpEnable`을 지원 제어 목록에 추가합니다. 이 제어의 범위는 꺼짐부터 켜짐까지이며 기본값은 켜짐입니다. 커널 requests 지원이 없으면 동적 구성이 불가능하다는 경고를 기록합니다. `src/libcamera/converter/converter_dw100.cpp:369`
 
-실행 중 동적으로 보정 제어를 바꾸려면 커널 드라이버의 requests 지원이 필요합니다. 지원하지 않는 상태에서 변경하면 오류 로그를 남깁니다. 카메라 전환 후 적용값과 실제 영상 결과는 장치 시험으로 확인해야 합니다. `src/libcamera/converter/converter_dw100.cpp:369`
+`setControls()`는 아직 구성하지 않은 스트림이면 바로 반환합니다. 구성된 스트림에서는 전달받은 `LensDewarpEnable`과 `ScalerCrop`을 map에 반영하고 갱신 플래그를 켭니다. 제어는 다음 `queueBuffers()` 호출에서 장치에 적용되는 계약입니다. `src/libcamera/converter/converter_dw100.cpp:369`
 
-실행 확인 항목: 이 설명은 공개 libcamera의 고정 커밋을 소스와 대조한 결과입니다. 여러 카메라의 동시 촬영, 보정 화질, 커널별 동작과 사내 Camera HAL 적용을 검증한 결과는 아닙니다. `src/libcamera/converter/converter_dw100.cpp:178`, `src/libcamera/converter/converter_dw100.cpp:369`
+`setControls()`는 갱신할 내용이 있고 실행 중인데 커널 requests 지원이 없으면 오류를 기록합니다. 이 분기는 실행 중 동적 변경에 필요한 조건을 알리는 것으로, 앞서 저장한 map 값을 되돌리는 코드는 아닙니다. `src/libcamera/converter/converter_dw100.cpp:369`
+
+`populateMetadata()`도 미설정 스트림이면 바로 반환합니다. 구성된 스트림에는 실제 `ScalerCrop`을 기록하고, 보정 파라미터가 있을 때만 `LensDewarpEnable` 상태를 기록합니다. `src/libcamera/converter/converter_dw100.cpp:434`
+
+`populateMetadata()`의 호출 계약은 `queueBuffers()` 뒤에 결과를 조회하는 것입니다. 스트림에 적용한 값과 그 뒤에 읽은 결과를 구분하는 기준입니다. `src/libcamera/converter/converter_dw100.cpp:369`
 
 근거 원문: [src/libcamera/converter/converter_dw100.cpp:178](#source-167e93a77fbf4931) · [src/libcamera/converter/converter_dw100.cpp:369](#source-fc0e25ddead912f1) · [src/libcamera/converter/converter_dw100.cpp:434](#source-3a4c4ed7cee81158)
 
@@ -57,7 +65,7 @@ semantic_review: human-review-required
     |---|---|---|
     | 여러 카메라의 보정값이 섞이지 않도록 누가 값을 보관하고 전달합니까? | [카메라별 보정값의 소유권](#카메라별-보정값의-소유권) | 코드 근거와 설명 연결 |
     | 보정값이 없거나 일부만 있을 때 어떤 결과를 반환합니까? | [튜닝 입력의 기본값과 오류](#튜닝-입력의-기본값과-오류) | 코드 근거와 설명 연결 |
-    | 보정값은 어느 스트림에 적용되고 어떤 실행 조건을 따로 확인해야 합니까? | [스트림 적용과 실행 확인 범위](#스트림-적용과-실행-확인-범위) | 코드 근거와 설명 연결 · 실행 확인 항목 별도 |
+    | 보정값은 어느 스트림에 적용되고 어떤 실행 조건을 따로 확인해야 합니까? | [스트림 적용과 실행 확인 범위](#스트림-적용과-실행-확인-범위) | 코드 근거와 설명 연결 |
 
 ## 소스 근거
 
@@ -645,8 +653,8 @@ semantic_review: human-review-required
     ```
 
 ??? note "근거와 검토 정보"
-    - 생성 방식: 소스 발췌에 연결한 설계 설명
-    - 검증 범위: 설정에 작성된 설명을 발췌 해시와 대조합니다. 해시 일치는 설명의 의미를 승인하지 않습니다.
+    - 생성 방식: 추출 사실과 LLM 설명
+    - 검증 범위: 표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.
     - 근거 파일: `include/libcamera/internal/converter.h`, `include/libcamera/internal/converter/converter_dw100.h`, `include/libcamera/internal/converter/converter_dw100_vertexmap.h`, `src/libcamera/converter.cpp`, `src/libcamera/converter/converter_dw100.cpp`, `src/libcamera/converter/converter_dw100_vertexmap.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`
     - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `2c4b67c079`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과

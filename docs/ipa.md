@@ -1,11 +1,13 @@
 ---
-generated_at: 2026-10-24T05:28:37+00:00
+generated_at: 2026-10-24T08:53:45+00:00
 source_commit: 2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f
 status: ok
 section: ipa
-generation_method: source-bound-contract
-evidence_fingerprint: e9b8794662c523fe2b5f5cadd89748e47fade101e695fd1f52c30371aeb12adf
+generation_method: facts-and-llm
+evidence_fingerprint: 0483a6e1a59b5d5188c6cd957c6c88ce43d8f3af10ec643fa0d8dd48957d004f
 semantic_review: human-review-required
+agent: response-bundle/codex-session
+generated_design: {"schema": 1, "input_fingerprint": "0483a6e1a59b5d5188c6cd957c6c88ce43d8f3af10ec643fa0d8dd48957d004f", "answers": {"selection": [{"text": "`IPAManager`는 사용자가 지정한 모듈 경로를 먼저 추가합니다. 설치 전 빌드 경로를 찾을 수 있으면 그 아래 `src/ipa`를 추가하고, 마지막으로 설치된 시스템 모듈 경로를 확인합니다. 사용자 지정 경로가 우선한다는 주석이 이 순서를 설명합니다.", "covers": ["selection"], "kind": "behavior", "quote": "/* User-specified paths take precedence. */\n\tconst auto modulePaths =\n\t\tconfiguration.listOption({ \"ipa\", \"module_paths\" })\n\t\t\t.value_or(utils::defopt);\n\tfor (const auto &dir : modulePaths) {\n\t\tif (dir.empty())\n\t\t\tcontinue;", "evidence": ["modules"]}, {"text": "`IPAModule::match()`는 모듈 이름의 정확한 일치와 버전 범위를 함께 검사합니다. `pipelineVersion`은 최소 버전 이상이면서 최대 버전 이하여야 합니다.", "covers": ["selection"], "kind": "behavior", "quote": "\\brief Verify if the IPA module matches a given name\n * \\param[in] name The IPA module name\n * \\param[in] minVersion Minimum acceptable version of IPA module\n * \\param[in] maxVersion Maximum acceptable version of IPA module\n *\n * This function checks if this IPA module matches the requested \\a name\n * and the input version range.\n *\n * \\return True if the IPA module matches, or false otherwise\n */\nbool IPAModule::match(const char *name, uint32_t minVersion,\n\t\t      uint32_t maxVersion) const\n{\n\treturn info_.pipelineVersion >= minVersion &&\n\t       info_.pipelineVersion <= maxVersion &&\n\t       !strcmp(info_.name, name);\n}", "evidence": ["match"]}, {"text": "`createIPA()`는 이름과 버전에 맞는 모듈이 없으면 null 포인터를 반환합니다. 모듈을 찾은 뒤에는 서명 판정이 참이면 `Threaded`, 거짓이면 `Isolated` 프록시를 선택합니다. 생성한 프록시의 `isValid()`가 거짓일 때도 null 포인터를 반환합니다.", "covers": ["selection"], "kind": "behavior", "quote": "template<typename T>\n\tstd::unique_ptr<T> createIPA(const char *name, uint32_t minVersion,\n\t\t\t\t     uint32_t maxVersion)\n\t{\n\t\tIPAModule *m = module(name, minVersion, maxVersion);\n\t\tif (!m)\n\t\t\treturn nullptr;", "evidence": ["selection"]}, {"text": "서명 판정은 강제 격리 설정, 모듈 파일 열기·매핑 실패, 서명 검증 결과에 영향을 받습니다. 공개 키 지원 없이 빌드한 경우에도 거짓을 반환합니다. 이 거짓 판정은 격리 실행을 선택하는 입력이며, 그 자체가 `createIPA()`의 즉시 생성 실패는 아닙니다.", "covers": ["selection"], "kind": "behavior", "quote": "bool IPAManager::isSignatureValid([[maybe_unused]] IPAModule *ipa) const\n{\n#if HAVE_IPA_PUBKEY\n\tif (forceIsolation_) {\n\t\tLOG(IPAManager, Debug)\n\t\t\t<< \"Isolation of IPA module \" << ipa->path()\n\t\t\t<< \" forced through configuration\";\n\t\treturn false;\n\t}", "evidence": ["signature"]}], "execution": [{"text": "`Threaded` 프록시 템플릿은 `init()`을 IPA에 직접 호출한 뒤 내부 프록시를 작업 스레드로 옮깁니다. `start()`에서는 스레드를 시작하고 blocking 호출로 내부 시작을 수행합니다.", "covers": ["execution"], "kind": "behavior", "quote": "{% for method in interface_main.methods %}\n{{proxy_funcs.func_sig(proxy_name + \"Threaded\", method)}}\n{\n{%- if method.mojom_name == \"stop\" %}\n\t{{proxy_funcs.stop_thread_body()}}\n{%- elif method.mojom_name == \"init\" %}\n\t{{ method|method_return_value + \" _ret = \" if method|method_return_value != \"void\" -}}\n\tipa_->{{method.mojom_name}}(\n\t{%- for param in method|method_param_names -%}\n\t\t{{param}}{{- \", \" if not loop.last}}\n\t{%- endfor -%}\n);", "evidence": ["threaded"]}, {"text": "일반 동기 메서드는 IPA 객체를 직접 호출하고, async 메서드는 실행 상태를 확인한 뒤 `ConnectionTypeQueued`로 내부 프록시에 전달합니다. 따라서 메서드가 모두 같은 방식으로 작업 스레드에 전달된다고 보면 안 됩니다.", "covers": ["execution"], "kind": "behavior", "quote": "return proxy_.invokeMethod(&ThreadProxy::start, ConnectionTypeBlocking\n\t{{- \", \" if method|method_param_names}}\n\t{%- for param in method|method_param_names -%}\n\t\t{{param}}{{- \", \" if not loop.last}}\n\t{%- endfor -%}\n);\n{%- elif not method|is_async %}\n\treturn ipa_->{{method.mojom_name}}(\n\t{%- for param in method|method_param_names -%}\n\t\t{{param}}{{- \", \" if not loop.last}}\n\t{%- endfor -%}\n);\n{% elif method|is_async %}\n\tASSERT(state_ == ProxyRunning);\n\tproxy_.invokeMethod(&ThreadProxy::{{method.mojom_name}}, ConnectionTypeQueued\n\t{%- for param in method|method_param_names -%}\n\t\t, {{param}}\n\t{%- endfor -%}\n);\n{%- endif %}\n}\n{% endfor %}", "evidence": ["threaded"]}, {"text": "`Isolated` 프록시는 worker 경로를 찾고 `IPCPipeUnixSocket`을 구성합니다. 파이프가 연결돼야 수신 신호를 연결하고 프록시를 유효한 상태로 표시합니다. 메서드 입력을 직렬화한 뒤 async는 `sendAsync()`, 나머지는 `sendSync()`로 보냅니다.", "covers": ["execution"], "kind": "behavior", "quote": "auto ipc = std::make_unique<IPCPipeUnixSocket>(ipam->path().c_str(),\n\t\t\t\t\t\t       proxyWorkerPath.c_str());\n\tif (!ipc->isConnected()) {\n\t\tLOG(IPAProxy, Error) << \"Failed to create IPCPipe\";\n\t\treturn;\n\t}", "evidence": ["isolated"]}, {"text": "`resolvePath()`의 실제 구현은 설정 경로를 먼저 확인합니다. 빌드 경로가 있으면 그 아래 worker를 확인하고, 그 경로에서 찾지 못하면 빈 문자열을 반환합니다. 빌드 경로가 없는 경우에 설치 경로를 확인하므로, 설치 경로가 먼저라는 오래된 주석보다 실제 분기를 기준으로 읽어야 합니다.", "covers": ["execution"], "kind": "behavior", "quote": "/* Try paths from the configuration first. */\n\tfor (const auto &dir : execPaths_) {\n\t\tif (dir.empty())\n\t\t\tcontinue;", "evidence": ["worker-path"]}, {"text": "`IPCPipeUnixSocket`은 소켓을 만들고 모듈 경로와 파일 디스크립터를 인자로 worker 프로세스를 시작합니다. 동기 응답은 메시지 cookie로 대기 호출과 연결하며, 대응하는 대기 호출이 없는 수신 메시지는 `recv` 신호로 전달합니다.", "covers": ["execution"], "kind": "behavior", "quote": "proc_ = std::make_unique<Process>();\n\tint ret = proc_->start(ipaProxyWorkerPath, args, fds);\n\tif (ret) {\n\t\tLOG(IPCPipe, Error)\n\t\t\t<< \"Failed to start proxy worker process\";\n\t\treturn;\n\t}", "evidence": ["ipc"]}, {"text": "프록시 템플릿의 이벤트 전달과 IPC 연결만으로 모든 애플리케이션 콜백의 실행 스레드를 확정할 수는 없습니다. 실제 신호 연결과 수신 객체의 스레드 문맥은 별도 확인 대상입니다.", "covers": ["execution"], "kind": "limitation", "quote": "{% for method in interface_event.methods %}\n{{proxy_funcs.func_sig(proxy_name + \"Threaded\", method, \"Handler\")}}\n{\n\tASSERT(state_ != ProxyStopped);\n\t{{method.mojom_name}}.emit({{method.parameters|params_comma_sep}});\n}\n{% endfor %}", "evidence": ["threaded"]}], "interface": [{"text": "IPU3 입력 인터페이스는 async 요청 제어 전달인 `queueRequest(frame, controls)`, 파라미터 버퍼를 지정하는 `computeParams(frame, bufferId)`, 프레임 시각·통계 버퍼·센서 제어를 받는 `processStats()`를 선언합니다. 이벤트 인터페이스는 프레임별 `paramsComputed`와 metadata 결과, 센서·렌즈 제어를 전달합니다.", "covers": ["interface"], "kind": "behavior", "quote": "[async] queueRequest(uint32 frame, libcamera.ControlList controls);\n\t[async] computeParams(uint32 frame, uint32 bufferId);\n\t[async] processStats(uint32 frame, int64 frameTimestamp,\n\t\t\t     uint32 bufferId, libcamera.ControlList sensorControls);\n};", "evidence": ["ipu3-api"]}, {"text": "RKISP1도 요청 제어, 파라미터 버퍼와 통계 입력을 각각 async 메서드로 선언합니다. IPU3의 통계 입력과 달리 이 선언에는 프레임 타임스탬프 인자가 없습니다. RKISP1의 `paramsComputed` 이벤트는 프레임 번호와 함께 `bytesused`를 반환하고, `metadataReady`는 프레임 번호와 metadata를 전달합니다.", "covers": ["interface"], "kind": "behavior", "quote": "[async] queueRequest(uint32 frame, libcamera.ControlList reqControls);\n\t[async] computeParams(uint32 frame, uint32 bufferId);\n\t[async] processStats(uint32 frame, uint32 bufferId,\n\t\t\t     libcamera.ControlList sensorControls);\n};", "evidence": ["rkisp1-api"]}, {"text": "메인 인터페이스의 async 메서드와 결과를 돌려주는 EventInterface는 서로 다른 방향의 경계입니다. 선언은 인자와 호출 형태의 근거이며, 이벤트가 실제로 발생하는 시점이나 장치의 완료 순서를 입증하는 실행 결과는 아닙니다.", "covers": ["interface"], "kind": "behavior", "quote": "interface IPAIPU3EventInterface {\n\tsetSensorControls(uint32 frame, libcamera.ControlList sensorControls,\n\t\t\t  libcamera.ControlList lensControls);\n\tparamsComputed(uint32 frame);\n\tmetadataReady(uint32 frame, libcamera.ControlList metadata);\n};", "evidence": ["ipu3-api"]}], "lifetime": [{"text": "`IPAModule::load()`는 공유 객체에서 IPA 구현을 만드는 팩토리를 적재합니다. 유효하지 않은 모듈이나 공유 객체 열기·팩토리 심볼 검색 실패는 실패로 반환하며, 이미 적재됐다면 성공을 반환합니다. `createInterface()`는 유효하고 적재된 모듈에서 팩토리를 호출하고, 선행 조건이 맞지 않으면 null 포인터를 반환합니다.", "covers": ["lifetime"], "kind": "behavior", "quote": "\\brief Load the IPA implementation factory from the shared object\n *\n * The IPA module shared object implements an IPAInterface object to be used\n * by pipeline handlers. This function loads the factory function from the\n * shared object. Later, createInterface() can be called to instantiate the\n * IPAInterface.\n *\n * This function only needs to be called successfully once, after which\n * createInterface() can be called as many times as IPAInterface instances are\n * needed.\n *\n * Calling this function on an invalid module (as returned by isValid()) is\n * an error.\n *\n * \\return True if load was successful, or already loaded, and false otherwise\n */\nbool IPAModule::load()\n{\n\tif (!valid_)\n\t\treturn false;", "evidence": ["load"]}, {"text": "`Threaded` 프록시는 모듈 적재나 인터페이스 생성이 실패하면 생성자에서 빠져나옵니다. 성공하면 IPA 인터페이스를 `unique_ptr`로 보관하고 이벤트를 연결한 뒤 유효 상태로 표시합니다.", "covers": ["lifetime"], "kind": "behavior", "quote": "if (!ipam->load())\n\t\treturn;", "evidence": ["threaded"]}, {"text": "Threaded 정지 코드는 실행 중이 아니면 반환하고, 실행 중이면 `ProxyStopping`으로 전환합니다. 내부 `stop()`을 blocking 호출한 뒤 스레드의 `exit()`와 `wait()`를 수행합니다. 이어 현재 스레드에 남은 해당 프록시의 InvokeMessage를 전달한 뒤 `ProxyStopped`로 바꿉니다.", "covers": ["lifetime"], "kind": "behavior", "quote": "{%- macro stop_thread_body() -%}\n\tASSERT(state_ != ProxyStopping);\n\tif (state_ != ProxyRunning)\n\t\treturn;", "evidence": ["thread-stop"]}, {"text": "`Isolated` 프록시는 worker 경로와 IPC 연결이 확보돼야 유효해집니다. 소멸자는 IPC가 있을 때 `Exit` 메시지를 비동기로 전송합니다. 이 소멸자 코드만으로 worker의 종료 확인이나 모든 후속 콜백 처리가 끝났다고 단정할 수는 없습니다.", "covers": ["lifetime"], "kind": "behavior", "quote": "{{proxy_name}}Isolated::~{{proxy_name}}Isolated()\n{\n\tif (ipc_) {\n\t\tIPCMessage::Header header =\n\t\t\t{ static_cast<uint32_t>({{cmd_enum_name}}::Exit), seq_++ };\n\t\tIPCMessage msg(header);\n\t\tipc_->sendAsync(msg);\n\t}\n}", "evidence": ["isolated"]}], "errors": [{"text": "`createIPA()`의 null 반환은 일치하는 모듈이 없거나 생성한 프록시가 유효하지 않은 경우입니다. 서명이 유효하지 않다는 판정은 먼저 `Isolated` 선택으로 이어지므로 별도의 실패 단계와 구분합니다.", "covers": ["errors"], "kind": "behavior", "quote": "if (!proxy->isValid()) {\n\t\t\tLOG(IPAManager, Error) << \"Failed to load proxy\";\n\t\t\treturn nullptr;\n\t\t}", "evidence": ["selection"]}, {"text": "`IPAModule::load()`는 `dlopen()` 실패 또는 `ipaCreate` 심볼 검색 실패를 감지합니다. 심볼을 찾지 못하면 열린 핸들을 닫고 null로 바꾼 뒤 실패를 반환합니다. `createInterface()`도 모듈의 유효성·적재 상태를 확인한 뒤 팩토리를 호출합니다.", "covers": ["errors"], "kind": "behavior", "quote": "void *symbol = dlsym(dlHandle_, \"ipaCreate\");\n\tif (!symbol) {\n\t\tLOG(IPAModule, Error)\n\t\t\t<< \"Failed to load ipaCreate() from IPA module shared object: \"\n\t\t\t<< dlerror();\n\t\tdlclose(dlHandle_);\n\t\tdlHandle_ = nullptr;\n\t\treturn false;\n\t}", "evidence": ["load"]}, {"text": "`Isolated` 생성자는 worker 경로가 비었거나 IPC 연결이 실패하면 유효 상태에 도달하지 않습니다. 생성된 메서드의 IPC 전송 오류는 로그에 남으며, 반환값이 있는 메서드는 오류 코드를 해당 반환 타입으로 돌려줍니다.", "covers": ["errors"], "kind": "behavior", "quote": "const std::string proxyWorkerPath = resolvePath(\"{{module_name}}_ipa_proxy\");\n\tif (proxyWorkerPath.empty()) {\n\t\tLOG(IPAProxy, Error) << \"Failed to get proxy worker path\";\n\t\treturn;\n\t}", "evidence": ["isolated"]}, {"text": "`sendSync()`가 사용하는 `call()`은 메시지를 보낸 뒤 2000ms 타이머를 시작하고 이벤트를 처리하며 응답을 기다립니다. 시간이 만료되면 대기 항목을 제거하고 `-ETIMEDOUT`을 반환합니다. 소켓 전송 실패도 대기 항목을 정리하고 그대로 반환하므로, 모듈 선택 실패와 통신 중 실패는 구분됩니다.", "covers": ["errors"], "kind": "behavior", "quote": "/* \\todo Make this less dangerous, see IPCPipe::sendSync() */\n\ttimeout.start(2000ms);\n\twhile (!iter->second.done) {\n\t\tif (!timeout.isRunning()) {\n\t\t\tLOG(IPCPipe, Error) << \"Call timeout!\";\n\t\t\tcallData_.erase(iter);\n\t\t\treturn -ETIMEDOUT;\n\t\t}", "evidence": ["ipc"]}], "tuning": [{"text": "RKISP1은 센서 모델 이름에 `.yaml`을 붙인 튜닝 파일을 요청하며, 대체 파일 이름으로 `uncalibrated.yaml`을 지정합니다.", "covers": ["tuning"], "kind": "behavior", "quote": "/* The IPA tuning file is made from the sensor name. */\n\tstd::string ipaTuningFile =\n\t\tipa_->configurationFile(sensor_->model() + \".yaml\", \"uncalibrated.yaml\");", "evidence": ["rkisp1-tuning"]}, {"text": "Mali-C55도 센서 모델 이름으로 튜닝 파일을 찾고 같은 대체 파일 이름을 전달합니다. 센서별 파일 요청과 대체 파일 요청이 코드에서 명시적으로 구분됩니다.", "covers": ["tuning"], "kind": "behavior", "quote": "std::string ipaTuningFile = ipa_->configurationFile(sensor()->model() + \".yaml\",\n\t\t\t\t\t\t\t    \"uncalibrated.yaml\");", "evidence": ["mali-c55-tuning"]}, {"text": "`IPAProxy::configurationFile()`은 먼저 요청한 이름을 검색해 경로를 찾으면 반환합니다. 찾지 못했고 대체 이름도 없으면 빈 문자열을 반환합니다. 대체 이름이 있으면 그 이름으로 다시 검색하며, 대체 검색을 했다는 사실이 파일의 존재를 보장하는 것은 아닙니다.", "covers": ["tuning"], "kind": "behavior", "quote": "std::string IPAProxy::configurationFile(const std::string &name,\n\t\t\t\t\tconst std::string &fallbackName) const\n{\n\t/*\n\t * The IPA module name can be used as-is to build directory names as it\n\t * has been validated when loading the module.\n\t */\n\tconst std::string ipaName = ipam_->info().name;\n\tstd::string confPath = ipaConfigurationFile(ipaName, name, configPaths_);\n\tif (!confPath.empty()) {\n\t\tLOG(IPAProxy, Info) << \"Using tuning file \" << confPath;\n\t\treturn confPath;\n\t}", "evidence": ["fallback"]}, {"text": "RKISP1의 기본 대체 파일은 `Agc`, `Awb`, `BlackLevelCorrection`, `Ccm`, `GammaOutCorrection`을 나열합니다. 이 목록에 없는 보정 알고리즘까지 활성화된 것으로 추정하지 않습니다.", "covers": ["tuning"], "kind": "behavior", "quote": "# SPDX-License-Identifier: CC0-1.0\n%YAML 1.1\n---\nversion: 1\nalgorithms:\n  - Agc:\n  - Awb:\n  - BlackLevelCorrection:\n  - Ccm:\n  - GammaOutCorrection:\n...", "evidence": ["rkisp1-uncalibrated"]}, {"text": "Mali-C55의 기본 대체 파일은 `Agc`, `Awb`, `BlackLevelCorrection`, `Ccm`을 나열합니다. 센서별 튜닝 파일과 기본 대체 파일의 알고리즘 구성을 구분해야 합니다.", "covers": ["tuning"], "kind": "behavior", "quote": "# SPDX-License-Identifier: CC0-1.0\n%YAML 1.1\n---\nversion: 1\nalgorithms:\n  - Agc:\n  - Awb:\n  - BlackLevelCorrection:\n  - Ccm:\n...", "evidence": ["mali-c55-uncalibrated"]}], "softisp-lsc": [{"text": "packed 셰이더는 블랙 레벨 보정 뒤 `APPLY_LSC`가 정의된 경우 LSC를 적용합니다. `textureOut` 좌표에서 읽은 LSC 텍스처 값에 4.0을 곱해 RGB에 적용하며, 주석은 이를 UQ 형식에서 실수 값으로 바꾸는 배율로 설명합니다. 이후 AWB와 범위 제한, 색 보정 행렬, 대비, 감마 순서로 처리합니다.", "covers": ["softisp-lsc"], "kind": "behavior", "quote": "#if defined(APPLY_LSC)\n        /* Multiple by 4.0 for UQ<2, 6> -> float conversion:\n         * texture2D(...) = original_float * 2^6 (quantization) * 1/2^8 (texture byte to float)\n         * => original_float = texture2D(...) / 2^6 * 2^8 = texture2D(...) * 2^2\n         */\n        rgb = rgb * (texture2D(lsc_tex, textureOut).rgb * 4.0);\n#endif", "evidence": ["packed-shader"]}, {"text": "unpacked 셰이더도 블랙 레벨 보정 다음에 조건부 LSC를 수행하지만 텍스처 좌표는 `center.xy`입니다. 텍스처 값의 4.0 배율과 AWB·색 보정·대비·감마의 순서는 packed 경로와 같습니다.", "covers": ["softisp-lsc"], "kind": "behavior", "quote": "#if defined(APPLY_LSC)\n    /* Multiple by 4.0 for UQ<2, 6> -> float conversion */\n    rgb = rgb * (texture2D(lsc_tex, center.xy).rgb * 4.0);\n#endif", "evidence": ["unpacked-shader"]}, {"text": "SoftISP 인터페이스의 `init()`은 통계와 파라미터용 `SharedFD`를 받고 `ccmEnabled`, `lscEnabled`를 결과로 선언합니다. 이 선언에는 LSC 전용 버퍼 인자가 따로 없으므로, 이를 별도의 LSC 버퍼 전달 계약으로 확대하지 않습니다.", "covers": ["softisp-lsc"], "kind": "behavior", "quote": "interface IPASoftIspInterface {\n\tinit(libcamera.IPASettings settings,\n\t     libcamera.SharedFD fdStats,\n\t     libcamera.SharedFD fdParams,\n\t     libcamera.IPACameraSensorInfo sensorInfo,\n\t     libcamera.ControlInfoMap sensorControls)\n\t\t=> (int32 ret,\n\t\t    libcamera.ControlInfoMap ipaControls,\n\t\t    bool ccmEnabled, bool lscEnabled);\n\tstart() => (int32 ret);\n\tstop();\n\tconfigure(IPAConfigInfo configInfo)\n\t\t=> (int32 ret, libcamera.ControlInfoMap ipaControls);", "evidence": ["softisp-interface"]}, {"text": "SoftISP는 프레임별 async 요청·파라미터 계산·통계 처리 메서드를 선언합니다. 이 인터페이스와 셰이더 소스의 연결만으로 실제 GPU 실행이나 영상 보정 결과를 검증한 것은 아닙니다.", "covers": ["softisp-lsc"], "kind": "behavior", "quote": "[async] queueRequest(uint32 frame, libcamera.ControlList sensorControls);\n\t[async] computeParams(uint32 frame);\n\t[async] processStats(uint32 frame,\n\t\t\t     uint32 bufferId,\n\t\t\t     libcamera.ControlList sensorControls);\n};", "evidence": ["softisp-interface"]}]}, "body_sha256": "a19670c8f94b6073e0d9220f2681cb544e8a6e1a98c0dfb4870086703202a64f"}
 ---
 
 # IPA 관리와 구현 진입점
@@ -23,77 +25,91 @@ semantic_review: human-review-required
 
 ## 모듈 탐색과 격리 조건
 
-`IPAManager`는 설정의 모듈 경로, 설치 전 빌드 경로, 설치된 시스템 경로 순으로 IPA 후보를 찾습니다. `IPAModule::match()`는 이름의 일치와 최소·최대 버전을 포함하는 범위를 확인합니다. `src/libcamera/ipa_manager.cpp:107`, `src/libcamera/ipa_module.cpp:460`
+`IPAManager`는 사용자가 지정한 모듈 경로를 먼저 추가합니다. 설치 전 빌드 경로를 찾을 수 있으면 그 아래 `src/ipa`를 추가하고, 마지막으로 설치된 시스템 모듈 경로를 확인합니다. 사용자 지정 경로가 우선한다는 주석이 이 순서를 설명합니다. `src/libcamera/ipa_manager.cpp:107`
 
-현재 `createIPA<T>()` 구현은 서명 검증이 성공하면 `T::Threaded`, 실패하면 `T::Isolated`를 생성합니다. 공개 키 지원이 없거나 강제 격리 설정이 켜져 있거나 서명을 검증하지 못하면 격리 경로를 선택합니다. 라이선스 이름만으로 현재의 실행 방식을 판정하지 않습니다. `include/libcamera/internal/ipa_manager.h:35`, `src/libcamera/ipa_manager.cpp:289`
+`IPAModule::match()`는 모듈 이름의 정확한 일치와 버전 범위를 함께 검사합니다. `pipelineVersion`은 최소 버전 이상이면서 최대 버전 이하여야 합니다. `src/libcamera/ipa_module.cpp:460`
 
-일치하는 모듈이 없거나 생성된 프록시의 `isValid()`가 false이면 `createIPA()`는 null을 반환합니다. 호출자는 프록시를 사용하기 전에 이 결과를 확인해야 합니다. `include/libcamera/internal/ipa_manager.h:35`
+`createIPA()`는 이름과 버전에 맞는 모듈이 없으면 null 포인터를 반환합니다. 모듈을 찾은 뒤에는 서명 판정이 참이면 `Threaded`, 거짓이면 `Isolated` 프록시를 선택합니다. 생성한 프록시의 `isValid()`가 거짓일 때도 null 포인터를 반환합니다. `include/libcamera/internal/ipa_manager.h:35`
+
+서명 판정은 강제 격리 설정, 모듈 파일 열기·매핑 실패, 서명 검증 결과에 영향을 받습니다. 공개 키 지원 없이 빌드한 경우에도 거짓을 반환합니다. 이 거짓 판정은 격리 실행을 선택하는 입력이며, 그 자체가 `createIPA()`의 즉시 생성 실패는 아닙니다. `src/libcamera/ipa_manager.cpp:289`
 
 근거 원문: [src/libcamera/ipa_manager.cpp:107](#source-7603cbafe8eef490) · [src/libcamera/ipa_module.cpp:460](#source-6e1525c1fc1aa55e) · [include/libcamera/internal/ipa_manager.h:35](#source-2a1bbbc8623a516f) · [src/libcamera/ipa_manager.cpp:289](#source-532f8ffa194bd319)
 
 ## 스레드와 프로세스 경계
 
-Threaded 프록시는 모듈을 적재하여 IPA 인터페이스를 만들고 소유합니다. `init()` 이후 ThreadProxy를 전용 스레드로 이동시키며, `start()`는 스레드를 시작하고 Blocking 연결로 호출합니다. 비동기 메서드는 Running 상태에서 Queued 연결로 전달하고, 나머지 동기 메서드는 생성 템플릿의 별도 분기에 따라 직접 호출합니다. `utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48`
+`Threaded` 프록시 템플릿은 `init()`을 IPA에 직접 호출한 뒤 내부 프록시를 작업 스레드로 옮깁니다. `start()`에서는 스레드를 시작하고 blocking 호출로 내부 시작을 수행합니다. `utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48`
 
-Isolated 프록시는 `resolvePath()`로 worker 실행 파일의 경로를 찾고 `IPCPipeUnixSocket`을 생성합니다. 소켓 생성과 `Process::start()`가 성공해야 연결 상태가 설정됩니다. 프로세스를 시작하는 곳은 IPC 파이프이며 `resolvePath()` 자체는 경로만 반환합니다. `utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130`, `src/libcamera/ipa_proxy.cpp:204`, `src/libcamera/ipc_pipe_unixsocket.cpp:27`
+일반 동기 메서드는 IPA 객체를 직접 호출하고, async 메서드는 실행 상태를 확인한 뒤 `ConnectionTypeQueued`로 내부 프록시에 전달합니다. 따라서 메서드가 모두 같은 방식으로 작업 스레드에 전달된다고 보면 안 됩니다. `utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48`
 
-Isolated 프록시의 메서드는 인자를 데이터와 파일 디스크립터로 직렬화하여 전달합니다. 인터페이스의 async 메서드는 `sendAsync()`, 동기 메서드는 `sendSync()`를 사용합니다. 동기 호출의 출력과 반환값은 응답에서 역직렬화합니다. `utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130`
+`Isolated` 프록시는 worker 경로를 찾고 `IPCPipeUnixSocket`을 구성합니다. 파이프가 연결돼야 수신 신호를 연결하고 프록시를 유효한 상태로 표시합니다. 메서드 입력을 직렬화한 뒤 async는 `sendAsync()`, 나머지는 `sendSync()`로 보냅니다. `utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130`
+
+`resolvePath()`의 실제 구현은 설정 경로를 먼저 확인합니다. 빌드 경로가 있으면 그 아래 worker를 확인하고, 그 경로에서 찾지 못하면 빈 문자열을 반환합니다. 빌드 경로가 없는 경우에 설치 경로를 확인하므로, 설치 경로가 먼저라는 오래된 주석보다 실제 분기를 기준으로 읽어야 합니다. `src/libcamera/ipa_proxy.cpp:204`
+
+`IPCPipeUnixSocket`은 소켓을 만들고 모듈 경로와 파일 디스크립터를 인자로 worker 프로세스를 시작합니다. 동기 응답은 메시지 cookie로 대기 호출과 연결하며, 대응하는 대기 호출이 없는 수신 메시지는 `recv` 신호로 전달합니다. `src/libcamera/ipc_pipe_unixsocket.cpp:27`
+
+실행 확인 항목: 프록시 템플릿의 이벤트 전달과 IPC 연결만으로 모든 애플리케이션 콜백의 실행 스레드를 확정할 수는 없습니다. 실제 신호 연결과 수신 객체의 스레드 문맥은 별도 확인 대상입니다. `utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48`
 
 근거 원문: [utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48](#source-c7fd6e52f2c537b5) · [utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130](#source-9ff6047b0a70ce66) · [src/libcamera/ipa_proxy.cpp:204](#source-59a673fb7c43c0e0) · [src/libcamera/ipc_pipe_unixsocket.cpp:27](#source-f0268126d3f8c2bc)
 
 ## 프레임 입력과 결과 인터페이스
 
-IPU3와 RKISP1 인터페이스는 `init()`·`configure()`에서 센서 정보와 컨트롤 구성을 받고 반환 코드와 IPA 컨트롤 정보를 돌려줍니다. `mapBuffers()`와 `unmapBuffers()`는 버퍼 목록과 ID를 전달하는 인터페이스입니다. `include/libcamera/ipa/ipu3.mojom:19`, `include/libcamera/ipa/rkisp1.mojom:17`
+IPU3 입력 인터페이스는 async 요청 제어 전달인 `queueRequest(frame, controls)`, 파라미터 버퍼를 지정하는 `computeParams(frame, bufferId)`, 프레임 시각·통계 버퍼·센서 제어를 받는 `processStats()`를 선언합니다. 이벤트 인터페이스는 프레임별 `paramsComputed`와 metadata 결과, 센서·렌즈 제어를 전달합니다. `include/libcamera/ipa/ipu3.mojom:19`
 
-프레임별 `queueRequest()`·`computeParams()`·`processStats()`는 두 인터페이스 모두 async로 선언됩니다. 결과는 `paramsComputed`, `setSensorControls`, `metadataReady` 이벤트로 구분합니다. IPU3의 통계 입력에는 frameTimestamp가 있고 RKISP1의 파라미터 완료 이벤트에는 bytesused가 있으므로 두 인터페이스를 같은 인자 목록으로 취급하면 안 됩니다. `include/libcamera/ipa/ipu3.mojom:19`, `include/libcamera/ipa/rkisp1.mojom:17`
+RKISP1도 요청 제어, 파라미터 버퍼와 통계 입력을 각각 async 메서드로 선언합니다. IPU3의 통계 입력과 달리 이 선언에는 프레임 타임스탬프 인자가 없습니다. RKISP1의 `paramsComputed` 이벤트는 프레임 번호와 함께 `bytesused`를 반환하고, `metadataReady`는 프레임 번호와 metadata를 전달합니다. `include/libcamera/ipa/rkisp1.mojom:17`
 
-실행 확인 항목: 인터페이스 선언만으로 프레임별 이벤트 도착 순서, 버퍼의 실제 매핑 수명과 하드웨어 적용 시점을 확정할 수 없습니다. 해당 IPA 구현과 파이프라인의 신호 연결을 대조하여 실행을 확인해야 합니다. `include/libcamera/ipa/ipu3.mojom:19`, `include/libcamera/ipa/rkisp1.mojom:17`
+메인 인터페이스의 async 메서드와 결과를 돌려주는 EventInterface는 서로 다른 방향의 경계입니다. 선언은 인자와 호출 형태의 근거이며, 이벤트가 실제로 발생하는 시점이나 장치의 완료 순서를 입증하는 실행 결과는 아닙니다. `include/libcamera/ipa/ipu3.mojom:19`
 
 근거 원문: [include/libcamera/ipa/ipu3.mojom:19](#source-5a4a0da4800968a4) · [include/libcamera/ipa/rkisp1.mojom:17](#source-7a01de2477d6466e)
 
 ## IPA 객체와 종료 순서
 
-`IPAModule::load()`는 공유 객체에서 `ipaCreate` 심볼을 찾습니다. 적재에 성공한 유효 모듈만 `createInterface()`로 인터페이스를 만들 수 있고, Threaded 프록시는 생성된 인터페이스를 unique_ptr로 소유합니다. `src/libcamera/ipa_module.cpp:390`, `utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48`
+`IPAModule::load()`는 공유 객체에서 IPA 구현을 만드는 팩토리를 적재합니다. 유효하지 않은 모듈이나 공유 객체 열기·팩토리 심볼 검색 실패는 실패로 반환하며, 이미 적재됐다면 성공을 반환합니다. `createInterface()`는 유효하고 적재된 모듈에서 팩토리를 호출하고, 선행 조건이 맞지 않으면 null 포인터를 반환합니다. `src/libcamera/ipa_module.cpp:390`
 
-Threaded 프록시의 `stop()`은 먼저 Stopping 상태의 재진입을 ASSERT로 검사합니다. 그 밖에 Running이 아니면 반환합니다. Running일 때는 Stopping으로 전환하고 Blocking 연결로 IPA stop을 호출한 다음 스레드의 exit·wait를 수행합니다. 대기 중인 InvokeMessage를 전달한 뒤 Stopped로 바꿉니다. `utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25`
+`Threaded` 프록시는 모듈 적재나 인터페이스 생성이 실패하면 생성자에서 빠져나옵니다. 성공하면 IPA 인터페이스를 `unique_ptr`로 보관하고 이벤트를 연결한 뒤 유효 상태로 표시합니다. `utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48`
 
-Isolated 프록시의 소멸자는 IPC 연결이 있으면 Exit 메시지를 비동기로 보냅니다. 이 발췌만으로 worker 종료 확인이나 모든 자원 회수 완료를 보장하지는 않습니다. `utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130`
+Threaded 정지 코드는 실행 중이 아니면 반환하고, 실행 중이면 `ProxyStopping`으로 전환합니다. 내부 `stop()`을 blocking 호출한 뒤 스레드의 `exit()`와 `wait()`를 수행합니다. 이어 현재 스레드에 남은 해당 프록시의 InvokeMessage를 전달한 뒤 `ProxyStopped`로 바꿉니다. `utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25`
 
-실행 확인 항목: worker 종료 대기, 비정상 종료 후 복구와 신호 재진입은 Process·worker 구현 및 실제 실행에서 확인해야 합니다. `utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130`, `utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25`
+`Isolated` 프록시는 worker 경로와 IPC 연결이 확보돼야 유효해집니다. 소멸자는 IPC가 있을 때 `Exit` 메시지를 비동기로 전송합니다. 이 소멸자 코드만으로 worker의 종료 확인이나 모든 후속 콜백 처리가 끝났다고 단정할 수는 없습니다. `utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130`
 
 근거 원문: [src/libcamera/ipa_module.cpp:390](#source-fadefbb962b2fc44) · [utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48](#source-c7fd6e52f2c537b5) · [utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25](#source-eb8f57d7452822da) · [utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130](#source-9ff6047b0a70ce66)
 
 ## 생성과 IPC 실패
 
-모듈 적재는 유효하지 않은 모듈, `dlopen()` 실패 또는 `ipaCreate` 심볼 조회 실패에서 false를 반환합니다. Isolated 프록시는 worker 경로가 없거나 IPC 연결에 실패하면 valid 상태를 설정하지 않으며, 관리자는 유효하지 않은 프록시를 null로 반환합니다. `src/libcamera/ipa_module.cpp:390`, `utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130`, `include/libcamera/internal/ipa_manager.h:35`
+`createIPA()`의 null 반환은 일치하는 모듈이 없거나 생성한 프록시가 유효하지 않은 경우입니다. 서명이 유효하지 않다는 판정은 먼저 `Isolated` 선택으로 이어지므로 별도의 실패 단계와 구분합니다. `include/libcamera/internal/ipa_manager.h:35`
 
-동기 IPC 호출은 응답을 기다리며 현재 스레드의 이벤트를 처리합니다. 2000ms 타임아웃이 끝나면 `-ETIMEDOUT`을 반환합니다. 전송 실패도 호출자에게 반환합니다. 생성 프록시는 반환값이 있는 메서드에는 오류를 반환하고 void 메서드에서는 로그를 남긴 뒤 반환합니다. `src/libcamera/ipc_pipe_unixsocket.cpp:27`, `utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130`
+`IPAModule::load()`는 `dlopen()` 실패 또는 `ipaCreate` 심볼 검색 실패를 감지합니다. 심볼을 찾지 못하면 열린 핸들을 닫고 null로 바꾼 뒤 실패를 반환합니다. `createInterface()`도 모듈의 유효성·적재 상태를 확인한 뒤 팩토리를 호출합니다. `src/libcamera/ipa_module.cpp:390`
 
-실행 확인 항목: 이벤트 처리 중 재진입과 worker 장애 시 파이프라인의 요청 취소·재시작 정책은 별도의 구현 검토와 실행 검증이 필요합니다. `src/libcamera/ipc_pipe_unixsocket.cpp:27`, `utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130`
+`Isolated` 생성자는 worker 경로가 비었거나 IPC 연결이 실패하면 유효 상태에 도달하지 않습니다. 생성된 메서드의 IPC 전송 오류는 로그에 남으며, 반환값이 있는 메서드는 오류 코드를 해당 반환 타입으로 돌려줍니다. `utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130`
+
+`sendSync()`가 사용하는 `call()`은 메시지를 보낸 뒤 2000ms 타이머를 시작하고 이벤트를 처리하며 응답을 기다립니다. 시간이 만료되면 대기 항목을 제거하고 `-ETIMEDOUT`을 반환합니다. 소켓 전송 실패도 대기 항목을 정리하고 그대로 반환하므로, 모듈 선택 실패와 통신 중 실패는 구분됩니다. `src/libcamera/ipc_pipe_unixsocket.cpp:27`
 
 근거 원문: [include/libcamera/internal/ipa_manager.h:35](#source-2a1bbbc8623a516f) · [src/libcamera/ipa_module.cpp:390](#source-fadefbb962b2fc44) · [utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130](#source-9ff6047b0a70ce66) · [src/libcamera/ipc_pipe_unixsocket.cpp:27](#source-f0268126d3f8c2bc)
 
 ## 보정 전 튜닝 파일
 
-rkisp1과 mali-c55 파이프라인은 센서 모델 이름에 `.yaml`을 붙인 튜닝 파일을 먼저 찾고, 대체 파일로 `uncalibrated.yaml`을 넘깁니다. `IPAProxy::configurationFile()`은 첫 이름의 파일을 찾지 못하면 대체 이름으로 같은 탐색을 반복하고 경고 로그를 남깁니다. `src/libcamera/pipeline/rkisp1/rkisp1.cpp:406`, `src/libcamera/pipeline/mali-c55/mali-c55.cpp:468`, `src/libcamera/ipa_proxy.cpp:174`
+RKISP1은 센서 모델 이름에 `.yaml`을 붙인 튜닝 파일을 요청하며, 대체 파일 이름으로 `uncalibrated.yaml`을 지정합니다. `src/libcamera/pipeline/rkisp1/rkisp1.cpp:406`
 
-rkisp1의 `uncalibrated.yaml`은 `algorithms` 목록에 Agc, Awb, BlackLevelCorrection, Ccm, GammaOutCorrection을 올립니다. mali-c55의 `uncalibrated.yaml`은 Agc, Awb, BlackLevelCorrection, Ccm을 올립니다. 두 파일 모두 알고리즘 항목에 매개변수를 적지 않습니다. `src/ipa/rkisp1/data/uncalibrated.yaml:1`, `src/ipa/mali-c55/data/uncalibrated.yaml:1`
+Mali-C55도 센서 모델 이름으로 튜닝 파일을 찾고 같은 대체 파일 이름을 전달합니다. 센서별 파일 요청과 대체 파일 요청이 코드에서 명시적으로 구분됩니다. `src/libcamera/pipeline/mali-c55/mali-c55.cpp:468`
 
-실행 확인 항목: 매개변수가 없을 때 각 알고리즘이 쓰는 기본값과, 보정하지 않은 센서에서 얻는 화질은 각 알고리즘 구현과 실제 촬영으로 확인해야 합니다. `src/ipa/rkisp1/data/uncalibrated.yaml:1`, `src/ipa/mali-c55/data/uncalibrated.yaml:1`
+`IPAProxy::configurationFile()`은 먼저 요청한 이름을 검색해 경로를 찾으면 반환합니다. 찾지 못했고 대체 이름도 없으면 빈 문자열을 반환합니다. 대체 이름이 있으면 그 이름으로 다시 검색하며, 대체 검색을 했다는 사실이 파일의 존재를 보장하는 것은 아닙니다. `src/libcamera/ipa_proxy.cpp:174`
+
+RKISP1의 기본 대체 파일은 `Agc`, `Awb`, `BlackLevelCorrection`, `Ccm`, `GammaOutCorrection`을 나열합니다. 이 목록에 없는 보정 알고리즘까지 활성화된 것으로 추정하지 않습니다. `src/ipa/rkisp1/data/uncalibrated.yaml:1`
+
+Mali-C55의 기본 대체 파일은 `Agc`, `Awb`, `BlackLevelCorrection`, `Ccm`을 나열합니다. 센서별 튜닝 파일과 기본 대체 파일의 알고리즘 구성을 구분해야 합니다. `src/ipa/mali-c55/data/uncalibrated.yaml:1`
 
 근거 원문: [src/libcamera/pipeline/rkisp1/rkisp1.cpp:406](#source-a117437c7ec61db3) · [src/libcamera/pipeline/mali-c55/mali-c55.cpp:468](#source-efc0c3fc5cf7acef) · [src/libcamera/ipa_proxy.cpp:174](#source-4000376c954f5327) · [src/ipa/rkisp1/data/uncalibrated.yaml:1](#source-c3d57577d02a4dc3) · [src/ipa/mali-c55/data/uncalibrated.yaml:1](#source-9146c9052851a10f)
 
 ## 소프트웨어 ISP 셰이더의 렌즈 음영 보정
 
-소프트웨어 ISP의 두 bayer 프래그먼트 셰이더는 `APPLY_LSC`가 정의되어 컴파일될 때만 `lsc_tex` 텍스처를 선언하고 렌즈 음영 보정을 적용합니다. 보정은 블랙 레벨을 뺀 직후, AWB 게인을 곱하기 전에 RGB 값에 텍스처의 RGB 값을 곱하는 방식입니다. `src/libcamera/shaders/bayer_1x_packed.frag:1`, `src/libcamera/shaders/bayer_unpacked.frag:1`
+packed 셰이더는 블랙 레벨 보정 뒤 `APPLY_LSC`가 정의된 경우 LSC를 적용합니다. `textureOut` 좌표에서 읽은 LSC 텍스처 값에 4.0을 곱해 RGB에 적용하며, 주석은 이를 UQ 형식에서 실수 값으로 바꾸는 배율로 설명합니다. 이후 AWB와 범위 제한, 색 보정 행렬, 대비, 감마 순서로 처리합니다. `src/libcamera/shaders/bayer_1x_packed.frag:237`
 
-`bayer_1x_packed.frag`의 주석은 텍스처 값이 UQ<2, 6> 형식이므로 4.0을 곱해 원래의 부동소수점 값으로 되돌린다고 설명합니다. 텍스처 좌표는 packed 셰이더가 `textureOut`을, unpacked 셰이더가 `center.xy`를 씁니다. `src/libcamera/shaders/bayer_1x_packed.frag:1`, `src/libcamera/shaders/bayer_unpacked.frag:1`
+unpacked 셰이더도 블랙 레벨 보정 다음에 조건부 LSC를 수행하지만 텍스처 좌표는 `center.xy`입니다. 텍스처 값의 4.0 배율과 AWB·색 보정·대비·감마의 순서는 packed 경로와 같습니다. `src/libcamera/shaders/bayer_unpacked.frag:140`
 
-소프트웨어 ISP IPA 인터페이스의 `init()`는 `ret`과 `ipaControls` 외에 `ccmEnabled`와 `lscEnabled` 두 플래그를 결과로 돌려줍니다. `include/libcamera/ipa/softisp.mojom:1`
+SoftISP 인터페이스의 `init()`은 통계와 파라미터용 `SharedFD`를 받고 `ccmEnabled`, `lscEnabled`를 결과로 선언합니다. 이 선언에는 LSC 전용 버퍼 인자가 따로 없으므로, 이를 별도의 LSC 버퍼 전달 계약으로 확대하지 않습니다. `include/libcamera/ipa/softisp.mojom:1`
 
-실행 확인 항목: `lscEnabled` 값이 셰이더의 `APPLY_LSC` 컴파일로 이어지는 경로, `lsc_tex`에 올리는 표와 색온도에 따른 표 선택은 디베이어 구현과 IPA에서 확인해야 하며 이 발췌로는 확인할 수 없습니다. `src/libcamera/shaders/bayer_1x_packed.frag:1`, `src/libcamera/shaders/bayer_unpacked.frag:1`, `include/libcamera/ipa/softisp.mojom:1`
+SoftISP는 프레임별 async 요청·파라미터 계산·통계 처리 메서드를 선언합니다. 이 인터페이스와 셰이더 소스의 연결만으로 실제 GPU 실행이나 영상 보정 결과를 검증한 것은 아닙니다. `include/libcamera/ipa/softisp.mojom:1`
 
-근거 원문: [src/libcamera/shaders/bayer_1x_packed.frag:1](#source-411c929d335b5652) · [src/libcamera/shaders/bayer_unpacked.frag:1](#source-ca9e8dcf4c2797f8) · [include/libcamera/ipa/softisp.mojom:1](#source-df8e8976167a0311)
+근거 원문: [src/libcamera/shaders/bayer_1x_packed.frag:237](#source-68d470282c445049) · [src/libcamera/shaders/bayer_unpacked.frag:140](#source-86d4a7688119bd37) · [include/libcamera/ipa/softisp.mojom:1](#source-df8e8976167a0311)
 
 ??? note "설계 질문과 검증 범위"
     질문별 답변과 근거 연결을 검사했습니다. 의미와 실행 결과는 사람 검토가 필요합니다.
@@ -101,12 +117,12 @@ rkisp1의 `uncalibrated.yaml`은 `algorithms` 목록에 Agc, Awb, BlackLevelCorr
     | 설계 질문 | 설명 위치 | 확인 범위 |
     |---|---|---|
     | 어떤 IPA 모듈과 실행 방식이 선택됩니까? | [모듈 탐색과 격리 조건](#모듈-탐색과-격리-조건) | 코드 근거와 설명 연결 |
-    | 동기 호출과 비동기 호출은 어디에서 실행됩니까? | [스레드와 프로세스 경계](#스레드와-프로세스-경계) | 코드 근거와 설명 연결 |
-    | 파이프라인과 알고리즘은 어떤 입력과 결과를 주고받습니까? | [프레임 입력과 결과 인터페이스](#프레임-입력과-결과-인터페이스) | 코드 근거와 설명 연결 · 실행 확인 항목 별도 |
-    | 인터페이스를 만들고 비동기 처리를 끝내는 계약은 무엇입니까? | [IPA 객체와 종료 순서](#ipa-객체와-종료-순서) | 코드 근거와 설명 연결 · 실행 확인 항목 별도 |
-    | 모듈 생성과 IPC 오류는 어떻게 관찰됩니까? | [생성과 IPC 실패](#생성과-ipc-실패) | 코드 근거와 설명 연결 · 실행 확인 항목 별도 |
-    | 센서별 튜닝 파일이 없으면 어떤 파일과 알고리즘이 쓰입니까? | [보정 전 튜닝 파일](#보정-전-튜닝-파일) | 코드 근거와 설명 연결 · 실행 확인 항목 별도 |
-    | 소프트웨어 ISP의 GPU 셰이더는 렌즈 음영 보정을 어느 단계에 적용합니까? | [소프트웨어 ISP 셰이더의 렌즈 음영 보정](#소프트웨어-isp-셰이더의-렌즈-음영-보정) | 코드 근거와 설명 연결 · 실행 확인 항목 별도 |
+    | 동기 호출과 비동기 호출은 어디에서 실행됩니까? | [스레드와 프로세스 경계](#스레드와-프로세스-경계) | 코드 근거와 설명 연결 · 실행 확인 항목 별도 |
+    | 파이프라인과 알고리즘은 어떤 입력과 결과를 주고받습니까? | [프레임 입력과 결과 인터페이스](#프레임-입력과-결과-인터페이스) | 코드 근거와 설명 연결 |
+    | 인터페이스를 만들고 비동기 처리를 끝내는 계약은 무엇입니까? | [IPA 객체와 종료 순서](#ipa-객체와-종료-순서) | 코드 근거와 설명 연결 |
+    | 모듈 생성과 IPC 오류는 어떻게 관찰됩니까? | [생성과 IPC 실패](#생성과-ipc-실패) | 코드 근거와 설명 연결 |
+    | 센서별 튜닝 파일이 없으면 어떤 파일과 알고리즘이 쓰입니까? | [보정 전 튜닝 파일](#보정-전-튜닝-파일) | 코드 근거와 설명 연결 |
+    | 소프트웨어 ISP의 GPU 셰이더는 렌즈 음영 보정을 어느 단계에 적용합니까? | [소프트웨어 ISP 셰이더의 렌즈 음영 보정](#소프트웨어-isp-셰이더의-렌즈-음영-보정) | 코드 근거와 설명 연결 |
 
 ## 소스 근거
 
@@ -944,251 +960,15 @@ rkisp1의 `uncalibrated.yaml`은 `algorithms` 목록에 Agc, Awb, BlackLevelCorr
     ...
     ```
 
-<a id="source-411c929d335b5652"></a>
+<a id="source-68d470282c445049"></a>
 
-??? note "소스 근거: src/libcamera/shaders/bayer_1x_packed.frag:1"
-    `src/libcamera/shaders/bayer_1x_packed.frag:1`에서 시작하는 발췌입니다. 종료 줄은 270이며, 아래 원문을 설명과 대조할 수 있습니다.
+??? note "소스 근거: src/libcamera/shaders/bayer_1x_packed.frag:237"
+    `src/libcamera/shaders/bayer_1x_packed.frag:237`에서 시작하는 발췌입니다. 종료 줄은 270이며, 아래 원문을 설명과 대조할 수 있습니다.
     
-    SHA-256: `df7b18b27b09dcf85bb35de49ff65c23e5e628bbf2050d30ad648d5ea5ea814c`
+    SHA-256: `84e5be2b8bbb1a1337af23df059b5d9270e16421c945a530a8c848709f302e6a`
     
     ```text
-    /* SPDX-License-Identifier: BSD-2-Clause */
-    /*
-     * Based on the code from http://jgt.akpeters.com/papers/McGuire08/
-     *
-     * Efficient, High-Quality Bayer Demosaic Filtering on GPUs
-     *
-     * Morgan McGuire
-     *
-     * This paper appears in issue Volume 13, Number 4.
-     * ---------------------------------------------------------
-     * Copyright (c) 2008, Morgan McGuire. All rights reserved.
-     *
-     *
-     * Modified by Linaro Ltd for 10/12-bit packed vs 8-bit raw Bayer format,
-     * and for simpler demosaic algorithm.
-     * Copyright (C) 2020, Linaro
-     *
-     * bayer_1x_packed.frag - Fragment shader code for raw Bayer 10-bit and 12-bit
-     * packed formats
-     */
-    
-    #ifdef GL_ES
-    precision highp float;
-    #endif
-    
-    /*
-     * These constants are used to select the bytes containing the HS part of
-     * the pixel value:
-     * BPP - bytes per pixel,
-     * THRESHOLD_L = fract(BPP) * 0.5 + 0.02
-     * THRESHOLD_H = 1.0 - fract(BPP) * 1.5 + 0.02
-     * Let X is the x coordinate in the texture measured in bytes (so that the
-     * range is from 0 to (stride_-1)) aligned on the nearest pixel.
-     * E.g. for RAW10P:
-     * -------------+-------------------+-------------------+--
-     *  pixel No    |  0   1    2   3   |  4   5    6   7   | ...
-     * -------------+-------------------+-------------------+--
-     *  byte offset | 0   1   2   3   4 | 5   6   7   8   9 | ...
-     * -------------+-------------------+-------------------+--
-     *      X       | 0.0 1.25 2.5 3.75 | 5.0 6.25 7.5 8.75 | ...
-     * -------------+-------------------+-------------------+--
-     * If fract(X) < THRESHOLD_L then the previous byte contains the LS
-     * bits of the pixel values and needs to be skipped.
-     * If fract(X) > THRESHOLD_H then the next byte contains the LS bits
-     * of the pixel values and needs to be skipped.
-     */
-    #if defined(RAW10P)
-    #define BPP		1.25
-    #define THRESHOLD_L	0.14
-    #define THRESHOLD_H	0.64
-    #elif defined(RAW12P)
-    #define BPP		1.5
-    #define THRESHOLD_L	0.27
-    #define THRESHOLD_H	0.27
-    #else
-    #error Invalid raw format
-    #endif
-    
-    
-    varying vec2 textureOut;
-    
-    /* the texture size in pixels */
-    uniform vec2 tex_size;
-    uniform vec2 tex_step;
-    uniform vec2 tex_bayer_first_red;
-    
-    uniform sampler2D tex_y;
-    uniform vec3 awb;
-    uniform mat3 ccm;
-    uniform vec3 blacklevel;
-    uniform float gamma;
-    uniform float contrastExp;
-    
-    #if defined(APPLY_LSC)
-    uniform sampler2D lsc_tex;
-    #endif
-    
-    float apply_contrast(float value)
-    {
-    	// Apply simple S-curve
-    	if (value < 0.5)
-    		return 0.5 * pow(value / 0.5, contrastExp);
-    	else
-    		return 1.0 - 0.5 * pow((1.0 - value) / 0.5, contrastExp);
-    }
-    
-    void main(void)
-    {
-    	vec3 rgb;
-    
-    	/*
-    	 * center_bytes holds the coordinates of the MS byte of the pixel
-    	 * being sampled on the [0, stride-1/height-1] range.
-    	 * center_pixel holds the coordinates of the pixel being sampled
-    	 * on the [0, width/height-1] range.
-    	 */
-    	vec2 center_bytes;
-    	vec2 center_pixel;
-    
-    	/*
-    	 * x- and y-positions of the adjacent pixels on the [0, 1] range.
-    	 */
-    	vec2 xcoords;
-    	vec2 ycoords;
-    
-    	/*
-    	 * The coordinates passed to the shader in textureOut may point
-    	 * to a place in between the pixels if the texture format doesn't
-    	 * match the image format. In particular, MIPI packed raw Bayer
-    	 * formats don't have a matching texture format.
-    	 * In this case align the coordinates to the left nearest pixel
-    	 * by hand.
-    	 */
-    	center_pixel = floor(textureOut * tex_size);
-    	center_bytes.y = center_pixel.y;
-    
-    	/*
-    	 * Add a small number (a few mantissa's LSBs) to avoid float
-    	 * representation issues. Maybe paranoic.
-    	 */
-    	center_bytes.x = BPP * center_pixel.x + 0.02;
-    
-    	float fract_x = fract(center_bytes.x);
-    
-    	/*
-    	 * The below floor() call ensures that center_bytes.x points
-    	 * at one of the bytes representing the 8 higher bits of
-    	 * the pixel value, not at the byte containing the LS bits
-    	 * of the group of the pixels.
-    	 */
-    	center_bytes.x = floor(center_bytes.x);
-    	center_bytes *= tex_step;
-    
-    	xcoords = center_bytes.x + vec2(-tex_step.x, tex_step.x);
-    	ycoords = center_bytes.y + vec2(-tex_step.y, tex_step.y);
-    
-    	/*
-    	 * If xcoords[0] points at the byte containing the LS bits
-    	 * of the previous group of the pixels, move xcoords[0] one
-    	 * byte back.
-    	 */
-    	xcoords[0] += (fract_x < THRESHOLD_L) ? -tex_step.x : 0.0;
-    
-    	/*
-    	 * If xcoords[1] points at the byte containing the LS bits
-    	 * of the current group of the pixels, move xcoords[1] one
-    	 * byte forward.
-    	 */
-    	xcoords[1] += (fract_x > THRESHOLD_H) ? tex_step.x : 0.0;
-    
-    	vec2 alternate = mod(center_pixel.xy + tex_bayer_first_red, 2.0);
-    	bool even_col = alternate.x < 1.0;
-    	bool even_row = alternate.y < 1.0;
-    
-    	/*
-    	 * We need to sample the central pixel and the ones with offset
-    	 * of -1 to +1 pixel in both X and Y directions. Let's name these
-    	 * pixels as below, where C is the central pixel:
-    	 *
-    	 *   +----+----+----+----+
-    	 *   | \ x|    |    |    |
-    	 *   |y \ | -1 |  0 | +1 |
-    	 *   +----+----+----+----+
-    	 *   | +1 | D2 | A1 | D3 |
-    	 *   +----+----+----+----+
-    	 *   |  0 | B0 |  C | B1 |
-    	 *   +----+----+----+----+
-    	 *   | -1 | D0 | A0 | D1 |
-    	 *   +----+----+----+----+
-    	 *
-    	 * In the below equations (0,-1).r means "r component of the texel
-    	 * shifted by -tex_step.y from the center_bytes one" etc.
-    	 *
-    	 * In the even row / even column (EE) case the colour values are:
-    	 *   R = C = (0,0).r,
-    	 *   G = (A0 + A1 + B0 + B1) / 4.0 =
-    	 *       ( (0,-1).r + (0,1).r + (-1,0).r + (1,0).r ) / 4.0,
-    	 *   B = (D0 + D1 + D2 + D3) / 4.0 =
-    	 *       ( (-1,-1).r + (1,-1).r + (-1,1).r + (1,1).r ) / 4.0
-    	 *
-    	 * For even row / odd column (EO):
-    	 *   R = (B0 + B1) / 2.0 = ( (-1,0).r + (1,0).r ) / 2.0,
-    	 *   G = C = (0,0).r,
-    	 *   B = (A0 + A1) / 2.0 = ( (0,-1).r + (0,1).r ) / 2.0
-    	 *
-    	 * For odd row / even column (OE):
-    	 *   R = (A0 + A1) / 2.0 = ( (0,-1).r + (0,1).r ) / 2.0,
-    	 *   G = C = (0,0).r,
-    	 *   B = (B0 + B1) / 2.0 = ( (-1,0).r + (1,0).r ) / 2.0
-    	 *
-    	 * For odd row / odd column (OO):
-    	 *   R = (D0 + D1 + D2 + D3) / 4.0 =
-    	 *       ( (-1,-1).r + (1,-1).r + (-1,1).r + (1,1).r ) / 4.0,
-    	 *   G = (A0 + A1 + B0 + B1) / 4.0 =
-    	 *       ( (0,-1).r + (0,1).r + (-1,0).r + (1,0).r ) / 4.0,
-    	 *   B = C = (0,0).r
-    	 */
-    
-    	/*
-    	 * Fetch the values and precalculate the terms:
-    	 *   patterns.x = (A0 + A1) / 2.0
-    	 *   patterns.y = (B0 + B1) / 2.0
-    	 *   patterns.z = (A0 + A1 + B0 + B1) / 4.0
-    	 *   patterns.w = (D0 + D1 + D2 + D3) / 4.0
-    	 */
-    	#define fetch(x, y) texture2D(tex_y, vec2(x, y)).r
-    
-    	float C = texture2D(tex_y, center_bytes).r;
-    	vec4 patterns = vec4(
-    		fetch(center_bytes.x, ycoords[0]),	/* A0: (0,-1) */
-    		fetch(xcoords[0], center_bytes.y),	/* B0: (-1,0) */
-    		fetch(xcoords[0], ycoords[0]),		/* D0: (-1,-1) */
-    		fetch(xcoords[1], ycoords[0]));		/* D1: (1,-1) */
-    	vec4 temp = vec4(
-    		fetch(center_bytes.x, ycoords[1]),	/* A1: (0,1) */
-    		fetch(xcoords[1], center_bytes.y),	/* B1: (1,0) */
-    		fetch(xcoords[1], ycoords[1]),		/* D3: (1,1) */
-    		fetch(xcoords[0], ycoords[1]));		/* D2: (-1,1) */
-    	patterns = (patterns + temp) * 0.5;
-    		/* .x = (A0 + A1) / 2.0, .y = (B0 + B1) / 2.0 */
-    		/* .z = (D0 + D3) / 2.0, .w = (D1 + D2) / 2.0 */
-    	patterns.w = (patterns.z + patterns.w) * 0.5;
-    	patterns.z = (patterns.x + patterns.y) * 0.5;
-    
-    	rgb = even_col ?
-    		(even_row ?
-    			vec3(C, patterns.zw) :
-    			vec3(patterns.x, C, patterns.y)) :
-    		(even_row ?
-    			vec3(patterns.y, C, patterns.x) :
-    			vec3(patterns.wz, C));
-    
-    	/*
-    	 * \todo: Black level normalising, AWB and digital gain could be
-    	 * reworked into a single multiplication.
-    	 */
-    	rgb = (rgb - blacklevel) / (1.0 - blacklevel);
+    rgb = (rgb - blacklevel) / (1.0 - blacklevel);
     
     #if defined(APPLY_LSC)
             /* Multiple by 4.0 for UQ<2, 6> -> float conversion:
@@ -1224,154 +1004,15 @@ rkisp1의 `uncalibrated.yaml`은 `algorithms` 목록에 Agc, Awb, BlackLevelCorr
     }
     ```
 
-<a id="source-ca9e8dcf4c2797f8"></a>
+<a id="source-86d4a7688119bd37"></a>
 
-??? note "소스 근거: src/libcamera/shaders/bayer_unpacked.frag:1"
-    `src/libcamera/shaders/bayer_unpacked.frag:1`에서 시작하는 발췌입니다. 종료 줄은 169이며, 아래 원문을 설명과 대조할 수 있습니다.
+??? note "소스 근거: src/libcamera/shaders/bayer_unpacked.frag:140"
+    `src/libcamera/shaders/bayer_unpacked.frag:140`에서 시작하는 발췌입니다. 종료 줄은 169이며, 아래 원문을 설명과 대조할 수 있습니다.
     
-    SHA-256: `d9a997545388c652dc1c3939d88c0cad5df251642b1775f7cc62e4388c7986bf`
+    SHA-256: `5567b6548b078d7db847d9b57eefb1799e917214787288683110d5b41510573b`
     
     ```text
-    /* SPDX-License-Identifier: BSD-2-Clause */
-    /*
-    From http://jgt.akpeters.com/papers/McGuire08/
-    
-    Efficient, High-Quality Bayer Demosaic Filtering on GPUs
-    
-    Morgan McGuire
-    
-    This paper appears in issue Volume 13, Number 4.
-    ---------------------------------------------------------
-    Copyright (c) 2008, Morgan McGuire. All rights reserved.
-    
-    Modified by Linaro Ltd to integrate it into libcamera.
-    Copyright (C) 2021, Linaro
-    */
-    
-    //Pixel Shader
-    #ifdef GL_ES
-    precision highp float;
-    #endif
-    
-    /** Monochrome RGBA or GL_LUMINANCE Bayer encoded texture.*/
-    uniform sampler2D       tex_y;
-    varying vec4            center;
-    varying vec4            yCoord;
-    varying vec4            xCoord;
-    uniform vec3            awb;
-    uniform mat3            ccm;
-    uniform vec3            blacklevel;
-    uniform float           gamma;
-    uniform float           contrastExp;
-    
-    #if defined(APPLY_LSC)
-    uniform sampler2D lsc_tex;
-    #endif
-    
-    float apply_contrast(float value)
-    {
-        // Apply simple S-curve
-        if (value < 0.5)
-            return 0.5 * pow(value / 0.5, contrastExp);
-        else
-            return 1.0 - 0.5 * pow((1.0 - value) / 0.5, contrastExp);
-    }
-    
-    void main(void) {
-        vec3 rgb;
-    
-        #if defined(RAW10P)
-        #define pixel(p) p.r / 4.0 + p.g * 64.0
-        #define fetch(x, y) pixel(texture2D(tex_y, vec2(x, y)))
-        #elif defined(RAW12P)
-        #define pixel(p) p.r / 16.0 + p.g * 16.0
-        #define fetch(x, y) pixel(texture2D(tex_y, vec2(x, y)))
-        #else
-        #define fetch(x, y) texture2D(tex_y, vec2(x, y)).r
-        #endif
-    
-        float C = fetch(center.x, center.y); // ( 0, 0)
-        const vec4 kC = vec4( 4.0,  6.0,  5.0,  5.0) / 8.0;
-    
-        // Determine which of four types of pixels we are on.
-        vec2 alternate = mod(floor(center.zw), 2.0);
-    
-        vec4 Dvec = vec4(
-            fetch(xCoord[1], yCoord[1]),  // (-1,-1)
-            fetch(xCoord[1], yCoord[2]),  // (-1, 1)
-            fetch(xCoord[2], yCoord[1]),  // ( 1,-1)
-            fetch(xCoord[2], yCoord[2])); // ( 1, 1)
-    
-        vec4 PATTERN = (kC.xyz * C).xyzz;
-    
-        // Can also be a dot product with (1,1,1,1) on hardware where that is
-        // specially optimized.
-        // Equivalent to: D = Dvec[0] + Dvec[1] + Dvec[2] + Dvec[3];
-        Dvec.xy += Dvec.zw;
-        Dvec.x  += Dvec.y;
-    
-        vec4 value = vec4(
-            fetch(center.x, yCoord[0]),   // ( 0,-2)
-            fetch(center.x, yCoord[1]),   // ( 0,-1)
-            fetch(xCoord[0], center.y),   // (-2, 0)
-            fetch(xCoord[1], center.y));  // (-1, 0)
-    
-        vec4 temp = vec4(
-            fetch(center.x, yCoord[3]),   // ( 0, 2)
-            fetch(center.x, yCoord[2]),   // ( 0, 1)
-            fetch(xCoord[3], center.y),   // ( 2, 0)
-            fetch(xCoord[2], center.y));  // ( 1, 0)
-    
-        // Even the simplest compilers should be able to constant-fold these to
-        // avoid the division.
-        // Note that on scalar processors these constants force computation of some
-        // identical products twice.
-        const vec4 kA = vec4(-1.0, -1.5,  0.5, -1.0) / 8.0;
-        const vec4 kB = vec4( 2.0,  0.0,  0.0,  4.0) / 8.0;
-        const vec4 kD = vec4( 0.0,  2.0, -1.0, -1.0) / 8.0;
-    
-        // Conserve constant registers and take advantage of free swizzle on load
-        #define kE (kA.xywz)
-        #define kF (kB.xywz)
-    
-        value += temp;
-    
-        // There are five filter patterns (identity, cross, checker,
-        // theta, phi).  Precompute the terms from all of them and then
-        // use swizzles to assign to color channels.
-        //
-        // Channel   Matches
-        //   x       cross   (e.g., EE G)
-        //   y       checker (e.g., EE B)
-        //   z       theta   (e.g., EO R)
-        //   w       phi     (e.g., EO R)
-        #define A (value[0])
-        #define B (value[1])
-        #define D (Dvec.x)
-        #define E (value[2])
-        #define F (value[3])
-    
-        // Avoid zero elements. On a scalar processor this saves two MADDs
-        // and it has no effect on a vector processor.
-        PATTERN.yzw += (kD.yz * D).xyy;
-    
-        PATTERN += (kA.xyz * A).xyzx + (kE.xyw * E).xyxz;
-        PATTERN.xw  += kB.xw * B;
-        PATTERN.xz  += kF.xz * F;
-    
-        rgb =  (alternate.y == 0.0) ?
-            ((alternate.x == 0.0) ?
-                vec3(C, PATTERN.xy) :
-                vec3(PATTERN.z, C, PATTERN.w)) :
-            ((alternate.x == 0.0) ?
-                vec3(PATTERN.w, C, PATTERN.z) :
-                vec3(PATTERN.yx, C));
-    
-        /*
-         * \todo: Black level normalising, AWB and digital gain could be
-         * reworked into a single multiplication.
-         */
-        rgb = (rgb - blacklevel) / (1.0 - blacklevel);
+    rgb = (rgb - blacklevel) / (1.0 - blacklevel);
     
     #if defined(APPLY_LSC)
         /* Multiple by 4.0 for UQ<2, 6> -> float conversion */
@@ -1497,9 +1138,9 @@ flowchart LR
 | `libcamera::ipa::rkisp1::IPARkISP1` | `src/ipa/rkisp1/rkisp1.cpp:46` | `libcamera::ipa::rkisp1::IPARkISP1Interface`, `libcamera::ipa::rkisp1::Module` | 확인 필요 |
 
 ??? note "근거와 검토 정보"
-    - 생성 방식: 소스 발췌에 연결한 설계 설명
-    - 검증 범위: 설정에 작성된 설명을 발췌 해시와 대조합니다. 해시 일치는 설명의 의미를 승인하지 않습니다.
-    - 근거 파일: `include/libcamera/internal/ipa_manager.h`, `include/libcamera/internal/ipa_module.h`, `include/libcamera/internal/ipa_proxy.h`, `src/ipa/ipu3/ipu3.cpp`, `src/ipa/rkisp1/rkisp1.cpp`, `src/libcamera/ipa_manager.cpp`, `src/libcamera/ipa_module.cpp`, `src/libcamera/ipa_proxy.cpp`, `src/libcamera/ipc_pipe_unixsocket.cpp`, `src/libcamera/pipeline/mali-c55/mali-c55.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl`, `utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl`
+    - 생성 방식: 추출 사실과 LLM 설명
+    - 검증 범위: 표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.
+    - 근거 파일: `include/libcamera/internal/ipa_manager.h`, `include/libcamera/internal/ipa_module.h`, `include/libcamera/internal/ipa_proxy.h`, `include/libcamera/ipa/ipu3.mojom`, `include/libcamera/ipa/rkisp1.mojom`, `include/libcamera/ipa/softisp.mojom`, `src/ipa/ipu3/ipu3.cpp`, `src/ipa/mali-c55/data/uncalibrated.yaml`, `src/ipa/rkisp1/data/uncalibrated.yaml`, `src/ipa/rkisp1/rkisp1.cpp`, `src/libcamera/ipa_manager.cpp`, `src/libcamera/ipa_module.cpp`, `src/libcamera/ipa_proxy.cpp`, `src/libcamera/ipc_pipe_unixsocket.cpp`, `src/libcamera/pipeline/mali-c55/mali-c55.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/shaders/bayer_1x_packed.frag`, `src/libcamera/shaders/bayer_unpacked.frag`, `utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl`, `utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl`
     - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `2c4b67c079`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
     - 검토 상태 기록일: 2026-10-24 · 사람 검토 전
