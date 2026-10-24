@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>IPU3 LSC configuration and frame processing · libcamera Design Documentation</title><link rel="stylesheet" href="../assets/reading.css?v=f44bb69481"><link rel="alternate" hreflang="ko" href="../ipu3-lsc-flow.html"><link rel="alternate" hreflang="en" href="ipu3-lsc-flow.html"></head>
+<title>IPU3 LSC configuration and frame processing · libcamera Design Documentation</title><link rel="stylesheet" href="../assets/reading.css?v=001005a6ac"><link rel="alternate" hreflang="ko" href="../ipu3-lsc-flow.html"><link rel="alternate" hreflang="en" href="ipu3-lsc-flow.html"></head>
 <body><a class="skip" href="#main">Skip to content</a>
 <header class="site-header"><a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera Design Documentation</a>
 <div class="header-actions"><details class="language-selector"><summary aria-label="Choose language">English ▾</summary><nav><a lang="ko" hreflang="ko" href="../ipu3-lsc-flow.html">한국어</a><a lang="en" hreflang="en" href="ipu3-lsc-flow.html" aria-current="true">English</a></nav></details><button id="search-open" hidden>Find documents <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button></div></header>
 <div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Documentation menu"><p class="nav-group">Getting started</p><a href="index.html">Documentation guide</a><a href="glossary.html">Glossary</a><p class="nav-group">For Vendors</p><a href="vendor-overview.html">Hardware integration overview</a><a href="request-lifecycle.html">Request lifecycle and troubleshooting</a><a href="pipeline-handler.html">Pipeline Handler</a><a href="ipa.html">IPA management and implementation entry points</a><a href="ipu3-lsc.html">IPU3 LSC and state connections</a><a href="ipu3-lsc-flow.html" aria-current="page">IPU3 LSC configuration and frame processing</a><a href="rkisp1-dewarp.html">RKISP1 per-camera lens dewarping</a><p class="nav-group">For Architects</p><a href="overview.html">System overview</a><a href="camera-model.html">Camera and request model</a><a href="scenarios/index.html">Core scenarios</a><details class="nav-branch"><summary>6 child documents</summary><a class="nav-sub" href="scenarios/manager_start.html">Camera discovery (CameraManager::start)</a><a class="nav-sub" href="scenarios/configure.html">Stream configuration (Camera::configure)</a><a class="nav-sub" href="scenarios/camera_start.html">Capture start (Camera::start)</a><a class="nav-sub" href="scenarios/queue_request.html">Request submission (Camera::queueRequest)</a><a class="nav-sub" href="scenarios/complete_request.html">Request completion (PipelineHandler::completeRequest)</a><a class="nav-sub" href="scenarios/camera_stop.html">Capture stop request (Camera::stop)</a></details><a href="component-index.html">Component index</a></nav><p class="sidebar-note">Extract structure from code<br>and review it with evidence.</p></aside>
-<main id="main"><p class="breadcrumb">For Vendors <span>/</span> IPU3 LSC configuration and frame processing</p><h1>IPU3 LSC configuration and frame processing</h1><div class="page-state"><span class="review-state">Human review pending</span><span>Automatic checks passed · <code>ok</code></span><span class="generation-method">Design explanations bound to source excerpts</span></div>
+<main id="main"><p class="breadcrumb">For Vendors <span>/</span> IPU3 LSC configuration and frame processing</p><h1>IPU3 LSC configuration and frame processing</h1><div class="page-state"><span class="review-state">Human review pending</span><span>Automatic checks passed</span><span class="generation-method">Written from: explanations checked against code excerpts</span><a class="state-help" href="#page-evidence">What these mean ↓</a></div>
 <details class="mobile-toc"><summary>Contents of this page</summary><div class="toc">
 <ul>
 <li><a href="#빌드와-상태-연결">Build and state connections</a></li>
@@ -78,7 +78,7 @@
 <p>prepare() reads the current frame's AWB color temperature and rounds it to increments of 10. Only when update is false does it check whether to skip: it returns immediately if disabled, and also skips when enabled if the difference from the last applied temperature is below 5 or the quantized value is unchanged. These skip conditions do not apply when update is true.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>2</span></summary><ul><li><code>src/ipa/ipu3/algorithms/lsc.cpp</code><span class="evidence-lines"><a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:142" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.cpp#L142"><code>L142</code></a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:31" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.cpp#L31"><code>L31</code></a></span></li></ul></details>
 <p>On the update path, use.acc_shd is set to 1 and shd_enable records the current enabled state. Even when update is true and enabled is false, these flags are written before returning. The code therefore does not simply skip every disabled call.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/ipa/ipu3/algorithms/lsc.cpp</code><span class="evidence-lines"><a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:142" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.cpp#L142"><code>L142</code></a></span></li></ul></details>
 <p>When enabled, it sets the grid and crop offsets and calls interpolateComponents() with the quantized color temperature. It copies the returned r, gr, gb and b arrays into the LUT, then stores the two last-applied color-temperature values. Actual hardware application timing and the suitability of LUT partition boundaries require separate device verification.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/ipa/ipu3/algorithms/lsc.cpp</code><span class="evidence-lines"><a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:142" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.cpp#L142"><code>L142</code></a></span></li></ul></details>
-<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<div class="table-scroll stack" tabindex="0" role="region" aria-label="Table"><table>
 <thead>
 <tr>
 <th>Condition</th>
@@ -88,24 +88,24 @@
 </thead>
 <tbody>
 <tr>
-<td><code>update=false</code>, disabled.</td>
-<td>Return without updating parameters.</td>
-<td>Distinguish remaining disabled from transitioning to disabled.</td>
+<td data-label="Condition"><code>update=false</code>, disabled.</td>
+<td data-label="Behavior of prepare()">Return without updating parameters.</td>
+<td data-label="Change review focus">Distinguish remaining disabled from transitioning to disabled.</td>
 </tr>
 <tr>
-<td><code>update=false</code>, enabled, and either the difference from the previous color temperature is less than 5 or the quantized values are equal.</td>
-<td>Skip the LUT update.</td>
-<td>Check both the original color temperature difference and the values rounded to multiples of 10.</td>
+<td data-label="Condition"><code>update=false</code>, enabled, and either the difference from the previous color temperature is less than 5 or the quantized values are equal.</td>
+<td data-label="Behavior of prepare()">Skip the LUT update.</td>
+<td data-label="Change review focus">Check both the original color temperature difference and the values rounded to multiples of 10.</td>
 </tr>
 <tr>
-<td><code>update=true</code>, disabled.</td>
-<td>On the update path, write <code>use.acc_shd</code> and a disabled <code>shd_enable</code>.</td>
-<td>Do not remove the path that communicates the disabling transition by returning early.</td>
+<td data-label="Condition"><code>update=true</code>, disabled.</td>
+<td data-label="Behavior of prepare()">On the update path, write <code>use.acc_shd</code> and a disabled <code>shd_enable</code>.</td>
+<td data-label="Change review focus">Do not remove the path that communicates the disabling transition by returning early.</td>
 </tr>
 <tr>
-<td>On the update path and enabled.</td>
-<td>Write the grid, crop offsets and interpolated LUT, then store the color temperature.</td>
-<td>Compare output parameters with frame state.</td>
+<td data-label="Condition">On the update path and enabled.</td>
+<td data-label="Behavior of prepare()">Write the grid, crop offsets and interpolated LUT, then store the color temperature.</td>
+<td data-label="Change review focus">Compare output parameters with frame state.</td>
 </tr>
 </tbody>
 </table></div>
@@ -118,7 +118,7 @@
 <details class="note">
 <summary>Design questions and validation scope</summary>
 <p>Answers and their evidence links have been checked for each question. Meaning and runtime results still require human review.</p>
-<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<div class="table-scroll stack" tabindex="0" role="region" aria-label="Table"><table>
 <thead>
 <tr>
 <th>Design question</th>
@@ -128,29 +128,29 @@
 </thead>
 <tbody>
 <tr>
-<td>How do the LSC implementation files connect to shared and per-frame state?</td>
-<td><a href="#빌드와-상태-연결">Build and state connections</a></td>
-<td>Code evidence linked to explanation</td>
+<td data-label="Design question">How do the LSC implementation files connect to shared and per-frame state?</td>
+<td data-label="Explanation location"><a href="#빌드와-상태-연결">Build and state connections</a></td>
+<td data-label="Verification scope">Code evidence linked to explanation</td>
 </tr>
 <tr>
-<td>How does the input size determine the grid and size limits?</td>
-<td><a href="#초기화와-크롭-설정">Initialization and crop configuration</a></td>
-<td>Code evidence linked to explanation</td>
+<td data-label="Design question">How does the input size determine the grid and size limits?</td>
+<td data-label="Explanation location"><a href="#초기화와-크롭-설정">Initialization and crop configuration</a></td>
+<td data-label="Verification scope">Code evidence linked to explanation</td>
 </tr>
 <tr>
-<td>What data is passed for first-frame default activation and per-request control?</td>
-<td><a href="#첫-프레임과-요청별-제어">First frame and per-request controls</a></td>
-<td>Code evidence linked to explanation</td>
+<td data-label="Design question">What data is passed for first-frame default activation and per-request control?</td>
+<td data-label="Explanation location"><a href="#첫-프레임과-요청별-제어">First frame and per-request controls</a></td>
+<td data-label="Verification scope">Code evidence linked to explanation</td>
 </tr>
 <tr>
-<td>What triggers an update, and which parameters are sent to the kernel?</td>
-<td><a href="#파라미터-갱신-조건">Parameter update conditions</a></td>
-<td>Code evidence linked to explanation</td>
+<td data-label="Design question">What triggers an update, and which parameters are sent to the kernel?</td>
+<td data-label="Explanation location"><a href="#파라미터-갱신-조건">Parameter update conditions</a></td>
+<td data-label="Verification scope">Code evidence linked to explanation</td>
 </tr>
 <tr>
-<td>How are frame processing results reported?</td>
-<td><a href="#메타데이터와-확인-범위">Metadata and validation scope</a></td>
-<td>Code evidence linked to explanation</td>
+<td data-label="Design question">How are frame processing results reported?</td>
+<td data-label="Explanation location"><a href="#메타데이터와-확인-범위">Metadata and validation scope</a></td>
+<td data-label="Verification scope">Code evidence linked to explanation</td>
 </tr>
 </tbody>
 </table></div>
@@ -162,7 +162,7 @@
 <summary>Source evidence: src/ipa/ipu3/algorithms/meson.build:3</summary>
 <p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/meson.build#L3"><code>src/ipa/ipu3/algorithms/meson.build:3</code></a> and ending at line 11. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>5b34e175668b4fedb33a633567f049c2738f6368c3b4d8ac26d069e77add82c9</code></p>
-<div class="highlight"><pre><span></span><code>ipu3_ipa_algorithms = files([
+<pre class="highlight"><code class="language-text">ipu3_ipa_algorithms = files([
     'af.cpp',
     'agc.cpp',
     'awb.cpp',
@@ -170,15 +170,14 @@
     'ccm.cpp',
     'lsc.cpp',
     'tone_mapping.cpp',
-])
-</code></pre></div>
+])</code></pre>
 </details>
 <p><a id="source-47a8aa55a4a846f4"></a></p>
 <details class="note">
 <summary>Source evidence: src/ipa/ipu3/ipa_context.h:32</summary>
 <p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/ipa_context.h#L32"><code>src/ipa/ipu3/ipa_context.h:32</code></a> and ending at line 91. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>e373aff7c5b5e5f034637b3d9030b0fdef974614261025791afd6e3146b1108d</code></p>
-<div class="highlight"><pre><span></span><code>struct IPASessionConfiguration {
+<pre class="highlight"><code class="language-text">struct IPASessionConfiguration {
     struct {
         ipu3_uapi_grid_config bdsGrid;
         Size bdsOutputSize;
@@ -237,15 +236,14 @@ struct IPAContext {
     ControlInfoMap::Map ctrlMap;
 };
 
-} /* namespace ipa::ipu3 */
-</code></pre></div>
+} /* namespace ipa::ipu3 */</code></pre>
 </details>
 <p><a id="source-441d18135ba28bdb"></a></p>
 <details class="note">
 <summary>Source evidence: src/ipa/ipu3/algorithms/lsc.cpp:31</summary>
 <p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.cpp#L31"><code>src/ipa/ipu3/algorithms/lsc.cpp:31</code></a> and ending at line 121. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>b4b73b83ec5f1caeb1e654f00aace0f49abf402b43c0ff6bd30528176ea8a566</code></p>
-<div class="highlight"><pre><span></span><code>static constexpr unsigned int kMaxNumHCells = 73;
+<pre class="highlight"><code class="language-text">static constexpr unsigned int kMaxNumHCells = 73;
 static constexpr unsigned int kMaxNumVCells = 56;
 static constexpr int kColourTemperatureQuantization = 10;
 
@@ -335,15 +333,14 @@ int Lsc::configure(IPAContext &amp;context, const IPAConfigInfo &amp;configInfo)
 /**
  * \copydoc libcamera::ipa::Algorithm::queueRequest
  */
-void Lsc::queueRequest(
-</code></pre></div>
+void Lsc::queueRequest(</code></pre>
 </details>
 <p><a id="source-80fd6c99ec2c0ae8"></a></p>
 <details class="note">
 <summary>Source evidence: src/ipa/ipu3/algorithms/lsc.cpp:121</summary>
 <p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.cpp#L121"><code>src/ipa/ipu3/algorithms/lsc.cpp:121</code></a> and ending at line 142. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>550c83f35d2a4d5218ac10731fe8650d8446e262841f2dd80a54e9238c7da287</code></p>
-<div class="highlight"><pre><span></span><code>void Lsc::queueRequest(IPAContext &amp;context, const uint32_t frame,
+<pre class="highlight"><code class="language-text">void Lsc::queueRequest(IPAContext &amp;context, const uint32_t frame,
                IPAFrameContext &amp;frameContext,
                const ControlList &amp;controls)
 {
@@ -364,15 +361,14 @@ void Lsc::queueRequest(
     lscAlgo_.queueRequest(context.activeState.lsc, frameContext.lsc, controls);
 }
 
-static unsigned int quantize(
-</code></pre></div>
+static unsigned int quantize(</code></pre>
 </details>
 <p><a id="source-026024190618ffa6"></a></p>
 <details class="note">
 <summary>Source evidence: src/ipa/ipu3/algorithms/lsc.cpp:142</summary>
 <p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.cpp#L142"><code>src/ipa/ipu3/algorithms/lsc.cpp:142</code></a> and ending at line 282. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>1d11fc7397b377f682d4fab45d12dd20480e554176aae94ba2708a5f8f747268</code></p>
-<div class="highlight"><pre><span></span><code>static unsigned int quantize(unsigned int value, unsigned int step)
+<pre class="highlight"><code class="language-text">static unsigned int quantize(unsigned int value, unsigned int step)
 {
     return std::lround(value / static_cast&lt;double&gt;(step)) * step;
 }
@@ -512,30 +508,28 @@ void Lsc::prepare([[maybe_unused]] IPAContext &amp;context, [[maybe_unused]] con
 /**
  * \copydoc libcamera::ipa::Algorithm::process
  */
-void Lsc::process(
-</code></pre></div>
+void Lsc::process(</code></pre>
 </details>
 <p><a id="source-af2cbcaa6410fbf4"></a></p>
 <details class="note">
 <summary>Source evidence: src/ipa/ipu3/algorithms/lsc.cpp:31</summary>
 <p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.cpp#L31"><code>src/ipa/ipu3/algorithms/lsc.cpp:31</code></a> and ending at line 38. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>7807718b4ae9327f1ca428627d2b00f59ba38ced03261465ee8c79312ea27833</code></p>
-<div class="highlight"><pre><span></span><code>static constexpr unsigned int kMaxNumHCells = 73;
+<pre class="highlight"><code class="language-text">static constexpr unsigned int kMaxNumHCells = 73;
 static constexpr unsigned int kMaxNumVCells = 56;
 static constexpr int kColourTemperatureQuantization = 10;
 
 /**
  * \copydoc libcamera::ipa::Algorithm::init
  */
-int Lsc::init(
-</code></pre></div>
+int Lsc::init(</code></pre>
 </details>
 <p><a id="source-5e8cfeb51ea8c16a"></a></p>
 <details class="note">
 <summary>Source evidence: src/ipa/ipu3/algorithms/lsc.cpp:282</summary>
 <p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.cpp#L282"><code>src/ipa/ipu3/algorithms/lsc.cpp:282</code></a> and ending at line 291. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>e1411dc6710e62f774ea84588792a3f6fd547beb3442bc7cc49495eb19dff05e</code></p>
-<div class="highlight"><pre><span></span><code>void Lsc::process([[maybe_unused]] IPAContext &amp;context,
+<pre class="highlight"><code class="language-text">void Lsc::process([[maybe_unused]] IPAContext &amp;context,
           [[maybe_unused]] const uint32_t frame,
           IPAFrameContext &amp;frameContext,
           [[maybe_unused]] const ipu3_uapi_stats_3a *stats,
@@ -544,8 +538,7 @@ int Lsc::init(
     lscAlgo_.process(frameContext.lsc, metadata);
 }
 
-REGISTER_IPA_ALGORITHM(Lsc, "Lsc")
-</code></pre></div>
+REGISTER_IPA_ALGORITHM(Lsc, "Lsc")</code></pre>
 </details>
 <!-- sdd:class-diagram -->
 <h2 id="클래스-관계">Class relationships</h2>
@@ -572,7 +565,7 @@ REGISTER_IPA_ALGORITHM(Lsc, "Lsc")
 <!-- /sdd:class-diagram -->
 
 <h2 id="관련-클래스">Related classes</h2>
-<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<div class="table-scroll stack" tabindex="0" role="region" aria-label="Table"><table>
 <thead>
 <tr>
 <th>Class</th>
@@ -583,46 +576,46 @@ REGISTER_IPA_ALGORITHM(Lsc, "Lsc")
 </thead>
 <tbody>
 <tr>
-<td><code>libcamera::ipa::LscAlgorithm</code></td>
-<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/libipa/lsc.h#L78"><code>src/ipa/libipa/lsc.h:78</code></a></td>
-<td><code>libcamera::ipa::LscAlgorithmBase</code></td>
-<td>libIPA LSC algorithm implementation</td>
+<td data-label="Class"><code>libcamera::ipa::LscAlgorithm</code></td>
+<td data-label="Declaration location"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/libipa/lsc.h#L78"><code>src/ipa/libipa/lsc.h:78</code></a></td>
+<td data-label="Inheritance"><code>libcamera::ipa::LscAlgorithmBase</code></td>
+<td data-label="Responsibility (source comment)">libIPA LSC algorithm implementation</td>
 </tr>
 <tr>
-<td><code>libcamera::ipa::ipu3::IPAActiveState</code></td>
-<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/ipa_context.h#L46"><code>src/ipa/ipu3/ipa_context.h:46</code></a></td>
-<td>–</td>
-<td>The active state of the IPA algorithms</td>
+<td data-label="Class"><code>libcamera::ipa::ipu3::IPAActiveState</code></td>
+<td data-label="Declaration location"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/ipa_context.h#L46"><code>src/ipa/ipu3/ipa_context.h:46</code></a></td>
+<td data-label="Inheritance">–</td>
+<td data-label="Responsibility (source comment)">The active state of the IPA algorithms</td>
 </tr>
 <tr>
-<td><code>libcamera::ipa::ipu3::IPAContext</code></td>
-<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/ipa_context.h#L73"><code>src/ipa/ipu3/ipa_context.h:73</code></a></td>
-<td>–</td>
-<td>Global IPA context data shared between all algorithms</td>
+<td data-label="Class"><code>libcamera::ipa::ipu3::IPAContext</code></td>
+<td data-label="Declaration location"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/ipa_context.h#L73"><code>src/ipa/ipu3/ipa_context.h:73</code></a></td>
+<td data-label="Inheritance">–</td>
+<td data-label="Responsibility (source comment)">Global IPA context data shared between all algorithms</td>
 </tr>
 <tr>
-<td><code>libcamera::ipa::ipu3::IPAFrameContext</code></td>
-<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/ipa_context.h#L60"><code>src/ipa/ipu3/ipa_context.h:60</code></a></td>
-<td><code>libcamera::ipa::FrameContext</code></td>
-<td>IPU3-specific FrameContext</td>
+<td data-label="Class"><code>libcamera::ipa::ipu3::IPAFrameContext</code></td>
+<td data-label="Declaration location"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/ipa_context.h#L60"><code>src/ipa/ipu3/ipa_context.h:60</code></a></td>
+<td data-label="Inheritance"><code>libcamera::ipa::FrameContext</code></td>
+<td data-label="Responsibility (source comment)">IPU3-specific FrameContext</td>
 </tr>
 <tr>
-<td><code>libcamera::ipa::ipu3::algorithms::Lsc</code></td>
-<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.h#L21"><code>src/ipa/ipu3/algorithms/lsc.h:21</code></a></td>
-<td><code>libcamera::ipa::ipu3::Algorithm</code></td>
-<td>IPU3 Lens Shading Correction algorithm</td>
+<td data-label="Class"><code>libcamera::ipa::ipu3::algorithms::Lsc</code></td>
+<td data-label="Declaration location"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.h#L21"><code>src/ipa/ipu3/algorithms/lsc.h:21</code></a></td>
+<td data-label="Inheritance"><code>libcamera::ipa::ipu3::Algorithm</code></td>
+<td data-label="Responsibility (source comment)">IPU3 Lens Shading Correction algorithm</td>
 </tr>
 <tr>
-<td><code>libcamera::ipa::lsc::ActiveState</code></td>
-<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/libipa/lsc.h#L27"><code>src/ipa/libipa/lsc.h:27</code></a></td>
-<td>–</td>
-<td>The LSC active state</td>
+<td data-label="Class"><code>libcamera::ipa::lsc::ActiveState</code></td>
+<td data-label="Declaration location"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/libipa/lsc.h#L27"><code>src/ipa/libipa/lsc.h:27</code></a></td>
+<td data-label="Inheritance">–</td>
+<td data-label="Responsibility (source comment)">The LSC active state</td>
 </tr>
 <tr>
-<td><code>libcamera::ipa::lsc::FrameContext</code></td>
-<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/libipa/lsc.h#L31"><code>src/ipa/libipa/lsc.h:31</code></a></td>
-<td>–</td>
-<td>Needs verification</td>
+<td data-label="Class"><code>libcamera::ipa::lsc::FrameContext</code></td>
+<td data-label="Declaration location"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/libipa/lsc.h#L31"><code>src/ipa/libipa/lsc.h:31</code></a></td>
+<td data-label="Inheritance">–</td>
+<td data-label="Responsibility (source comment)">Needs verification</td>
 </tr>
 </tbody>
 </table></div>
@@ -637,7 +630,7 @@ REGISTER_IPA_ALGORITHM(Lsc, "Lsc")
 <li>Review status recorded: 2026-10-24 · Pending human review</li>
 </ul>
 </details>
-<p>Next step: <a href="overview.html">System overview</a></p></article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Design explanations bound to source excerpts</dd><dt>Validation scope</dt><dd>Checks configured explanations against excerpt hashes. A matching hash does not approve the explanation's meaning.</dd><dt>Analyzed source commit</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>Document generation time</dt><dd><code>2026-10-24 05:28:37+00:00</code></dd></dl><a href="../ipu3-lsc-flow.md">Korean Markdown source ↗</a> <a href="ipu3-lsc-flow.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="ipu3-lsc.html"><small>Previous</small>IPU3 LSC and state connections ←</a><a class="next" href="overview.html"><small>Next</small>System overview →</a></nav>
+<p>Next step: <a href="overview.html">System overview</a></p></article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Design explanations bound to source excerpts</dd><dt>Validation scope</dt><dd>Checks configured explanations against excerpt hashes. A matching hash does not approve the explanation's meaning.</dd><dt>Automatic checks</dt><dd>Passed (<code>ok</code>). The checked items are listed under validation scope. A person confirms whether the explanation is correct.</dd><dt>Analyzed source commit</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>Document generation time</dt><dd><code>2026-10-24 05:28:37+00:00</code></dd></dl><a href="../ipu3-lsc-flow.md">Korean Markdown source ↗</a> <a href="ipu3-lsc-flow.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="ipu3-lsc.html"><small>Previous</small>IPU3 LSC and state connections ←</a><a class="next" href="overview.html"><small>Next</small>System overview →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
 <aside class="page-toc"><nav aria-label="Current page contents"><p>On this page</p><div class="toc">
 <ul>
@@ -654,4 +647,4 @@ REGISTER_IPA_ALGORITHM(Lsc, "Lsc")
 </nav></aside></div>
 <dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find documents</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search document titles, section titles and terms</label><input id="search-input" type="search" autocomplete="off" placeholder="e.g. Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
 <dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Class name"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Zoom out">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to view</button><button id="zoom-reset">100%</button></div><div id="diagram-viewport" tabindex="0" role="region" aria-label="Enlarged diagram"><div id="diagram-canvas"></div></div></dialog>
-<script id="site-config" type="application/json">{"root": "./", "mermaid": "https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.esm.min.mjs", "terms": "f8d8ca251d", "language": "en"}</script><script defer src="../assets/site.js?v=f44bb69481"></script></body></html>
+<script id="site-config" type="application/json">{"root": "./", "mermaid": "https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.esm.min.mjs", "terms": "f8d8ca251d", "language": "en"}</script><script defer src="../assets/site.js?v=001005a6ac"></script></body></html>
