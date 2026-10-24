@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-10-24T03:44:17+00:00
+generated_at: 2026-10-24T05:28:37+00:00
 source_commit: 2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f
 status: ok
 section: component-index
@@ -20,23 +20,6 @@ semantic_review: human-review-required
 | include/libcamera/ipa 절을 확인합니다. | [include/libcamera/ipa](#includelibcameraipa) |
 | src/apps/cam 절을 확인합니다. | [src/apps/cam](#srcappscam) |
 | src/apps/common 절을 확인합니다. | [src/apps/common](#srcappscommon) |
-| src/apps/ipa-verify 절을 확인합니다. | [src/apps/ipa-verify](#srcappsipa-verify) |
-| src/apps/lc-compliance 절을 확인합니다. | [src/apps/lc-compliance](#srcappslc-compliance) |
-| src/gstreamer 절을 확인합니다. | [src/gstreamer](#srcgstreamer) |
-| src/ipa/ipu3 절을 확인합니다. | [src/ipa/ipu3](#srcipaipu3) |
-| src/ipa/libipa 절을 확인합니다. | [src/ipa/libipa](#srcipalibipa) |
-| src/ipa/mali-c55 절을 확인합니다. | [src/ipa/mali-c55](#srcipamali-c55) |
-| src/ipa/rkisp1 절을 확인합니다. | [src/ipa/rkisp1](#srciparkisp1) |
-| src/ipa/rpi 절을 확인합니다. | [src/ipa/rpi](#srciparpi) |
-| src/ipa/softisp 절을 확인합니다. | [src/ipa/softisp](#srcipasoftisp) |
-| src/ipa/vimc 절을 확인합니다. | [src/ipa/vimc](#srcipavimc) |
-| src/libcamera 절을 확인합니다. | [src/libcamera](#srclibcamera) |
-| src/libcamera/base 절을 확인합니다. | [src/libcamera/base](#srclibcamerabase) |
-| src/libcamera/converter 절을 확인합니다. | [src/libcamera/converter](#srclibcameraconverter) |
-| src/libcamera/pipeline 절을 확인합니다. | [src/libcamera/pipeline](#srclibcamerapipeline) |
-| src/libcamera/sensor 절을 확인합니다. | [src/libcamera/sensor](#srclibcamerasensor) |
-| src/libcamera/software_isp 절을 확인합니다. | [src/libcamera/software_isp](#srclibcamerasoftware_isp) |
-| src/v4l2 절을 확인합니다. | [src/v4l2](#srcv4l2) |
 
 ## include/libcamera
 

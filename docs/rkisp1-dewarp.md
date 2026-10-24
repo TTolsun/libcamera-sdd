@@ -1,29 +1,22 @@
 ---
-generated_at: 2026-10-23T23:16:20+00:00
+generated_at: 2026-10-24T05:28:37+00:00
 source_commit: 2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f
 status: ok
 section: rkisp1-dewarp
 generation_method: source-bound-contract
 evidence_fingerprint: fbd3d0a2e16fe25db0e117fd58cbea8f125e51bf831e690310fe6492f1f897e9
 semantic_review: human-review-required
-revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
 ---
 
 # RKISP1 카메라별 왜곡 보정
 
 **카메라별 보정값의 보관 위치와 설정 시점을 확인한 뒤 튜닝 입력과 커널 지원을 점검하세요.**
 
-
-
-## 설계 항목과 근거
-
-아래 항목은 소스에 연결된 설명의 작성 범위를 나타냅니다. 설명의 의미와 실제 실행에 대한 승인은 별도 검토가 필요합니다.
-
-| 설계 질문 | 설명 위치 | 확인 범위 |
-|---|---|---|
-| 여러 카메라의 보정값이 섞이지 않도록 누가 값을 보관하고 전달합니까? | [카메라별 보정값의 소유권](#카메라별-보정값의-소유권) | 코드 근거와 설명 연결 |
-| 보정값이 없거나 일부만 있을 때 어떤 결과를 반환합니까? | [튜닝 입력의 기본값과 오류](#튜닝-입력의-기본값과-오류) | 코드 근거와 설명 연결 |
-| 보정값은 어느 스트림에 적용되고 어떤 실행 조건을 따로 확인해야 합니까? | [스트림 적용과 실행 확인 범위](#스트림-적용과-실행-확인-범위) | 코드 근거와 설명 연결 · 실행 확인 항목 별도 |
+| 지금 확인할 내용 | 이동할 절 |
+|---|---|
+| 카메라별 보정값의 소유권 절을 확인합니다. | [카메라별 보정값의 소유권](#카메라별-보정값의-소유권) |
+| 튜닝 입력의 기본값과 오류 절을 확인합니다. | [튜닝 입력의 기본값과 오류](#튜닝-입력의-기본값과-오류) |
+| 스트림 적용과 실행 확인 범위 절을 확인합니다. | [스트림 적용과 실행 확인 범위](#스트림-적용과-실행-확인-범위) |
 
 ## 카메라별 보정값의 소유권
 
@@ -33,7 +26,46 @@ revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
 
 보정기가 없으면 튜닝 파일의 보정 설정을 읽지 않고 성공을 반환합니다. 파일 열기나 YAML 해석 실패는 오류를 반환하며, Dewarp 항목을 성공적으로 읽은 경우에 `canUseDewarper_`를 설정합니다. `src/libcamera/pipeline/rkisp1/rkisp1.cpp:434`
 
-??? note "소스 근거: camera"
+근거 원문: [src/libcamera/pipeline/rkisp1/rkisp1.cpp:94](#source-04546183f68b35f4) · [src/libcamera/pipeline/rkisp1/rkisp1.cpp:434](#source-af6210cb39d0385e) · [src/libcamera/pipeline/rkisp1/rkisp1.cpp:914](#source-c164eb4c00d1c1d6)
+
+## 튜닝 입력의 기본값과 오류
+
+`loadDewarpParams()`는 출력 optional을 먼저 비웁니다. `cm`, `coefficients`, `cmNew`가 모두 없으면 성공을 반환하지만 보정 파라미터는 없는 상태로 남습니다. 성공 코드만으로 렌즈 보정값이 준비됐다고 판단하면 안 됩니다. `src/libcamera/converter/converter_dw100.cpp:105`
+
+설정값이 하나라도 있으면 유효한 3×3 `cm`과 계수 목록이 필요합니다. 계수는 4개, 5개, 8개 또는 12개여야 합니다. 필수 값이 없거나 형식이 틀리면 `-EINVAL`을 반환합니다. `src/libcamera/converter/converter_dw100.cpp:105`
+
+`cmNew`를 생략하면 `cm`을 사용합니다. `cmNew`가 있으면 3×3 행렬로 읽을 수 있어야 합니다. 모든 검사가 끝난 뒤에만 출력 optional에 값을 저장합니다. `src/libcamera/converter/converter_dw100.cpp:105`
+
+근거 원문: [src/libcamera/converter/converter_dw100.cpp:105](#source-eacff078bd6a9d79)
+
+## 스트림 적용과 실행 확인 범위
+
+`configure()`는 이전 스트림 맵을 비우고 내부 변환기를 설정합니다. 성공하면 각 출력 스트림의 입력·출력 크기와 센서 크롭을 설정하고, 보정 파라미터가 있을 때 해당 값을 적용한 뒤 갱신 필요 상태로 표시합니다. `src/libcamera/converter/converter_dw100.cpp:178`
+
+보정 파라미터가 있을 때 `LensDewarpEnable`을 지원 제어 목록과 결과 metadata에 포함합니다. 스트림이 설정되지 않았으면 `setControls()`와 `populateMetadata()`는 그대로 반환합니다. `src/libcamera/converter/converter_dw100.cpp:369`, `src/libcamera/converter/converter_dw100.cpp:434`
+
+실행 중 동적으로 보정 제어를 바꾸려면 커널 드라이버의 requests 지원이 필요합니다. 지원하지 않는 상태에서 변경하면 오류 로그를 남깁니다. 카메라 전환 후 적용값과 실제 영상 결과는 장치 시험으로 확인해야 합니다. `src/libcamera/converter/converter_dw100.cpp:369`
+
+실행 확인 항목: 이 설명은 공개 libcamera의 고정 커밋을 소스와 대조한 결과입니다. 여러 카메라의 동시 촬영, 보정 화질, 커널별 동작과 사내 Camera HAL 적용을 검증한 결과는 아닙니다. `src/libcamera/converter/converter_dw100.cpp:178`, `src/libcamera/converter/converter_dw100.cpp:369`
+
+근거 원문: [src/libcamera/converter/converter_dw100.cpp:178](#source-167e93a77fbf4931) · [src/libcamera/converter/converter_dw100.cpp:369](#source-fc0e25ddead912f1) · [src/libcamera/converter/converter_dw100.cpp:434](#source-3a4c4ed7cee81158)
+
+??? note "설계 질문과 검증 범위"
+    질문별 답변과 근거 연결을 검사했습니다. 의미와 실행 결과는 사람 검토가 필요합니다.
+    
+    | 설계 질문 | 설명 위치 | 확인 범위 |
+    |---|---|---|
+    | 여러 카메라의 보정값이 섞이지 않도록 누가 값을 보관하고 전달합니까? | [카메라별 보정값의 소유권](#카메라별-보정값의-소유권) | 코드 근거와 설명 연결 |
+    | 보정값이 없거나 일부만 있을 때 어떤 결과를 반환합니까? | [튜닝 입력의 기본값과 오류](#튜닝-입력의-기본값과-오류) | 코드 근거와 설명 연결 |
+    | 보정값은 어느 스트림에 적용되고 어떤 실행 조건을 따로 확인해야 합니까? | [스트림 적용과 실행 확인 범위](#스트림-적용과-실행-확인-범위) | 코드 근거와 설명 연결 · 실행 확인 항목 별도 |
+
+## 소스 근거
+
+같은 발췌는 한 번만 싣습니다. 필요한 원문을 펼쳐 설명과 대조하세요.
+
+<a id="source-04546183f68b35f4"></a>
+
+??? note "소스 근거: src/libcamera/pipeline/rkisp1/rkisp1.cpp:94"
     `src/libcamera/pipeline/rkisp1/rkisp1.cpp:94`에서 시작하는 발췌입니다. 종료 줄은 142이며, 아래 원문을 설명과 대조할 수 있습니다.
     
     SHA-256: `4c9387123443d958220746e355a9e93b30dca2bb4a32b4f4020c938e1a699de1`
@@ -90,7 +122,9 @@ revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
     class RkISP1CameraConfiguration :
     ```
 
-??? note "소스 근거: load"
+<a id="source-af6210cb39d0385e"></a>
+
+??? note "소스 근거: src/libcamera/pipeline/rkisp1/rkisp1.cpp:434"
     `src/libcamera/pipeline/rkisp1/rkisp1.cpp:434`에서 시작하는 발췌입니다. 종료 줄은 479이며, 아래 원문을 설명과 대조할 수 있습니다.
     
     SHA-256: `d0fb5eb90b4c6d0df3e90cff142c95b4f7daeddb6d483a4272a5fb07d7dd3fec`
@@ -144,7 +178,9 @@ revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
     void RkISP1CameraData::paramsComputed(
     ```
 
-??? note "소스 근거: configure"
+<a id="source-c164eb4c00d1c1d6"></a>
+
+??? note "소스 근거: src/libcamera/pipeline/rkisp1/rkisp1.cpp:914"
     `src/libcamera/pipeline/rkisp1/rkisp1.cpp:914`에서 시작하는 발췌입니다. 종료 줄은 1122이며, 아래 원문을 설명과 대조할 수 있습니다.
     
     SHA-256: `85e3aef5f0b623538bedbd13a895c0a08ada48616ab1e9ee8fe1a87882b67ee6`
@@ -361,15 +397,9 @@ revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
     int PipelineHandlerRkISP1::exportFrameBuffers(
     ```
 
-## 튜닝 입력의 기본값과 오류
+<a id="source-eacff078bd6a9d79"></a>
 
-`loadDewarpParams()`는 출력 optional을 먼저 비웁니다. `cm`, `coefficients`, `cmNew`가 모두 없으면 성공을 반환하지만 보정 파라미터는 없는 상태로 남습니다. 성공 코드만으로 렌즈 보정값이 준비됐다고 판단하면 안 됩니다. `src/libcamera/converter/converter_dw100.cpp:105`
-
-설정값이 하나라도 있으면 유효한 3×3 `cm`과 계수 목록이 필요합니다. 계수는 4개, 5개, 8개 또는 12개여야 합니다. 필수 값이 없거나 형식이 틀리면 `-EINVAL`을 반환합니다. `src/libcamera/converter/converter_dw100.cpp:105`
-
-`cmNew`를 생략하면 `cm`을 사용합니다. `cmNew`가 있으면 3×3 행렬로 읽을 수 있어야 합니다. 모든 검사가 끝난 뒤에만 출력 optional에 값을 저장합니다. `src/libcamera/converter/converter_dw100.cpp:105`
-
-??? note "소스 근거: parameters"
+??? note "소스 근거: src/libcamera/converter/converter_dw100.cpp:105"
     `src/libcamera/converter/converter_dw100.cpp:105`에서 시작하는 발췌입니다. 종료 줄은 178이며, 아래 원문을 설명과 대조할 수 있습니다.
     
     SHA-256: `5e4f1317cd9611173e6e5b1fa350ab26f28500656037c812909008604ebfb091`
@@ -451,17 +481,9 @@ revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
     int ConverterDW100Module::configure(
     ```
 
-## 스트림 적용과 실행 확인 범위
+<a id="source-167e93a77fbf4931"></a>
 
-`configure()`는 이전 스트림 맵을 비우고 내부 변환기를 설정합니다. 성공하면 각 출력 스트림의 입력·출력 크기와 센서 크롭을 설정하고, 보정 파라미터가 있을 때 해당 값을 적용한 뒤 갱신 필요 상태로 표시합니다. `src/libcamera/converter/converter_dw100.cpp:178`
-
-보정 파라미터가 있을 때 `LensDewarpEnable`을 지원 제어 목록과 결과 metadata에 포함합니다. 스트림이 설정되지 않았으면 `setControls()`와 `populateMetadata()`는 그대로 반환합니다. `src/libcamera/converter/converter_dw100.cpp:369`, `src/libcamera/converter/converter_dw100.cpp:434`
-
-실행 중 동적으로 보정 제어를 바꾸려면 커널 드라이버의 requests 지원이 필요합니다. 지원하지 않는 상태에서 변경하면 오류 로그를 남깁니다. 카메라 전환 후 적용값과 실제 영상 결과는 장치 시험으로 확인해야 합니다. `src/libcamera/converter/converter_dw100.cpp:369`
-
-실행 확인 항목: 이 설명은 공개 libcamera의 고정 커밋을 소스와 대조한 결과입니다. 여러 카메라의 동시 촬영, 보정 화질, 커널별 동작과 사내 Camera HAL 적용을 검증한 결과는 아닙니다. `src/libcamera/converter/converter_dw100.cpp:178`, `src/libcamera/converter/converter_dw100.cpp:369`
-
-??? note "소스 근거: configure"
+??? note "소스 근거: src/libcamera/converter/converter_dw100.cpp:178"
     `src/libcamera/converter/converter_dw100.cpp:178`에서 시작하는 발췌입니다. 종료 줄은 212이며, 아래 원문을 설명과 대조할 수 있습니다.
     
     SHA-256: `b517243a55de2dab95250c687c7f2aab9fd32b4ed115e3b65b8878daa39b0bc8`
@@ -504,7 +526,9 @@ revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
     bool ConverterDW100Module::isConfigured(
     ```
 
-??? note "소스 근거: controls"
+<a id="source-fc0e25ddead912f1"></a>
+
+??? note "소스 근거: src/libcamera/converter/converter_dw100.cpp:369"
     `src/libcamera/converter/converter_dw100.cpp:369`에서 시작하는 발췌입니다. 종료 줄은 434이며, 아래 원문을 설명과 대조할 수 있습니다.
     
     SHA-256: `aa6937cbf814f9c7bf5c1dfab84e4d5e0fa96ace063b360484f3858066454e02`
@@ -578,7 +602,9 @@ revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
     void ConverterDW100Module::populateMetadata(
     ```
 
-??? note "소스 근거: metadata"
+<a id="source-3a4c4ed7cee81158"></a>
+
+??? note "소스 근거: src/libcamera/converter/converter_dw100.cpp:434"
     `src/libcamera/converter/converter_dw100.cpp:434`에서 시작하는 발췌입니다. 종료 줄은 465이며, 아래 원문을 설명과 대조할 수 있습니다.
     
     SHA-256: `37f3f992d5270f1f7309de486064df8a88ceebdafa81963ddb49872b7e674ecb`
@@ -622,7 +648,7 @@ revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
     - 생성 방식: 소스 발췌에 연결한 설계 설명
     - 검증 범위: 설정에 작성된 설명을 발췌 해시와 대조합니다. 해시 일치는 설명의 의미를 승인하지 않습니다.
     - 근거 파일: `include/libcamera/internal/converter.h`, `include/libcamera/internal/converter/converter_dw100.h`, `include/libcamera/internal/converter/converter_dw100_vertexmap.h`, `src/libcamera/converter.cpp`, `src/libcamera/converter/converter_dw100.cpp`, `src/libcamera/converter/converter_dw100_vertexmap.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `4eb2378f21`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `2c4b67c079`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
     - 검토 상태 기록일: 2026-10-24 · 사람 검토 전
 
