@@ -1,6 +1,6 @@
 ---
-generated_at: 2026-10-23T23:16:20+00:00
-source_commit: 4eb2378f21b81b02b2814bde7be86d34f3297de8
+generated_at: 2026-10-24T03:44:17+00:00
+source_commit: 2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f
 status: ok
 section: scenarios
 generation_method: deterministic
@@ -34,7 +34,7 @@ generation_method: deterministic
     - 생성 방식: 추출 사실과 설정으로 생성
     - 검증 범위: 표와 목록을 facts 또는 문서 설정에서 구성합니다. LLM을 호출하지 않습니다.
     - 근거 파일: (없음)
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `4eb2378f21`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `2c4b67c079`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
     - 검토 상태 기록일: 2026-10-24 · 사람 검토 전
 
