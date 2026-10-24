@@ -4,10 +4,11 @@
 <body><a class="skip" href="#main">본문으로 이동</a>
 <header class="site-header"><a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera 설계 문서</a>
 <div class="header-actions"><details class="language-selector"><summary aria-label="언어 선택">한국어 ▾</summary><nav><a lang="ko" hreflang="ko" href="index.html" aria-current="true">한국어</a><a lang="en" hreflang="en" href="en/index.html">English</a></nav></details><button id="search-open" hidden>문서 찾기 <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>메뉴</button></div></header>
-<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="문서 메뉴"><p class="nav-group">시작하기</p><a href="index.html" aria-current="page">문서 안내</a><p class="nav-group">For Vendors</p><a href="pipeline-handler.html">Pipeline Handler</a><a href="ipa.html">IPA 관리와 구현 진입점</a><a href="ipu3-lsc.html">IPU3 LSC와 상태 연결</a><a href="ipu3-lsc-flow.html">IPU3 LSC의 설정과 프레임 처리</a><a href="rkisp1-dewarp.html">RKISP1 카메라별 왜곡 보정</a><p class="nav-group">For Developers</p><a href="overview.html">시스템 개요</a><a href="scenarios/index.html">핵심 시나리오</a><details class="nav-branch"><summary>하위 문서 6 편</summary><a class="nav-sub" href="scenarios/manager_start.html">카메라 탐색 (CameraManager::start)</a><a class="nav-sub" href="scenarios/configure.html">스트림 구성 (Camera::configure)</a><a class="nav-sub" href="scenarios/camera_start.html">캡처 시작 (Camera::start)</a><a class="nav-sub" href="scenarios/queue_request.html">요청 제출 (Camera::queueRequest)</a><a class="nav-sub" href="scenarios/complete_request.html">요청 완료 통지 (PipelineHandler::completeRequest)</a><a class="nav-sub" href="scenarios/camera_stop.html">캡처 종료 요청 (Camera::stop)</a></details><a href="request-lifecycle.html">요청 처리와 문제 진단</a><a href="camera-model.html">카메라와 요청 모델</a><a href="component-index.html">구성 요소 색인</a></nav><p class="sidebar-note">코드에서 구조를 추출하고<br>근거와 함께 검토합니다.</p></aside>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="문서 메뉴"><p class="nav-group">시작하기</p><a href="index.html" aria-current="page">문서 안내</a><a href="glossary.html">용어집</a><p class="nav-group">For Vendors</p><a href="pipeline-handler.html">Pipeline Handler</a><a href="ipa.html">IPA 관리와 구현 진입점</a><a href="ipu3-lsc.html">IPU3 LSC와 상태 연결</a><a href="ipu3-lsc-flow.html">IPU3 LSC의 설정과 프레임 처리</a><a href="rkisp1-dewarp.html">RKISP1 카메라별 왜곡 보정</a><p class="nav-group">For Developers</p><a href="overview.html">시스템 개요</a><a href="scenarios/index.html">핵심 시나리오</a><details class="nav-branch"><summary>하위 문서 6 편</summary><a class="nav-sub" href="scenarios/manager_start.html">카메라 탐색 (CameraManager::start)</a><a class="nav-sub" href="scenarios/configure.html">스트림 구성 (Camera::configure)</a><a class="nav-sub" href="scenarios/camera_start.html">캡처 시작 (Camera::start)</a><a class="nav-sub" href="scenarios/queue_request.html">요청 제출 (Camera::queueRequest)</a><a class="nav-sub" href="scenarios/complete_request.html">요청 완료 통지 (PipelineHandler::completeRequest)</a><a class="nav-sub" href="scenarios/camera_stop.html">캡처 종료 요청 (Camera::stop)</a></details><a href="request-lifecycle.html">요청 처리와 문제 진단</a><a href="camera-model.html">카메라와 요청 모델</a><a href="component-index.html">구성 요소 색인</a></nav><p class="sidebar-note">코드에서 구조를 추출하고<br>근거와 함께 검토합니다.</p></aside>
 <main id="main"><p class="breadcrumb">시작하기 <span>/</span> libcamera 설계 문서</p><h1>libcamera 설계 문서</h1><div class="page-state"><span class="review-state">검토용 문서</span></div>
 <details class="mobile-toc"><summary>이 페이지의 목차</summary><div class="toc">
 <ul>
+<li><a href="#이-문서의-용어">이 문서의 용어</a></li>
 <li><a href="#읽는-순서">읽는 순서</a></li>
 <li><a href="#검토-상태-읽기">검토 상태 읽기</a></li>
 <li><a href="#분석과-배포-범위">분석과 배포 범위</a></li>
@@ -15,6 +16,23 @@
 </ul>
 </div>
 </details><article><p><strong>카메라 API부터 Pipeline Handler와 IPA까지, 코드 구조와 근거를 함께 읽는 문서입니다.</strong></p>
+<h2 id="이-문서의-용어">이 문서의 용어</h2>
+<ul>
+<li><strong>Pipeline Handler</strong>: 특정 하드웨어 플랫폼(IPU3, RKISP1 등)의 미디어 장치를 찾아 카메라를 만들고, 요청을 장치에 넣고 완료를 돌려주는 libcamera 구성 요소입니다. 플랫폼마다 하나씩 있습니다.</li>
+<li><strong>IPA</strong> (Image Processing Algorithms): 화질 알고리즘을 담은 별도 모듈(.so)입니다. ISP가 보낸 통계를 보고 다음 프레임에 쓸 ISP 설정값을 계산합니다. 제조사가 소스를 공개하지 않고 제공할 수 있도록 libcamera 본체와 분리되어 있습니다.</li>
+<li><strong>OMM</strong>: 이 사이트의 읽기 화면 배치와 그림 확대·검색 규칙이 참고한 외부 문서 도구입니다. 실행기를 쓰지 않고 규칙만 적용했습니다.</li>
+<li><strong>IPU3</strong> (Intel Image Processing Unit 3): 일부 Intel 노트북 프로세서에 들어 있는 카메라 ISP입니다. libcamera에는 이 장치용 Pipeline Handler와 IPA가 있습니다.</li>
+<li><strong>LSC</strong> (Lens Shading Correction): 렌즈 특성 때문에 영상 가장자리가 중앙보다 어둡거나 색이 틀어지는 현상(렌즈 음영)을 보정하는 처리입니다. 화면을 격자로 나눈 보정 표를 곱해서 적용합니다.</li>
+</ul>
+<details class="note">
+<summary>나머지 용어 펼치기</summary>
+<ul>
+<li><strong>RKISP1</strong> (Rockchip Image Signal Processor 1): Rockchip SoC와 NXP i.MX8MP 등에 들어 있는 카메라 ISP입니다. libcamera에는 이 장치용 Pipeline Handler와 IPA가 있습니다.</li>
+<li><strong>왜곡 보정</strong>: 렌즈 때문에 휘어진 영상을 곧게 펴는 처리입니다. RKISP1 파이프라인은 DW100 장치에 좌표 표(vertex map)를 넣어 수행합니다.</li>
+<li><strong>WSL2</strong> (Windows Subsystem for Linux 2): Windows에서 Linux를 실행하는 환경입니다. 이 사이트는 libcamera를 WSL2에서 빌드하고 추출한 결과로 만듭니다.</li>
+</ul>
+</details>
+<p>다른 용어는 <a href="glossary.html">용어집</a>에서 찾을 수 있습니다.</p>
 <p>이 문서는 공개 libcamera 소스를 분석해 만든 검토용 설계 문서입니다. libcamera 공식 문서의 탐색 구조와 OMM의 읽기 중심 디자인을 적용했습니다.</p>
 <h2 id="읽는-순서">읽는 순서</h2>
 <p>연동 중 오류를 찾고 있다면 <strong>요청 처리와 문제 진단</strong>부터 읽으세요. 내부 구현을 수정한다면 시스템 개요에서 시작하여 해당 파이프라인과 알고리즘의 근거를 확인하세요.</p>
@@ -71,7 +89,7 @@
 <p>현재 검사 결과와 승인 상태는 아래 문서 목록에서 확인하세요. 각 페이지에는 추출 사실로 만든 설명, 소스 발췌에 연결한 설계 설명, LLM 설명 등 생성 방식과 검증 범위를 표시합니다. 발췌 해시 일치나 자동 검사 통과가 사람의 내용 검토를 대신하지 않습니다. 클래스 관계 그림도 실행 순서나 실기기 동작을 보증하지 않습니다.</p>
 <p>같은 근거로 4B·9B 모델을 비교했지만 두 모델 모두 소유권·종료·실행 경계 설명에 오류나 누락이 남았습니다. <a href="https://github.com/TTolsun/camera-hal-sdd-generator/blob/main/docs/libcamera/records/model-comparison.md">비교 기록</a>에 원문과 판정 근거를 보존했습니다. 비교 원고는 이 사이트의 설계 설명으로 채택하지 않았습니다.</p>
 <h2 id="분석과-배포-범위">분석과 배포 범위</h2>
-<p>분석 기준 커밋은 각 문서에 표시합니다. WSL2에서 IPU3·RKISP1·UVC와 GStreamer를 포함해 빌드하고 추출한 결과를 사용합니다. 개요·카메라·Pipeline·IPA·LSC 처리 설명은 예제 설정에 작성된 계약을 소스 발췌와 대조하여 생성합니다. 핵심 시나리오에는 <code>Camera::stop()</code>의 종료·취소 경로도 포함합니다. 시나리오는 libclang으로 추출한 호출 관계와 경계를 표시하며, 실기기 촬영과 실행 검증은 후속 작업입니다.</p>
+<p>분석 기준 커밋은 각 문서에 표시합니다. WSL2에서 빌드할 수 있는 모든 Pipeline Handler와 IPA, 앱을 빌드하고 추출한 결과를 사용합니다. 개요·카메라·Pipeline·IPA·LSC 처리 설명은 예제 설정에 작성된 계약을 소스 발췌와 대조하여 생성합니다. 핵심 시나리오에는 <code>Camera::stop()</code>의 종료·취소 경로도 포함합니다. 시나리오는 libclang으로 추출한 호출 관계와 경계를 표시하며, 실기기 촬영과 실행 검증은 후속 작업입니다.</p>
 <p><a href="https://github.com/TTolsun/camera-hal-sdd-generator">camera-hal-sdd-generator</a>는 분석·생성·검증·화면 구성 기술을 관리합니다. <a href="https://github.com/TTolsun/libcamera-sdd">libcamera-sdd</a>는 원본 소스 이력과 완성 문서의 배포를 담당합니다. 공개 환경에는 정기 예약을 두지 않습니다. 생성기 저장소에서 작업할 때 공식 upstream 확인·동기화와 문서 갱신·배포를 함께 수행하고, 새 커밋이 없으면 기존 카테고리의 누락을 점검합니다. 정기 예약과 시간 변경 기능은 사내 운영을 위한 공통 실행기에서 제공합니다.</p>
 <p>원래 라이브러리의 사용법은 <a href="https://docs.libcamera.org/master/">libcamera 공식 문서</a>에서 확인할 수 있습니다.</p>
 <h2 id="문서-목록">문서 목록</h2>
@@ -165,10 +183,11 @@
 <td>사람 검토 전</td>
 </tr>
 </tbody>
-</table></div></article><nav class="pagination" aria-label="이전과 다음 문서"><a class="next" href="pipeline-handler.html"><small>다음</small>Pipeline Handler →</a></nav>
+</table></div></article><nav class="pagination" aria-label="이전과 다음 문서"><a class="next" href="glossary.html"><small>다음</small>용어집 →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · 인용 검사와 사람의 내용 검토는 별도입니다.</footer></main>
 <aside class="page-toc"><nav aria-label="현재 페이지 목차"><p>이 페이지에서</p><div class="toc">
 <ul>
+<li><a href="#이-문서의-용어">이 문서의 용어</a></li>
 <li><a href="#읽는-순서">읽는 순서</a></li>
 <li><a href="#검토-상태-읽기">검토 상태 읽기</a></li>
 <li><a href="#분석과-배포-범위">분석과 배포 범위</a></li>
