@@ -4,10 +4,11 @@
 <body><a class="skip" href="#main">Skip to content</a>
 <header class="site-header"><a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera Design Documentation</a>
 <div class="header-actions"><details class="language-selector"><summary aria-label="Choose language">English ▾</summary><nav><a lang="ko" hreflang="ko" href="../rkisp1-dewarp.html">한국어</a><a lang="en" hreflang="en" href="rkisp1-dewarp.html" aria-current="true">English</a></nav></details><button id="search-open" hidden>Find documents <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button></div></header>
-<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Documentation menu"><p class="nav-group">Getting started</p><a href="index.html">Documentation guide</a><p class="nav-group">For Vendors</p><a href="pipeline-handler.html">Pipeline Handler</a><a href="ipa.html">IPA management and implementation entry points</a><a href="ipu3-lsc.html">IPU3 LSC and state connections</a><a href="ipu3-lsc-flow.html">IPU3 LSC configuration and frame processing</a><a href="rkisp1-dewarp.html" aria-current="page">RKISP1 per-camera lens dewarping</a><p class="nav-group">For Developers</p><a href="overview.html">System overview</a><a href="scenarios/index.html">Core scenarios</a><details class="nav-branch"><summary>6 child documents</summary><a class="nav-sub" href="scenarios/manager_start.html">Camera discovery (CameraManager::start)</a><a class="nav-sub" href="scenarios/configure.html">Stream configuration (Camera::configure)</a><a class="nav-sub" href="scenarios/camera_start.html">Capture start (Camera::start)</a><a class="nav-sub" href="scenarios/queue_request.html">Request submission (Camera::queueRequest)</a><a class="nav-sub" href="scenarios/complete_request.html">Request completion (PipelineHandler::completeRequest)</a><a class="nav-sub" href="scenarios/camera_stop.html">Capture stop request (Camera::stop)</a></details><a href="request-lifecycle.html">Request lifecycle and troubleshooting</a><a href="camera-model.html">Camera and request model</a><a href="component-index.html">Component index</a></nav><p class="sidebar-note">Extract structure from code<br>and review it with evidence.</p></aside>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Documentation menu"><p class="nav-group">Getting started</p><a href="index.html">Documentation guide</a><a href="glossary.html">Glossary</a><p class="nav-group">For Vendors</p><a href="pipeline-handler.html">Pipeline Handler</a><a href="ipa.html">IPA management and implementation entry points</a><a href="ipu3-lsc.html">IPU3 LSC and state connections</a><a href="ipu3-lsc-flow.html">IPU3 LSC configuration and frame processing</a><a href="rkisp1-dewarp.html" aria-current="page">RKISP1 per-camera lens dewarping</a><p class="nav-group">For Developers</p><a href="overview.html">System overview</a><a href="scenarios/index.html">Core scenarios</a><details class="nav-branch"><summary>6 child documents</summary><a class="nav-sub" href="scenarios/manager_start.html">Camera discovery (CameraManager::start)</a><a class="nav-sub" href="scenarios/configure.html">Stream configuration (Camera::configure)</a><a class="nav-sub" href="scenarios/camera_start.html">Capture start (Camera::start)</a><a class="nav-sub" href="scenarios/queue_request.html">Request submission (Camera::queueRequest)</a><a class="nav-sub" href="scenarios/complete_request.html">Request completion (PipelineHandler::completeRequest)</a><a class="nav-sub" href="scenarios/camera_stop.html">Capture stop request (Camera::stop)</a></details><a href="request-lifecycle.html">Request lifecycle and troubleshooting</a><a href="camera-model.html">Camera and request model</a><a href="component-index.html">Component index</a></nav><p class="sidebar-note">Extract structure from code<br>and review it with evidence.</p></aside>
 <main id="main"><p class="breadcrumb">For Vendors <span>/</span> RKISP1 per-camera lens dewarping</p><h1>RKISP1 per-camera lens dewarping</h1><div class="page-state"><span class="review-state">Human review pending</span><span>Automatic checks passed · <code>ok</code></span><span class="generation-method">Design explanations bound to source excerpts</span></div>
 <details class="mobile-toc"><summary>Contents of this page</summary><div class="toc">
 <ul>
+<li><a href="#이-문서의-용어">Terms in this document</a></li>
 <li><a href="#설계-항목과-근거">Design questions and evidence</a></li>
 <li><a href="#카메라별-보정값의-소유권">Ownership of per-camera dewarp parameters</a></li>
 <li><a href="#튜닝-입력의-기본값과-오류">Tuning input defaults and errors</a></li>
@@ -15,6 +16,15 @@
 </ul>
 </div>
 </details><p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p><strong>Check where each camera’s dewarp parameters are stored and when they are applied, then inspect tuning input and kernel support.</strong></p>
+<h2 id="이-문서의-용어">Terms in this document</h2>
+<ul>
+<li><strong>RKISP1</strong> (Rockchip Image Signal Processor 1): the camera ISP in Rockchip SoCs, the NXP i.MX8MP and others. libcamera has a Pipeline Handler and an IPA for it.</li>
+<li><strong>Distortion correction</strong>: straightening an image bent by the lens. The RKISP1 pipeline does it by loading a coordinate table (vertex map) into the DW100 device.</li>
+<li><strong>Tuning file</strong>: a YAML file with per-sensor and per-platform algorithm parameters (correction tables, colour matrices and so on). The IPA reads it at start-up.</li>
+<li><strong>HAL</strong> (Hardware Abstraction Layer): the layer that lets an operating system drive different vendors' hardware through one interface. This project ultimately targets an in-house Android Camera HAL.</li>
+<li><strong>Pipeline Handler</strong>: the libcamera component that finds a hardware platform's media devices (IPU3, RKISP1 and so on), creates cameras, queues requests to the devices and returns completions. There is one per platform.</li>
+</ul>
+<p>Other terms are in the <a href="glossary.html">Glossary</a>.</p>
 <h2 id="설계-항목과-근거">Design questions and evidence</h2>
 <p>The items below define the scope of explanations linked to source evidence. Approval of their meaning and actual runtime behavior requires separate review.</p>
 <div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
@@ -617,6 +627,7 @@ void ConverterDW100Module::setSensorCrop(</code></pre>
 <footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
 <aside class="page-toc"><nav aria-label="Current page contents"><p>On this page</p><div class="toc">
 <ul>
+<li><a href="#이-문서의-용어">Terms in this document</a></li>
 <li><a href="#설계-항목과-근거">Design questions and evidence</a></li>
 <li><a href="#카메라별-보정값의-소유권">Ownership of per-camera dewarp parameters</a></li>
 <li><a href="#튜닝-입력의-기본값과-오류">Tuning input defaults and errors</a></li>
