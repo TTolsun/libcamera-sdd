@@ -1,11 +1,13 @@
 ---
-generated_at: 2026-10-24T05:28:37+00:00
+generated_at: 2026-10-24T08:53:45+00:00
 source_commit: 2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f
 status: ok
 section: ipu3-lsc-flow
-generation_method: source-bound-contract
-evidence_fingerprint: 40853721991faafa805bdc14251f57405fa2444b6a44890942656fb1ebd10606
+generation_method: facts-and-llm
+evidence_fingerprint: 1fc2ba3a6e182b8bf07200ec39b34dcac7e6a360a6470d8b69dd2e13c7a0e66a
 semantic_review: human-review-required
+agent: response-bundle/codex-session
+generated_design: {"schema": 1, "input_fingerprint": "1fc2ba3a6e182b8bf07200ec39b34dcac7e6a360a6470d8b69dd2e13c7a0e66a", "answers": {"integration": [{"text": "IPU3 알고리즘을 나열하는 빌드 설정에는 `lsc.cpp`가 포함됩니다. 이는 빌드 대상에 포함된다는 근거이며, 실행할 때마다 보정이 활성화된다는 뜻은 아닙니다.", "covers": ["integration"], "kind": "behavior", "quote": "ipu3_ipa_algorithms = files([\n    'af.cpp',\n    'agc.cpp',\n    'awb.cpp',\n    'blc.cpp',\n    'ccm.cpp',\n    'lsc.cpp',\n    'tone_mapping.cpp',\n])", "evidence": ["build"]}, {"text": "`IPAActiveState`는 공유되는 활성 상태에 `ipa::lsc::ActiveState` 타입의 `lsc`를 둡니다. `IPAContext`는 이 활성 상태와 세션 구성, 센서 정보를 함께 보관합니다.", "covers": ["integration"], "kind": "behavior", "quote": "agc::ActiveState agc;\n\tipa::awb::ActiveState awb;\n\tipa::ccm::ActiveState ccm;\n\tipa::gamma::ActiveState gamma;\n\tipa::lsc::ActiveState lsc;\n};", "evidence": ["context"]}, {"text": "`IPAFrameContext`에는 프레임별 상태인 `ipa::lsc::FrameContext lsc`가 있습니다. `IPAContext`의 `frameContexts`는 이러한 프레임 컨텍스트를 `FCQueue`로 관리하므로 공유 활성 상태와 프레임별 상태를 구분해 읽어야 합니다.", "covers": ["integration"], "kind": "behavior", "quote": "agc::FrameContext agc;\n\tipa::awb::FrameContext awb;\n\tipa::ccm::FrameContext ccm;\n\tipa::gamma::FrameContext gamma;\n\tipa::lsc::FrameContext lsc;\n};", "evidence": ["context"]}], "setup": [{"text": "`Lsc::init()`은 센서 `activeArea`의 너비와 높이로 보정 그리드를 계산합니다. 가로 최대 73셀과 세로 최대 56셀을 기준으로 필요한 셀 크기를 올림한 뒤, `std::bit_ceil()`로 각각 다음 2의 거듭제곱 크기에 맞춥니다. 그 크기로 셀 개수와 가로·세로 크기의 log2 값을 구합니다.", "covers": ["setup"], "kind": "behavior", "quote": "/**\n * \\copydoc libcamera::ipa::Algorithm::init\n */\nint Lsc::init(IPAContext &context, const ValueNode &tuningData)\n{\n\t/*\n\t * The IPU3 lens shading block expects a table of data that isn't of a\n\t * fixed size, but rather is configurable based on 4 parameters:\n\t *\n\t * block_width_log2:\tThe log2 of the horizontal pixel count per cell\n\t * block_height_log2:\tThe log2 of the vertical pixel count per cell\n\t * width:\t\tThe number of horizontal cells\n\t * height:\t\tThe number of vertical cells\n\t *\n\t * The constructed grid should be capable of covering the image, but\n\t * ideally won't extend past the edges of the image. Fixing either set\n\t * of parameters for the algorithm as a whole is likely to result in\n\t * suboptimal situations for some sensors, so let's determine them\n\t * programmatically instead.\n\t *\n\t * What we want is the densest possible grid that ideally doesn't extend\n\t * past the edges of the image at all. The maximum grid size is 73x56,\n\t * which gives us the lower bounds on cell size. Unfortunately we can\n\t * only specify sizes in powers of two, which can have the effect of\n\t * making the grid much more coarse. For example for a 2592x1944 input\n\t * image, 2592 / 73 = 35.5...which means we need to set blockWidthLog2\n\t * to 6 (I.E. 64) and have just 40.5 (or rather 41) cells horizontally.\n\t */\n\tsensorWidth_ = context.sensorInfo.activeArea.width;\n\tsensorHeight_ = context.sensorInfo.activeArea.height;", "evidence": ["setup"]}, {"text": "`Lsc::init()`은 튜닝 데이터와 제어 정보 맵, `r`·`gr`·`gb`·`b` 키, 가로·세로 샘플 수와 센서 영역 크기를 공통 `lscAlgo_.init()`에 전달합니다. 튜닝의 `type`이 `polynomial`인지도 따로 저장합니다.", "covers": ["setup"], "kind": "behavior", "quote": "return lscAlgo_.init(tuningData, context.ctrlMap,\n\t\t\t     { .keys = { \"r\", \"gr\", \"gb\", \"b\" },\n\t\t\t       .numHSamples = numHCells_,\n\t\t\t       .numVSamples = numVCells_,\n\t\t\t       .sensorSize = context.sensorInfo.activeArea.size() });\n}", "evidence": ["setup"]}, {"text": "`Lsc::configure()`는 `analogCrop`의 너비와 높이를 저장하고 그리드 크기에 맞는 가로·세로 샘플 위치를 만듭니다. 공통 `configure()`에는 공유 LSC 상태와 전체 `analogCrop`, 두 위치 배열을 전달합니다.", "covers": ["setup"], "kind": "behavior", "quote": "/**\n * \\copydoc libcamera::ipa::Algorithm::configure\n */\nint Lsc::configure(IPAContext &context, const IPAConfigInfo &configInfo)\n{\n\tcropWidth_ = configInfo.sensorInfo.analogCrop.width;\n\tcropHeight_ = configInfo.sensorInfo.analogCrop.height;\n\tstd::vector<double> xPos = calculatePositions(numHCells_);\n\tstd::vector<double> yPos = calculatePositions(numVCells_);", "evidence": ["setup"]}, {"text": "`calculatePositions()`는 각 위치를 `i / (dimension - 1)`로 계산합니다. 샘플이 두 개 이상이면 양 끝이 0과 1인 정규화 위치가 되지만, 이 함수에는 샘플 수가 1일 때의 별도 경계 검사가 없습니다.", "covers": ["setup"], "kind": "behavior", "quote": "std::vector<double> Lsc::calculatePositions(unsigned int dimension)\n{\n\tstd::vector<double> positions(dimension);\n\tfor (double i = 0.0; i < dimension; i++)\n\t\tpositions[i] = i / (dimension - 1);", "evidence": ["setup"]}], "request": [{"text": "`Lsc::queueRequest()`는 첫 프레임인 `frame == 0`에서 `LensShadingCorrectionEnable` 제어의 포함 여부를 확인합니다. 제어가 없을 때만 해당 프레임의 `enabled`와 `update`를 모두 `true`로 설정합니다. 주석은 공통 알고리즘의 기본값이 켜짐인 반면 IPU3 드라이버 기본값은 꺼짐이어서 이 처리가 필요하다고 설명합니다.", "covers": ["request"], "kind": "behavior", "quote": "void Lsc::queueRequest(IPAContext &context, const uint32_t frame,\n\t\t       IPAFrameContext &frameContext,\n\t\t       const ControlList &controls)\n{\n\t/*\n\t * The base algorithm defines the LensShadingCorrectionEnable control\n\t * with a default value of true, but actually the IPU3 driver defaults\n\t * it to off. If this is the first frame, check for the control, but if\n\t * there isn't one, force it on to fulfil the advertised default.\n\t */\n\tif (frame == 0) {\n\t\tconst auto &lscEnable = controls.get(controls::LensShadingCorrectionEnable);\n\t\tif (!lscEnable) {\n\t\t\tframeContext.lsc.enabled = true;\n\t\t\tframeContext.lsc.update = true;\n\t\t}\n\t}", "evidence": ["request"]}, {"text": "`Lsc::queueRequest()`는 이후 공통 알고리즘에 `context.activeState.lsc`, `frameContext.lsc`, 요청의 `controls`를 전달합니다. 따라서 공유 활성 상태와 이번 프레임 상태, 제어 목록이 서로 다른 인자로 연결됩니다.", "covers": ["request"], "kind": "behavior", "quote": "lscAlgo_.queueRequest(context.activeState.lsc, frameContext.lsc, controls);\n}", "evidence": ["request"]}], "prepare": [{"text": "`Lsc::prepare()`는 프레임의 AWB 색온도를 읽고 10 단위로 양자화합니다. `quantize()`는 값을 단위 크기로 나눈 뒤 반올림하고 다시 그 단위를 곱합니다.", "covers": ["prepare"], "kind": "behavior", "quote": "/**\n * \\copydoc libcamera::ipa::Algorithm::prepare\n */\nvoid Lsc::prepare([[maybe_unused]] IPAContext &context, [[maybe_unused]] const uint32_t frame,\n\t\t  IPAFrameContext &frameContext, ipu3_uapi_params *params)\n{\n\tuint32_t ct = frameContext.awb.colourTemperature;\n\tunsigned int quantizedCt = quantize(ct, kColourTemperatureQuantization);", "evidence": ["prepare"]}, {"text": "`update`가 `false`일 때는 보정이 비활성인 경우 바로 반환합니다. 같은 분기 안에서 원래 색온도와 마지막 적용 색온도의 차이가 5보다 작거나, 양자화 색온도가 마지막 값과 같아도 반환합니다. 이 세 가지 생략 조건을 `update == true` 경로까지 확대하면 안 됩니다.", "covers": ["prepare"], "kind": "behavior", "quote": "if (!frameContext.lsc.update) {\n\t\tif (!frameContext.lsc.enabled)\n\t\t\treturn;", "evidence": ["prepare"]}, {"text": "갱신을 진행하는 `prepare()`는 먼저 `params->use.acc_shd`를 1로 설정하고 `shd_enable`에 이번 프레임의 활성 상태를 기록합니다. 비활성 상태라면 그 뒤에 반환하므로, `update == true`인 비활성화 전환도 이 플래그들을 전달합니다.", "covers": ["prepare"], "kind": "behavior", "quote": "/*\n\t * This flag tells the kernel driver that it should read the LSC params\n\t * passed from userspace instead of using its cached copy.\n\t */\n\tparams->use.acc_shd = 1;", "evidence": ["prepare"]}, {"text": "활성 경로의 `prepare()`는 계산해 둔 가로·세로 셀 수와 셀 크기의 log2 값, 슬라이스당 그리드 높이를 하드웨어 파라미터에 씁니다. 다항식 방식이면 시작 위치를 0으로, 그 외에는 크롭 크기와 센서 크기의 차이를 절반으로 나눈 값으로 설정합니다.", "covers": ["prepare"], "kind": "behavior", "quote": "config->grid.width = numHCells_;\n\tconfig->grid.height = numVCells_;\n\tconfig->grid.block_width_log2 = blockWidthLog2_;\n\tconfig->grid.block_height_log2 = blockHeightLog2_;\n\tconfig->grid.grid_height_per_slice = IPU3_UAPI_SHD_MAX_CELLS_PER_SET / numHCells_;", "evidence": ["prepare"]}, {"text": "`prepare()`는 `gain_factor`를 0으로 고정하고 이 LSC 블록의 네 채널 black level을 0으로 설정합니다. 주석은 black level 처리를 다른 파라미터 블록에서 수행한다고 설명합니다.", "covers": ["prepare"], "kind": "behavior", "quote": "/*\n\t * Values in the LUT cease taking effect at 4096, and a value of 0.0 is\n\t * \"no correction\" rather than black. The gain factor is described by\n\t * the documentation like so:\n\t *\n\t * \"Shift calculated anti shading value. Precision u2. 0x0 - gain factor\n\t * [1, 5], means no shift interpolated value. 0x1 - gain factor [1, 9],\n\t * means shift interpolated by 1. 0x2 - gain factor [1, 17], means shift\n\t * interpolated by 2.\"\n\t *\n\t * The simplest interpretation for those pieces of information is I\n\t * think that the LUT stores 12-bit Q numbers who's represented values\n\t * depend on the gain_factor setting like so:\n\t *\n\t * 0: UQ<2, 10> representing values in range [0, 4)\n\t * 1: UQ<3, 9> representing values in range [0, 8)\n\t * 2: UQ<4, 8> representing values in range [0, 16)\n\t *\n\t * And that a base gain of 1.0 is added to those configured values. As a\n\t * gain of more than 5.0 is fairly unlikely, let's fix gain_factor to 0\n\t * for now and revisit if needed.\n\t */\n\tconfig->general.gain_factor = 0;", "evidence": ["prepare"]}, {"text": "`prepare()`는 양자화 색온도로 공통 알고리즘의 `interpolateComponents()`를 호출하고, 반환된 `r`·`gr`·`gb`·`b` 값을 LUT의 각 세트에 복사합니다. 활성 경로의 기록이 끝난 뒤 원래 색온도와 양자화 색온도를 각각 `lastAppliedCt_`, `lastAppliedQuantizedCt_`에 저장합니다.", "covers": ["prepare"], "kind": "behavior", "quote": "const auto &set = lscAlgo_.interpolateComponents(quantizedCt);", "evidence": ["prepare"]}], "metadata": [{"text": "`Lsc::process()` 래퍼는 `frameContext.lsc`와 출력 `metadata`를 공통 `lscAlgo_.process()`에 전달합니다. 래퍼 자체는 `context`, 프레임 번호와 `stats`를 직접 사용하지 않으며 해당 인자에는 `maybe_unused` 속성이 붙어 있습니다.", "covers": ["metadata"], "kind": "behavior", "quote": "void Lsc::process([[maybe_unused]] IPAContext &context,\n\t\t  [[maybe_unused]] const uint32_t frame,\n\t\t  IPAFrameContext &frameContext,\n\t\t  [[maybe_unused]] const ipu3_uapi_stats_3a *stats,\n\t\t  ControlList &metadata)\n{\n\tlscAlgo_.process(frameContext.lsc, metadata);\n}", "evidence": ["process"]}, {"text": "파일 끝의 `REGISTER_IPA_ALGORITHM(Lsc, \"Lsc\")`는 `Lsc` 이름으로 알고리즘을 등록합니다. 이 등록문과 래퍼 호출만으로 실제 장치의 보정 결과나 실행 성능까지 확인할 수는 없습니다.", "covers": ["metadata"], "kind": "behavior", "quote": "REGISTER_IPA_ALGORITHM(Lsc, \"Lsc\")", "evidence": ["process"]}]}, "body_sha256": "f95cc50c0e3e0e191971607269335ee138fb871f2ece20db0cd0192314152e6b"}
 ---
 
 # IPU3 LSC의 설정과 프레임 처리
@@ -22,54 +24,55 @@ semantic_review: human-review-required
 
 ## 빌드와 상태 연결
 
-IPU3 알고리즘을 빌드할 때 `lsc.cpp`도 포함합니다. 하지만 코드를 빌드했다는 사실과 카메라가 지금 그 기능을 사용한다는 것은 다릅니다. 이 목록만 보고 LSC가 켜져 있다고 판단해서는 안 됩니다. `src/ipa/ipu3/algorithms/meson.build:3`
+IPU3 알고리즘을 나열하는 빌드 설정에는 `lsc.cpp`가 포함됩니다. 이는 빌드 대상에 포함된다는 근거이며, 실행할 때마다 보정이 활성화된다는 뜻은 아닙니다. `src/ipa/ipu3/algorithms/meson.build:3`
 
-IPAContext는 공유 activeState와 프레임 컨텍스트 큐를 보유합니다. IPAActiveState의 lsc 필드와 IPAFrameContext의 lsc 필드가 각각 공유 상태와 프레임별 상태를 연결합니다. `src/ipa/ipu3/ipa_context.h:32`
+`IPAActiveState`는 공유되는 활성 상태에 `ipa::lsc::ActiveState` 타입의 `lsc`를 둡니다. `IPAContext`는 이 활성 상태와 세션 구성, 센서 정보를 함께 보관합니다. `src/ipa/ipu3/ipa_context.h:32`
+
+`IPAFrameContext`에는 프레임별 상태인 `ipa::lsc::FrameContext lsc`가 있습니다. `IPAContext`의 `frameContexts`는 이러한 프레임 컨텍스트를 `FCQueue`로 관리하므로 공유 활성 상태와 프레임별 상태를 구분해 읽어야 합니다. `src/ipa/ipu3/ipa_context.h:32`
 
 근거 원문: [src/ipa/ipu3/algorithms/meson.build:3](#source-914bc0dd95a64016) · [src/ipa/ipu3/ipa_context.h:32](#source-47a8aa55a4a846f4)
 
 ## 초기화와 크롭 설정
 
-init()는 센서 activeArea의 너비와 높이를 기준으로 그리드를 계산합니다. 가로 73개와 세로 56개라는 셀 수 상한에 맞춰 필요한 셀 크기를 계산하고, 이를 2의 거듭제곱으로 올림한 뒤 실제 셀 수와 블록 크기를 정합니다. `src/ipa/ipu3/algorithms/lsc.cpp:31`
+`Lsc::init()`은 센서 `activeArea`의 너비와 높이로 보정 그리드를 계산합니다. 가로 최대 73셀과 세로 최대 56셀을 기준으로 필요한 셀 크기를 올림한 뒤, `std::bit_ceil()`로 각각 다음 2의 거듭제곱 크기에 맞춥니다. 그 크기로 셀 개수와 가로·세로 크기의 log2 값을 구합니다. `src/ipa/ipu3/algorithms/lsc.cpp:31`
 
-튜닝 데이터의 type이 polynomial인지 저장한 뒤, r·gr·gb·b 성분과 샘플 수 및 센서 크기를 공통 LSC 알고리즘의 init()에 전달합니다. 반환값은 호출자에게 그대로 반환합니다. `src/ipa/ipu3/algorithms/lsc.cpp:31`
+`Lsc::init()`은 튜닝 데이터와 제어 정보 맵, `r`·`gr`·`gb`·`b` 키, 가로·세로 샘플 수와 센서 영역 크기를 공통 `lscAlgo_.init()`에 전달합니다. 튜닝의 `type`이 `polynomial`인지도 따로 저장합니다. `src/ipa/ipu3/algorithms/lsc.cpp:31`
 
-configure()는 analogCrop의 너비와 높이를 저장합니다. 각 축의 샘플 위치를 0부터 1까지 생성하고, 크롭 영역 및 공유 LSC 상태와 함께 공통 알고리즘의 configure()에 전달합니다. 이 코드는 샘플 수가 1일 때의 나눗셈을 별도로 처리하지 않으므로 지원 센서 크기의 경계 조건은 추가 검증이 필요합니다. `src/ipa/ipu3/algorithms/lsc.cpp:31`
+`Lsc::configure()`는 `analogCrop`의 너비와 높이를 저장하고 그리드 크기에 맞는 가로·세로 샘플 위치를 만듭니다. 공통 `configure()`에는 공유 LSC 상태와 전체 `analogCrop`, 두 위치 배열을 전달합니다. `src/ipa/ipu3/algorithms/lsc.cpp:31`
+
+`calculatePositions()`는 각 위치를 `i / (dimension - 1)`로 계산합니다. 샘플이 두 개 이상이면 양 끝이 0과 1인 정규화 위치가 되지만, 이 함수에는 샘플 수가 1일 때의 별도 경계 검사가 없습니다. `src/ipa/ipu3/algorithms/lsc.cpp:31`
 
 근거 원문: [src/ipa/ipu3/algorithms/lsc.cpp:31](#source-441d18135ba28bdb)
 
 ## 첫 프레임과 요청별 제어
 
-frame이 0이고 요청에 LensShadingCorrectionEnable 제어가 없으면 프레임의 enabled와 update를 true로 설정합니다. 소스 주석은 공통 알고리즘이 알리는 기본값과 IPU3 드라이버의 기본 비활성 상태를 맞추기 위한 처리라고 설명합니다. `src/ipa/ipu3/algorithms/lsc.cpp:121`
+`Lsc::queueRequest()`는 첫 프레임인 `frame == 0`에서 `LensShadingCorrectionEnable` 제어의 포함 여부를 확인합니다. 제어가 없을 때만 해당 프레임의 `enabled`와 `update`를 모두 `true`로 설정합니다. 주석은 공통 알고리즘의 기본값이 켜짐인 반면 IPU3 드라이버 기본값은 꺼짐이어서 이 처리가 필요하다고 설명합니다. `src/ipa/ipu3/algorithms/lsc.cpp:121`
 
-이후 공유 LSC 상태, 현재 프레임의 LSC 상태와 요청 controls를 공통 알고리즘의 queueRequest()에 전달합니다. 여기서 설명하는 것은 IPU3 래퍼의 전달 동작이며, 모든 제어 값의 처리 규칙이나 콜백 실행 스레드까지 확인한 것은 아닙니다. `src/ipa/ipu3/algorithms/lsc.cpp:121`
+`Lsc::queueRequest()`는 이후 공통 알고리즘에 `context.activeState.lsc`, `frameContext.lsc`, 요청의 `controls`를 전달합니다. 따라서 공유 활성 상태와 이번 프레임 상태, 제어 목록이 서로 다른 인자로 연결됩니다. `src/ipa/ipu3/algorithms/lsc.cpp:121`
 
 근거 원문: [src/ipa/ipu3/algorithms/lsc.cpp:121](#source-80fd6c99ec2c0ae8)
 
 ## 파라미터 갱신 조건
 
-prepare()는 현재 프레임 AWB의 색온도를 읽어 10 단위로 반올림합니다. update가 false일 때만 다음 생략 조건을 검사합니다. 비활성 상태이면 바로 반환하고, 활성 상태에서도 직전 적용 색온도와의 차이가 5 미만이거나 양자화된 값이 같으면 갱신을 생략합니다. update가 true이면 이 생략 조건들을 적용하지 않습니다. `src/ipa/ipu3/algorithms/lsc.cpp:142`, `src/ipa/ipu3/algorithms/lsc.cpp:31`
+`Lsc::prepare()`는 프레임의 AWB 색온도를 읽고 10 단위로 양자화합니다. `quantize()`는 값을 단위 크기로 나눈 뒤 반올림하고 다시 그 단위를 곱합니다. `src/ipa/ipu3/algorithms/lsc.cpp:142`
 
-갱신 경로에서는 use.acc_shd를 1로 설정하고 shd_enable에 현재 활성 상태를 기록합니다. update가 true이고 enabled가 false인 경우에도 이 플래그를 기록한 뒤 반환하므로, 단순히 비활성 상태의 모든 호출을 생략하는 것은 아닙니다. `src/ipa/ipu3/algorithms/lsc.cpp:142`
+`update`가 `false`일 때는 보정이 비활성인 경우 바로 반환합니다. 같은 분기 안에서 원래 색온도와 마지막 적용 색온도의 차이가 5보다 작거나, 양자화 색온도가 마지막 값과 같아도 반환합니다. 이 세 가지 생략 조건을 `update == true` 경로까지 확대하면 안 됩니다. `src/ipa/ipu3/algorithms/lsc.cpp:142`
 
-활성 상태에서는 그리드와 크롭 오프셋을 설정하고, 양자화한 색온도로 interpolateComponents()를 호출합니다. 반환된 r·gr·gb·b 배열을 LUT에 복사한 뒤 마지막으로 적용한 색온도 두 값을 저장합니다. 실제 하드웨어의 적용 시점과 LUT 분할 경계의 적합성은 기기에서 별도로 검증해야 합니다. `src/ipa/ipu3/algorithms/lsc.cpp:142`
+갱신을 진행하는 `prepare()`는 먼저 `params->use.acc_shd`를 1로 설정하고 `shd_enable`에 이번 프레임의 활성 상태를 기록합니다. 비활성 상태라면 그 뒤에 반환하므로, `update == true`인 비활성화 전환도 이 플래그들을 전달합니다. `src/ipa/ipu3/algorithms/lsc.cpp:142`
 
-| 조건 | prepare()의 처리 | 변경 검토 지점 |
-|---|---|---|
-| `update=false`, 비활성 상태입니다. | 파라미터를 갱신하지 않고 반환합니다. | 비활성 상태 유지와 비활성화 전환을 구분합니다. |
-| `update=false`, 활성 상태이며 직전 색온도와의 차이가 5 미만이거나 양자화한 값이 같습니다. | LUT 갱신을 생략합니다. | 원래 색온도의 차이와 10 단위로 반올림한 값을 모두 확인합니다. |
-| `update=true`, 비활성 상태입니다. | 갱신 경로에서 `use.acc_shd`와 비활성 `shd_enable`을 기록합니다. | 비활성화 전환을 전달하는 경로를 조기 반환으로 없애지 않습니다. |
-| 갱신 경로이며 활성 상태입니다. | 그리드·크롭 오프셋과 보간 LUT를 기록하고 색온도를 저장합니다. | 출력 파라미터와 프레임 상태를 함께 대조합니다. |
+활성 경로의 `prepare()`는 계산해 둔 가로·세로 셀 수와 셀 크기의 log2 값, 슬라이스당 그리드 높이를 하드웨어 파라미터에 씁니다. 다항식 방식이면 시작 위치를 0으로, 그 외에는 크롭 크기와 센서 크기의 차이를 절반으로 나눈 값으로 설정합니다. `src/ipa/ipu3/algorithms/lsc.cpp:142`
 
- `src/ipa/ipu3/algorithms/lsc.cpp:142`
+`prepare()`는 `gain_factor`를 0으로 고정하고 이 LSC 블록의 네 채널 black level을 0으로 설정합니다. 주석은 black level 처리를 다른 파라미터 블록에서 수행한다고 설명합니다. `src/ipa/ipu3/algorithms/lsc.cpp:142`
+
+`prepare()`는 양자화 색온도로 공통 알고리즘의 `interpolateComponents()`를 호출하고, 반환된 `r`·`gr`·`gb`·`b` 값을 LUT의 각 세트에 복사합니다. 활성 경로의 기록이 끝난 뒤 원래 색온도와 양자화 색온도를 각각 `lastAppliedCt_`, `lastAppliedQuantizedCt_`에 저장합니다. `src/ipa/ipu3/algorithms/lsc.cpp:142`
 
 근거 원문: [src/ipa/ipu3/algorithms/lsc.cpp:142](#source-026024190618ffa6) · [src/ipa/ipu3/algorithms/lsc.cpp:31](#source-af2cbcaa6410fbf4)
 
 ## 메타데이터와 확인 범위
 
-IPU3의 process()는 프레임 LSC 상태와 출력 metadata를 공통 알고리즘의 process()에 전달합니다. 이 래퍼는 전달받은 통계를 직접 읽지 않습니다. 파일 끝에서는 Lsc라는 이름으로 알고리즘을 등록합니다. `src/ipa/ipu3/algorithms/lsc.cpp:282`
+`Lsc::process()` 래퍼는 `frameContext.lsc`와 출력 `metadata`를 공통 `lscAlgo_.process()`에 전달합니다. 래퍼 자체는 `context`, 프레임 번호와 `stats`를 직접 사용하지 않으며 해당 인자에는 `maybe_unused` 속성이 붙어 있습니다. `src/ipa/ipu3/algorithms/lsc.cpp:282`
 
-이 문서는 고정된 libcamera 커밋의 구현을 설명합니다. 센서별 화질, 실행 스레드, 실제 프레임의 파라미터 적용 시점과 사내 Camera HAL 동작을 검증한 결과는 아닙니다. `src/ipa/ipu3/algorithms/lsc.cpp:282`
+파일 끝의 `REGISTER_IPA_ALGORITHM(Lsc, "Lsc")`는 `Lsc` 이름으로 알고리즘을 등록합니다. 이 등록문과 래퍼 호출만으로 실제 장치의 보정 결과나 실행 성능까지 확인할 수는 없습니다. `src/ipa/ipu3/algorithms/lsc.cpp:282`
 
 근거 원문: [src/ipa/ipu3/algorithms/lsc.cpp:282](#source-5e8cfeb51ea8c16a)
 
@@ -543,9 +546,9 @@ flowchart LR
 | `libcamera::ipa::lsc::FrameContext` | `src/ipa/libipa/lsc.h:31` | – | 확인 필요 |
 
 ??? note "근거와 검토 정보"
-    - 생성 방식: 소스 발췌에 연결한 설계 설명
-    - 검증 범위: 설정에 작성된 설명을 발췌 해시와 대조합니다. 해시 일치는 설명의 의미를 승인하지 않습니다.
-    - 근거 파일: `src/ipa/ipu3/algorithms/lsc.cpp`, `src/ipa/ipu3/algorithms/lsc.h`, `src/ipa/ipu3/ipa_context.h`, `src/ipa/libipa/lsc.h`
+    - 생성 방식: 추출 사실과 LLM 설명
+    - 검증 범위: 표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.
+    - 근거 파일: `src/ipa/ipu3/algorithms/lsc.cpp`, `src/ipa/ipu3/algorithms/lsc.h`, `src/ipa/ipu3/algorithms/meson.build`, `src/ipa/ipu3/ipa_context.h`, `src/ipa/libipa/lsc.h`
     - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `2c4b67c079`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
     - 검토 상태 기록일: 2026-10-24 · 사람 검토 전

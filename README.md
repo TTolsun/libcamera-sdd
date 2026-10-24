@@ -8,13 +8,14 @@ Developer는 [시스템 개요](https://ttolsun.github.io/libcamera-sdd/overview
 
 ## 생성과 검증
 
-- 소스는 공식 upstream `2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f`, 생성기는 `4932912bbb41c12c628363b4543f87ccc920978e`입니다. upstream에 새 커밋은 없었으며 처음 읽는 개발자 안내의 누락을 보완했습니다.
-- 전체 빌드 facts(TU 300개, 클래스 1,513개)와 원고 16편을 재사용하고 시스템 개요를 다시 생성했습니다. 개요는 에이전트가 실제 소스를 대조해 설정에 작성한 계약이며 `source-bound-contract`로 표시합니다. Vendor 개요의 기존 LLM 생성 이력은 유지합니다.
-- 생성기 통합 테스트 725개 통과, 1개 건너뜀. 한영 사이트 38페이지에서 내부 링크 오류 0과 manifest 일치를 확인했고, 같은 원고·카탈로그의 반복 빌드에서 산출물 88개와 manifest가 같았습니다.
-- 첫 진입점 링크, 근거 Enter·Space 접기와 영어 모바일 메뉴를 브라우저에서 확인했습니다. 최신 main 통합 후에도 390px 화면에서 가로 넘침이 없었습니다.
-- 현재 작성 에이전트의 의미 대조이며 새 독립 에이전트나 실제 신입·타팀 독자의 이해도 시험은 아닙니다. 한국어·영어는 사람 검토 전이며 사내 Camera HAL·실기기·ADHD 독자의 이해도는 검증하지 않았습니다.
+- 소스는 공식 upstream `2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f`, 생성기는 `8dc830e7c616927ca0592d371c21fa8b6257f90f`입니다. upstream에 새 커밋은 없었으며, 고정 설명의 생성·갱신 경로를 보완했습니다.
+- 전체 빌드 facts(TU 300개, 클래스 1,513개)를 재사용했습니다. 상세 문서 6편과 Developer 시스템 개요의 40개 주제·154개 설명 문단을 LLM 응답으로 다시 생성했습니다. 기존 Vendor LLM 개요를 포함한 설계 문서 8편 모두 질문·소스 선택자만 설정하며 답변을 고정하지 않습니다.
+- 이번 7편의 작성 주체는 **Codex 세션**입니다. 소스를 대조한 응답을 입력 해시에 연결한 `response-bundle`로 가져왔으며, Qwen의 실패한 설명은 게시하지 않았습니다. 이 파일 경로는 모델을 직접 호출하지 않습니다. 입력이 바뀌면 새 응답이 필요하며, 연결된 모델의 자동 호출은 `ollama`·`openai-compatible` 경로를 사용합니다.
+- 회귀 테스트 합계 740개 통과, 1개 건너뜀. 소스 인용 8,545곳·563개 파일에 잘못된 위치가 없었습니다. 한영 38페이지의 내부 링크 오류는 0이며 산출물 88개와 manifest가 반복 빌드에서 같았습니다.
+- 한국어 Pipeline Handler 본문·문단 근거 펼치기와 영어 Developer 첫 파일·진단 안내를 브라우저에서 확인했습니다. 390px 영어 개요 화면에서 가로 넘침이 없었으며 기존 모바일 표·탐색 디자인을 유지합니다.
+- 한국어·영어와 기술 해석은 사람 검토 전입니다. 사내 Camera HAL과 실기기 동작은 검증하지 않았습니다.
 
-[배포 기록](run.json), [산출물 해시](docs/site-manifest.json), [생성기 변경 #78](https://github.com/TTolsun/camera-hal-sdd-generator/pull/78)을 확인하세요.
+[배포 기록](run.json), [요청·응답 해시 기록](generation-receipts.json), [산출물 해시](docs/site-manifest.json), [생성기 변경 #75](https://github.com/TTolsun/camera-hal-sdd-generator/pull/75)을 확인하세요.
 
 ## 동기화와 배포
 
