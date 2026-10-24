@@ -14,6 +14,8 @@
 <li><a href="#프레임-입력과-결과-인터페이스">Frame input and result interfaces</a></li>
 <li><a href="#ipa-객체와-종료-순서">IPA objects and shutdown order</a></li>
 <li><a href="#생성과-ipc-실패">Creation and IPC failures</a></li>
+<li><a href="#보정-전-튜닝-파일">Uncalibrated tuning files</a></li>
+<li><a href="#소프트웨어-isp-셰이더의-렌즈-음영-보정">Lens shading correction in the software ISP shaders</a></li>
 <li><a href="#클래스-관계">Class relationships</a></li>
 <li><a href="#관련-클래스">Related classes</a></li>
 </ul>
@@ -55,15 +57,25 @@
 <td><a href="#생성과-ipc-실패">Creation and IPC failures</a></td>
 <td>Code evidence linked to explanation · Runtime checks are separate</td>
 </tr>
+<tr>
+<td>Which file and algorithms are used when there is no sensor-specific tuning file?</td>
+<td><a href="#보정-전-튜닝-파일">Uncalibrated tuning files</a></td>
+<td>Code evidence linked to explanation · Runtime checks are separate</td>
+</tr>
+<tr>
+<td>At which stage do the software ISP GPU shaders apply lens shading correction?</td>
+<td><a href="#소프트웨어-isp-셰이더의-렌즈-음영-보정">Lens shading correction in the software ISP shaders</a></td>
+<td>Code evidence linked to explanation · Runtime checks are separate</td>
+</tr>
 </tbody>
 </table></div>
 <h2 id="모듈-탐색과-격리-조건">Module discovery and isolation conditions</h2>
-<p><code>IPAManager</code> searches for IPA candidates in configured module paths, the uninstalled build path, then installed system paths. <code>IPAModule::match()</code> checks the name and an inclusive minimum-to-maximum version range. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/src/libcamera/ipa_manager.cpp#L107"><code>src/libcamera/ipa_manager.cpp:107</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/src/libcamera/ipa_module.cpp#L460"><code>src/libcamera/ipa_module.cpp:460</code></a></p>
-<p>The current <code>createIPA&lt;T&gt;()</code> implementation creates <code>T::Threaded</code> when signature verification succeeds, or <code>T::Isolated</code> when it fails. It chooses isolation if public-key support is unavailable, forced isolation is enabled or the signature cannot be verified. A license name alone does not determine the current execution mode. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/include/libcamera/internal/ipa_manager.h#L35"><code>include/libcamera/internal/ipa_manager.h:35</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/src/libcamera/ipa_manager.cpp#L289"><code>src/libcamera/ipa_manager.cpp:289</code></a></p>
-<p>If no module matches or the created proxy's <code>isValid()</code> is false, <code>createIPA()</code> returns null. Callers must check this result before using the proxy. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/include/libcamera/internal/ipa_manager.h#L35"><code>include/libcamera/internal/ipa_manager.h:35</code></a></p>
+<p><code>IPAManager</code> searches for IPA candidates in configured module paths, the uninstalled build path, then installed system paths. <code>IPAModule::match()</code> checks the name and an inclusive minimum-to-maximum version range. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipa_manager.cpp#L107"><code>src/libcamera/ipa_manager.cpp:107</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipa_module.cpp#L460"><code>src/libcamera/ipa_module.cpp:460</code></a></p>
+<p>The current <code>createIPA&lt;T&gt;()</code> implementation creates <code>T::Threaded</code> when signature verification succeeds, or <code>T::Isolated</code> when it fails. It chooses isolation if public-key support is unavailable, forced isolation is enabled or the signature cannot be verified. A license name alone does not determine the current execution mode. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/include/libcamera/internal/ipa_manager.h#L35"><code>include/libcamera/internal/ipa_manager.h:35</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipa_manager.cpp#L289"><code>src/libcamera/ipa_manager.cpp:289</code></a></p>
+<p>If no module matches or the created proxy's <code>isValid()</code> is false, <code>createIPA()</code> returns null. Callers must check this result before using the proxy. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/include/libcamera/internal/ipa_manager.h#L35"><code>include/libcamera/internal/ipa_manager.h:35</code></a></p>
 <details class="note">
 <summary>Source evidence: modules</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/src/libcamera/ipa_manager.cpp#L107"><code>src/libcamera/ipa_manager.cpp:107</code></a> and ending at line 162. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipa_manager.cpp#L107"><code>src/libcamera/ipa_manager.cpp:107</code></a> and ending at line 162. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>ed1b15d5743b434eb29e34ba981de978ff4dd9bcb186859e4800931a525e766c</code></p>
 <pre class="highlight"><code class="language-text">IPAManager::IPAManager(const CameraManager &amp;cm)
     : cm_(cm)
@@ -124,7 +136,7 @@ IPAManager::~IPAManager() = default;</code></pre>
 </details>
 <details class="note">
 <summary>Source evidence: match</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/src/libcamera/ipa_module.cpp#L460"><code>src/libcamera/ipa_module.cpp:460</code></a> and ending at line 478. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipa_module.cpp#L460"><code>src/libcamera/ipa_module.cpp:460</code></a> and ending at line 478. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>99940db9ea353ad0d8282b7c2148578f4c6054d785ef7aaf690d522b52bafb5b</code></p>
 <pre class="highlight"><code class="language-text">\brief Verify if the IPA module matches a given name
  * \param[in] name The IPA module name
@@ -148,7 +160,7 @@ std::string IPAModule::logPrefix()</code></pre>
 </details>
 <details class="note">
 <summary>Source evidence: selection</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/include/libcamera/internal/ipa_manager.h#L35"><code>include/libcamera/internal/ipa_manager.h:35</code></a> and ending at line 58. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/include/libcamera/internal/ipa_manager.h#L35"><code>include/libcamera/internal/ipa_manager.h:35</code></a> and ending at line 58. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>e0bd5192ea24a8b39d3df7b7b93c8b17614663a0144f6dd0741d410fa321d458</code></p>
 <pre class="highlight"><code class="language-text">template&lt;typename T&gt;
     std::unique_ptr&lt;T&gt; createIPA(const char *name, uint32_t minVersion,
@@ -177,7 +189,7 @@ std::string IPAModule::logPrefix()</code></pre>
 </details>
 <details class="note">
 <summary>Source evidence: signature</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/src/libcamera/ipa_manager.cpp#L289"><code>src/libcamera/ipa_manager.cpp:289</code></a> and ending at line 319. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipa_manager.cpp#L289"><code>src/libcamera/ipa_manager.cpp:289</code></a> and ending at line 319. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>f657ce54df77453510108b02060166edd7506c982d13d3e4868fadee4065a677</code></p>
 <pre class="highlight"><code class="language-text">bool IPAManager::isSignatureValid([[maybe_unused]] IPAModule *ipa) const
 {
@@ -212,12 +224,12 @@ std::string IPAModule::logPrefix()</code></pre>
 } /* namespace libcamera */</code></pre>
 </details>
 <h2 id="스레드와-프로세스-경계">Thread and process boundaries</h2>
-<p>The Threaded proxy loads the module and creates and owns an IPA interface. After <code>init()</code>, it moves ThreadProxy to a dedicated thread. <code>start()</code> starts the thread and calls through a Blocking connection. Async methods use Queued connections in Running; other synchronous methods are called directly through separate branches in the generated template. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L48"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</code></a></p>
-<p>The Isolated proxy finds the worker executable path through <code>resolvePath()</code> and creates <code>IPCPipeUnixSocket</code>. The connection is established only after socket creation and <code>Process::start()</code> succeed. The IPC pipe starts the process; <code>resolvePath()</code> itself only returns a path. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/src/libcamera/ipa_proxy.cpp#L204"><code>src/libcamera/ipa_proxy.cpp:204</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/src/libcamera/ipc_pipe_unixsocket.cpp#L27"><code>src/libcamera/ipc_pipe_unixsocket.cpp:27</code></a></p>
-<p>Isolated proxy methods serialize arguments into data and file descriptors for transport. Async interface methods use <code>sendAsync()</code>; synchronous methods use <code>sendSync()</code>. Outputs and return values of synchronous calls are deserialized from the response. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</code></a></p>
+<p>The Threaded proxy loads the module and creates and owns an IPA interface. After <code>init()</code>, it moves ThreadProxy to a dedicated thread. <code>start()</code> starts the thread and calls through a Blocking connection. Async methods use Queued connections in Running; other synchronous methods are called directly through separate branches in the generated template. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L48"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</code></a></p>
+<p>The Isolated proxy finds the worker executable path through <code>resolvePath()</code> and creates <code>IPCPipeUnixSocket</code>. The connection is established only after socket creation and <code>Process::start()</code> succeed. The IPC pipe starts the process; <code>resolvePath()</code> itself only returns a path. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipa_proxy.cpp#L204"><code>src/libcamera/ipa_proxy.cpp:204</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipc_pipe_unixsocket.cpp#L27"><code>src/libcamera/ipc_pipe_unixsocket.cpp:27</code></a></p>
+<p>Isolated proxy methods serialize arguments into data and file descriptors for transport. Async interface methods use <code>sendAsync()</code>; synchronous methods use <code>sendSync()</code>. Outputs and return values of synchronous calls are deserialized from the response. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</code></a></p>
 <details class="note">
 <summary>Source evidence: threaded</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L48"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</code></a> and ending at line 128. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L48"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</code></a> and ending at line 128. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>af4b12c81ffee2e9979c01a7e7eb188f5568d258ba03e522b60a3608dc226abd</code></p>
 <pre class="highlight"><code class="language-text">{{proxy_name}}Threaded::{{proxy_name}}Threaded(IPAModule *ipam, const CameraManager &amp;cm)
     : {{proxy_name}}(ipam, cm), thread_("{{proxy_name}}")
@@ -303,7 +315,7 @@ std::string IPAModule::logPrefix()</code></pre>
 </details>
 <details class="note">
 <summary>Source evidence: isolated</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</code></a> and ending at line 212. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</code></a> and ending at line 212. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>dd0ba6e352ffacd6c27c6ff5bb447af14838d75ca6aed8d056855ec442a97744</code></p>
 <pre class="highlight"><code class="language-text">{{proxy_name}}Isolated::{{proxy_name}}Isolated(IPAModule *ipam, const CameraManager &amp;cm)
     : {{proxy_name}}(ipam, cm),
@@ -391,7 +403,7 @@ void {{proxy_name}}Isolated::recvMessage(</code></pre>
 </details>
 <details class="note">
 <summary>Source evidence: worker-path</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/src/libcamera/ipa_proxy.cpp#L204"><code>src/libcamera/ipa_proxy.cpp:204</code></a> and ending at line 261. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipa_proxy.cpp#L204"><code>src/libcamera/ipa_proxy.cpp:204</code></a> and ending at line 261. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>8cbcadf7036cdb391f4c48af8562cb637752242f9564f1118c949a62df9dbd77</code></p>
 <pre class="highlight"><code class="language-text">\brief Find a valid full path for a proxy worker for a given executable name
  * \param[in] file File name of proxy worker executable
@@ -454,7 +466,7 @@ std::string IPAProxy::resolvePath(const std::string &amp;file) const
 </details>
 <details class="note">
 <summary>Source evidence: ipc</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/src/libcamera/ipc_pipe_unixsocket.cpp#L27"><code>src/libcamera/ipc_pipe_unixsocket.cpp:27</code></a> and ending at line 144. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipc_pipe_unixsocket.cpp#L27"><code>src/libcamera/ipc_pipe_unixsocket.cpp:27</code></a> and ending at line 144. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>0abe488ceae72cca0a5b96c7223ffc4cc412ab18f94765fd7f001dc450544f40</code></p>
 <pre class="highlight"><code class="language-text">IPCPipeUnixSocket::IPCPipeUnixSocket(const char *ipaModulePath,
                      const char *ipaProxyWorkerPath)
@@ -576,12 +588,12 @@ int IPCPipeUnixSocket::call(const IPCUnixSocket::Payload &amp;message,
 } /* namespace libcamera */</code></pre>
 </details>
 <h2 id="프레임-입력과-결과-인터페이스">Frame input and result interfaces</h2>
-<p>The IPU3 and RKISP1 interfaces receive sensor information and control configuration through <code>init()</code> and <code>configure()</code>, and return a status code and IPA control information. <code>mapBuffers()</code> and <code>unmapBuffers()</code> pass buffer lists and IDs. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/include/libcamera/ipa/ipu3.mojom#L19"><code>include/libcamera/ipa/ipu3.mojom:19</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/include/libcamera/ipa/rkisp1.mojom#L17"><code>include/libcamera/ipa/rkisp1.mojom:17</code></a></p>
-<p>Per-frame <code>queueRequest()</code>, <code>computeParams()</code> and <code>processStats()</code> are declared async in both interfaces. Results use distinct <code>paramsComputed</code>, <code>setSensorControls</code> and <code>metadataReady</code> events. IPU3 statistics input includes frameTimestamp, while RKISP1's parameter-completion event includes bytesused. Do not treat the two interfaces as having identical argument lists. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/include/libcamera/ipa/ipu3.mojom#L19"><code>include/libcamera/ipa/ipu3.mojom:19</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/include/libcamera/ipa/rkisp1.mojom#L17"><code>include/libcamera/ipa/rkisp1.mojom:17</code></a></p>
-<p>Runtime checks: interface declarations alone cannot establish per-frame event arrival order, actual buffer-mapping lifetimes or when hardware applies parameters. Compare the IPA implementation with the pipeline's signal connections and verify execution. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/include/libcamera/ipa/ipu3.mojom#L19"><code>include/libcamera/ipa/ipu3.mojom:19</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/include/libcamera/ipa/rkisp1.mojom#L17"><code>include/libcamera/ipa/rkisp1.mojom:17</code></a></p>
+<p>The IPU3 and RKISP1 interfaces receive sensor information and control configuration through <code>init()</code> and <code>configure()</code>, and return a status code and IPA control information. <code>mapBuffers()</code> and <code>unmapBuffers()</code> pass buffer lists and IDs. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/include/libcamera/ipa/ipu3.mojom#L19"><code>include/libcamera/ipa/ipu3.mojom:19</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/include/libcamera/ipa/rkisp1.mojom#L17"><code>include/libcamera/ipa/rkisp1.mojom:17</code></a></p>
+<p>Per-frame <code>queueRequest()</code>, <code>computeParams()</code> and <code>processStats()</code> are declared async in both interfaces. Results use distinct <code>paramsComputed</code>, <code>setSensorControls</code> and <code>metadataReady</code> events. IPU3 statistics input includes frameTimestamp, while RKISP1's parameter-completion event includes bytesused. Do not treat the two interfaces as having identical argument lists. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/include/libcamera/ipa/ipu3.mojom#L19"><code>include/libcamera/ipa/ipu3.mojom:19</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/include/libcamera/ipa/rkisp1.mojom#L17"><code>include/libcamera/ipa/rkisp1.mojom:17</code></a></p>
+<p>Runtime checks: interface declarations alone cannot establish per-frame event arrival order, actual buffer-mapping lifetimes or when hardware applies parameters. Compare the IPA implementation with the pipeline's signal connections and verify execution. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/include/libcamera/ipa/ipu3.mojom#L19"><code>include/libcamera/ipa/ipu3.mojom:19</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/include/libcamera/ipa/rkisp1.mojom#L17"><code>include/libcamera/ipa/rkisp1.mojom:17</code></a></p>
 <details class="note">
 <summary>Source evidence: ipu3-api</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/include/libcamera/ipa/ipu3.mojom#L19"><code>include/libcamera/ipa/ipu3.mojom:19</code></a> and ending at line 44. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/include/libcamera/ipa/ipu3.mojom#L19"><code>include/libcamera/ipa/ipu3.mojom:19</code></a> and ending at line 44. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>f1969299336634cdd04e42402648a452126032a25540ad5c78bd2c804362a381</code></p>
 <pre class="highlight"><code class="language-text">interface IPAIPU3Interface {
     init(libcamera.IPASettings settings,
@@ -612,7 +624,7 @@ interface IPAIPU3EventInterface {
 </details>
 <details class="note">
 <summary>Source evidence: rkisp1-api</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/include/libcamera/ipa/rkisp1.mojom#L17"><code>include/libcamera/ipa/rkisp1.mojom:17</code></a> and ending at line 43. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/include/libcamera/ipa/rkisp1.mojom#L17"><code>include/libcamera/ipa/rkisp1.mojom:17</code></a> and ending at line 43. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>32d657315ff8eac800254f0a5d39462d55bb4b0ef6ee5717930f3d3b8504162b</code></p>
 <pre class="highlight"><code class="language-text">interface IPARkISP1Interface {
     init(libcamera.IPASettings settings,
@@ -643,13 +655,13 @@ interface IPARkISP1EventInterface {
 };</code></pre>
 </details>
 <h2 id="ipa-객체와-종료-순서">IPA objects and shutdown order</h2>
-<p><code>IPAModule::load()</code> looks up the <code>ipaCreate</code> symbol in the shared object. Only a valid, successfully loaded module can create an interface through <code>createInterface()</code>. The Threaded proxy owns the created interface through a unique_ptr. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/src/libcamera/ipa_module.cpp#L390"><code>src/libcamera/ipa_module.cpp:390</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L48"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</code></a></p>
-<p>The Threaded proxy's <code>stop()</code> first checks reentry in Stopping with ASSERT. It returns for other states except Running. In Running, it switches to Stopping, calls IPA stop through a Blocking connection, then exits and waits for the thread. It delivers pending InvokeMessage instances before changing to Stopped. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl#L25"><code>utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</code></a></p>
-<p>The Isolated proxy destructor sends an asynchronous Exit message if an IPC connection exists. This excerpt alone does not guarantee confirmed worker termination or complete resource reclamation. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</code></a></p>
-<p>Runtime checks: verify worker termination waits, recovery after abnormal termination and signal reentry in the Process and worker implementations and in actual execution. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl#L25"><code>utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</code></a></p>
+<p><code>IPAModule::load()</code> looks up the <code>ipaCreate</code> symbol in the shared object. Only a valid, successfully loaded module can create an interface through <code>createInterface()</code>. The Threaded proxy owns the created interface through a unique_ptr. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipa_module.cpp#L390"><code>src/libcamera/ipa_module.cpp:390</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L48"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</code></a></p>
+<p>The Threaded proxy's <code>stop()</code> first checks reentry in Stopping with ASSERT. It returns for other states except Running. In Running, it switches to Stopping, calls IPA stop through a Blocking connection, then exits and waits for the thread. It delivers pending InvokeMessage instances before changing to Stopped. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl#L25"><code>utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</code></a></p>
+<p>The Isolated proxy destructor sends an asynchronous Exit message if an IPC connection exists. This excerpt alone does not guarantee confirmed worker termination or complete resource reclamation. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</code></a></p>
+<p>Runtime checks: verify worker termination waits, recovery after abnormal termination and signal reentry in the Process and worker implementations and in actual execution. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl#L25"><code>utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</code></a></p>
 <details class="note">
 <summary>Source evidence: load</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/src/libcamera/ipa_module.cpp#L390"><code>src/libcamera/ipa_module.cpp:390</code></a> and ending at line 460. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipa_module.cpp#L390"><code>src/libcamera/ipa_module.cpp:390</code></a> and ending at line 460. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>a1e13344bfc27e191c6c24c682f3a088446d42c99b9497c6e831ab1b97b55619</code></p>
 <pre class="highlight"><code class="language-text">\brief Load the IPA implementation factory from the shared object
  *
@@ -725,7 +737,7 @@ IPAInterface *IPAModule::createInterface()
 </details>
 <details class="note">
 <summary>Source evidence: threaded</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L48"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</code></a> and ending at line 128. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L48"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</code></a> and ending at line 128. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>af4b12c81ffee2e9979c01a7e7eb188f5568d258ba03e522b60a3608dc226abd</code></p>
 <pre class="highlight"><code class="language-text">{{proxy_name}}Threaded::{{proxy_name}}Threaded(IPAModule *ipam, const CameraManager &amp;cm)
     : {{proxy_name}}(ipam, cm), thread_("{{proxy_name}}")
@@ -811,7 +823,7 @@ IPAInterface *IPAModule::createInterface()
 </details>
 <details class="note">
 <summary>Source evidence: thread-stop</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl#L25"><code>utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</code></a> and ending at line 40. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl#L25"><code>utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</code></a> and ending at line 40. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>40789903a76fad82ef27bf4ecd2c79ed2c47d0e0ad9d6583fba12e9cf072884b</code></p>
 <pre class="highlight"><code class="language-text">{%- macro stop_thread_body() -%}
     ASSERT(state_ != ProxyStopping);
@@ -832,7 +844,7 @@ IPAInterface *IPAModule::createInterface()
 </details>
 <details class="note">
 <summary>Source evidence: isolated</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</code></a> and ending at line 212. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</code></a> and ending at line 212. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>dd0ba6e352ffacd6c27c6ff5bb447af14838d75ca6aed8d056855ec442a97744</code></p>
 <pre class="highlight"><code class="language-text">{{proxy_name}}Isolated::{{proxy_name}}Isolated(IPAModule *ipam, const CameraManager &amp;cm)
     : {{proxy_name}}(ipam, cm),
@@ -919,12 +931,12 @@ IPAInterface *IPAModule::createInterface()
 void {{proxy_name}}Isolated::recvMessage(</code></pre>
 </details>
 <h2 id="생성과-ipc-실패">Creation and IPC failures</h2>
-<p>Module loading returns false for an invalid module, a failed <code>dlopen()</code> or a failed lookup of the <code>ipaCreate</code> symbol. The Isolated proxy does not become valid if the worker path is missing or the IPC connection fails. The manager returns null for an invalid proxy. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/src/libcamera/ipa_module.cpp#L390"><code>src/libcamera/ipa_module.cpp:390</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/include/libcamera/internal/ipa_manager.h#L35"><code>include/libcamera/internal/ipa_manager.h:35</code></a></p>
-<p>Synchronous IPC calls wait for a response while processing events on the current thread. They return <code>-ETIMEDOUT</code> after the 2000ms timeout. Send failures also propagate to the caller. Generated proxies return errors for methods with return values; void methods log the error and return. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/src/libcamera/ipc_pipe_unixsocket.cpp#L27"><code>src/libcamera/ipc_pipe_unixsocket.cpp:27</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</code></a></p>
-<p>Runtime checks: reentry during event processing and pipeline request cancellation/restart policies after worker failure need separate implementation review and runtime validation. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/src/libcamera/ipc_pipe_unixsocket.cpp#L27"><code>src/libcamera/ipc_pipe_unixsocket.cpp:27</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</code></a></p>
+<p>Module loading returns false for an invalid module, a failed <code>dlopen()</code> or a failed lookup of the <code>ipaCreate</code> symbol. The Isolated proxy does not become valid if the worker path is missing or the IPC connection fails. The manager returns null for an invalid proxy. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipa_module.cpp#L390"><code>src/libcamera/ipa_module.cpp:390</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/include/libcamera/internal/ipa_manager.h#L35"><code>include/libcamera/internal/ipa_manager.h:35</code></a></p>
+<p>Synchronous IPC calls wait for a response while processing events on the current thread. They return <code>-ETIMEDOUT</code> after the 2000ms timeout. Send failures also propagate to the caller. Generated proxies return errors for methods with return values; void methods log the error and return. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipc_pipe_unixsocket.cpp#L27"><code>src/libcamera/ipc_pipe_unixsocket.cpp:27</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</code></a></p>
+<p>Runtime checks: reentry during event processing and pipeline request cancellation/restart policies after worker failure need separate implementation review and runtime validation. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipc_pipe_unixsocket.cpp#L27"><code>src/libcamera/ipc_pipe_unixsocket.cpp:27</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</code></a></p>
 <details class="note">
 <summary>Source evidence: selection</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/include/libcamera/internal/ipa_manager.h#L35"><code>include/libcamera/internal/ipa_manager.h:35</code></a> and ending at line 58. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/include/libcamera/internal/ipa_manager.h#L35"><code>include/libcamera/internal/ipa_manager.h:35</code></a> and ending at line 58. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>e0bd5192ea24a8b39d3df7b7b93c8b17614663a0144f6dd0741d410fa321d458</code></p>
 <pre class="highlight"><code class="language-text">template&lt;typename T&gt;
     std::unique_ptr&lt;T&gt; createIPA(const char *name, uint32_t minVersion,
@@ -953,7 +965,7 @@ void {{proxy_name}}Isolated::recvMessage(</code></pre>
 </details>
 <details class="note">
 <summary>Source evidence: load</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/src/libcamera/ipa_module.cpp#L390"><code>src/libcamera/ipa_module.cpp:390</code></a> and ending at line 460. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipa_module.cpp#L390"><code>src/libcamera/ipa_module.cpp:390</code></a> and ending at line 460. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>a1e13344bfc27e191c6c24c682f3a088446d42c99b9497c6e831ab1b97b55619</code></p>
 <pre class="highlight"><code class="language-text">\brief Load the IPA implementation factory from the shared object
  *
@@ -1029,7 +1041,7 @@ IPAInterface *IPAModule::createInterface()
 </details>
 <details class="note">
 <summary>Source evidence: isolated</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</code></a> and ending at line 212. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</code></a> and ending at line 212. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>dd0ba6e352ffacd6c27c6ff5bb447af14838d75ca6aed8d056855ec442a97744</code></p>
 <pre class="highlight"><code class="language-text">{{proxy_name}}Isolated::{{proxy_name}}Isolated(IPAModule *ipam, const CameraManager &amp;cm)
     : {{proxy_name}}(ipam, cm),
@@ -1117,7 +1129,7 @@ void {{proxy_name}}Isolated::recvMessage(</code></pre>
 </details>
 <details class="note">
 <summary>Source evidence: ipc</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/src/libcamera/ipc_pipe_unixsocket.cpp#L27"><code>src/libcamera/ipc_pipe_unixsocket.cpp:27</code></a> and ending at line 144. Compare the source below with the explanation.</p>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipc_pipe_unixsocket.cpp#L27"><code>src/libcamera/ipc_pipe_unixsocket.cpp:27</code></a> and ending at line 144. Compare the source below with the explanation.</p>
 <p>SHA-256: <code>0abe488ceae72cca0a5b96c7223ffc4cc412ab18f94765fd7f001dc450544f40</code></p>
 <pre class="highlight"><code class="language-text">IPCPipeUnixSocket::IPCPipeUnixSocket(const char *ipaModulePath,
                      const char *ipaProxyWorkerPath)
@@ -1238,6 +1250,586 @@ int IPCPipeUnixSocket::call(const IPCUnixSocket::Payload &amp;message,
 
 } /* namespace libcamera */</code></pre>
 </details>
+<h2 id="보정-전-튜닝-파일">Uncalibrated tuning files</h2>
+<p>The rkisp1 and mali-c55 pipelines first look for a tuning file named after the sensor model with <code>.yaml</code> appended, and pass <code>uncalibrated.yaml</code> as the fallback. When <code>IPAProxy::configurationFile()</code> cannot find the first name, it repeats the same search with the fallback name and logs a warning. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L406"><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp:406</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/pipeline/mali-c55/mali-c55.cpp#L468"><code>src/libcamera/pipeline/mali-c55/mali-c55.cpp:468</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipa_proxy.cpp#L174"><code>src/libcamera/ipa_proxy.cpp:174</code></a></p>
+<p>The rkisp1 <code>uncalibrated.yaml</code> lists Agc, Awb, BlackLevelCorrection, Ccm and GammaOutCorrection under <code>algorithms</code>. The mali-c55 <code>uncalibrated.yaml</code> lists Agc, Awb, BlackLevelCorrection and Ccm. Neither file gives parameters for the algorithm entries. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/rkisp1/data/uncalibrated.yaml#L1"><code>src/ipa/rkisp1/data/uncalibrated.yaml:1</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/mali-c55/data/uncalibrated.yaml#L1"><code>src/ipa/mali-c55/data/uncalibrated.yaml:1</code></a></p>
+<p>Runtime checks: verify the defaults each algorithm uses without parameters, and the image quality obtained from an uncalibrated sensor, in each algorithm implementation and by actual capture. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/rkisp1/data/uncalibrated.yaml#L1"><code>src/ipa/rkisp1/data/uncalibrated.yaml:1</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/mali-c55/data/uncalibrated.yaml#L1"><code>src/ipa/mali-c55/data/uncalibrated.yaml:1</code></a></p>
+<details class="note">
+<summary>Source evidence: rkisp1-tuning</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L406"><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp:406</code></a> marks the start of this excerpt. It ends at line 408; compare the source below with the explanation.</p>
+<p>SHA-256: <code>5085c39368b264636b7bc7386979e019ea9cd60621335cc42d1e3ad28d810c6c</code></p>
+<pre class="highlight"><code class="language-text">/* The IPA tuning file is made from the sensor name. */
+    std::string ipaTuningFile =
+        ipa_-&gt;configurationFile(sensor_-&gt;model() + ".yaml", "uncalibrated.yaml");</code></pre>
+</details>
+<details class="note">
+<summary>Source evidence: mali-c55-tuning</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/pipeline/mali-c55/mali-c55.cpp#L468"><code>src/libcamera/pipeline/mali-c55/mali-c55.cpp:468</code></a> marks the start of this excerpt. It ends at line 469; compare the source below with the explanation.</p>
+<p>SHA-256: <code>226c3c21c4b760c25b2a3323369bce67c92f92db80b9fcef19589a44af6eaa2a</code></p>
+<pre class="highlight"><code class="language-text">std::string ipaTuningFile = ipa_-&gt;configurationFile(sensor()-&gt;model() + ".yaml",
+                                "uncalibrated.yaml");</code></pre>
+</details>
+<details class="note">
+<summary>Source evidence: fallback</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipa_proxy.cpp#L174"><code>src/libcamera/ipa_proxy.cpp:174</code></a> marks the start of this excerpt. It ends at line 199; compare the source below with the explanation.</p>
+<p>SHA-256: <code>6c48d1f3994c22addbc1b338c87cf7b166f9fee0f9223ecf718a254be0aa93a8</code></p>
+<pre class="highlight"><code class="language-text">std::string IPAProxy::configurationFile(const std::string &amp;name,
+                    const std::string &amp;fallbackName) const
+{
+    /*
+     * The IPA module name can be used as-is to build directory names as it
+     * has been validated when loading the module.
+     */
+    const std::string ipaName = ipam_-&gt;info().name;
+    std::string confPath = ipaConfigurationFile(ipaName, name, configPaths_);
+    if (!confPath.empty()) {
+        LOG(IPAProxy, Info) &lt;&lt; "Using tuning file " &lt;&lt; confPath;
+        return confPath;
+    }
+
+    if (fallbackName.empty()) {
+        LOG(IPAProxy, Error)
+            &lt;&lt; "Configuration file '" &lt;&lt; name
+            &lt;&lt; "' not found for IPA module '" &lt;&lt; ipaName &lt;&lt; "'";
+        return std::string();
+    }
+
+    confPath = ipaConfigurationFile(ipaName, fallbackName, configPaths_);
+    LOG(IPAProxy, Warning)
+        &lt;&lt; "Configuration file '" &lt;&lt; name
+        &lt;&lt; "' not found for IPA module '" &lt;&lt; ipaName
+        &lt;&lt; "', falling back to '" &lt;&lt; confPath &lt;&lt; "'";</code></pre>
+</details>
+<details class="note">
+<summary>Source evidence: rkisp1-uncalibrated</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/rkisp1/data/uncalibrated.yaml#L1"><code>src/ipa/rkisp1/data/uncalibrated.yaml:1</code></a> and ending at line 11. Compare the source below with the explanation.</p>
+<p>SHA-256: <code>f3e8a3a6257b7fb82f16cf5c8239901d57bcc15023908c8994dcac3714e9e648</code></p>
+<pre class="highlight"><code class="language-text"># SPDX-License-Identifier: CC0-1.0
+%YAML 1.1
+---
+version: 1
+algorithms:
+  - Agc:
+  - Awb:
+  - BlackLevelCorrection:
+  - Ccm:
+  - GammaOutCorrection:
+...</code></pre>
+</details>
+<details class="note">
+<summary>Source evidence: mali-c55-uncalibrated</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/mali-c55/data/uncalibrated.yaml#L1"><code>src/ipa/mali-c55/data/uncalibrated.yaml:1</code></a> marks the start of this excerpt. It ends at line 10; compare the source below with the explanation.</p>
+<p>SHA-256: <code>532d8234c4d0a6d5429c8a8f8df85d151b0701e965fb7372abc71fe70d2bed82</code></p>
+<pre class="highlight"><code class="language-text"># SPDX-License-Identifier: CC0-1.0
+%YAML 1.1
+---
+version: 1
+algorithms:
+  - Agc:
+  - Awb:
+  - BlackLevelCorrection:
+  - Ccm:
+...</code></pre>
+</details>
+<h2 id="소프트웨어-isp-셰이더의-렌즈-음영-보정">Lens shading correction in the software ISP shaders</h2>
+<p>The two software ISP bayer fragment shaders declare the <code>lsc_tex</code> texture and apply lens shading correction only when compiled with <code>APPLY_LSC</code> defined. The correction multiplies the RGB value by the texture's RGB value right after black-level subtraction and before the AWB gains. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/shaders/bayer_1x_packed.frag#L1"><code>src/libcamera/shaders/bayer_1x_packed.frag:1</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/shaders/bayer_unpacked.frag#L1"><code>src/libcamera/shaders/bayer_unpacked.frag:1</code></a></p>
+<p>The comment in <code>bayer_1x_packed.frag</code> explains that the texture values are in UQ&lt;2, 6&gt; format, so they are multiplied by 4.0 to recover the original floating-point values. The packed shader samples at <code>textureOut</code> and the unpacked shader at <code>center.xy</code>. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/shaders/bayer_1x_packed.frag#L1"><code>src/libcamera/shaders/bayer_1x_packed.frag:1</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/shaders/bayer_unpacked.frag#L1"><code>src/libcamera/shaders/bayer_unpacked.frag:1</code></a></p>
+<p><code>init()</code> of the software ISP IPA interface returns two flags, <code>ccmEnabled</code> and <code>lscEnabled</code>, in addition to <code>ret</code> and <code>ipaControls</code>. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/include/libcamera/ipa/softisp.mojom#L1"><code>include/libcamera/ipa/softisp.mojom:1</code></a></p>
+<p>Runtime checks: verify in the debayer implementation and the IPA how the <code>lscEnabled</code> value leads to compiling the shaders with <code>APPLY_LSC</code>, which table is uploaded to <code>lsc_tex</code>, and how the table is chosen by colour temperature; these excerpts cannot confirm them. <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/shaders/bayer_1x_packed.frag#L1"><code>src/libcamera/shaders/bayer_1x_packed.frag:1</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/shaders/bayer_unpacked.frag#L1"><code>src/libcamera/shaders/bayer_unpacked.frag:1</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/include/libcamera/ipa/softisp.mojom#L1"><code>include/libcamera/ipa/softisp.mojom:1</code></a></p>
+<details class="note">
+<summary>Source evidence: packed-shader</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/shaders/bayer_1x_packed.frag#L1"><code>src/libcamera/shaders/bayer_1x_packed.frag:1</code></a> marks the start of this excerpt. It ends at line 270; compare the source below with the explanation.</p>
+<p>SHA-256: <code>df7b18b27b09dcf85bb35de49ff65c23e5e628bbf2050d30ad648d5ea5ea814c</code></p>
+<pre class="highlight"><code class="language-text">/* SPDX-License-Identifier: BSD-2-Clause */
+/*
+ * Based on the code from http://jgt.akpeters.com/papers/McGuire08/
+ *
+ * Efficient, High-Quality Bayer Demosaic Filtering on GPUs
+ *
+ * Morgan McGuire
+ *
+ * This paper appears in issue Volume 13, Number 4.
+ * ---------------------------------------------------------
+ * Copyright (c) 2008, Morgan McGuire. All rights reserved.
+ *
+ *
+ * Modified by Linaro Ltd for 10/12-bit packed vs 8-bit raw Bayer format,
+ * and for simpler demosaic algorithm.
+ * Copyright (C) 2020, Linaro
+ *
+ * bayer_1x_packed.frag - Fragment shader code for raw Bayer 10-bit and 12-bit
+ * packed formats
+ */
+
+#ifdef GL_ES
+precision highp float;
+#endif
+
+/*
+ * These constants are used to select the bytes containing the HS part of
+ * the pixel value:
+ * BPP - bytes per pixel,
+ * THRESHOLD_L = fract(BPP) * 0.5 + 0.02
+ * THRESHOLD_H = 1.0 - fract(BPP) * 1.5 + 0.02
+ * Let X is the x coordinate in the texture measured in bytes (so that the
+ * range is from 0 to (stride_-1)) aligned on the nearest pixel.
+ * E.g. for RAW10P:
+ * -------------+-------------------+-------------------+--
+ *  pixel No    |  0   1    2   3   |  4   5    6   7   | ...
+ * -------------+-------------------+-------------------+--
+ *  byte offset | 0   1   2   3   4 | 5   6   7   8   9 | ...
+ * -------------+-------------------+-------------------+--
+ *      X       | 0.0 1.25 2.5 3.75 | 5.0 6.25 7.5 8.75 | ...
+ * -------------+-------------------+-------------------+--
+ * If fract(X) &lt; THRESHOLD_L then the previous byte contains the LS
+ * bits of the pixel values and needs to be skipped.
+ * If fract(X) &gt; THRESHOLD_H then the next byte contains the LS bits
+ * of the pixel values and needs to be skipped.
+ */
+#if defined(RAW10P)
+#define BPP     1.25
+#define THRESHOLD_L 0.14
+#define THRESHOLD_H 0.64
+#elif defined(RAW12P)
+#define BPP     1.5
+#define THRESHOLD_L 0.27
+#define THRESHOLD_H 0.27
+#else
+#error Invalid raw format
+#endif
+
+
+varying vec2 textureOut;
+
+/* the texture size in pixels */
+uniform vec2 tex_size;
+uniform vec2 tex_step;
+uniform vec2 tex_bayer_first_red;
+
+uniform sampler2D tex_y;
+uniform vec3 awb;
+uniform mat3 ccm;
+uniform vec3 blacklevel;
+uniform float gamma;
+uniform float contrastExp;
+
+#if defined(APPLY_LSC)
+uniform sampler2D lsc_tex;
+#endif
+
+float apply_contrast(float value)
+{
+    // Apply simple S-curve
+    if (value &lt; 0.5)
+        return 0.5 * pow(value / 0.5, contrastExp);
+    else
+        return 1.0 - 0.5 * pow((1.0 - value) / 0.5, contrastExp);
+}
+
+void main(void)
+{
+    vec3 rgb;
+
+    /*
+     * center_bytes holds the coordinates of the MS byte of the pixel
+     * being sampled on the [0, stride-1/height-1] range.
+     * center_pixel holds the coordinates of the pixel being sampled
+     * on the [0, width/height-1] range.
+     */
+    vec2 center_bytes;
+    vec2 center_pixel;
+
+    /*
+     * x- and y-positions of the adjacent pixels on the [0, 1] range.
+     */
+    vec2 xcoords;
+    vec2 ycoords;
+
+    /*
+     * The coordinates passed to the shader in textureOut may point
+     * to a place in between the pixels if the texture format doesn't
+     * match the image format. In particular, MIPI packed raw Bayer
+     * formats don't have a matching texture format.
+     * In this case align the coordinates to the left nearest pixel
+     * by hand.
+     */
+    center_pixel = floor(textureOut * tex_size);
+    center_bytes.y = center_pixel.y;
+
+    /*
+     * Add a small number (a few mantissa's LSBs) to avoid float
+     * representation issues. Maybe paranoic.
+     */
+    center_bytes.x = BPP * center_pixel.x + 0.02;
+
+    float fract_x = fract(center_bytes.x);
+
+    /*
+     * The below floor() call ensures that center_bytes.x points
+     * at one of the bytes representing the 8 higher bits of
+     * the pixel value, not at the byte containing the LS bits
+     * of the group of the pixels.
+     */
+    center_bytes.x = floor(center_bytes.x);
+    center_bytes *= tex_step;
+
+    xcoords = center_bytes.x + vec2(-tex_step.x, tex_step.x);
+    ycoords = center_bytes.y + vec2(-tex_step.y, tex_step.y);
+
+    /*
+     * If xcoords[0] points at the byte containing the LS bits
+     * of the previous group of the pixels, move xcoords[0] one
+     * byte back.
+     */
+    xcoords[0] += (fract_x &lt; THRESHOLD_L) ? -tex_step.x : 0.0;
+
+    /*
+     * If xcoords[1] points at the byte containing the LS bits
+     * of the current group of the pixels, move xcoords[1] one
+     * byte forward.
+     */
+    xcoords[1] += (fract_x &gt; THRESHOLD_H) ? tex_step.x : 0.0;
+
+    vec2 alternate = mod(center_pixel.xy + tex_bayer_first_red, 2.0);
+    bool even_col = alternate.x &lt; 1.0;
+    bool even_row = alternate.y &lt; 1.0;
+
+    /*
+     * We need to sample the central pixel and the ones with offset
+     * of -1 to +1 pixel in both X and Y directions. Let's name these
+     * pixels as below, where C is the central pixel:
+     *
+     *   +----+----+----+----+
+     *   | \ x|    |    |    |
+     *   |y \ | -1 |  0 | +1 |
+     *   +----+----+----+----+
+     *   | +1 | D2 | A1 | D3 |
+     *   +----+----+----+----+
+     *   |  0 | B0 |  C | B1 |
+     *   +----+----+----+----+
+     *   | -1 | D0 | A0 | D1 |
+     *   +----+----+----+----+
+     *
+     * In the below equations (0,-1).r means "r component of the texel
+     * shifted by -tex_step.y from the center_bytes one" etc.
+     *
+     * In the even row / even column (EE) case the colour values are:
+     *   R = C = (0,0).r,
+     *   G = (A0 + A1 + B0 + B1) / 4.0 =
+     *       ( (0,-1).r + (0,1).r + (-1,0).r + (1,0).r ) / 4.0,
+     *   B = (D0 + D1 + D2 + D3) / 4.0 =
+     *       ( (-1,-1).r + (1,-1).r + (-1,1).r + (1,1).r ) / 4.0
+     *
+     * For even row / odd column (EO):
+     *   R = (B0 + B1) / 2.0 = ( (-1,0).r + (1,0).r ) / 2.0,
+     *   G = C = (0,0).r,
+     *   B = (A0 + A1) / 2.0 = ( (0,-1).r + (0,1).r ) / 2.0
+     *
+     * For odd row / even column (OE):
+     *   R = (A0 + A1) / 2.0 = ( (0,-1).r + (0,1).r ) / 2.0,
+     *   G = C = (0,0).r,
+     *   B = (B0 + B1) / 2.0 = ( (-1,0).r + (1,0).r ) / 2.0
+     *
+     * For odd row / odd column (OO):
+     *   R = (D0 + D1 + D2 + D3) / 4.0 =
+     *       ( (-1,-1).r + (1,-1).r + (-1,1).r + (1,1).r ) / 4.0,
+     *   G = (A0 + A1 + B0 + B1) / 4.0 =
+     *       ( (0,-1).r + (0,1).r + (-1,0).r + (1,0).r ) / 4.0,
+     *   B = C = (0,0).r
+     */
+
+    /*
+     * Fetch the values and precalculate the terms:
+     *   patterns.x = (A0 + A1) / 2.0
+     *   patterns.y = (B0 + B1) / 2.0
+     *   patterns.z = (A0 + A1 + B0 + B1) / 4.0
+     *   patterns.w = (D0 + D1 + D2 + D3) / 4.0
+     */
+    #define fetch(x, y) texture2D(tex_y, vec2(x, y)).r
+
+    float C = texture2D(tex_y, center_bytes).r;
+    vec4 patterns = vec4(
+        fetch(center_bytes.x, ycoords[0]),  /* A0: (0,-1) */
+        fetch(xcoords[0], center_bytes.y),  /* B0: (-1,0) */
+        fetch(xcoords[0], ycoords[0]),      /* D0: (-1,-1) */
+        fetch(xcoords[1], ycoords[0]));     /* D1: (1,-1) */
+    vec4 temp = vec4(
+        fetch(center_bytes.x, ycoords[1]),  /* A1: (0,1) */
+        fetch(xcoords[1], center_bytes.y),  /* B1: (1,0) */
+        fetch(xcoords[1], ycoords[1]),      /* D3: (1,1) */
+        fetch(xcoords[0], ycoords[1]));     /* D2: (-1,1) */
+    patterns = (patterns + temp) * 0.5;
+        /* .x = (A0 + A1) / 2.0, .y = (B0 + B1) / 2.0 */
+        /* .z = (D0 + D3) / 2.0, .w = (D1 + D2) / 2.0 */
+    patterns.w = (patterns.z + patterns.w) * 0.5;
+    patterns.z = (patterns.x + patterns.y) * 0.5;
+
+    rgb = even_col ?
+        (even_row ?
+            vec3(C, patterns.zw) :
+            vec3(patterns.x, C, patterns.y)) :
+        (even_row ?
+            vec3(patterns.y, C, patterns.x) :
+            vec3(patterns.wz, C));
+
+    /*
+     * \todo: Black level normalising, AWB and digital gain could be
+     * reworked into a single multiplication.
+     */
+    rgb = (rgb - blacklevel) / (1.0 - blacklevel);
+
+#if defined(APPLY_LSC)
+        /* Multiple by 4.0 for UQ&lt;2, 6&gt; -&gt; float conversion:
+         * texture2D(...) = original_float * 2^6 (quantization) * 1/2^8 (texture byte to float)
+         * =&gt; original_float = texture2D(...) / 2^6 * 2^8 = texture2D(...) * 2^2
+         */
+        rgb = rgb * (texture2D(lsc_tex, textureOut).rgb * 4.0);
+#endif
+
+    /* Apply AWB gains, and saturate each channel at sensor range */
+    rgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));
+
+    /* Colour Correction Matrix */
+    rgb = ccm * rgb;
+
+    /*
+     * Contrast
+     * contrastExp 0..2 contrast to 0..infinity; avoid actual infinity at tan(pi/2)
+     */
+    rgb = clamp(rgb, 0.0, 1.0);
+    rgb.r = apply_contrast(rgb.r);
+    rgb.g = apply_contrast(rgb.g);
+    rgb.b = apply_contrast(rgb.b);
+
+    /* Apply gamma after colour correction */
+    rgb = pow(rgb, vec3(gamma));
+
+#if defined (SWAP_BLUE)
+    gl_FragColor = vec4(rgb.bgr, 1.0);
+#else
+    gl_FragColor = vec4(rgb, 1.0);
+#endif
+}</code></pre>
+</details>
+<details class="note">
+<summary>Source evidence: unpacked-shader</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/shaders/bayer_unpacked.frag#L1"><code>src/libcamera/shaders/bayer_unpacked.frag:1</code></a> marks the start of this excerpt. It ends at line 169; compare the source below with the explanation.</p>
+<p>SHA-256: <code>d9a997545388c652dc1c3939d88c0cad5df251642b1775f7cc62e4388c7986bf</code></p>
+<pre class="highlight"><code class="language-text">/* SPDX-License-Identifier: BSD-2-Clause */
+/*
+From http://jgt.akpeters.com/papers/McGuire08/
+
+Efficient, High-Quality Bayer Demosaic Filtering on GPUs
+
+Morgan McGuire
+
+This paper appears in issue Volume 13, Number 4.
+---------------------------------------------------------
+Copyright (c) 2008, Morgan McGuire. All rights reserved.
+
+Modified by Linaro Ltd to integrate it into libcamera.
+Copyright (C) 2021, Linaro
+*/
+
+//Pixel Shader
+#ifdef GL_ES
+precision highp float;
+#endif
+
+/** Monochrome RGBA or GL_LUMINANCE Bayer encoded texture.*/
+uniform sampler2D       tex_y;
+varying vec4            center;
+varying vec4            yCoord;
+varying vec4            xCoord;
+uniform vec3            awb;
+uniform mat3            ccm;
+uniform vec3            blacklevel;
+uniform float           gamma;
+uniform float           contrastExp;
+
+#if defined(APPLY_LSC)
+uniform sampler2D lsc_tex;
+#endif
+
+float apply_contrast(float value)
+{
+    // Apply simple S-curve
+    if (value &lt; 0.5)
+        return 0.5 * pow(value / 0.5, contrastExp);
+    else
+        return 1.0 - 0.5 * pow((1.0 - value) / 0.5, contrastExp);
+}
+
+void main(void) {
+    vec3 rgb;
+
+    #if defined(RAW10P)
+    #define pixel(p) p.r / 4.0 + p.g * 64.0
+    #define fetch(x, y) pixel(texture2D(tex_y, vec2(x, y)))
+    #elif defined(RAW12P)
+    #define pixel(p) p.r / 16.0 + p.g * 16.0
+    #define fetch(x, y) pixel(texture2D(tex_y, vec2(x, y)))
+    #else
+    #define fetch(x, y) texture2D(tex_y, vec2(x, y)).r
+    #endif
+
+    float C = fetch(center.x, center.y); // ( 0, 0)
+    const vec4 kC = vec4( 4.0,  6.0,  5.0,  5.0) / 8.0;
+
+    // Determine which of four types of pixels we are on.
+    vec2 alternate = mod(floor(center.zw), 2.0);
+
+    vec4 Dvec = vec4(
+        fetch(xCoord[1], yCoord[1]),  // (-1,-1)
+        fetch(xCoord[1], yCoord[2]),  // (-1, 1)
+        fetch(xCoord[2], yCoord[1]),  // ( 1,-1)
+        fetch(xCoord[2], yCoord[2])); // ( 1, 1)
+
+    vec4 PATTERN = (kC.xyz * C).xyzz;
+
+    // Can also be a dot product with (1,1,1,1) on hardware where that is
+    // specially optimized.
+    // Equivalent to: D = Dvec[0] + Dvec[1] + Dvec[2] + Dvec[3];
+    Dvec.xy += Dvec.zw;
+    Dvec.x  += Dvec.y;
+
+    vec4 value = vec4(
+        fetch(center.x, yCoord[0]),   // ( 0,-2)
+        fetch(center.x, yCoord[1]),   // ( 0,-1)
+        fetch(xCoord[0], center.y),   // (-2, 0)
+        fetch(xCoord[1], center.y));  // (-1, 0)
+
+    vec4 temp = vec4(
+        fetch(center.x, yCoord[3]),   // ( 0, 2)
+        fetch(center.x, yCoord[2]),   // ( 0, 1)
+        fetch(xCoord[3], center.y),   // ( 2, 0)
+        fetch(xCoord[2], center.y));  // ( 1, 0)
+
+    // Even the simplest compilers should be able to constant-fold these to
+    // avoid the division.
+    // Note that on scalar processors these constants force computation of some
+    // identical products twice.
+    const vec4 kA = vec4(-1.0, -1.5,  0.5, -1.0) / 8.0;
+    const vec4 kB = vec4( 2.0,  0.0,  0.0,  4.0) / 8.0;
+    const vec4 kD = vec4( 0.0,  2.0, -1.0, -1.0) / 8.0;
+
+    // Conserve constant registers and take advantage of free swizzle on load
+    #define kE (kA.xywz)
+    #define kF (kB.xywz)
+
+    value += temp;
+
+    // There are five filter patterns (identity, cross, checker,
+    // theta, phi).  Precompute the terms from all of them and then
+    // use swizzles to assign to color channels.
+    //
+    // Channel   Matches
+    //   x       cross   (e.g., EE G)
+    //   y       checker (e.g., EE B)
+    //   z       theta   (e.g., EO R)
+    //   w       phi     (e.g., EO R)
+    #define A (value[0])
+    #define B (value[1])
+    #define D (Dvec.x)
+    #define E (value[2])
+    #define F (value[3])
+
+    // Avoid zero elements. On a scalar processor this saves two MADDs
+    // and it has no effect on a vector processor.
+    PATTERN.yzw += (kD.yz * D).xyy;
+
+    PATTERN += (kA.xyz * A).xyzx + (kE.xyw * E).xyxz;
+    PATTERN.xw  += kB.xw * B;
+    PATTERN.xz  += kF.xz * F;
+
+    rgb =  (alternate.y == 0.0) ?
+        ((alternate.x == 0.0) ?
+            vec3(C, PATTERN.xy) :
+            vec3(PATTERN.z, C, PATTERN.w)) :
+        ((alternate.x == 0.0) ?
+            vec3(PATTERN.w, C, PATTERN.z) :
+            vec3(PATTERN.yx, C));
+
+    /*
+     * \todo: Black level normalising, AWB and digital gain could be
+     * reworked into a single multiplication.
+     */
+    rgb = (rgb - blacklevel) / (1.0 - blacklevel);
+
+#if defined(APPLY_LSC)
+    /* Multiple by 4.0 for UQ&lt;2, 6&gt; -&gt; float conversion */
+    rgb = rgb * (texture2D(lsc_tex, center.xy).rgb * 4.0);
+#endif
+
+    /* Apply AWB gains, and saturate each channel at sensor range */
+    rgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));
+
+    /* Colour Correction Matrix */
+    rgb = ccm * rgb;
+
+    /*
+     * Contrast
+     */
+    rgb = clamp(rgb, 0.0, 1.0);
+    rgb.r = apply_contrast(rgb.r);
+    rgb.g = apply_contrast(rgb.g);
+    rgb.b = apply_contrast(rgb.b);
+
+    /* Apply gamma after colour correction */
+    rgb = pow(rgb, vec3(gamma));
+
+#if defined (SWAP_BLUE)
+    gl_FragColor = vec4(rgb.bgr, 1.0);
+#else
+    gl_FragColor = vec4(rgb, 1.0);
+#endif
+}</code></pre>
+</details>
+<details class="note">
+<summary>Source evidence: softisp-interface</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/include/libcamera/ipa/softisp.mojom#L1"><code>include/libcamera/ipa/softisp.mojom:1</code></a> and ending at line 40. Compare the source below with the explanation.</p>
+<p>SHA-256: <code>dedbfb928f4f1cdb8e174d8104cb8cbd575fd543e9b620240984c3af4cddecdb</code></p>
+<pre class="highlight"><code class="language-text">/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+/*
+ * \todo Document the interface and remove the related EXCLUDE_PATTERNS entry.
+ */
+
+module ipa.softisp;
+
+import "include/libcamera/ipa/core.mojom";
+
+struct IPAConfigInfo {
+    libcamera.ControlInfoMap sensorControls;
+};
+
+interface IPASoftIspInterface {
+    init(libcamera.IPASettings settings,
+         libcamera.SharedFD fdStats,
+         libcamera.SharedFD fdParams,
+         libcamera.IPACameraSensorInfo sensorInfo,
+         libcamera.ControlInfoMap sensorControls)
+        =&gt; (int32 ret,
+            libcamera.ControlInfoMap ipaControls,
+            bool ccmEnabled, bool lscEnabled);
+    start() =&gt; (int32 ret);
+    stop();
+    configure(IPAConfigInfo configInfo)
+        =&gt; (int32 ret, libcamera.ControlInfoMap ipaControls);
+
+    [async] queueRequest(uint32 frame, libcamera.ControlList sensorControls);
+    [async] computeParams(uint32 frame);
+    [async] processStats(uint32 frame,
+                 uint32 bufferId,
+                 libcamera.ControlList sensorControls);
+};
+
+interface IPASoftIspEventInterface {
+    setSensorControls(libcamera.ControlList sensorControls);
+    paramsComputed(uint32 frame);
+    metadataReady(uint32 frame, libcamera.ControlList metadata);
+};</code></pre>
+</details>
 <!-- sdd:class-diagram -->
 <h2 id="클래스-관계">Class relationships</h2>
 <p>Arrow labels show extracted relationships; dashed lines indicate inheritance. Arrows point toward the referenced object or base class. They do not show call order.</p>
@@ -1277,31 +1869,31 @@ int IPCPipeUnixSocket::call(const IPCUnixSocket::Payload &amp;message,
 <tbody>
 <tr>
 <td><code>libcamera::IPAManager</code></td>
-<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/include/libcamera/internal/ipa_manager.h#L29"><code>include/libcamera/internal/ipa_manager.h:29</code></a></td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/include/libcamera/internal/ipa_manager.h#L29"><code>include/libcamera/internal/ipa_manager.h:29</code></a></td>
 <td>–</td>
 <td>Manager for IPA modules</td>
 </tr>
 <tr>
 <td><code>libcamera::IPAModule</code></td>
-<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/include/libcamera/internal/ipa_module.h#L21"><code>include/libcamera/internal/ipa_module.h:21</code></a></td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/include/libcamera/internal/ipa_module.h#L21"><code>include/libcamera/internal/ipa_module.h:21</code></a></td>
 <td><code>libcamera::Loggable</code></td>
 <td>Wrapper around IPA module shared object</td>
 </tr>
 <tr>
 <td><code>libcamera::IPAProxy</code></td>
-<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/include/libcamera/internal/ipa_proxy.h#L22"><code>include/libcamera/internal/ipa_proxy.h:22</code></a></td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/include/libcamera/internal/ipa_proxy.h#L22"><code>include/libcamera/internal/ipa_proxy.h:22</code></a></td>
 <td><code>libcamera::IPAInterface</code></td>
 <td>IPA Proxy</td>
 </tr>
 <tr>
 <td><code>libcamera::ipa::ipu3::IPAIPU3</code></td>
-<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/src/ipa/ipu3/ipu3.cpp#L139"><code>src/ipa/ipu3/ipu3.cpp:139</code></a></td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/ipu3.cpp#L139"><code>src/ipa/ipu3/ipu3.cpp:139</code></a></td>
 <td><code>libcamera::ipa::ipu3::IPAIPU3Interface</code>, <code>libcamera::ipa::ipu3::Module</code></td>
 <td>The IPU3 IPA implementation</td>
 </tr>
 <tr>
 <td><code>libcamera::ipa::rkisp1::IPARkISP1</code></td>
-<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/4eb2378f21b81b02b2814bde7be86d34f3297de8/src/ipa/rkisp1/rkisp1.cpp#L46"><code>src/ipa/rkisp1/rkisp1.cpp:46</code></a></td>
+<td><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/rkisp1/rkisp1.cpp#L46"><code>src/ipa/rkisp1/rkisp1.cpp:46</code></a></td>
 <td><code>libcamera::ipa::rkisp1::IPARkISP1Interface</code>, <code>libcamera::ipa::rkisp1::Module</code></td>
 <td>Needs verification</td>
 </tr>
@@ -1312,13 +1904,13 @@ int IPCPipeUnixSocket::call(const IPCUnixSocket::Payload &amp;message,
 <ul>
 <li>Generation method: design explanations bound to source excerpts</li>
 <li>Validation scope: checks configured explanations against excerpt hashes. A matching hash does not approve the explanation's meaning.</li>
-<li>Evidence files: <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/ipa_module.h</code>, <code>include/libcamera/internal/ipa_proxy.h</code>, <code>src/ipa/ipu3/ipu3.cpp</code>, <code>src/ipa/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/ipa_module.cpp</code>, <code>src/libcamera/ipa_proxy.cpp</code>, <code>src/libcamera/ipc_pipe_unixsocket.cpp</code>, <code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl</code>, <code>utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl</code></li>
-<li>Evidence level: code inspection (static analysis, simple_compdb configuration, commit <code>4eb2378f21</code>)</li>
+<li>Evidence files: <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/ipa_module.h</code>, <code>include/libcamera/internal/ipa_proxy.h</code>, <code>src/ipa/ipu3/ipu3.cpp</code>, <code>src/ipa/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/ipa_module.cpp</code>, <code>src/libcamera/ipa_proxy.cpp</code>, <code>src/libcamera/ipc_pipe_unixsocket.cpp</code>, <code>src/libcamera/pipeline/mali-c55/mali-c55.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code>, <code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl</code>, <code>utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl</code></li>
+<li>Evidence level: code inspection (static analysis, simple_compdb configuration, commit <code>5f68069a5d</code>)</li>
 <li>Automatic checks (citations, prose and configured structure checks): passed</li>
 <li>Review status recorded: 2026-10-24 · Pending human review</li>
 </ul>
 </details>
-<p>Next step: <a href="ipu3-lsc.html">IPU3 LSC and state connections</a></p></article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Design explanations bound to source excerpts</dd><dt>Validation scope</dt><dd>Checks configured explanations against excerpt hashes. A matching hash does not approve the explanation's meaning.</dd><dt>Analyzed source commit</dt><dd><code>4eb2378f21b81b02b2814bde7be86d34f3297de8</code></dd><dt>Document generation time</dt><dd><code>2026-10-23 23:16:20+00:00</code></dd></dl><a href="../ipa.md">Korean Markdown source ↗</a> <a href="ipa.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="pipeline-handler.html"><small>Previous</small>Pipeline Handler ←</a><a class="next" href="ipu3-lsc.html"><small>Next</small>IPU3 LSC and state connections →</a></nav>
+<p>Next step: <a href="ipu3-lsc.html">IPU3 LSC and state connections</a></p></article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Design explanations bound to source excerpts</dd><dt>Validation scope</dt><dd>Checks configured explanations against excerpt hashes. A matching hash does not approve the explanation's meaning.</dd><dt>Analyzed source commit</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>Document generation time</dt><dd><code>2026-10-24 03:16:51+00:00</code></dd></dl><a href="../ipa.md">Korean Markdown source ↗</a> <a href="ipa.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="pipeline-handler.html"><small>Previous</small>Pipeline Handler ←</a><a class="next" href="ipu3-lsc.html"><small>Next</small>IPU3 LSC and state connections →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
 <aside class="page-toc"><nav aria-label="Current page contents"><p>On this page</p><div class="toc">
 <ul>
@@ -1328,6 +1920,8 @@ int IPCPipeUnixSocket::call(const IPCUnixSocket::Payload &amp;message,
 <li><a href="#프레임-입력과-결과-인터페이스">Frame input and result interfaces</a></li>
 <li><a href="#ipa-객체와-종료-순서">IPA objects and shutdown order</a></li>
 <li><a href="#생성과-ipc-실패">Creation and IPC failures</a></li>
+<li><a href="#보정-전-튜닝-파일">Uncalibrated tuning files</a></li>
+<li><a href="#소프트웨어-isp-셰이더의-렌즈-음영-보정">Lens shading correction in the software ISP shaders</a></li>
 <li><a href="#클래스-관계">Class relationships</a></li>
 <li><a href="#관련-클래스">Related classes</a></li>
 </ul>

@@ -1,11 +1,12 @@
 ---
-generated_at: 2026-10-23T23:16:20+00:00
-source_commit: 4eb2378f21b81b02b2814bde7be86d34f3297de8
+generated_at: 2026-10-24T02:35:19+00:00
+source_commit: 2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f
 status: ok
 section: camera-model
 generation_method: source-bound-contract
 evidence_fingerprint: 902dec1d9682f4669755f72cda3cba2666a25bad25cfae357eb23affb277524c
 semantic_review: human-review-required
+revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
 ---
 
 # 카메라와 요청 모델
@@ -1056,7 +1057,7 @@ flowchart LR
     - 생성 방식: 소스 발췌에 연결한 설계 설명
     - 검증 범위: 설정에 작성된 설명을 발췌 해시와 대조합니다. 해시 일치는 설명의 의미를 승인하지 않습니다.
     - 근거 파일: `include/libcamera/camera.h`, `include/libcamera/camera_manager.h`, `include/libcamera/request.h`, `src/libcamera/camera.cpp`, `src/libcamera/camera_manager.cpp`, `src/libcamera/pipeline_handler.cpp`, `src/libcamera/request.cpp`
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `4eb2378f21`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `323c0f3f77`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
     - 검토 상태 기록일: 2026-10-24 · 사람 검토 전
 
