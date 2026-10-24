@@ -8,14 +8,15 @@
 
 ## 생성과 검증
 
-- 공식 소스는 `2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f`, 생성기는 `3066527e44f5ee843acb0f192cc7505afdc16c9e`입니다. 새 upstream 커밋은 없었습니다.
+- 공식 소스는 `2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f`, 생성기는 `f9909c85be1450587a4309e3d037908115e8b72c`입니다. 새 upstream 커밋은 없었습니다.
 - 전체 빌드 facts(TU 300개, 클래스 1,513개)와 최신 상세 원고를 유지했습니다. 요청 진단과 개요를 입력 해시에 묶인 Codex 세션 LLM 응답으로 다시 생성했습니다. 고정 설계 답변을 설정에 추가하지 않았습니다.
 - 공개 문서만 읽은 새 에이전트가 구성 실패·진단·근거 탐색 장애를 발견했습니다. 수정 후 별도 새 에이전트는 첫 코드·흐름·완료 누락·구성 실패·정지 문제의 필수 과제를 모두 통과했습니다. 시험 빌드와 후속 수정 범위는 배포 기록에 구분했습니다.
 - 고유 회귀 테스트 742개 통과, 1개 건너뜀. 최종 관련 테스트 45개 통과. 한영 38페이지에서 링크 오류 0, manifest 검증 성공, 같은 입력의 89개 파일 반복 일치를 확인했습니다.
 - 문단 근거의 로컬 발췌 이동과 390px 화면을 확인했습니다. 사내 반입 후보 ZIP 263개 파일의 무결성과 별도 경로에서 공개 mini HAL 생성·검증 4단계를 확인했습니다.
+- 영어판 상태 문구 번역 3개를 고쳤습니다. 자동 검사 행은 설명 내용을 사람이 아직 확인해야 한다는 뜻으로 읽힙니다. 한국어 페이지는 직전 게시본과 같고, 영어 페이지 18개는 이 문구만 다릅니다.
 - 한국어·영어와 기술 해석은 사람 검토 전입니다. 사내 Camera HAL·실기기·실제 ADHD 독자의 이해도는 검증하지 않았습니다.
 
-[배포 기록](run.json), [요청·응답 해시](generation-receipts.json), [산출물 해시](docs/site-manifest.json), [생성기 변경 #79](https://github.com/TTolsun/camera-hal-sdd-generator/pull/79)을 확인하세요.
+[배포 기록](run.json), [요청·응답 해시](generation-receipts.json), [산출물 해시](docs/site-manifest.json), [생성기 변경 #79](https://github.com/TTolsun/camera-hal-sdd-generator/pull/79), [번역 수정 #80](https://github.com/TTolsun/camera-hal-sdd-generator/pull/80)을 확인하세요.
 
 ## 동기화와 배포
 
