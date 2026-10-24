@@ -1,31 +1,24 @@
 ---
-generated_at: 2026-10-23T23:16:20+00:00
+generated_at: 2026-10-24T05:28:37+00:00
 source_commit: 2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f
 status: ok
 section: pipeline-handler
 generation_method: source-bound-contract
-evidence_fingerprint: b28654b57907fe0a2c73f855ee5f6084e16b1860e6c7f34e1d5a26cf089e9d53
+evidence_fingerprint: 04f6dbcf0f04a99a42762c9d6576de20bc2b6ace07ead2a557429b128f2a2221
 semantic_review: human-review-required
-revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
 ---
 
 # Pipeline Handler
 
 **파이프라인 구현이 지켜야 하는 구성·요청·완료·종료 계약을 확인하세요.**
 
-
-
-## 설계 항목과 근거
-
-아래 항목은 소스에 연결된 설명의 작성 범위를 나타냅니다. 설명의 의미와 실제 실행에 대한 승인은 별도 검토가 필요합니다.
-
-| 설계 질문 | 설명 위치 | 확인 범위 |
-|---|---|---|
-| 핸들러는 어떤 객체와 장치를 만들고 관리합니까? | [장치 매칭과 객체 수명](#장치-매칭과-객체-수명) | 코드 근거와 설명 연결 |
-| 기본 구성과 실제 구성에서 호출자와 구현의 책임은 무엇입니까? | [구성의 입력과 검증 책임](#구성의-입력과-검증-책임) | 코드 근거와 설명 연결 |
-| 요청을 장치로 넘기는 조건과 실패 처리는 무엇입니까? | [요청 준비와 장치 큐](#요청-준비와-장치-큐) | 코드 근거와 설명 연결 |
-| 버퍼 완료, 요청 완료와 접근 가능한 수명은 어떻게 구분됩니까? | [버퍼 완료와 요청 반환](#버퍼-완료와-요청-반환) | 코드 근거와 설명 연결 |
-| 정지 중 재큐잉을 막고 대기 요청을 반환하는 방법은 무엇입니까? | [정지와 미완료 요청](#정지와-미완료-요청) | 코드 근거와 설명 연결 · 실행 확인 항목 별도 |
+| 지금 확인할 내용 | 이동할 절 |
+|---|---|
+| 장치 매칭과 객체 수명 절을 확인합니다. | [장치 매칭과 객체 수명](#장치-매칭과-객체-수명) |
+| 구성의 입력과 검증 책임 절을 확인합니다. | [구성의 입력과 검증 책임](#구성의-입력과-검증-책임) |
+| 요청 준비와 장치 큐 절을 확인합니다. | [요청 준비와 장치 큐](#요청-준비와-장치-큐) |
+| 버퍼 완료와 요청 반환 절을 확인합니다. | [버퍼 완료와 요청 반환](#버퍼-완료와-요청-반환) |
+| 정지와 미완료 요청 절을 확인합니다. | [정지와 미완료 요청](#정지와-미완료-요청) |
 
 ## 장치 매칭과 객체 수명
 
@@ -33,7 +26,64 @@ revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
 
 `acquireMediaDevice()`로 얻은 장치는 핸들러에 보관되고 핸들러 소멸 시 해제되는 계약입니다. 카메라의 배타 접근을 위한 `acquire()`와 `release()`는 성공한 횟수가 대응해야 하며, 공유 자원은 모든 관련 카메라의 해제가 끝나기 전에 반납해서는 안 됩니다. `src/libcamera/pipeline_handler.cpp:119`
 
-??? note "소스 근거: handler"
+근거 원문: [src/libcamera/pipeline_handler.cpp:50](#source-69bfa9568cf8b5c5) · [src/libcamera/pipeline_handler.cpp:119](#source-a3caf1625bc18d64)
+
+## 구성의 입력과 검증 책임
+
+`generateConfiguration()`은 요청한 스트림 역할을 만족하는 기본 구성을 반환하고 불가능하면 null을 반환합니다. 어느 스레드에서 호출해도 안전해야 하며 파이프라인 안의 카메라 상태를 변경해서는 안 됩니다. `src/libcamera/pipeline_handler.cpp:271`
+
+`configure()`의 입력은 이미 `CameraConfiguration::validate()`를 통과한 구성입니다. 구현은 각 `StreamConfiguration`에 `setStream()`으로 스트림을 연결해야 합니다. 호출 문맥은 CameraManager 스레드이며 성공 시 0, 실패 시 음수 오류 코드를 반환합니다. `src/libcamera/pipeline_handler.cpp:271`
+
+근거 원문: [src/libcamera/pipeline_handler.cpp:271](#source-c81d81d5cce53ab8)
+
+## 요청 준비와 장치 큐
+
+`registerRequest()`는 준비 완료 신호를 `doQueueRequests()`에 연결합니다. `queueRequest()`는 요청을 대기 큐에 넣고 `prepare(300ms)`를 호출합니다. 대기 큐의 맨 앞 요청이 준비되지 않았거나 장치 큐가 `maxQueuedRequestsDevice_`에 도달하면 추가 전달을 멈춥니다. `src/libcamera/pipeline_handler.cpp:428`
+
+전달할 요청은 대기 큐에서 먼저 제거하므로 재귀적으로 `doQueueRequests()`가 호출되어도 같은 요청을 다시 꺼내지 않습니다. `doQueueRequest()`는 장치 큐에 요청을 등록하고 시퀀스 번호를 부여합니다. 이미 취소된 요청은 완료 처리로 보내고, `queueRequestDevice()`가 오류를 반환하면 취소합니다. `src/libcamera/pipeline_handler.cpp:428`
+
+`queueRequestDevice()`는 요청에 담긴 스트림별 버퍼와 파라미터를 하드웨어에 적용할 책임을 갖습니다. 호출 문맥은 CameraManager 스레드이며 성공 시 0, 실패 시 음수 오류 코드를 반환합니다. `src/libcamera/pipeline_handler.cpp:428`
+
+근거 원문: [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5)
+
+## 버퍼 완료와 요청 반환
+
+`completeBuffer()`는 애플리케이션에 버퍼 완료를 알리고 요청 내부의 버퍼 추적 정보를 갱신합니다. 마지막 버퍼가 완료되어도 요청을 자동 완료하지 않으므로 파이프라인이 필요한 후처리 후 `completeRequest()`를 명시적으로 호출해야 합니다. `src/libcamera/pipeline_handler.cpp:547`
+
+`completeRequest()`는 요청을 완료 상태로 바꾸고 장치 큐의 앞에서부터 Pending이 아닌 요청을 반환합니다. 장치가 완료하는 순서와 무관하게 애플리케이션에는 제출 순서로 돌아갑니다. 반환 가능한 요청을 처리한 뒤 대기 요청의 장치 전달을 재개합니다. `src/libcamera/pipeline_handler.cpp:547`
+
+완료 통지 함수는 CameraManager 스레드에서 호출해야 합니다. `completeRequest()`가 돌아온 뒤에는 파이프라인이 해당 요청에 접근해서는 안 됩니다. `cancelRequest()`에도 같은 수명 규칙이 적용됩니다. `src/libcamera/pipeline_handler.cpp:547`
+
+근거 원문: [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a)
+
+## 정지와 미완료 요청
+
+`stop()`은 대기 큐를 지역 변수로 옮긴 뒤 `stopDevice()`를 호출합니다. 따라서 장치 정지 중 `completeRequest()`가 호출되어도 기존 대기 요청을 장치에 다시 넣지 않습니다. `src/libcamera/pipeline_handler.cpp:359`
+
+장치 정지 후 남은 대기 요청을 취소하고 `doQueueRequest()`로 시퀀스 번호와 완료 순서를 유지합니다. 끝에서는 장치 큐와 대기 큐가 비었음을 확인하고 요청 시퀀스를 0으로 초기화합니다. 하드웨어 구현의 `stopDevice()`는 미완료 요청을 오류 상태로 완료해야 하는 계약을 갖습니다. `src/libcamera/pipeline_handler.cpp:359`
+
+실행 확인 항목: 개별 드라이버가 정지 계약을 지키는지, 완료 신호가 종료와 경합할 때 안전한지는 해당 구현과 기기에서 확인해야 합니다. 공통 클래스의 계약만으로 하드웨어 종료를 검증했다고 판단하지 않습니다. `src/libcamera/pipeline_handler.cpp:359`, `src/libcamera/pipeline_handler.cpp:547`
+
+근거 원문: [src/libcamera/pipeline_handler.cpp:359](#source-eefd1bbecb1aad0a) · [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a)
+
+??? note "설계 질문과 검증 범위"
+    질문별 답변과 근거 연결을 검사했습니다. 의미와 실행 결과는 사람 검토가 필요합니다.
+    
+    | 설계 질문 | 설명 위치 | 확인 범위 |
+    |---|---|---|
+    | 핸들러는 어떤 객체와 장치를 만들고 관리합니까? | [장치 매칭과 객체 수명](#장치-매칭과-객체-수명) | 코드 근거와 설명 연결 |
+    | 기본 구성과 실제 구성에서 호출자와 구현의 책임은 무엇입니까? | [구성의 입력과 검증 책임](#구성의-입력과-검증-책임) | 코드 근거와 설명 연결 |
+    | 요청을 장치로 넘기는 조건과 실패 처리는 무엇입니까? | [요청 준비와 장치 큐](#요청-준비와-장치-큐) | 코드 근거와 설명 연결 |
+    | 버퍼 완료, 요청 완료와 접근 가능한 수명은 어떻게 구분됩니까? | [버퍼 완료와 요청 반환](#버퍼-완료와-요청-반환) | 코드 근거와 설명 연결 |
+    | 정지 중 재큐잉을 막고 대기 요청을 반환하는 방법은 무엇입니까? | [정지와 미완료 요청](#정지와-미완료-요청) | 코드 근거와 설명 연결 · 실행 확인 항목 별도 |
+
+## 소스 근거
+
+같은 발췌는 한 번만 싣습니다. 필요한 원문을 펼쳐 설명과 대조하세요.
+
+<a id="source-69bfa9568cf8b5c5"></a>
+
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:50"
     `src/libcamera/pipeline_handler.cpp:50`에서 시작하는 발췌입니다. 종료 줄은 119이며, 아래 원문을 설명과 대조할 수 있습니다.
     
     SHA-256: `e05278df0a06cb963fe79f772e62d4560b62df15c1411a6b49e32f7ca84d9e74`
@@ -111,7 +161,9 @@ revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
      * \brief Search and acquire a MediaDevice
     ```
 
-??? note "소스 근거: acquisition"
+<a id="source-a3caf1625bc18d64"></a>
+
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:119"
     `src/libcamera/pipeline_handler.cpp:119`에서 시작하는 발췌입니다. 종료 줄은 271이며, 아래 원문을 설명과 대조할 수 있습니다.
     
     SHA-256: `379b17c52a1e97055bf78aaabd964595fb3ec506c568d112e552ed1c29235591`
@@ -272,13 +324,9 @@ revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
      * \fn PipelineHandler::generateConfiguration()
     ```
 
-## 구성의 입력과 검증 책임
+<a id="source-c81d81d5cce53ab8"></a>
 
-`generateConfiguration()`은 요청한 스트림 역할을 만족하는 기본 구성을 반환하고 불가능하면 null을 반환합니다. 어느 스레드에서 호출해도 안전해야 하며 파이프라인 안의 카메라 상태를 변경해서는 안 됩니다. `src/libcamera/pipeline_handler.cpp:271`
-
-`configure()`의 입력은 이미 `CameraConfiguration::validate()`를 통과한 구성입니다. 구현은 각 `StreamConfiguration`에 `setStream()`으로 스트림을 연결해야 합니다. 호출 문맥은 CameraManager 스레드이며 성공 시 0, 실패 시 음수 오류 코드를 반환합니다. `src/libcamera/pipeline_handler.cpp:271`
-
-??? note "소스 근거: configuration"
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:271"
     `src/libcamera/pipeline_handler.cpp:271`에서 시작하는 발췌입니다. 종료 줄은 319이며, 아래 원문을 설명과 대조할 수 있습니다.
     
     SHA-256: `5284e6062c894a77328b372676c42c1c97a4a01f9b2dccc4d09c83b2578b0e20`
@@ -335,15 +383,9 @@ revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
      * \fn PipelineHandler::exportFrameBuffers()
     ```
 
-## 요청 준비와 장치 큐
+<a id="source-789eafedfaa7f3c5"></a>
 
-`registerRequest()`는 준비 완료 신호를 `doQueueRequests()`에 연결합니다. `queueRequest()`는 요청을 대기 큐에 넣고 `prepare(300ms)`를 호출합니다. 대기 큐의 맨 앞 요청이 준비되지 않았거나 장치 큐가 `maxQueuedRequestsDevice_`에 도달하면 추가 전달을 멈춥니다. `src/libcamera/pipeline_handler.cpp:428`
-
-전달할 요청은 대기 큐에서 먼저 제거하므로 재귀적으로 `doQueueRequests()`가 호출되어도 같은 요청을 다시 꺼내지 않습니다. `doQueueRequest()`는 장치 큐에 요청을 등록하고 시퀀스 번호를 부여합니다. 이미 취소된 요청은 완료 처리로 보내고, `queueRequestDevice()`가 오류를 반환하면 취소합니다. `src/libcamera/pipeline_handler.cpp:428`
-
-`queueRequestDevice()`는 요청에 담긴 스트림별 버퍼와 파라미터를 하드웨어에 적용할 책임을 갖습니다. 호출 문맥은 CameraManager 스레드이며 성공 시 0, 실패 시 음수 오류 코드를 반환합니다. `src/libcamera/pipeline_handler.cpp:428`
-
-??? note "소스 근거: queue"
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:428"
     `src/libcamera/pipeline_handler.cpp:428`에서 시작하는 발췌입니다. 종료 줄은 547이며, 아래 원문을 설명과 대조할 수 있습니다.
     
     SHA-256: `5a7a3397a6034a73fe348ae44eb1e2568d2823e95542fe43386e16359d627180`
@@ -471,15 +513,9 @@ revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
      * \brief Complete a buffer for a request
     ```
 
-## 버퍼 완료와 요청 반환
+<a id="source-01ad7c6605c3296a"></a>
 
-`completeBuffer()`는 애플리케이션에 버퍼 완료를 알리고 요청 내부의 버퍼 추적 정보를 갱신합니다. 마지막 버퍼가 완료되어도 요청을 자동 완료하지 않으므로 파이프라인이 필요한 후처리 후 `completeRequest()`를 명시적으로 호출해야 합니다. `src/libcamera/pipeline_handler.cpp:547`
-
-`completeRequest()`는 요청을 완료 상태로 바꾸고 장치 큐의 앞에서부터 Pending이 아닌 요청을 반환합니다. 장치가 완료하는 순서와 무관하게 애플리케이션에는 제출 순서로 돌아갑니다. 반환 가능한 요청을 처리한 뒤 대기 요청의 장치 전달을 재개합니다. `src/libcamera/pipeline_handler.cpp:547`
-
-완료 통지 함수는 CameraManager 스레드에서 호출해야 합니다. `completeRequest()`가 돌아온 뒤에는 파이프라인이 해당 요청에 접근해서는 안 됩니다. `cancelRequest()`에도 같은 수명 규칙이 적용됩니다. `src/libcamera/pipeline_handler.cpp:547`
-
-??? note "소스 근거: completion"
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:547"
     `src/libcamera/pipeline_handler.cpp:547`에서 시작하는 발췌입니다. 종료 줄은 620이며, 아래 원문을 설명과 대조할 수 있습니다.
     
     SHA-256: `514288cc958de9ff5fd19d46393cec3bb3088f4f08486528d4559071138638c9`
@@ -561,15 +597,9 @@ revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
      * \brief Retrieve the absolute path to a platform configuration file
     ```
 
-## 정지와 미완료 요청
+<a id="source-eefd1bbecb1aad0a"></a>
 
-`stop()`은 대기 큐를 지역 변수로 옮긴 뒤 `stopDevice()`를 호출합니다. 따라서 장치 정지 중 `completeRequest()`가 호출되어도 기존 대기 요청을 장치에 다시 넣지 않습니다. `src/libcamera/pipeline_handler.cpp:359`
-
-장치 정지 후 남은 대기 요청을 취소하고 `doQueueRequest()`로 시퀀스 번호와 완료 순서를 유지합니다. 끝에서는 장치 큐와 대기 큐가 비었음을 확인하고 요청 시퀀스를 0으로 초기화합니다. 하드웨어 구현의 `stopDevice()`는 미완료 요청을 오류 상태로 완료해야 하는 계약을 갖습니다. `src/libcamera/pipeline_handler.cpp:359`
-
-실행 확인 항목: 개별 드라이버가 정지 계약을 지키는지, 완료 신호가 종료와 경합할 때 안전한지는 해당 구현과 기기에서 확인해야 합니다. 공통 클래스의 계약만으로 하드웨어 종료를 검증했다고 판단하지 않습니다. `src/libcamera/pipeline_handler.cpp:359`, `src/libcamera/pipeline_handler.cpp:547`
-
-??? note "소스 근거: stop"
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:359"
     `src/libcamera/pipeline_handler.cpp:359`에서 시작하는 발췌입니다. 종료 줄은 414이며, 아래 원문을 설명과 대조할 수 있습니다.
     
     SHA-256: `108b1bea5a8314ba57213d15c1e3ba01abe2b3f8a9e0e1e1281864b5492c7304`
@@ -631,88 +661,6 @@ revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
     
     /**
      * \brief Determine if the camera has any requests pending
-    ```
-
-??? note "소스 근거: completion"
-    `src/libcamera/pipeline_handler.cpp:547`에서 시작하는 발췌입니다. 종료 줄은 620이며, 아래 원문을 설명과 대조할 수 있습니다.
-    
-    SHA-256: `514288cc958de9ff5fd19d46393cec3bb3088f4f08486528d4559071138638c9`
-    
-    ```text
-    \brief Complete a buffer for a request
-     * \param[in] request The request the buffer belongs to
-     * \param[in] buffer The buffer that has completed
-     *
-     * This function shall be called by pipeline handlers to signal completion of
-     * the \a buffer part of the \a request. It notifies applications of buffer
-     * completion and updates the request's internal buffer tracking. The request
-     * is not completed automatically when the last buffer completes to give
-     * pipeline handlers a chance to perform any operation that may still be
-     * needed. They shall complete requests explicitly with completeRequest().
-     *
-     * \context This function shall be called from the CameraManager thread.
-     *
-     * \return True if all buffers contained in the request have completed, false
-     * otherwise
-     */
-    bool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)
-    {
-    	Camera *camera = request->_d()->camera();
-    	camera->bufferCompleted.emit(request, buffer);
-    	return request->_d()->completeBuffer(buffer);
-    }
-    
-    /**
-     * \brief Signal request completion
-     * \param[in] request The request that has completed
-     *
-     * The pipeline handler shall call this function to notify the \a camera that
-     * the request has completed. The request is no longer managed by the pipeline
-     * handler and shall not be accessed once this function returns.
-     *
-     * This function ensures that requests will be returned to the application in
-     * submission order, the pipeline handler may call it on any complete request
-     * without any ordering constraint.
-     *
-     * \context This function shall be called from the CameraManager thread.
-     */
-    void PipelineHandler::completeRequest(Request *request)
-    {
-    	Camera *camera = request->_d()->camera();
-    
-    	request->_d()->complete();
-    
-    	Camera::Private *data = camera->_d();
-    
-    	while (!data->queuedRequests_.empty()) {
-    		Request *req = data->queuedRequests_.front();
-    		if (req->status() == Request::RequestPending)
-    			break;
-    
-    		ASSERT(!req->hasPendingBuffers());
-    		data->queuedRequests_.pop_front();
-    		camera->requestComplete(req);
-    	}
-    
-    	/* Allow any waiting requests to be queued to the pipeline. */
-    	doQueueRequests(camera);
-    }
-    
-    /**
-     * \brief Cancel request and signal its completion
-     * \param[in] request The request to cancel
-     *
-     * This function cancels and completes the request. The same rules as for
-     * completeRequest() apply.
-     */
-    void PipelineHandler::cancelRequest(Request *request)
-    {
-    	request->_d()->cancel();
-    	completeRequest(request);
-    }
-    
-    /**
-     * \brief Retrieve the absolute path to a platform configuration file
     ```
 
 
@@ -785,7 +733,7 @@ flowchart LR
     - 생성 방식: 소스 발췌에 연결한 설계 설명
     - 검증 범위: 설정에 작성된 설명을 발췌 해시와 대조합니다. 해시 일치는 설명의 의미를 승인하지 않습니다.
     - 근거 파일: `include/libcamera/internal/pipeline_handler.h`, `src/libcamera/pipeline/imx8-isi/imx8-isi.cpp`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/pipeline/mali-c55/mali-c55.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/pipeline/rpi/pisp/pisp.cpp`, `src/libcamera/pipeline/rpi/vc4/vc4.cpp`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp`, `src/libcamera/pipeline/vimc/vimc.cpp`, `src/libcamera/pipeline/virtual/virtual.cpp`, `src/libcamera/pipeline_handler.cpp`
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `4eb2378f21`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `2c4b67c079`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
     - 검토 상태 기록일: 2026-10-24 · 사람 검토 전
 

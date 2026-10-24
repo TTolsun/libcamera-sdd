@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-10-23T23:16:20+00:00
+generated_at: 2026-10-24T05:28:37+00:00
 source_commit: 2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f
 status: ok
 section: scenarios
@@ -7,7 +7,6 @@ entry: CameraManager::start()
 scenario_id: manager_start
 scenario_fingerprint: f25548f4d6797a2cb115d519065f3f3f4db6ca2b4085cb81090e3c15ab0c3f6b
 generation_method: extracted-scenario
-revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
 ---
 
 # 카메라 탐색 (CameraManager::start)
@@ -111,7 +110,7 @@ facts에 기록된 호출은 33개이며, 요약의 hide 규칙에 해당하는 
     - 생성 방식: 추출 호출로 만든 시나리오
     - 검증 범위: 주요 호출과 경계를 facts에서 구성하고 전체 추적 기록을 보존합니다. 실행 순서를 추정하지 않습니다.
     - 근거 파일: `src/libcamera/base/event_dispatcher_poll.cpp`, `src/libcamera/base/log.cpp`, `src/libcamera/base/thread.cpp`, `src/libcamera/camera_manager.cpp`
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `4eb2378f21`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `2c4b67c079`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
     - 검토 상태 기록일: 2026-10-24 · 사람 검토 전
 
