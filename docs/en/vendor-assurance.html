@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Support Scope and Validation · libcamera Design Documentation</title><link rel="stylesheet" href="../assets/reading.css?v=001005a6ac"><link rel="alternate" hreflang="ko" href="../vendor-assurance.html"><link rel="alternate" hreflang="en" href="vendor-assurance.html"></head>
+<body><a class="skip" href="#main">Skip to content</a>
+<header class="site-header"><a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera Design Documentation</a>
+<div class="header-actions"><details class="language-selector"><summary aria-label="Choose language">English ▾</summary><nav><a lang="ko" hreflang="ko" href="../vendor-assurance.html">한국어</a><a lang="en" hreflang="en" href="vendor-assurance.html" aria-current="true">English</a></nav></details><button id="search-open" hidden>Find documents <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button></div></header>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Documentation menu"><p class="nav-group">Getting started</p><a href="index.html">Documentation guide</a><a href="glossary.html">Glossary</a><p class="nav-group">For Vendor</p><a href="vendor-overview.html">libcamera Product Overview</a><a href="vendor-integration.html">Integration Guide</a><a href="vendor-assurance.html" aria-current="page">Support Scope and Validation</a><a href="request-lifecycle.html">Request lifecycle and troubleshooting</a><a href="pipeline-handler.html">Pipeline Handler</a><a href="ipa.html">IPA management and implementation entry points</a><a href="ipu3-lsc.html">IPU3 LSC and state connections</a><a href="ipu3-lsc-flow.html">IPU3 LSC configuration and frame processing</a><a href="rkisp1-dewarp.html">RKISP1 per-camera lens dewarping</a><p class="nav-group">For Developer</p><a href="overview.html">System overview</a><a href="camera-model.html">Camera and request model</a><a href="scenarios/index.html">Core scenarios</a><details class="nav-branch"><summary>6 child documents</summary><a class="nav-sub" href="scenarios/manager_start.html">Camera discovery (CameraManager::start)</a><a class="nav-sub" href="scenarios/configure.html">Stream configuration (Camera::configure)</a><a class="nav-sub" href="scenarios/camera_start.html">Capture start (Camera::start)</a><a class="nav-sub" href="scenarios/queue_request.html">Request submission (Camera::queueRequest)</a><a class="nav-sub" href="scenarios/complete_request.html">Request completion (PipelineHandler::completeRequest)</a><a class="nav-sub" href="scenarios/camera_stop.html">Capture stop request (Camera::stop)</a></details><a href="component-index.html">Component index</a></nav><p class="sidebar-note">Extract structure from code<br>and review it with evidence.</p></aside>
+<main id="main"><p class="breadcrumb">For Vendor <span>/</span> Support Scope and Validation</p><h1>Support Scope and Validation</h1><div class="page-state"><span class="review-state">Human review pending</span><span>Automatic checks passed</span><span class="generation-method">Written from: extracted structure and a model-written draft</span><a class="state-help" href="#page-evidence">What these mean ↓</a></div>
+<details class="mobile-toc"><summary>Contents of this page</summary><div class="toc">
+<ul>
+<li><a href="#지원-조건과-제약">Support conditions and constraints</a></li>
+<li><a href="#성능-근거를-읽는-기준">How to interpret performance evidence</a></li>
+<li><a href="#소스-근거">Source evidence</a></li>
+<li><a href="#클래스-관계">Class relationships</a></li>
+</ul>
+</div>
+</details><p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p><strong>Review support conditions and configuration constraints, then define what to validate before product adoption.</strong></p>
+<details class="page-terms">
+<summary>Terms on this page: Pipeline Handler, debayer, bayer, ISP</summary>
+<ul>
+<li><strong>Pipeline Handler</strong>: the libcamera component that finds a hardware platform's media devices (IPU3, RKISP1 and so on), creates cameras, queues requests to the devices and returns completions. There is one per platform.</li>
+<li><strong>Debayering</strong>: interpolating each pixel's missing colours from its neighbours to turn bayer raw data into an RGB image. Also called demosaicing.</li>
+<li><strong>bayer</strong>: a colour filter array where each sensor pixel records only one of R, G or B. Raw data in this format needs debayering before every pixel has RGB values.</li>
+<li><strong>ISP</strong> (Image Signal Processor): the processing unit that turns the sensor's raw (bayer) data into a usable image. It performs black-level correction, lens shading correction, white balance, debayering and more.</li>
+</ul>
+<p>Other terms are in the <a href="glossary.html">Glossary</a>.</p>
+</details>
+<div class="table-scroll reading-routes" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>What to check now</th>
+<th>Section</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Find the relevant information in the product overview.</td>
+<td><a href="vendor-overview.html">libcamera Product Overview</a></td>
+</tr>
+<tr>
+<td>Find the relevant information in the integration guide.</td>
+<td><a href="vendor-integration.html">Integration Guide</a></td>
+</tr>
+<tr>
+<td>Implement the device-specific pipeline.</td>
+<td><a href="pipeline-handler.html">Pipeline Handler</a></td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="지원-조건과-제약">Support conditions and constraints</h2>
+<p>When <code>CameraConfiguration::validate()</code> returns Valid, the configuration is unchanged. Adjusted means it has become valid after adjustment, but stream parameters may change or streams may be removed, so the caller must check the result again. Invalid means the configuration cannot be adjusted to become valid.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-cb5242e98ac1e72c" aria-label="src/libcamera/camera.cpp:323 excerpt"><code>L323</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:323" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/camera.cpp#L323">Full source <code>L323</code></a></span></li></ul></details>
+<p><code>PipelineHandler::generateConfiguration()</code> returns a valid configuration when the requested stream roles can be satisfied, or a null pointer otherwise. Check the returned streams and default parameters instead of assuming the requested roles are supported as given.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="#source-c81d81d5cce53ab8" aria-label="src/libcamera/pipeline_handler.cpp:271 excerpt"><code>L271</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:271" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/pipeline_handler.cpp#L271">Full source <code>L271</code></a></span></li></ul></details>
+<p><code>PipelineHandler::configure()</code> receives an already validated configuration and must return 0 on success or a negative error code on failure. A valid configuration and successful device configuration are distinct conditions.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="#source-c81d81d5cce53ab8" aria-label="src/libcamera/pipeline_handler.cpp:271 excerpt"><code>L271</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:271" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/pipeline_handler.cpp#L271">Full source <code>L271</code></a></span></li></ul></details>
+<details class="evidence-links evidence-section"><summary>Section evidence · <span>2</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/camera.cpp:323" href="#source-cb5242e98ac1e72c"><code>L323</code></a></span></li><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/pipeline_handler.cpp:271" href="#source-c81d81d5cce53ab8"><code>L271</code></a></span></li></ul></details>
+<h2 id="성능-근거를-읽는-기준">How to interpret performance evidence</h2>
+<p>The built-in benchmark in <code>DebayerCpu</code> measures statistics collection and debayer processing time. It excludes frame capture and output, so its results must not be interpreted as end-to-end product capture latency.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>Documentation/software-isp-benchmarking.rst</code><span class="evidence-lines"><a href="#source-9c8139bcb89eab5b" aria-label="Excerpt from Documentation/software-isp-benchmarking.rst:15"><code>L15</code> excerpt</a> · <a aria-label="Documentation/software-isp-benchmarking.rst:15" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/software-isp-benchmarking.rst#L15">Full source <code>L15</code></a></span></li></ul></details>
+<p>Run cam or qcam with a pipeline that uses the Software ISP to use the built-in benchmark. This is an upstream measurement procedure, not a performance result measured on a target product for this document.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>Documentation/software-isp-benchmarking.rst</code><span class="evidence-lines"><a href="#source-9c8139bcb89eab5b" aria-label="Excerpt from Documentation/software-isp-benchmarking.rst:15"><code>L15</code> excerpt</a> · <a aria-label="Documentation/software-isp-benchmarking.rst:15" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/software-isp-benchmarking.rst#L15">Full source <code>L15</code></a></span></li></ul></details>
+<details class="evidence-links evidence-section"><summary>Section evidence · <span>1</span></summary><ul><li><code>Documentation/software-isp-benchmarking.rst</code><span class="evidence-lines"><a aria-label="Documentation/software-isp-benchmarking.rst:15" href="#source-9c8139bcb89eab5b"><code>L15</code></a></span></li></ul></details>
+<details class="note">
+<summary>Design questions and validation scope</summary>
+<p>Answers and their evidence links have been checked for each question. Meaning and runtime results still require human review.</p>
+<div class="table-scroll stack" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Design question</th>
+<th>Explanation location</th>
+<th>Verification scope</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td data-label="Design question">What prerequisites and constraints apply, and what requires separate validation?</td>
+<td data-label="Explanation location"><a href="#지원-조건과-제약">Support conditions and constraints</a></td>
+<td data-label="Verification scope">Code evidence linked to explanation</td>
+</tr>
+<tr>
+<td data-label="Design question">What does the reference benchmark measure, and what still requires product validation?</td>
+<td data-label="Explanation location"><a href="#성능-근거를-읽는-기준">How to interpret performance evidence</a></td>
+<td data-label="Verification scope">Code evidence linked to explanation</td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<h2 id="소스-근거">Source evidence</h2>
+<p>Each identical excerpt appears once. Expand the source you need and compare it with the explanation.</p>
+<p><a id="source-cb5242e98ac1e72c"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/camera.cpp:323</summary>
+<p>This excerpt starts at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/camera.cpp#L323"><code>src/libcamera/camera.cpp:323</code></a> and ends at line 350. Expand it to compare the source with the explanation.</p>
+<p>SHA-256: <code>a6c84f68e53cafd0f2721ee7eee586981059b62a93378a48235f86ffaa0a8fce</code></p>
+<div class="highlight"><pre><span></span><code>\fn CameraConfiguration::validate()
+ * \brief Validate and possibly adjust the camera configuration
+ *
+ * This function adjusts the camera configuration to the closest valid
+ * configuration and returns the validation status.
+ *
+ * \todo Define exactly when to return each status code. Should stream
+ * parameters set to 0 by the caller be adjusted without returning Adjusted ?
+ * This would potentially be useful for applications but would get in the way
+ * in Camera::configure(). Do we need an extra status code to signal this ?
+ *
+ * \todo Handle validation of buffers count when refactoring the buffers API.
+ *
+ * \return A CameraConfiguration::Status value that describes the validation
+ * status.
+ * \retval CameraConfiguration::Invalid The configuration is invalid and can't
+ * be adjusted. This may only occur in extreme cases such as when the
+ * configuration is empty.
+ * \retval CameraConfiguration::Adjusted The configuration has been adjusted
+ * and is now valid. Parameters may have changed for any stream, and stream
+ * configurations may have been removed. The caller shall check the
+ * configuration carefully.
+ * \retval CameraConfiguration::Valid The configuration was already valid and
+ * hasn't been adjusted.
+ */
+
+/**
+ * \brief Retrieve a reference to a stream configuration
+</code></pre></div>
+</details>
+<p><a id="source-c81d81d5cce53ab8"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/pipeline_handler.cpp:271</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/pipeline_handler.cpp#L271"><code>src/libcamera/pipeline_handler.cpp:271</code></a> and ending at line 319. Compare the source below with the explanation.</p>
+<p>SHA-256: <code>5284e6062c894a77328b372676c42c1c97a4a01f9b2dccc4d09c83b2578b0e20</code></p>
+<div class="highlight"><pre><span></span><code>\fn PipelineHandler::generateConfiguration()
+ * \brief Generate a camera configuration for a specified camera
+ * \param[in] camera The camera to generate a default configuration for
+ * \param[in] roles A list of stream roles
+ *
+ * Generate a default configuration for the \a camera for a specified list of
+ * stream roles. The caller shall populate the \a roles with the use-cases it
+ * wishes to fetch the default configuration for. The returned configuration
+ * can then be examined by the caller to learn about the selected streams and
+ * their default parameters.
+ *
+ * The intended companion to this is \a configure() which can be used to change
+ * the group of streams parameters.
+ *
+ * \context This function may be called from any thread and shall be
+ * \threadsafe. It shall not modify the state of the \a camera in the pipeline
+ * handler.
+ *
+ * \return A valid CameraConfiguration if the requested roles can be satisfied,
+ * or a null pointer otherwise.
+ */
+
+/**
+ * \fn PipelineHandler::configure()
+ * \brief Configure a group of streams for capture
+ * \param[in] camera The camera to configure
+ * \param[in] config The camera configurations to setup
+ *
+ * Configure the specified group of streams for \a camera according to the
+ * configuration specified in \a config. The intended caller of this interface
+ * is the Camera class which will receive configuration to apply from the
+ * application.
+ *
+ * The configuration is guaranteed to have been validated with
+ * CameraConfiguration::validate(). The pipeline handler implementation shall
+ * not perform further validation and may rely on any custom field stored in its
+ * custom CameraConfiguration derived class.
+ *
+ * When configuring the camera the pipeline handler shall associate a Stream
+ * instance to each StreamConfiguration entry in the CameraConfiguration using
+ * the StreamConfiguration::setStream() function.
+ *
+ * \context This function is called from the CameraManager thread.
+ *
+ * \return 0 on success or a negative error code otherwise
+ */
+
+/**
+ * \fn PipelineHandler::exportFrameBuffers()
+</code></pre></div>
+</details>
+<p><a id="source-9c8139bcb89eab5b"></a></p>
+<details class="note">
+<summary>Source evidence: Documentation/software-isp-benchmarking.rst:15</summary>
+<p>This excerpt starts at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/software-isp-benchmarking.rst#L15"><code>Documentation/software-isp-benchmarking.rst:15</code></a> and ends at line 22. Compare the source below with the explanation.</p>
+<p>SHA-256: <code>01df160bfdc79d4dd48c5e5316a7f3744ea6333454ab939c474cf739490984a3</code></p>
+<div class="highlight"><pre><span></span><code>The DebayerCpu class has a builtin benchmark. This benchmark measures the time
+spent on processing (collecting statistics and debayering) only, it does not
+measure the time spent on capturing or outputting the frames.
+
+The builtin benchmark always runs. So this can be used by simply running "cam"
+or "qcam" with a pipeline using the Software ISP.
+
+When it runs it will skip
+</code></pre></div>
+</details>
+<!-- sdd:class-diagram -->
+<h2 id="클래스-관계">Class relationships</h2>
+<p>Arrow labels show extracted relationships; dashed lines indicate inheritance. Arrows point toward the referenced object or base class. They do not show call order.</p>
+<pre class="mermaid">flowchart LR
+  c0["Camera"]
+  c1["Extensible"]:::context
+  c2["IPAManager"]
+  c3["Object"]:::context
+  c4["PipelineHandler"]
+  c5["PipelineHandlerIPU3"]
+  c6["PipelineHandlerRkISP1"]
+  c0 -.-&gt;|inheritance| c1
+  c0 -.-&gt;|inheritance| c3
+  c4 --&gt;|field reference| c0
+  c4 -.-&gt;|inheritance| c3
+  c5 -.-&gt;|inheritance| c4
+  c6 --&gt;|field reference| c0
+  c6 -.-&gt;|inheritance| c4
+  classDef context fill:#fafafa,stroke:#aaa,stroke-dasharray:4 3,color:#555</pre>
+<!-- /sdd:class-diagram -->
+
+<details class="note">
+<summary>Evidence and review information</summary>
+<ul>
+<li>Generation method: extracted facts and LLM explanations</li>
+<li>Validation scope: tables and diagrams come from extracted facts; an LLM writes the explanations. Citation, prose and configured structural checks are applied.</li>
+<li>Evidence files: <code>Documentation/software-isp-benchmarking.rst</code>, <code>include/libcamera/camera.h</code>, <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/pipeline_handler.h</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/pipeline/ipu3/ipu3.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code></li>
+<li>Evidence level: code inspection (static analysis, simple_compdb configuration, commit <code>2c4b67c079</code>)</li>
+<li>Automatic checks (citations, prose and configured structure checks): passed</li>
+<li>Review status recorded: 2026-10-25 · Awaiting human review</li>
+</ul>
+</details>
+<p>Next step: <a href="request-lifecycle.html">Request lifecycle and troubleshooting</a></p></article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanations</dd><dt>Validation scope</dt><dd>Tables and diagrams come from extracted facts; an LLM writes the explanations. Citation, prose and configured structural checks are applied.</dd><dt>Automatic checks</dt><dd>Passed (<code>ok</code>). The checked items are listed under Validation scope. Whether the explanation is correct still needs a person to confirm.</dd><dt>Analyzed source commit</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>Document generation time</dt><dd><code>2026-10-25 07:21:25+00:00</code></dd><dt>Prose generation model</dt><dd><code>response-bundle/codex-session</code></dd></dl><a href="../vendor-assurance.md">Korean Markdown source ↗</a> <a href="vendor-assurance.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="vendor-integration.html"><small>Previous</small>Integration Guide ←</a><a class="next" href="request-lifecycle.html"><small>Next</small>Request lifecycle and troubleshooting →</a></nav>
+<footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
+<aside class="page-toc"><nav aria-label="Current page contents"><p>On this page</p><div class="toc">
+<ul>
+<li><a href="#지원-조건과-제약">Support conditions and constraints</a></li>
+<li><a href="#성능-근거를-읽는-기준">How to interpret performance evidence</a></li>
+<li><a href="#소스-근거">Source evidence</a></li>
+<li><a href="#클래스-관계">Class relationships</a></li>
+</ul>
+</div>
+</nav></aside></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find documents</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search document titles, section titles and terms</label><input id="search-input" type="search" autocomplete="off" placeholder="e.g. Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Class name"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Zoom out">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to view</button><button id="zoom-reset">100%</button></div><div id="diagram-viewport" tabindex="0" role="region" aria-label="Enlarged diagram"><div id="diagram-canvas"></div></div></dialog>
+<script id="site-config" type="application/json">{"root": "./", "mermaid": "https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.esm.min.mjs", "terms": "fc1f187d69", "language": "en"}</script><script defer src="../assets/site.js?v=001005a6ac"></script></body></html>
