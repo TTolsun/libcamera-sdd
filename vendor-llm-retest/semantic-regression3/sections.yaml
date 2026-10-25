@@ -1,0 +1,357 @@
+sections:
+- id: regression-benefits-completion
+  group: For Vendor
+  title: libcamera 제품 개요
+  output: regression-benefits-completion.md
+  kind: prose
+  lead: 제공 기능과 공통 설계의 강점을 확인하고 도입할 범위를 판단하세요.
+  reader: 기술 채택을 검토하고 연동·구현 범위를 정하는 Vendor 담당자
+  design_generation: llm
+  semantic_review: true
+  show_evidence: true
+  facts:
+    classes:
+    - libcamera::PipelineHandler
+    - libcamera::PipelineHandlerIPU3
+    - libcamera::PipelineHandlerRkISP1
+    - libcamera::Camera
+    - libcamera::IPAManager
+    class_table: false
+  diagram:
+    max_nodes: 24
+  watch:
+  - src/libcamera/pipeline/**
+  - src/libcamera/pipeline_handler.cpp
+  - include/libcamera/internal/pipeline_handler.h
+  - src/libcamera/camera_manager.cpp
+  - src/ipa/**
+  - include/libcamera/ipa/**
+  - include/libcamera/internal/ipa_manager.h
+  - src/libcamera/camera.cpp
+  - Documentation/introduction.rst
+  design_requirements:
+  - id: benefits
+    question: 공통 구현을 활용할 수 있는 강점과 그 조건은 무엇입니까?
+    aspects:
+    - benefits
+  design_topics:
+  - id: benefits
+    title: 구현 근거로 보는 강점
+    question: PipelineHandler::queueRequest의 공통 구현과 계약이 제공하는 이점을 설명하세요. 준비 대기, 제출 순서, maxQueuedRequestsDevice_ 한도,
+      준비 실패·장치 제출 실패 시 취소와 정지 시 요청 추적을 다루세요. 장치 구현자의 completeRequest 통지 책임은 유지하며 처리 속도나 개발 기간 절감량을 추정하지 마세요.
+    covers:
+    - benefits
+    sources:
+    - id: queue
+      file: src/libcamera/pipeline_handler.cpp
+      start: \fn PipelineHandler::queueRequest()
+      end: void PipelineHandler::queueRequest(Request *request)
+    parts:
+    - id: completion
+      question: 공통 queueRequest의 요청 추적은 stop 시 완료와 어떤 관계가 있고, 파이프라인 핸들러는 어떤 함수로 완료를 통지해야 합니까? 추적을 호출자의 의무로 바꾸지 말고
+        공통 처리와 파이프라인의 통지 의무를 같은 한 문단에 설명하세요.
+      sources:
+      - queue
+      answer_contract:
+        basis: contract
+        required_terms:
+        - - stop
+        - - completeRequest
+        reject_patterns:
+        - pattern: 호출자는.{0,40}추적
+          message: 요청 추적은 공통 함수의 처리입니다. 호출자 의무로 바꾸지 마세요.
+- id: regression-request-completion
+  group: For Vendor
+  title: 연동 가이드
+  output: regression-request-completion.md
+  kind: prose
+  lead: 연동 순서와 구현 책임을 확인하고 설정·요청·정지 계약을 적용하세요.
+  reader: 기술 채택을 검토하고 연동·구현 범위를 정하는 Vendor 담당자
+  design_generation: llm
+  semantic_review: true
+  show_evidence: true
+  facts:
+    classes:
+    - libcamera::PipelineHandler
+    - libcamera::PipelineHandlerIPU3
+    - libcamera::PipelineHandlerRkISP1
+    - libcamera::Camera
+    - libcamera::IPAManager
+    class_table: false
+  diagram:
+    max_nodes: 24
+  watch:
+  - src/libcamera/pipeline/**
+  - src/libcamera/pipeline_handler.cpp
+  - include/libcamera/internal/pipeline_handler.h
+  - src/libcamera/camera_manager.cpp
+  - src/ipa/**
+  - include/libcamera/ipa/**
+  - include/libcamera/internal/ipa_manager.h
+  - src/libcamera/camera.cpp
+  design_requirements:
+  - id: request
+    question: 공통 큐와 하드웨어 구현은 요청 처리 책임을 어떻게 나눕니까?
+    aspects:
+    - completion
+  design_topics:
+  - id: request
+    title: 요청을 장치에 전달하고 반환하기
+    question: queueRequestDevice 구현자가 버퍼와 파라미터에 대해 지킬 계약과 completeBuffer에서 버퍼 완료와 요청 완료를 구분하는 계약을 설명하세요.
+    covers:
+    - request
+    sources:
+    - id: completion
+      file: src/libcamera/pipeline_handler.cpp
+      start: \brief Complete a buffer for a request
+      end: bool PipelineHandler::completeBuffer
+    parts:
+    - id: completion
+      question: completeBuffer 호출자의 버퍼 완료 통지, 마지막 버퍼 완료와 요청 완료의 구분, 명시적 completeRequest 호출 의무와 CameraManager 호출
+        문맥만 설명하세요. 호출 문맥이 안전성이나 순서를 보장한다는 이유를 덧붙이지 마세요.
+      sources:
+      - completion
+      answer_contract:
+        basis: contract
+        required_terms:
+        - - completeBuffer
+        - - completeRequest
+        - - CameraManager
+        reject_patterns:
+        - pattern: (스레드\s*안전성|스레드\s*안전|동기화|반환\s*순서).{0,30}보장(?:합니다|된다|됩니다|한다)
+          message: 호출 스레드 의무만으로 안전성·순서·동기화를 보장한다고 추론하지 마세요.
+- id: regression-shutdown-device
+  group: For Vendor
+  title: 연동 가이드
+  output: regression-shutdown-device.md
+  kind: prose
+  lead: 연동 순서와 구현 책임을 확인하고 설정·요청·정지 계약을 적용하세요.
+  reader: 기술 채택을 검토하고 연동·구현 범위를 정하는 Vendor 담당자
+  design_generation: llm
+  semantic_review: true
+  show_evidence: true
+  facts:
+    classes:
+    - libcamera::PipelineHandler
+    - libcamera::PipelineHandlerIPU3
+    - libcamera::PipelineHandlerRkISP1
+    - libcamera::Camera
+    - libcamera::IPAManager
+    class_table: false
+  diagram:
+    max_nodes: 24
+  watch:
+  - src/libcamera/pipeline/**
+  - src/libcamera/pipeline_handler.cpp
+  - include/libcamera/internal/pipeline_handler.h
+  - src/libcamera/camera_manager.cpp
+  - src/ipa/**
+  - include/libcamera/ipa/**
+  - include/libcamera/internal/ipa_manager.h
+  - src/libcamera/camera.cpp
+  design_requirements:
+  - id: shutdown
+    question: 정지 시 공통 코드와 하드웨어 구현은 무엇을 끝내야 합니까?
+    aspects:
+    - completion
+    - failure
+  design_topics:
+  - id: shutdown
+    title: 정지와 오류 처리의 책임
+    question: 공통 stop과 하드웨어별 stopDevice의 책임을 나누고 대기 요청과 장치 요청이 종료되는 조건을 설명하세요.
+    covers:
+    - shutdown
+    sources:
+    - id: stop
+      file: src/libcamera/pipeline_handler.cpp
+      start: \brief Stop capturing from all running streams and cancel pending requests
+      end: \brief Determine if the camera has any requests pending
+    parts:
+    - id: device
+      question: stopDevice 선언의 계약만 설명하세요. 장치 구현자가 캡처·요청 처리를 중단하고 남은 요청을 취소하여 오류 상태로 완료해야 하는 의무입니다. 구체 장치 코드나 실행
+        결과는 이 발췌에 없습니다.
+      sources:
+      - stop
+      answer_contract:
+        basis: contract
+        required_terms:
+        - - stopDevice
+        - - 취소
+        - - 오류
+        reject_patterns: []
+- id: regression-constraints-invalid
+  group: For Vendor
+  title: 지원 범위와 검증
+  output: regression-constraints-invalid.md
+  kind: prose
+  lead: 지원 조건과 구성 제약을 확인하고 제품 도입 전에 검증할 범위를 정하세요.
+  reader: 기술 채택을 검토하고 연동·구현 범위를 정하는 Vendor 담당자
+  design_generation: llm
+  semantic_review: true
+  show_evidence: true
+  facts:
+    classes:
+    - libcamera::PipelineHandler
+    - libcamera::PipelineHandlerIPU3
+    - libcamera::PipelineHandlerRkISP1
+    - libcamera::Camera
+    - libcamera::IPAManager
+    class_table: false
+  diagram:
+    max_nodes: 24
+  watch:
+  - src/libcamera/pipeline/**
+  - src/libcamera/pipeline_handler.cpp
+  - include/libcamera/internal/pipeline_handler.h
+  - src/libcamera/camera_manager.cpp
+  - src/ipa/**
+  - include/libcamera/ipa/**
+  - include/libcamera/internal/ipa_manager.h
+  - src/libcamera/camera.cpp
+  - Documentation/software-isp-benchmarking.rst
+  design_requirements:
+  - id: constraints
+    question: 지원 전제와 제약은 무엇이며 별도 검증할 항목은 무엇입니까?
+    aspects:
+    - constraints
+  design_topics:
+  - id: constraints
+    title: 지원 조건과 제약
+    question: CameraConfiguration::validate의 Invalid·Adjusted·Valid를 구분하고 Adjusted이면 스트림 파라미터 변경이나 스트림 삭제가 가능해 호출자가
+      다시 확인해야 함을 설명하세요. generateConfiguration의 roles와 하드웨어 지원 한계, configure의 검증된 입력과 실패 계약을 설명하세요. 특정 해상도·동시 스트림
+      수·성능을 보장하지 마세요.
+    covers:
+    - constraints
+    sources:
+    - id: validate
+      file: src/libcamera/camera.cpp
+      start: \fn CameraConfiguration::validate()
+      end: "hasn't been adjusted.\n */"
+    parts:
+    - id: invalid
+      question: CameraConfiguration::Invalid의 의미와 발생 가능한 경우만 한 문단으로 설명하세요.
+      sources:
+      - validate
+      answer_contract:
+        basis: description
+        required_terms:
+        - - Invalid
+        reject_patterns:
+        - pattern: (조정|수정).{0,15}없거나
+          message: Invalid의 무효·조정 불가 조건과 극단적인 경우의 예시를 또는 조건으로 바꾸지 마세요.
+- id: regression-constraints-adjusted
+  group: For Vendor
+  title: 지원 범위와 검증
+  output: regression-constraints-adjusted.md
+  kind: prose
+  lead: 지원 조건과 구성 제약을 확인하고 제품 도입 전에 검증할 범위를 정하세요.
+  reader: 기술 채택을 검토하고 연동·구현 범위를 정하는 Vendor 담당자
+  design_generation: llm
+  semantic_review: true
+  show_evidence: true
+  facts:
+    classes:
+    - libcamera::PipelineHandler
+    - libcamera::PipelineHandlerIPU3
+    - libcamera::PipelineHandlerRkISP1
+    - libcamera::Camera
+    - libcamera::IPAManager
+    class_table: false
+  diagram:
+    max_nodes: 24
+  watch:
+  - src/libcamera/pipeline/**
+  - src/libcamera/pipeline_handler.cpp
+  - include/libcamera/internal/pipeline_handler.h
+  - src/libcamera/camera_manager.cpp
+  - src/ipa/**
+  - include/libcamera/ipa/**
+  - include/libcamera/internal/ipa_manager.h
+  - src/libcamera/camera.cpp
+  - Documentation/software-isp-benchmarking.rst
+  design_requirements:
+  - id: constraints
+    question: 지원 전제와 제약은 무엇이며 별도 검증할 항목은 무엇입니까?
+    aspects:
+    - constraints
+  design_topics:
+  - id: constraints
+    title: 지원 조건과 제약
+    question: CameraConfiguration::validate의 Invalid·Adjusted·Valid를 구분하고 Adjusted이면 스트림 파라미터 변경이나 스트림 삭제가 가능해 호출자가
+      다시 확인해야 함을 설명하세요. generateConfiguration의 roles와 하드웨어 지원 한계, configure의 검증된 입력과 실패 계약을 설명하세요. 특정 해상도·동시 스트림
+      수·성능을 보장하지 마세요.
+    covers:
+    - constraints
+    sources:
+    - id: validate
+      file: src/libcamera/camera.cpp
+      start: \fn CameraConfiguration::validate()
+      end: "hasn't been adjusted.\n */"
+    parts:
+    - id: adjusted
+      question: CameraConfiguration::Adjusted일 때 스트림 파라미터 변경·스트림 구성 제거 가능성과 호출자가 지켜야 할 확인 의무만 한 문단으로 설명하세요.
+      sources:
+      - validate
+      answer_contract:
+        basis: contract
+        required_terms:
+        - - Adjusted
+        - - 스트림
+        - - 호출자
+- id: regression-constraints-valid
+  group: For Vendor
+  title: 지원 범위와 검증
+  output: regression-constraints-valid.md
+  kind: prose
+  lead: 지원 조건과 구성 제약을 확인하고 제품 도입 전에 검증할 범위를 정하세요.
+  reader: 기술 채택을 검토하고 연동·구현 범위를 정하는 Vendor 담당자
+  design_generation: llm
+  semantic_review: true
+  show_evidence: true
+  facts:
+    classes:
+    - libcamera::PipelineHandler
+    - libcamera::PipelineHandlerIPU3
+    - libcamera::PipelineHandlerRkISP1
+    - libcamera::Camera
+    - libcamera::IPAManager
+    class_table: false
+  diagram:
+    max_nodes: 24
+  watch:
+  - src/libcamera/pipeline/**
+  - src/libcamera/pipeline_handler.cpp
+  - include/libcamera/internal/pipeline_handler.h
+  - src/libcamera/camera_manager.cpp
+  - src/ipa/**
+  - include/libcamera/ipa/**
+  - include/libcamera/internal/ipa_manager.h
+  - src/libcamera/camera.cpp
+  - Documentation/software-isp-benchmarking.rst
+  design_requirements:
+  - id: constraints
+    question: 지원 전제와 제약은 무엇이며 별도 검증할 항목은 무엇입니까?
+    aspects:
+    - constraints
+  design_topics:
+  - id: constraints
+    title: 지원 조건과 제약
+    question: CameraConfiguration::validate의 Invalid·Adjusted·Valid를 구분하고 Adjusted이면 스트림 파라미터 변경이나 스트림 삭제가 가능해 호출자가
+      다시 확인해야 함을 설명하세요. generateConfiguration의 roles와 하드웨어 지원 한계, configure의 검증된 입력과 실패 계약을 설명하세요. 특정 해상도·동시 스트림
+      수·성능을 보장하지 마세요.
+    covers:
+    - constraints
+    sources:
+    - id: validate
+      file: src/libcamera/camera.cpp
+      start: \fn CameraConfiguration::validate()
+      end: "hasn't been adjusted.\n */"
+    parts:
+    - id: valid
+      question: CameraConfiguration::Valid이면 원래 구성의 유효성과 조정 여부가 어떠합니까? 이 상태만 한 문단으로 설명하세요.
+      sources:
+      - validate
+      answer_contract:
+        basis: description
+        required_terms:
+        - - Valid
