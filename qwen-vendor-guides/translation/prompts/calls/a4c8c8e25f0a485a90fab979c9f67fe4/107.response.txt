@@ -1,0 +1,3 @@
+{
+  "text": "Adjusted, parameter change possible, or stream deletion possible; caller must verify"
+}

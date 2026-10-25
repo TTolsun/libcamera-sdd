@@ -1,0 +1,1 @@
+{"text": "src/libcamera/camera.cpp:338 Excerpt"}

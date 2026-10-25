@@ -1,0 +1,1 @@
+{"text": "The {{0}} Function guarantees that requests are returned to the application in the order they were submitted upon completion, but there is no constraint requiring a specific order when calling this function."}

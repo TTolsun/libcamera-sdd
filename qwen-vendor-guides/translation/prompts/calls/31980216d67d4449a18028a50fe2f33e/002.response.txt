@@ -1,0 +1,1 @@
+{"text": "CameraConfiguration::validate returns a status."}

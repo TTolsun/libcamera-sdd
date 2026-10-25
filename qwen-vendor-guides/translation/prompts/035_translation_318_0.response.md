@@ -1,0 +1,3 @@
+{
+  "text": "Calling the {{0}} Function requires the device implementation to immediately suspend capture and request processing; all remaining requests must be cancelled and completed with an error state."
+}

@@ -1,0 +1,1 @@
+{"text": "src/libcamera/ipa_manager.cpp:249 Excerpt"}

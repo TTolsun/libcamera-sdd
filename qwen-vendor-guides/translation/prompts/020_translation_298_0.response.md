@@ -1,0 +1,3 @@
+{
+  "text": "The {{0}} function first calls {{2}} to move pending requests to a temporary store, and then calls {{4}}."
+}

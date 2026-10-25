@@ -1,0 +1,1 @@
+{"text": "If the Proxy created by the {{0}} function passes validation, the function returns that Proxy."}

@@ -1,0 +1,3 @@
+{
+  "text": "If the {{0}} function returns {{2}}, the caller should carefully verify the final configuration, as the stream configuration may have been changed or removed."
+}

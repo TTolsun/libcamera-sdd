@@ -1,0 +1,3 @@
+{
+  "text": "The Function {{0}} iterates over the {{2}} vector and returns the module pointer when {{4}} first becomes true, without further iteration."
+}

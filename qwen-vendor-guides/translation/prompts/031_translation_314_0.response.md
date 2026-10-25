@@ -1,0 +1,1 @@
+{"text": "The {{0}} Function must be called to signal that the pipeline handler has completed the request's buffer portion; this call notifies the application of buffer completion and updates the buffer tracking within the request."}

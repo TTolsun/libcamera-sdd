@@ -1,0 +1,3 @@
+{
+  "text": "The {{0}} function queues a set of buffers and a set of parameters related to the stream included in the request into the device, and the implementation must program the device so that the parameters for that request are applied to frames captured from the provided buffer."
+}

@@ -1,0 +1,3 @@
+{
+  "text": "The {{0}} Function indicates that parameters of any stream may have changed and the stream configuration may have been removed."
+}

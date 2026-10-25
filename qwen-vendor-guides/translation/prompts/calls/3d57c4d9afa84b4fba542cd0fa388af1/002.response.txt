@@ -1,0 +1,3 @@
+{
+  "text": "{{0}} function returns a configuration that includes the selected stream and its default parameter information, based on the {{2}} list populated by the caller."
+}

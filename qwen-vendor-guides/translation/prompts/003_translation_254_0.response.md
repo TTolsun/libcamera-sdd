@@ -1,0 +1,3 @@
+{
+  "text": "If {{2}} is true inside the lambda within {{0}}, it creates {{4}}; otherwise, it creates {{6}}."
+}

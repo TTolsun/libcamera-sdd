@@ -1,14 +1,14 @@
 ---
-generated_at: 2026-10-25T10:12:57+00:00
+generated_at: 2026-10-25T11:41:02+00:00
 source_commit: 2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f
 status: ok
 section: vendor-assurance
 generation_method: facts-and-llm
-evidence_fingerprint: 6111faeda21c7d95d071956ce03d8a83909c984ddbf5762d6ca5f8720ff9e9c8
+evidence_fingerprint: c8823111054deef9525dc61d59f4e265824b48e0eff79eb809ee51ed65b847e0
 semantic_review: human-review-required
-agent: response-bundle/codex-session
-generated_design: {"schema": 1, "input_fingerprint": "6111faeda21c7d95d071956ce03d8a83909c984ddbf5762d6ca5f8720ff9e9c8", "answers": {"constraints": [{"text": "`CameraConfiguration::validate()`의 Invalid는 구성이 유효하지 않고 유효한 구성으로 조정할 수도 없다는 뜻입니다. 원문은 구성이 비어 있는 경우와 같은 극단적인 상황에서만 발생할 수 있다고 설명합니다.", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.\n * \\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully.\n * \\retval CameraConfiguration::Valid The configuration was already valid and\n * hasn't been adjusted.\n */", "evidence": ["validate"], "covers": ["constraints"], "kind": "behavior", "part_id": "invalid"}, {"text": "`CameraConfiguration::Adjusted`이면 구성이 조정되어 유효해진 상태입니다. 스트림 파라미터가 변경되거나 스트림 구성이 제거되었을 수 있으므로 호출자는 조정된 구성을 주의 깊게 확인해야 합니다.", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.\n * \\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully.\n * \\retval CameraConfiguration::Valid The configuration was already valid and\n * hasn't been adjusted.\n */", "evidence": ["validate"], "covers": ["constraints"], "kind": "behavior", "part_id": "adjusted"}, {"text": "`CameraConfiguration::Valid`는 구성이 원래부터 유효했고 조정되지 않았다는 뜻입니다.", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.\n * \\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully.\n * \\retval CameraConfiguration::Valid The configuration was already valid and\n * hasn't been adjusted.\n */", "evidence": ["validate"], "covers": ["constraints"], "kind": "behavior", "part_id": "valid"}, {"text": "generateConfiguration()은 roles로 받은 스트림 용도를 충족할 수 있으면 유효한 구성을 반환하고, 그렇지 않으면 null 포인터를 반환합니다. 호출자는 반환된 구성에서 선택된 스트림과 기본 파라미터를 살펴볼 수 있습니다.", "quote": "\\fn PipelineHandler::generateConfiguration()\n * \\brief Generate a camera configuration for a specified camera\n * \\param[in] camera The camera to generate a default configuration for\n * \\param[in] roles A list of stream roles\n *\n * Generate a default configuration for the \\a camera for a specified list of\n * stream roles. The caller shall populate the \\a roles with the use-cases it\n * wishes to fetch the default configuration for. The returned configuration\n * can then be examined by the caller to learn about the selected streams and\n * their default parameters.\n *\n * The intended companion to this is \\a configure() which can be used to change\n * the group of streams parameters.\n *\n * \\context This function may be called from any thread and shall be\n * \\threadsafe. It shall not modify the state of the \\a camera in the pipeline\n * handler.\n *\n * \\return A valid CameraConfiguration if the requested roles can be satisfied,\n * or a null pointer otherwise.\n */\n\n/**\n * \\fn PipelineHandler::configure()\n * \\brief Configure a group of streams for capture\n * \\param[in] camera The camera to configure\n * \\param[in] config The camera configurations to setup\n *\n * Configure the specified group of streams for \\a camera according to the\n * configuration specified in \\a config. The intended caller of this interface\n * is the Camera class which will receive configuration to apply from the\n * application.\n *\n * The configuration is guaranteed to have been validated with\n * CameraConfiguration::validate(). The pipeline handler implementation shall\n * not perform further validation and may rely on any custom field stored in its\n * custom CameraConfiguration derived class.\n *\n * When configuring the camera the pipeline handler shall associate a Stream\n * instance to each StreamConfiguration entry in the CameraConfiguration using\n * the StreamConfiguration::setStream() function.\n *\n * \\context This function is called from the CameraManager thread.\n *\n * \\return 0 on success or a negative error code otherwise\n */", "evidence": ["configuration"], "covers": ["constraints"], "kind": "behavior", "part_id": "roles"}, {"text": "configure()는 validate()로 검증된 구성을 입력으로 받는 계약입니다. 성공하면 0을, 실패하면 음수 오류 코드를 반환하므로 입력 구성의 유효성과 실제 구성 성공을 구분해야 합니다.", "quote": "\\fn PipelineHandler::generateConfiguration()\n * \\brief Generate a camera configuration for a specified camera\n * \\param[in] camera The camera to generate a default configuration for\n * \\param[in] roles A list of stream roles\n *\n * Generate a default configuration for the \\a camera for a specified list of\n * stream roles. The caller shall populate the \\a roles with the use-cases it\n * wishes to fetch the default configuration for. The returned configuration\n * can then be examined by the caller to learn about the selected streams and\n * their default parameters.\n *\n * The intended companion to this is \\a configure() which can be used to change\n * the group of streams parameters.\n *\n * \\context This function may be called from any thread and shall be\n * \\threadsafe. It shall not modify the state of the \\a camera in the pipeline\n * handler.\n *\n * \\return A valid CameraConfiguration if the requested roles can be satisfied,\n * or a null pointer otherwise.\n */\n\n/**\n * \\fn PipelineHandler::configure()\n * \\brief Configure a group of streams for capture\n * \\param[in] camera The camera to configure\n * \\param[in] config The camera configurations to setup\n *\n * Configure the specified group of streams for \\a camera according to the\n * configuration specified in \\a config. The intended caller of this interface\n * is the Camera class which will receive configuration to apply from the\n * application.\n *\n * The configuration is guaranteed to have been validated with\n * CameraConfiguration::validate(). The pipeline handler implementation shall\n * not perform further validation and may rely on any custom field stored in its\n * custom CameraConfiguration derived class.\n *\n * When configuring the camera the pipeline handler shall associate a Stream\n * instance to each StreamConfiguration entry in the CameraConfiguration using\n * the StreamConfiguration::setStream() function.\n *\n * \\context This function is called from the CameraManager thread.\n *\n * \\return 0 on success or a negative error code otherwise\n */", "evidence": ["configuration"], "covers": ["constraints"], "kind": "behavior", "part_id": "configure"}], "measurement": [{"text": "`DebayerCpu`의 내장 벤치마크는 통계 수집과 디베이어 처리에 걸리는 시간을 측정합니다. 프레임의 캡처와 출력 시간은 측정 범위에서 제외되므로 이 자료를 전체 영상 처리 지연으로 해석할 수는 없습니다.", "quote": "The DebayerCpu class has a builtin benchmark. This benchmark measures the time\nspent on processing (collecting statistics and debayering) only, it does not\nmeasure the time spent on capturing or outputting the frames.\n\nThe builtin benchmark always runs. So this can be used by simply running \"cam\"\nor \"qcam\" with a pipeline using the Software ISP.\n\nWhen it runs it will skip", "evidence": ["benchmark"], "covers": ["measurement"], "kind": "behavior", "part_id": "scope"}, {"text": "upstream 문서에 따르면 내장 벤치마크는 항상 실행되므로 Software ISP를 사용하는 파이프라인에서 cam 또는 qcam을 실행하여 이용할 수 있습니다. 이 근거는 측정 절차이며 이 문서에서 대상 제품을 측정한 결과가 아닙니다.", "quote": "The DebayerCpu class has a builtin benchmark. This benchmark measures the time\nspent on processing (collecting statistics and debayering) only, it does not\nmeasure the time spent on capturing or outputting the frames.\n\nThe builtin benchmark always runs. So this can be used by simply running \"cam\"\nor \"qcam\" with a pipeline using the Software ISP.\n\nWhen it runs it will skip", "evidence": ["benchmark"], "covers": ["measurement"], "kind": "behavior", "part_id": "procedure"}]}, "topic_inputs": {"constraints": "6dc3b1d009dbbc2468a83d6a9854d3ea4e993174e74352088eabf0174a1682dc", "measurement": "eece2a4f3806412c2a1ce9b3bc0b33f4c0e6dcd271c32ad0d5fd949eda7ad440"}, "reused_topics": ["constraints", "measurement"], "generated_topics": [], "topic_agents": {"constraints": "response-bundle/codex-session", "measurement": "response-bundle/codex-session"}, "body_sha256": "76fe36d8a163954587c056cd0535708c2317b73577ef596803f42d04f060b5ca"}
-generated_visuals: {"schema": 1, "records": {"validation-results": {"input_fingerprint": "efdea8ce000e2d4648c835da43d69b1e2b0d5a8610a21a512a6737b6002cd746", "draft": {"nodes": {"n0": {"label": "CameraConfiguration::validate 가 호출자의 구성을 검증하고 조정합니다.", "label_en": "CameraConfiguration::validate validates and adjusts the caller's configuration.", "shape": "box", "quote_ids": ["validate:0"]}, "n1": {"label": "Invalid: 구성이 유효하지 않으며 조정할 수 없습니다. 빈 구성 등 극단적인 경우에만 발생할 수 있습니다.", "label_en": "Invalid: The configuration is invalid and can't be adjusted. This may only occur in extreme cases such as when the configuration is empty.", "shape": "box", "quote_ids": ["validate:1"]}, "n2": {"label": "Adjusted: 구성이 조정되어 유효해졌습니다. 스트림 파라미터가 변경되었을 수 있고, 스트림 구성이 삭제되었을 수 있습니다. 호출자는 구성을 주의 깊게 확인해야 합니다.", "label_en": "Adjusted: The configuration has been adjusted and is now valid. Parameters may have changed for any stream, and stream configurations may have been removed. The caller shall check the configuration carefully.", "shape": "box", "quote_ids": ["validate:2"]}, "n3": {"label": "Valid: 구성은 이미 유효했으며 조정되지 않았습니다.", "label_en": "Valid: The configuration was already valid and hasn't been adjusted.", "shape": "box", "quote_ids": ["validate:3"]}}, "edges": [{"from": "n0", "to": "n1", "label": "유효하지 않은 경우", "label_en": "If invalid", "condition_ref": "always", "quote_ids": ["validate:1"]}, {"from": "n0", "to": "n2", "label": "조정된 경우 (파라미터 변경 또는 스트림 삭제 가능)", "label_en": "If adjusted (parameters may have changed or streams removed)", "condition_ref": "always", "quote_ids": ["validate:2"]}, {"from": "n0", "to": "n3", "label": "이미 유효한 경우", "label_en": "If already valid", "condition_ref": "always", "quote_ids": ["validate:3"]}]}, "graph": {"id": "validation-results", "topic": "constraints", "kind": "decision", "title": "validate() 결과별 호출자의 책임", "question": "validate()의 Invalid·Adjusted·Valid는 무엇을 뜻하며, Adjusted이면 호출자는 무엇을 다시 확인해야 합니까?", "nodes": [{"id": "n0", "label": "CameraConfiguration::validate 가 호출자의 구성을 검증하고 조정합니다.", "label_en": "CameraConfiguration::validate validates and adjusts the caller's configuration.", "shape": "box", "evidence": [{"source": "constraints/validate", "sha256": "bc000ee568d90f13e6946b7574d1a92290270b8594bd9449dd54458ba6ac64e3", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status."}]}, {"id": "n1", "label": "Invalid: 구성이 유효하지 않으며 조정할 수 없습니다. 빈 구성 등 극단적인 경우에만 발생할 수 있습니다.", "label_en": "Invalid: The configuration is invalid and can't be adjusted. This may only occur in extreme cases such as when the configuration is empty.", "shape": "box", "evidence": [{"source": "constraints/validate", "sha256": "bc000ee568d90f13e6946b7574d1a92290270b8594bd9449dd54458ba6ac64e3", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty."}]}, {"id": "n2", "label": "Adjusted: 구성이 조정되어 유효해졌습니다. 스트림 파라미터가 변경되었을 수 있고, 스트림 구성이 삭제되었을 수 있습니다. 호출자는 구성을 주의 깊게 확인해야 합니다.", "label_en": "Adjusted: The configuration has been adjusted and is now valid. Parameters may have changed for any stream, and stream configurations may have been removed. The caller shall check the configuration carefully.", "shape": "box", "evidence": [{"source": "constraints/validate", "sha256": "bc000ee568d90f13e6946b7574d1a92290270b8594bd9449dd54458ba6ac64e3", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.\n * \\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully."}]}, {"id": "n3", "label": "Valid: 구성은 이미 유효했으며 조정되지 않았습니다.", "label_en": "Valid: The configuration was already valid and hasn't been adjusted.", "shape": "box", "evidence": [{"source": "constraints/validate", "sha256": "bc000ee568d90f13e6946b7574d1a92290270b8594bd9449dd54458ba6ac64e3", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.\n * \\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully.\n * \\retval CameraConfiguration::Valid The configuration was already valid and\n * hasn't been adjusted.\n */"}]}], "edges": [{"from": "n0", "to": "n1", "label": "유효하지 않은 경우", "label_en": "If invalid", "evidence": [{"source": "constraints/validate", "sha256": "bc000ee568d90f13e6946b7574d1a92290270b8594bd9449dd54458ba6ac64e3", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty."}]}, {"from": "n0", "to": "n2", "label": "조정된 경우 (파라미터 변경 또는 스트림 삭제 가능)", "label_en": "If adjusted (parameters may have changed or streams removed)", "evidence": [{"source": "constraints/validate", "sha256": "bc000ee568d90f13e6946b7574d1a92290270b8594bd9449dd54458ba6ac64e3", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.\n * \\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully."}]}, {"from": "n0", "to": "n3", "label": "이미 유효한 경우", "label_en": "If already valid", "evidence": [{"source": "constraints/validate", "sha256": "bc000ee568d90f13e6946b7574d1a92290270b8594bd9449dd54458ba6ac64e3", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.\n * \\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully.\n * \\retval CameraConfiguration::Valid The configuration was already valid and\n * hasn't been adjusted.\n */"}]}], "producer": "ollama/qwen3.5:9b"}, "producer": "ollama/qwen3.5:9b", "generation_commit": "2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f", "reused": false}}, "body_sha256": "76fe36d8a163954587c056cd0535708c2317b73577ef596803f42d04f060b5ca"}
+agent: response-bundle/qwen3.5:9b
+generated_design: {"schema": 1, "input_fingerprint": "c8823111054deef9525dc61d59f4e265824b48e0eff79eb809ee51ed65b847e0", "answers": {"constraints": [{"text": "`CameraConfiguration::Invalid` 은 설정이 유효하지 않아 조정할 수 없는 상태를 의미하며, 이는 설정이 비어 있는 것과 같은 극단적인 경우에만 발생할 수 있습니다.", "covers": ["constraints"], "kind": "behavior", "quote": "\\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.", "evidence": ["invalid"], "part_id": "invalid"}, {"text": "`CameraConfiguration::validate()` 함수는 구성이 조정되었음을 나타내는 `CameraConfiguration::Adjusted` 반환 값을 반환할 때, 해당 구성은 이미 조정되었으며 현재 유효한 상태임을 의미합니다.", "covers": ["constraints"], "kind": "behavior", "quote": "\\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid.", "evidence": ["adjusted-state"], "part_id": "adjusted"}, {"text": "`CameraConfiguration::validate()` 함수는 어떤 스트림의 파라미터가 변경되었을 수 있으며, 스트림 구성이 제거되었을 수도 있음을 명시합니다.", "covers": ["constraints"], "kind": "behavior", "quote": "Parameters may have changed for any stream, and stream\n * configurations may have been removed.", "evidence": ["adjusted-changes"], "part_id": "adjusted-changes"}, {"text": "`CameraConfiguration::validate()` 함수가 `CameraConfiguration::Adjusted`를 반환하면 호출자는 스트림 구성이 변경되었거나 제거되었을 수 있으므로 최종 설정을 신중하게 확인해야 합니다.", "covers": ["constraints"], "kind": "behavior", "quote": "\\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully.", "evidence": ["adjusted"], "part_id": "adjusted-review"}, {"text": "`CameraConfiguration::validate()` 함수가 `CameraConfiguration::Valid` 상태를 반환하면, 이미 유효한 구성이므로 조정 없이 원래 구성 그대로 유지됩니다.", "covers": ["constraints"], "kind": "behavior", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.\n * \\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully.\n * \\retval CameraConfiguration::Valid The configuration was already valid and\n * hasn't been adjusted.", "evidence": ["valid"], "part_id": "valid"}, {"text": "`PipelineHandler::generateConfiguration()` 함수는 요청된 역할 목록 (`roles`) 을 충족할 수 있으면 유효한 `CameraConfiguration` 객체를 반환하고, 그렇지 않으면 `nullptr`를 반환합니다.", "covers": ["constraints"], "kind": "behavior", "quote": "\\return A valid CameraConfiguration if the requested roles can be satisfied,\n * or a null pointer otherwise.", "evidence": ["generate-result"], "part_id": "roles"}, {"text": "`PipelineHandler::configure()` 함수는 `CameraConfiguration::validate()` 를 통해 검증된 구성만 받으며, 구현자는 추가 검증을 수행해서는 안 됩니다.", "covers": ["constraints"], "kind": "behavior", "quote": "The configuration is guaranteed to have been validated with\n * CameraConfiguration::validate(). The pipeline handler implementation shall\n * not perform further validation", "evidence": ["configure-input"], "part_id": "configure-input"}, {"text": "`PipelineHandler::configure()` 함수는 호출이 성공하면 `0`을 반환하고, 실패하거나 오류가 발생하면 음수 값의 오류 코드를 반환해야 합니다.", "covers": ["constraints"], "kind": "behavior", "quote": "\\context This function is called from the CameraManager thread.\n *\n * \\return 0 on success or a negative error code otherwise", "evidence": ["configure-result"], "part_id": "configure"}], "measurement": [{"text": "`DebayerCpu` 클래스에 내장된 벤치마크는 프레임 캡처나 출력에 소요되는 시간을 측정하지 않고, 통계 수집과 디베이어 처리에만 소요되는 시간만 측정합니다.", "covers": ["measurement"], "kind": "behavior", "quote": "The DebayerCpu class has a builtin benchmark. This benchmark measures the time\nspent on processing (collecting statistics and debayering) only, it does not\nmeasure the time spent on capturing or outputting the frames.", "evidence": ["benchmark"], "part_id": "scope"}, {"text": "`Software ISP` 파이프라인을 사용하는 `cam` 또는 `qcam` 명령어를 실행하면 내장 벤치마크가 자동으로 실행됩니다.", "covers": ["measurement"], "kind": "behavior", "quote": "The builtin benchmark always runs. So this can be used by simply running \"cam\"\nor \"qcam\" with a pipeline using the Software ISP.", "evidence": ["benchmark"], "part_id": "procedure"}]}, "topic_inputs": {"constraints": "f9833a5420183f7e0b8a0c2ca0b4ed444651fc8b8dcda04d2318d17dd6cb770a", "measurement": "09f854bcc832a7fb0311fd450d7c25fc78d980ab2effbb5f83377de23cf14f49"}, "reused_topics": [], "generated_topics": ["constraints", "measurement"], "topic_agents": {"constraints": "response-bundle/qwen3.5:9b", "measurement": "response-bundle/qwen3.5:9b"}, "body_sha256": "9effda582327d4b8e80cd0765b22b6efec102502027cbb8ea75aa3dc045cdc3d"}
+generated_visuals: {"schema": 1, "records": {"validation-results": {"input_fingerprint": "2bad6d67544260c197f1c44a198bc616abf9efff6252ea3625ec6ea3026dc6fb", "draft": {"nodes": {"n0": {"label": "CameraConfiguration::validate 가 상태를 반환합니다", "label_en": "CameraConfiguration::validate returns a status", "shape": "box", "quote_ids": ["valid:0"]}, "n1": {"label": "Invalid: 구성이 유효하지 않아 조정 불가 (극단적 경우)", "label_en": "Invalid: configuration invalid and can't be adjusted (extreme case)", "shape": "decision", "quote_ids": ["valid:1"]}, "n2": {"label": "Adjusted: 파라미터 변경·스트림 삭제 가능, 호출자는 신중히 재확인해야 함", "label_en": "Adjusted: parameters may have changed or streams removed; caller shall check carefully", "shape": "box", "quote_ids": ["valid:2"]}, "n3": {"label": "Valid: 이미 유효하여 조정 불필요", "label_en": "Valid: configuration was already valid and hasn't been adjusted", "shape": "box", "quote_ids": ["valid:3"]}}, "edges": [{"from": "n0", "to": "n1", "label": "유효하지 않아 조정 불가", "label_en": "invalid and can't be adjusted", "condition_ref": "always", "quote_ids": ["valid:1"]}, {"from": "n0", "to": "n2", "label": "조정됨, 파라미터 변경 또는 스트림 삭제 가능, 호출자가 확인해야 함", "label_en": "adjusted and now valid; parameters may have changed or streams removed; caller shall check", "condition_ref": "always", "quote_ids": ["valid:2"]}, {"from": "n0", "to": "n3", "label": "이미 유효하여 조정 불필요", "label_en": "already valid and hasn't been adjusted", "condition_ref": "always", "quote_ids": ["valid:3"]}]}, "graph": {"id": "validation-results", "topic": "constraints", "kind": "decision", "title": "validate() 결과별 호출자의 책임", "question": "validate()의 Invalid·Adjusted·Valid는 무엇을 뜻하며, Adjusted이면 호출자는 무엇을 다시 확인해야 합니까?", "nodes": [{"id": "n0", "label": "CameraConfiguration::validate 가 상태를 반환합니다", "label_en": "CameraConfiguration::validate returns a status", "shape": "box", "evidence": [{"source": "constraints/valid", "sha256": "86bf9109257512866bf70a5d42cd3da29c70d851d871f0e496058141ba377623", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status."}]}, {"id": "n1", "label": "Invalid: 구성이 유효하지 않아 조정 불가 (극단적 경우)", "label_en": "Invalid: configuration invalid and can't be adjusted (extreme case)", "shape": "decision", "evidence": [{"source": "constraints/valid", "sha256": "86bf9109257512866bf70a5d42cd3da29c70d851d871f0e496058141ba377623", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty."}]}, {"id": "n2", "label": "Adjusted: 파라미터 변경·스트림 삭제 가능, 호출자는 신중히 재확인해야 함", "label_en": "Adjusted: parameters may have changed or streams removed; caller shall check carefully", "shape": "box", "evidence": [{"source": "constraints/valid", "sha256": "86bf9109257512866bf70a5d42cd3da29c70d851d871f0e496058141ba377623", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.\n * \\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully."}]}, {"id": "n3", "label": "Valid: 이미 유효하여 조정 불필요", "label_en": "Valid: configuration was already valid and hasn't been adjusted", "shape": "box", "evidence": [{"source": "constraints/valid", "sha256": "86bf9109257512866bf70a5d42cd3da29c70d851d871f0e496058141ba377623", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.\n * \\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully.\n * \\retval CameraConfiguration::Valid The configuration was already valid and\n * hasn't been adjusted."}]}], "edges": [{"from": "n0", "to": "n1", "label": "유효하지 않아 조정 불가", "label_en": "invalid and can't be adjusted", "evidence": [{"source": "constraints/valid", "sha256": "86bf9109257512866bf70a5d42cd3da29c70d851d871f0e496058141ba377623", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty."}]}, {"from": "n0", "to": "n2", "label": "조정됨, 파라미터 변경 또는 스트림 삭제 가능, 호출자가 확인해야 함", "label_en": "adjusted and now valid; parameters may have changed or streams removed; caller shall check", "evidence": [{"source": "constraints/valid", "sha256": "86bf9109257512866bf70a5d42cd3da29c70d851d871f0e496058141ba377623", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.\n * \\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully."}]}, {"from": "n0", "to": "n3", "label": "이미 유효하여 조정 불필요", "label_en": "already valid and hasn't been adjusted", "evidence": [{"source": "constraints/valid", "sha256": "86bf9109257512866bf70a5d42cd3da29c70d851d871f0e496058141ba377623", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.\n * \\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully.\n * \\retval CameraConfiguration::Valid The configuration was already valid and\n * hasn't been adjusted."}]}], "producer": "response-bundle/qwen3.5:9b"}, "producer": "response-bundle/qwen3.5:9b", "generation_commit": "2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f", "reused": false}}, "body_sha256": "9effda582327d4b8e80cd0765b22b6efec102502027cbb8ea75aa3dc045cdc3d"}
 ---
 
 # 지원 범위와 검증
@@ -23,7 +23,7 @@ generated_visuals: {"schema": 1, "records": {"validation-results": {"input_finge
 
 ## 지원 조건과 제약
 
-`CameraConfiguration::validate()`의 Invalid는 구성이 유효하지 않고 유효한 구성으로 조정할 수도 없다는 뜻입니다. 원문은 구성이 비어 있는 경우와 같은 극단적인 상황에서만 발생할 수 있다고 설명합니다. `src/libcamera/camera.cpp:323`
+`CameraConfiguration::Invalid` 은 설정이 유효하지 않아 조정할 수 없는 상태를 의미하며, 이는 설정이 비어 있는 것과 같은 극단적인 경우에만 발생할 수 있습니다. `src/libcamera/camera.cpp:338`
 
 <!-- sdd:visual:validation-results -->
 ### validate() 결과별 호출자의 책임
@@ -32,18 +32,18 @@ validate()의 Invalid·Adjusted·Valid는 무엇을 뜻하며, Adjusted이면 �
 
 LLM 그림 초안 · 사람 검토 전
 
-작성 모델: `ollama/qwen3.5:9b`
+작성 모델: `response-bundle/qwen3.5:9b`
 
 ```mermaid
 flowchart TB
-%% sdd:translations {"Adjusted: 구성이 조정되어 유효해졌습니다. 스트림 파라미터가 변경되었을 수 있고, 스트림 구성이 삭제되었을 수 있습니다. 호출자는 구성을 주의 깊게 확인해야 합니다.": "Adjusted: The configuration has been adjusted and is now valid. Parameters may have changed for any stream, and stream configurations may have been removed. The caller shall check the configuration carefully.", "CameraConfiguration::validate 가 호출자의 구성을 검증하고 조정합니다.": "CameraConfiguration::validate validates and adjusts the caller&#x27;s configuration.", "Invalid: 구성이 유효하지 않으며 조정할 수 없습니다. 빈 구성 등 극단적인 경우에만 발생할 수 있습니다.": "Invalid: The configuration is invalid and can&#x27;t be adjusted. This may only occur in extreme cases such as when the configuration is empty.", "Valid: 구성은 이미 유효했으며 조정되지 않았습니다.": "Valid: The configuration was already valid and hasn&#x27;t been adjusted.", "유효하지 않은 경우": "If invalid", "이미 유효한 경우": "If already valid", "조정된 경우 (파라미터 변경 또는 스트림 삭제 가능)": "If adjusted (parameters may have changed or streams removed)"}
-  v_n0["CameraConfiguration::validate 가 호출자의 구성을 검증하고 조정합니다."]
-  v_n1["Invalid: 구성이 유효하지 않으며 조정할 수 없습니다. 빈 구성 등 극단적인 경우에만 발생할 수 있습니다."]
-  v_n2["Adjusted: 구성이 조정되어 유효해졌습니다. 스트림 파라미터가 변경되었을 수 있고, 스트림 구성이 삭제되었을 수 있습니다. 호출자는 구성을 주의 깊게 확인해야 합니다."]
-  v_n3["Valid: 구성은 이미 유효했으며 조정되지 않았습니다."]
-  v_n0 -->|"유효하지 않은 경우"| v_n1
-  v_n0 -->|"조정된 경우 (파라미터 변경 또는 스트림 삭제 가능)"| v_n2
-  v_n0 -->|"이미 유효한 경우"| v_n3
+%% sdd:translations {"Adjusted: 파라미터 <br/>변경·스트림 삭제 가능, <br/>호출자는 신중히 재확인해야 <br/>함": "Adjusted: parameters may <br/>have changed or streams <br/>removed; caller shall check <br/>carefully", "CameraConfiguration::validat<br/>e 가 상태를 반환합니다": "CameraConfiguration::validat<br/>e returns a status", "Invalid: 구성이 유효하지 <br/>않아 조정 불가 (극단적 경우)": "Invalid: configuration <br/>invalid and can&#x27;t be <br/>adjusted (extreme case)", "Valid: 이미 유효하여 조정 <br/>불필요": "Valid: configuration was <br/>already valid and hasn&#x27;t <br/>been adjusted", "유효하지 않아 조정 불가": "invalid and can&#x27;t be <br/>adjusted", "이미 유효하여 조정 불필요": "already valid and hasn&#x27;t <br/>been adjusted", "조정됨, 파라미터 변경 또는 <br/>스트림 삭제 가능, 호출자가 <br/>확인해야 함": "adjusted and now valid; <br/>parameters may have changed <br/>or streams removed; caller <br/>shall check"}
+  v_n0["CameraConfiguration::validat<br/>e 가 상태를 반환합니다"]
+  v_n1{"Invalid: 구성이 유효하지 <br/>않아 조정 불가 (극단적 경우)"}
+  v_n2["Adjusted: 파라미터 <br/>변경·스트림 삭제 가능, <br/>호출자는 신중히 재확인해야 <br/>함"]
+  v_n3["Valid: 이미 유효하여 조정 <br/>불필요"]
+  v_n0 -->|"유효하지 않아 조정 불가"| v_n1
+  v_n0 -->|"조정됨, 파라미터 변경 또는 <br/>스트림 삭제 가능, 호출자가 <br/>확인해야 함"| v_n2
+  v_n0 -->|"이미 유효하여 조정 불필요"| v_n3
 ```
 
 [Mermaid 원문](vendor-assurance.validation-results.mmd)
@@ -53,32 +53,38 @@ flowchart TB
     
     | 요소·전이 | 소스 근거 |
     |---|---|
-    | CameraConfiguration::validate 가 호출자의 구성을 검증하고 조정합니다. | [src/libcamera/camera.cpp:323](#source-94f2509b53d23e8f) |
-    | Invalid: 구성이 유효하지 않으며 조정할 수 없습니다. 빈 구성 등 극단적인 경우에만 발생할 수 있습니다. | [src/libcamera/camera.cpp:323](#source-94f2509b53d23e8f) |
-    | Adjusted: 구성이 조정되어 유효해졌습니다. 스트림 파라미터가 변경되었을 수 있고, 스트림 구성이 삭제되었을 수 있습니다. 호출자는 구성을 주의 깊게 확인해야 합니다. | [src/libcamera/camera.cpp:323](#source-94f2509b53d23e8f) |
-    | Valid: 구성은 이미 유효했으며 조정되지 않았습니다. | [src/libcamera/camera.cpp:323](#source-94f2509b53d23e8f) |
-    | 유효하지 않은 경우 | [src/libcamera/camera.cpp:323](#source-94f2509b53d23e8f) |
-    | 조정된 경우 (파라미터 변경 또는 스트림 삭제 가능) | [src/libcamera/camera.cpp:323](#source-94f2509b53d23e8f) |
-    | 이미 유효한 경우 | [src/libcamera/camera.cpp:323](#source-94f2509b53d23e8f) |
+    | CameraConfiguration::validate 가 상태를 반환합니다 | [src/libcamera/camera.cpp:323](#source-2b31e92e3fb3f083) |
+    | Invalid: 구성이 유효하지 않아 조정 불가 (극단적 경우) | [src/libcamera/camera.cpp:323](#source-2b31e92e3fb3f083) |
+    | Adjusted: 파라미터 변경·스트림 삭제 가능, 호출자는 신중히 재확인해야 함 | [src/libcamera/camera.cpp:323](#source-2b31e92e3fb3f083) |
+    | Valid: 이미 유효하여 조정 불필요 | [src/libcamera/camera.cpp:323](#source-2b31e92e3fb3f083) |
+    | 유효하지 않아 조정 불가 | [src/libcamera/camera.cpp:323](#source-2b31e92e3fb3f083) |
+    | 조정됨, 파라미터 변경 또는 스트림 삭제 가능, 호출자가 확인해야 함 | [src/libcamera/camera.cpp:323](#source-2b31e92e3fb3f083) |
+    | 이미 유효하여 조정 불필요 | [src/libcamera/camera.cpp:323](#source-2b31e92e3fb3f083) |
 <!-- /sdd:visual:validation-results -->
 
-`CameraConfiguration::Adjusted`이면 구성이 조정되어 유효해진 상태입니다. 스트림 파라미터가 변경되거나 스트림 구성이 제거되었을 수 있으므로 호출자는 조정된 구성을 주의 깊게 확인해야 합니다. `src/libcamera/camera.cpp:323`
+`CameraConfiguration::validate()` 함수는 구성이 조정되었음을 나타내는 `CameraConfiguration::Adjusted` 반환 값을 반환할 때, 해당 구성은 이미 조정되었으며 현재 유효한 상태임을 의미합니다. `src/libcamera/camera.cpp:341`
 
-`CameraConfiguration::Valid`는 구성이 원래부터 유효했고 조정되지 않았다는 뜻입니다. `src/libcamera/camera.cpp:323`
+`CameraConfiguration::validate()` 함수는 어떤 스트림의 파라미터가 변경되었을 수 있으며, 스트림 구성이 제거되었을 수도 있음을 명시합니다. `src/libcamera/camera.cpp:342`
 
-generateConfiguration()은 roles로 받은 스트림 용도를 충족할 수 있으면 유효한 구성을 반환하고, 그렇지 않으면 null 포인터를 반환합니다. 호출자는 반환된 구성에서 선택된 스트림과 기본 파라미터를 살펴볼 수 있습니다. `src/libcamera/pipeline_handler.cpp:271`
+`CameraConfiguration::validate()` 함수가 `CameraConfiguration::Adjusted`를 반환하면 호출자는 스트림 구성이 변경되었거나 제거되었을 수 있으므로 최종 설정을 신중하게 확인해야 합니다. `src/libcamera/camera.cpp:341`
 
-configure()는 validate()로 검증된 구성을 입력으로 받는 계약입니다. 성공하면 0을, 실패하면 음수 오류 코드를 반환하므로 입력 구성의 유효성과 실제 구성 성공을 구분해야 합니다. `src/libcamera/pipeline_handler.cpp:271`
+`CameraConfiguration::validate()` 함수가 `CameraConfiguration::Valid` 상태를 반환하면, 이미 유효한 구성이므로 조정 없이 원래 구성 그대로 유지됩니다. `src/libcamera/camera.cpp:323`
 
-근거 원문: [src/libcamera/camera.cpp:323](#source-94f2509b53d23e8f) · [src/libcamera/pipeline_handler.cpp:271](#source-a8c6266a0b690eef)
+`PipelineHandler::generateConfiguration()` 함수는 요청된 역할 목록 (`roles`) 을 충족할 수 있으면 유효한 `CameraConfiguration` 객체를 반환하고, 그렇지 않으면 `nullptr`를 반환합니다. `src/libcamera/pipeline_handler.cpp:289`
+
+`PipelineHandler::configure()` 함수는 `CameraConfiguration::validate()` 를 통해 검증된 구성만 받으며, 구현자는 추가 검증을 수행해서는 안 됩니다. `src/libcamera/pipeline_handler.cpp:304`
+
+`PipelineHandler::configure()` 함수는 호출이 성공하면 `0`을 반환하고, 실패하거나 오류가 발생하면 음수 값의 오류 코드를 반환해야 합니다. `src/libcamera/pipeline_handler.cpp:313`
+
+근거 원문: [src/libcamera/camera.cpp:338](#source-60ab47044c6107c5) · [src/libcamera/camera.cpp:341](#source-c14b4403062d5e35) · [src/libcamera/camera.cpp:323](#source-2b31e92e3fb3f083) · [src/libcamera/pipeline_handler.cpp:289](#source-4abbe39594a1bd27) · [src/libcamera/pipeline_handler.cpp:304](#source-31c5407347b4d0d8) · [src/libcamera/pipeline_handler.cpp:313](#source-f87ceb096b9f931d) · [src/libcamera/camera.cpp:341](#source-8b6aa81367245db5) · [src/libcamera/camera.cpp:342](#source-e13fede0aa40ada1)
 
 ## 성능 근거를 읽는 기준
 
-`DebayerCpu`의 내장 벤치마크는 통계 수집과 디베이어 처리에 걸리는 시간을 측정합니다. 프레임의 캡처와 출력 시간은 측정 범위에서 제외되므로 이 자료를 전체 영상 처리 지연으로 해석할 수는 없습니다. `Documentation/software-isp-benchmarking.rst:15`
+`DebayerCpu` 클래스에 내장된 벤치마크는 프레임 캡처나 출력에 소요되는 시간을 측정하지 않고, 통계 수집과 디베이어 처리에만 소요되는 시간만 측정합니다. `Documentation/software-isp-benchmarking.rst:15`
 
-upstream 문서에 따르면 내장 벤치마크는 항상 실행되므로 Software ISP를 사용하는 파이프라인에서 cam 또는 qcam을 실행하여 이용할 수 있습니다. 이 근거는 측정 절차이며 이 문서에서 대상 제품을 측정한 결과가 아닙니다. `Documentation/software-isp-benchmarking.rst:15`
+`Software ISP` 파이프라인을 사용하는 `cam` 또는 `qcam` 명령어를 실행하면 내장 벤치마크가 자동으로 실행됩니다. `Documentation/software-isp-benchmarking.rst:15`
 
-근거 원문: [Documentation/software-isp-benchmarking.rst:15](#source-9c8139bcb89eab5b)
+근거 원문: [Documentation/software-isp-benchmarking.rst:15](#source-551d2b5944a36d19)
 
 ??? note "설계 질문과 검증 범위"
     질문별 답변과 근거 연결을 검사했습니다. 의미와 실행 결과는 사람 검토가 필요합니다.
@@ -92,12 +98,39 @@ upstream 문서에 따르면 내장 벤치마크는 항상 실행되므로 Softw
 
 같은 발췌는 한 번만 싣습니다. 필요한 원문을 펼쳐 설명과 대조하세요.
 
-<a id="source-94f2509b53d23e8f"></a>
+<a id="source-60ab47044c6107c5"></a>
+
+??? note "소스 근거: src/libcamera/camera.cpp:338"
+    `src/libcamera/camera.cpp:338`에서 시작하는 발췌입니다. 종료 줄은 340이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `2247db4a7b9353362f9df6c84aaa5c2810dec4eaaae4b3b36d19c57e427f5790`
+    
+    ```text
+    \retval CameraConfiguration::Invalid The configuration is invalid and can't
+     * be adjusted. This may only occur in extreme cases such as when the
+     * configuration is empty.
+    ```
+
+<a id="source-c14b4403062d5e35"></a>
+
+??? note "소스 근거: src/libcamera/camera.cpp:341"
+    `src/libcamera/camera.cpp:341`에서 시작하는 발췌입니다. 종료 줄은 344이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `1305054b4a0655a883d0cef7398ff34824da06ecdbac0dfbf1f06de218bb6ebc`
+    
+    ```text
+    \retval CameraConfiguration::Adjusted The configuration has been adjusted
+     * and is now valid. Parameters may have changed for any stream, and stream
+     * configurations may have been removed. The caller shall check the
+     * configuration carefully.
+    ```
+
+<a id="source-2b31e92e3fb3f083"></a>
 
 ??? note "소스 근거: src/libcamera/camera.cpp:323"
-    `src/libcamera/camera.cpp:323`에서 시작하는 발췌입니다. 종료 줄은 347이며, 아래 원문을 설명과 대조할 수 있습니다.
+    `src/libcamera/camera.cpp:323`에서 시작하는 발췌입니다. 종료 줄은 346이며, 아래 원문을 설명과 대조할 수 있습니다.
     
-    SHA-256: `bc000ee568d90f13e6946b7574d1a92290270b8594bd9449dd54458ba6ac64e3`
+    SHA-256: `86bf9109257512866bf70a5d42cd3da29c70d851d871f0e496058141ba377623`
     
     ```text
     \fn CameraConfiguration::validate()
@@ -124,71 +157,76 @@ upstream 문서에 따르면 내장 벤치마크는 항상 실행되므로 Softw
      * configuration carefully.
      * \retval CameraConfiguration::Valid The configuration was already valid and
      * hasn't been adjusted.
-     */
     ```
 
-<a id="source-a8c6266a0b690eef"></a>
+<a id="source-4abbe39594a1bd27"></a>
 
-??? note "소스 근거: src/libcamera/pipeline_handler.cpp:271"
-    `src/libcamera/pipeline_handler.cpp:271`에서 시작하는 발췌입니다. 종료 줄은 316이며, 아래 원문을 설명과 대조할 수 있습니다.
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:289"
+    `src/libcamera/pipeline_handler.cpp:289`에서 시작하는 발췌입니다. 종료 줄은 290이며, 아래 원문을 설명과 대조할 수 있습니다.
     
-    SHA-256: `deb7d008a4a0483ec93bf6e74d74e1b7dbc993f5c719208d039bb2ff22665b74`
+    SHA-256: `b86c8678b02e96936d80626cefebf3811b6a991b459074e51c9f0e08457ff369`
     
     ```text
-    \fn PipelineHandler::generateConfiguration()
-     * \brief Generate a camera configuration for a specified camera
-     * \param[in] camera The camera to generate a default configuration for
-     * \param[in] roles A list of stream roles
-     *
-     * Generate a default configuration for the \a camera for a specified list of
-     * stream roles. The caller shall populate the \a roles with the use-cases it
-     * wishes to fetch the default configuration for. The returned configuration
-     * can then be examined by the caller to learn about the selected streams and
-     * their default parameters.
-     *
-     * The intended companion to this is \a configure() which can be used to change
-     * the group of streams parameters.
-     *
-     * \context This function may be called from any thread and shall be
-     * \threadsafe. It shall not modify the state of the \a camera in the pipeline
-     * handler.
-     *
-     * \return A valid CameraConfiguration if the requested roles can be satisfied,
+    \return A valid CameraConfiguration if the requested roles can be satisfied,
      * or a null pointer otherwise.
-     */
-    
-    /**
-     * \fn PipelineHandler::configure()
-     * \brief Configure a group of streams for capture
-     * \param[in] camera The camera to configure
-     * \param[in] config The camera configurations to setup
-     *
-     * Configure the specified group of streams for \a camera according to the
-     * configuration specified in \a config. The intended caller of this interface
-     * is the Camera class which will receive configuration to apply from the
-     * application.
-     *
-     * The configuration is guaranteed to have been validated with
-     * CameraConfiguration::validate(). The pipeline handler implementation shall
-     * not perform further validation and may rely on any custom field stored in its
-     * custom CameraConfiguration derived class.
-     *
-     * When configuring the camera the pipeline handler shall associate a Stream
-     * instance to each StreamConfiguration entry in the CameraConfiguration using
-     * the StreamConfiguration::setStream() function.
-     *
-     * \context This function is called from the CameraManager thread.
-     *
-     * \return 0 on success or a negative error code otherwise
-     */
     ```
 
-<a id="source-9c8139bcb89eab5b"></a>
+<a id="source-31c5407347b4d0d8"></a>
+
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:304"
+    `src/libcamera/pipeline_handler.cpp:304`에서 시작하는 발췌입니다. 종료 줄은 306이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `625bd787da81f9407ba9e746d4939d93b7172a26642429bcfd3300aa6187675f`
+    
+    ```text
+    The configuration is guaranteed to have been validated with
+     * CameraConfiguration::validate(). The pipeline handler implementation shall
+     * not perform further validation
+    ```
+
+<a id="source-f87ceb096b9f931d"></a>
+
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:313"
+    `src/libcamera/pipeline_handler.cpp:313`에서 시작하는 발췌입니다. 종료 줄은 315이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `6e139b3c50660a7111d84bd00cfd17078b8b45d4a07688fa64b2d8af9ce52a22`
+    
+    ```text
+    \context This function is called from the CameraManager thread.
+     *
+     * \return 0 on success or a negative error code otherwise
+    ```
+
+<a id="source-8b6aa81367245db5"></a>
+
+??? note "소스 근거: src/libcamera/camera.cpp:341"
+    `src/libcamera/camera.cpp:341`에서 시작하는 발췌입니다. 종료 줄은 342이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `bc530fdf77cefda77bfd8ae1cadf7df4edea81ddfce01bef24867681b29655f6`
+    
+    ```text
+    \retval CameraConfiguration::Adjusted The configuration has been adjusted
+     * and is now valid.
+    ```
+
+<a id="source-e13fede0aa40ada1"></a>
+
+??? note "소스 근거: src/libcamera/camera.cpp:342"
+    `src/libcamera/camera.cpp:342`에서 시작하는 발췌입니다. 종료 줄은 343이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `7c0debb896b6072c0bc59cf3589fbc49b607f915d96f30182d4e02038b94c156`
+    
+    ```text
+    Parameters may have changed for any stream, and stream
+     * configurations may have been removed.
+    ```
+
+<a id="source-551d2b5944a36d19"></a>
 
 ??? note "소스 근거: Documentation/software-isp-benchmarking.rst:15"
-    `Documentation/software-isp-benchmarking.rst:15`에서 시작하는 발췌입니다. 종료 줄은 22이며, 아래 원문을 설명과 대조할 수 있습니다.
+    `Documentation/software-isp-benchmarking.rst:15`에서 시작하는 발췌입니다. 종료 줄은 20이며, 아래 원문을 설명과 대조할 수 있습니다.
     
-    SHA-256: `01df160bfdc79d4dd48c5e5316a7f3744ea6333454ab939c474cf739490984a3`
+    SHA-256: `907d979f60258b4572a0557b6054ec814990084ca3e69a291317855a3b27084d`
     
     ```text
     The DebayerCpu class has a builtin benchmark. This benchmark measures the time
@@ -197,8 +235,6 @@ upstream 문서에 따르면 내장 벤치마크는 항상 실행되므로 Softw
     
     The builtin benchmark always runs. So this can be used by simply running "cam"
     or "qcam" with a pipeline using the Software ISP.
-    
-    When it runs it will skip
     ```
 
 

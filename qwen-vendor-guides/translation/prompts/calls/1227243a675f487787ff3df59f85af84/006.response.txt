@@ -1,0 +1,3 @@
+{
+  "text": "When the {{0}} function returns, the pipeline implementer must not access that request any further."
+}
