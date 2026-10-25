@@ -7,6 +7,7 @@ entry: Camera::configure(CameraConfiguration *)
 scenario_id: configure
 scenario_fingerprint: 21f504ad71c0e7b7511a416e36dc6034307a09f911ce68318dc5d469aec58365
 generation_method: extracted-scenario
+revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
 ---
 
 # 스트림 구성 (Camera::configure)

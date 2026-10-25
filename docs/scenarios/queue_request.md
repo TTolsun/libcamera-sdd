@@ -7,6 +7,7 @@ entry: Camera::queueRequest(Request *)
 scenario_id: queue_request
 scenario_fingerprint: 05ab5d9913827d78f8ee448218c95638a65bfad23ddbcc90a242241855ed66d8
 generation_method: extracted-scenario
+revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
 ---
 
 # 요청 제출 (Camera::queueRequest)
