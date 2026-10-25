@@ -7,6 +7,7 @@ entry: CameraManager::start()
 scenario_id: manager_start
 scenario_fingerprint: f25548f4d6797a2cb115d519065f3f3f4db6ca2b4085cb81090e3c15ab0c3f6b
 generation_method: extracted-scenario
+revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
 ---
 
 # 카메라 탐색 (CameraManager::start)

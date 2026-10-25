@@ -7,6 +7,7 @@ entry: Camera::stop()
 scenario_id: camera_stop
 scenario_fingerprint: bc7df8e00bd67bff09bf5d43dd4c7748fb05554b0db13beb8bfb7ebae45fd7e7
 generation_method: extracted-scenario
+revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
 ---
 
 # 캡처 종료 요청 (Camera::stop)

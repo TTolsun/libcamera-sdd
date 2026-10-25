@@ -7,6 +7,7 @@ entry: Camera::start(const ControlList *)
 scenario_id: camera_start
 scenario_fingerprint: 1b229ec7351d7c0b2944ce25ecd8b35cef3f8d02ba9585b713c9422e081ce937
 generation_method: extracted-scenario
+revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
 ---
 
 # 캡처 시작 (Camera::start)

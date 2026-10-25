@@ -6,6 +6,7 @@ section: ipu3-lsc
 generation_method: extracted-structure
 evidence_fingerprint: 66a7bcaf3c01dcf762b0378043e60b74fd7337e58932d0c599010e5be2bbb91c
 semantic_review: human-review-required
+revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
 ---
 
 # IPU3 LSC와 상태 연결
