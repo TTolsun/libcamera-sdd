@@ -1,0 +1,1 @@
+{"text": "The Class {{0}} follows the general principle that Functions that change camera status do not automatically synchronize with each other, and callers must manually ensure this when necessary."}

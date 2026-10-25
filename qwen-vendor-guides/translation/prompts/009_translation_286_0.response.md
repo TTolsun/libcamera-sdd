@@ -1,0 +1,1 @@
+{"text": "The {{0}} Function calls {{2}} to trigger a pipeline stop, cancels pending requests ({{4}}), and passes them to {{6}}, assigning an order number ({{8}}) to each request during this process and temporarily adding it to {{10}} so that it can be completed correctly later."}

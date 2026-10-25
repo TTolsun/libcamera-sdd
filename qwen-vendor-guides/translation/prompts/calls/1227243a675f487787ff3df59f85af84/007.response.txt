@@ -1,0 +1,1 @@
+{"text": "If the {{0}} function fails to find all required media devices, no device shall be acquired; all media devices already acquired must be released by calling {{2}} and {{4}} shall be returned."}

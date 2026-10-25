@@ -1,0 +1,1 @@
+{"text": "The {{0}} Function accepts only configurations validated through {{2}}, and implementers must not perform additional validation."}

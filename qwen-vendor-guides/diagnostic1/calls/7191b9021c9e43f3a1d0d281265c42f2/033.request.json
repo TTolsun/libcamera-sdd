@@ -1,0 +1,61 @@
+{
+  "system": "제공된 소스만 사용하여 한국어 기술 문서를 작성합니다. 질문의 각 조건에 답하세요. 원문에 없는 보장이나 이유를 추가하지 마세요. 의무(must/shall), 가능성(may), 부정을 그대로 유지하세요.",
+  "user": "근거:\n{\"stop\": [{\"text\": \"\\\\brief Stop capturing from all running streams and cancel pending requests\\n * \\\\param[in] camera The camera to stop\\n *\\n * This function stops capturing and processing requests immediately. All\\n * pending requests are cancelled and complete immediately in an error state.\\n *\\n * \\\\context This function is called from the CameraManager thread.\\n */\\nvoid PipelineHandler::stop(Camera *camera)\\n{\\n\\t/*\\n\\t * Take all waiting requests so that they are not requeued in response\\n\\t * to completeRequest() being called inside stopDevice(). Cancel them\\n\\t * after the device to keep them in order.\\n\\t */\\n\\tCamera::Private *data = camera->_d();\\n\\tstd::queue<Request *> waitingRequests;\\n\\twaitingRequests.swap(data->waitingRequests_);\", \"quote_id\": \"stop:0\"}, {\"text\": \"\\t/* Stop the pipeline handler and let the queued requests complete. */\\n\\tstopDevice(camera);\", \"quote_id\": \"stop:1\"}, {\"text\": \"\\t/* Cancel and signal as complete all waiting requests. */\\n\\twhile (!waitingRequests.empty()) {\\n\\t\\tRequest *request = waitingRequests.front();\\n\\t\\twaitingRequests.pop();\", \"quote_id\": \"stop:2\"}, {\"text\": \"\\t\\t/*\\n\\t\\t * Cancel all requests by marking them as cancelled and calling\\n\\t\\t * doQueueRequest() instead of cancelRequest(). This ensures\\n\\t\\t * that the requests get a sequence number and are temporarily\\n\\t\\t * added to queuedRequests_ so they can be properly completed in\\n\\t\\t * completeRequest().\\n\\t\\t */\\n\\t\\trequest->_d()->cancel();\\n\\t\\tdoQueueRequest(request);\\n\\t}\", \"quote_id\": \"stop:3\"}, {\"text\": \"\\t/* Make sure no requests are pending. */\\n\\tASSERT(data->queuedRequests_.empty());\\n\\tASSERT(data->waitingRequests_.empty());\", \"quote_id\": \"stop:4\"}, {\"text\": \"\\tdata->requestSequence_ = 0;\\n}\", \"quote_id\": \"stop:5\"}]}\n질문: stopDevice 뒤 대기 요청의 cancel·doQueueRequest 경로, 순번과 queuedRequests_ 사용, 마지막 ASSERT 검사와 requestSequence_ 초기화를 설명하세요. ASSERT를 실제 장치 종료 검증 결과로 해석하지 마세요.\n출력: {\"statements\": [{\"text\": \"질문의 모든 조건에 답하는 한 문단. 여러 문장을 써도 됩니다.\", \"quote_id\": \"직접 근거의 구절 ID\", \"covers\": [\"shutdown\"], \"kind\": \"behavior\"}]} 형식의 JSON만 반환하세요.",
+  "response_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "statements"
+    ],
+    "properties": {
+      "statements": {
+        "type": "array",
+        "maxItems": 1,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "text",
+            "quote_id",
+            "covers",
+            "kind"
+          ],
+          "properties": {
+            "text": {
+              "type": "string",
+              "pattern": "^[^\\n\\r\\[\\]<>\\\\]*$"
+            },
+            "quote_id": {
+              "type": "string",
+              "enum": [
+                "stop:0",
+                "stop:1",
+                "stop:2",
+                "stop:3",
+                "stop:4",
+                "stop:5"
+              ]
+            },
+            "covers": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "shutdown"
+                ]
+              }
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "behavior",
+                "limitation"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

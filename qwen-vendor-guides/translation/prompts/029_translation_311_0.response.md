@@ -1,0 +1,1 @@
+{"text": "The {{0}} function must connect an instance of {{4}} to each {{2}} item when configuring the camera, and it must use the {{6}} function for this purpose."}

@@ -1,0 +1,1 @@
+{"text": "The Function returns a Configure return value when the configuration has been adjusted; this indicates that the configuration has already been adjusted and is currently in a valid state."}

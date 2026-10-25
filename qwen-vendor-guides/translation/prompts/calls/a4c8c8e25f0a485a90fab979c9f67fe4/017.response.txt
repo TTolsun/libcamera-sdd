@@ -1,0 +1,1 @@
+{"text": "The Function must acquire all required media devices via a single call to {{2}} once it has located all media devices needed for a single pipeline, then create and internally store the corresponding {{4}} instances, register them with the camera manager, and return {{6}}."}

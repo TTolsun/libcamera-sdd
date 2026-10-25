@@ -1,0 +1,1 @@
+{"text": "The Function {{0}} cancels and processes all pending requests in the {{2}} queue, executes an ASSERT confirming that both the {{4}} and {{6}} queues are empty, and stores the value {{8}} as 0."}

@@ -1,0 +1,1 @@
+{"text": "src/libcamera/pipeline_handler.cpp:535 Excerpt"}

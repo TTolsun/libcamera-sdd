@@ -1,0 +1,1 @@
+{"text": "The {{0}} Function must acquire all media devices required for a single pipeline via a {{2}} call, then create and internally store the corresponding {{4}} instance, register it with the camera manager, and return {{6}}."}

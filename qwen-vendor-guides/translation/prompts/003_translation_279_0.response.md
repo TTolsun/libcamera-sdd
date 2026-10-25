@@ -1,0 +1,3 @@
+{
+  "text": "If the {{0}} Function returns a {{2}} status, the original configuration is maintained as-is without adjustment because it is already valid."
+}

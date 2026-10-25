@@ -1,0 +1,1 @@
+{"text": "The application must acquire and Configure the camera before it is ready to process requests, and must Stop and release it after processing a request has started and completed."}

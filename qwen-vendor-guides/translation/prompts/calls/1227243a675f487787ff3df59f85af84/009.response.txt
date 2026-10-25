@@ -1,0 +1,3 @@
+{
+  "text": "When the {{0}} function returns a {{2}} return value indicating that the configuration has been adjusted, it means that the configuration has already been adjusted and is currently in a valid state."
+}
