@@ -8,11 +8,17 @@
 <main id="main"><p class="breadcrumb">For Developer <span>/</span> 시스템 개요</p><h1>시스템 개요</h1><div class="page-state"><span class="review-state">사람 검토 전</span><span>자동 검사 통과</span><span class="generation-method">작성: 추출한 구조와 모델이 쓴 초안</span><a class="state-help" href="#page-evidence">상태 설명 ↓</a></div>
 <details class="mobile-toc"><summary>이 페이지의 목차</summary><div class="toc">
 <ul>
-<li><a href="#탐색과-파이프라인-선택">탐색과 파이프라인 선택</a></li>
+<li><a href="#탐색과-파이프라인-선택">탐색과 파이프라인 선택</a><ul>
+<li><a href="#장치-탐색에서-camera-접근까지">장치 탐색에서 Camera 접근까지</a></li>
+</ul>
+</li>
 <li><a href="#컴포넌트별-책임">컴포넌트별 책임</a></li>
 <li><a href="#요청-생성과-소유권">요청 생성과 소유권</a></li>
 <li><a href="#캡처-세션의-상태와-자원">캡처 세션의 상태와 자원</a></li>
-<li><a href="#요청-제출과-완료">요청 제출과 완료</a></li>
+<li><a href="#요청-제출과-완료">요청 제출과 완료</a><ul>
+<li><a href="#접수-성공과-촬영-완료는-다른-시점">접수 성공과 촬영 완료는 다른 시점</a></li>
+</ul>
+</li>
 <li><a href="#버퍼-완료와-요청-완료">버퍼 완료와 요청 완료</a></li>
 <li><a href="#스레드-경계와-동기화">스레드 경계와 동기화</a></li>
 <li><a href="#정적-근거의-확인-범위">정적 근거의 확인 범위</a></li>
@@ -58,6 +64,63 @@
 </table></div>
 <h2 id="탐색과-파이프라인-선택">탐색과 파이프라인 선택</h2>
 <p>처음 읽을 진입점은 <code>CameraManager</code>입니다. 장치를 열거하고 파이프라인과 연결하며 애플리케이션에 카메라 접근을 제공합니다. 동시에 하나의 인스턴스만 허용하므로 기존 관리자를 남긴 채 두 번째 관리자를 만들면 안 됩니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/camera_manager.cpp</code><span class="evidence-lines"><a href="#source-f75d22cf73f3402d" aria-label="src/libcamera/camera_manager.cpp:283 발췌"><code>L283</code> 발췌</a> · <a aria-label="src/libcamera/camera_manager.cpp:283" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/camera_manager.cpp#L283">전체 소스 <code>L283</code></a></span></li></ul></details>
+<!-- sdd:visual:discovery-map -->
+<h3 id="장치-탐색에서-camera-접근까지">장치 탐색에서 Camera 접근까지</h3>
+<p>장치 매칭과 등록의 책임을 따라가세요. 그림은 책임 연결이며 전체 호출 순서나 실행 시간을 나타내지 않습니다.</p>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {&quot;Camera 생성·등록&quot;: &quot;Create and register Camera&quot;, &quot;CameraManager 진입점&quot;: &quot;CameraManager entry&quot;, &quot;PipelineHandler::match()&quot;: &quot;PipelineHandler::match()&quot;, &quot;start()&quot;: &quot;start()&quot;, &quot;열거자를 전달해 장치를 매칭&quot;: &quot;Pass enumerator to match devices&quot;, &quot;장치 열거&quot;: &quot;Enumerate devices&quot;, &quot;필요한 장치를 확보한 경우&quot;: &quot;When required devices are acquired&quot;}
+  v_manager[&quot;CameraManager 진입점&quot;]
+  v_enumerate[&quot;장치 열거&quot;]
+  v_handler[&quot;PipelineHandler::match()&quot;]
+  v_camera[&quot;Camera 생성·등록&quot;]
+  v_manager --&gt;|&quot;start()&quot;| v_enumerate
+  v_enumerate --&gt;|&quot;열거자를 전달해 장치를 매칭&quot;| v_handler
+  v_handler --&gt;|&quot;필요한 장치를 확보한 경우&quot;| v_camera</pre>
+<p><a href="overview.discovery-map.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CameraManager 진입점</td>
+<td><a href="#source-f75d22cf73f3402d">src/libcamera/camera_manager.cpp:283</a></td>
+</tr>
+<tr>
+<td>장치 열거</td>
+<td><a href="#source-f58d94d893e03971">src/libcamera/camera_manager.cpp:329</a></td>
+</tr>
+<tr>
+<td>PipelineHandler::match()</td>
+<td><a href="#source-5bbd41c1e725138c">src/libcamera/pipeline_handler.cpp:86</a></td>
+</tr>
+<tr>
+<td>Camera 생성·등록</td>
+<td><a href="#source-5bbd41c1e725138c">src/libcamera/pipeline_handler.cpp:86</a></td>
+</tr>
+<tr>
+<td>start()</td>
+<td><a href="#source-f58d94d893e03971">src/libcamera/camera_manager.cpp:329</a></td>
+</tr>
+<tr>
+<td>열거자를 전달해 장치를 매칭</td>
+<td><a href="#source-5bbd41c1e725138c">src/libcamera/pipeline_handler.cpp:86</a></td>
+</tr>
+<tr>
+<td>필요한 장치를 확보한 경우</td>
+<td><a href="#source-5bbd41c1e725138c">src/libcamera/pipeline_handler.cpp:86</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:discovery-map -->
+
 <p><code>CameraManager::start()</code>는 관리자를 시작하고 시스템의 장치를 열거합니다. 성공을 확인한 뒤 카메라를 조회하고 사용할 수 있으며, 반환값은 성공 시 0, 실패 시 음수 오류 코드입니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/camera_manager.cpp</code><span class="evidence-lines"><a href="#source-f58d94d893e03971" aria-label="src/libcamera/camera_manager.cpp:329 발췌"><code>L329</code> 발췌</a> · <a aria-label="src/libcamera/camera_manager.cpp:329" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/camera_manager.cpp#L329">전체 소스 <code>L329</code></a></span></li></ul></details>
 <p>카메라 목록은 <code>cameras()</code>로 얻고 특정 ID는 <code>get()</code>으로 찾습니다. 두 함수 모두 스레드 안전성을 명시하지만, 호출자는 관리자가 실행 중임을 보장해야 합니다. <code>get()</code>은 해당 카메라를 찾지 못하면 null 포인터를 반환합니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/camera_manager.cpp</code><span class="evidence-lines"><a href="#source-0c733673790ad84f" aria-label="src/libcamera/camera_manager.cpp:368 발췌"><code>L368</code> 발췌</a> · <a aria-label="src/libcamera/camera_manager.cpp:368" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/camera_manager.cpp#L368">전체 소스 <code>L368</code></a></span></li></ul></details>
 <p>하드웨어 쪽 진입점은 <code>PipelineHandler::match()</code>입니다. 필요한 미디어 장치를 확보하고 카메라를 생성해 관리자에 등록하는 책임을 가집니다. 성공 시 카메라를 내부에 저장하고 <code>true</code>를 반환하며, 필요한 장치를 확보하지 못했다면 이미 확보한 장치도 해제하고 <code>false</code>를 반환해야 합니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="#source-5bbd41c1e725138c" aria-label="src/libcamera/pipeline_handler.cpp:86 발췌"><code>L86</code> 발췌</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:86" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/pipeline_handler.cpp#L86">전체 소스 <code>L86</code></a></span></li></ul></details>
@@ -76,6 +139,63 @@
 <details class="evidence-links evidence-section"><summary>절 전체 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/camera.cpp:769" href="#source-04f354bc331ec5c1"><code>L769</code></a></span></li></ul></details>
 <h2 id="요청-제출과-완료">요청 제출과 완료</h2>
 <p><code>Camera::queueRequest()</code>에 제출할 요청에는 캡처 버퍼가 하나 이상 연결돼 있어야 합니다. 버퍼가 없는 요청은 큐에 넣지 않고 거절합니다. 이 조건은 요청에 버퍼 객체를 연결하라는 뜻이며, 애플리케이션이 버퍼의 촬영 픽셀을 미리 채우라는 뜻은 아닙니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-2f880c124115c9c4" aria-label="src/libcamera/camera.cpp:1308 발췌"><code>L1308</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:1308" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/camera.cpp#L1308">전체 소스 <code>L1308</code></a></span></li></ul></details>
+<!-- sdd:visual:submission-completion -->
+<h3 id="접수-성공과-촬영-완료는-다른-시점">접수 성공과 촬영 완료는 다른 시점</h3>
+<p>queueRequest()의 0 반환은 접수 결과입니다. 요청 완료는 별도의 requestCompleted 신호로 확인합니다.</p>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {&quot;0 반환: 접수 성공&quot;: &quot;Return 0: submission accepted&quot;, &quot;Running 상태에서 제출&quot;: &quot;Submit in Running state&quot;, &quot;queueRequest()&quot;: &quot;queueRequest()&quot;, &quot;requestCompleted 신호&quot;: &quot;requestCompleted signal&quot;, &quot;버퍼를 연결한 Request&quot;: &quot;Request with capture buffers&quot;, &quot;접수 결과를 반환&quot;: &quot;Return submission result&quot;, &quot;촬영 완료는 별도로 통지&quot;: &quot;Notify completion separately&quot;}
+  v_request[&quot;버퍼를 연결한 Request&quot;]
+  v_queue[&quot;queueRequest()&quot;]
+  v_accepted[&quot;0 반환: 접수 성공&quot;]
+  v_signal[&quot;requestCompleted 신호&quot;]
+  v_request --&gt;|&quot;Running 상태에서 제출&quot;| v_queue
+  v_queue --&gt;|&quot;접수 결과를 반환&quot;| v_accepted
+  v_queue --&gt;|&quot;촬영 완료는 별도로 통지&quot;| v_signal</pre>
+<p><a href="overview.submission-completion.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>버퍼를 연결한 Request</td>
+<td><a href="#source-2f880c124115c9c4">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td>queueRequest()</td>
+<td><a href="#source-2f880c124115c9c4">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td>0 반환: 접수 성공</td>
+<td><a href="#source-2f880c124115c9c4">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td>requestCompleted 신호</td>
+<td><a href="#source-2f880c124115c9c4">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td>Running 상태에서 제출</td>
+<td><a href="#source-2f880c124115c9c4">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td>접수 결과를 반환</td>
+<td><a href="#source-2f880c124115c9c4">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td>촬영 완료는 별도로 통지</td>
+<td><a href="#source-2f880c124115c9c4">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:submission-completion -->
+
 <p><code>queueRequest()</code>는 스레드 안전하지만 실제 카메라가 <code>Running</code>일 때만 호출할 수 있습니다. 성공 반환과 완료 알림은 다르며, 제출한 요청의 완료는 <code>requestCompleted</code> 신호로 받습니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-2f880c124115c9c4" aria-label="src/libcamera/camera.cpp:1308 발췌"><code>L1308</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:1308" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/camera.cpp#L1308">전체 소스 <code>L1308</code></a></span></li></ul></details>
 <details class="evidence-links evidence-section"><summary>절 전체 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/camera.cpp:1308" href="#source-2f880c124115c9c4"><code>L1308</code></a></span></li></ul></details>
 <h2 id="버퍼-완료와-요청-완료">버퍼 완료와 요청 완료</h2>
@@ -487,18 +607,24 @@ int Camera::start
 <li>근거 파일: <code>include/libcamera/camera.h</code>, <code>include/libcamera/camera_manager.h</code>, <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/pipeline_handler.h</code>, <code>include/libcamera/request.h</code>, <code>src/libcamera/base/log.cpp</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/camera_manager.cpp</code>, <code>src/libcamera/controls.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code>, <code>src/libcamera/request.cpp</code></li>
 <li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>2c4b67c079</code>)</li>
 <li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li>
-<li>검토 상태 기록일: 2026-10-24 · 사람 검토 전</li>
+<li>검토 상태 기록일: 2026-10-25 · 사람 검토 전</li>
 </ul>
 </details>
-<p>다음 단계: <a href="camera-model.html">카메라와 요청 모델</a></p></article><section class="evidence"><h2 id="page-evidence">생성 근거</h2><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>분석 기준 커밋</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>문서 생성 시각</dt><dd><code>2026-10-24 09:19:35+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>response-bundle/codex-session</code></dd></dl><a href="overview.md">Markdown 원문 ↗</a> <a href="overview.mmd">Mermaid 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="rkisp1-dewarp.html"><small>이전</small>RKISP1 카메라별 왜곡 보정 ←</a><a class="next" href="camera-model.html"><small>다음</small>카메라와 요청 모델 →</a></nav>
+<p>다음 단계: <a href="camera-model.html">카메라와 요청 모델</a></p></article><section class="evidence"><h2 id="page-evidence">생성 근거</h2><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>분석 기준 커밋</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>문서 생성 시각</dt><dd><code>2026-10-25 08:20:43+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>response-bundle/codex-session</code></dd></dl><a href="overview.md">Markdown 원문 ↗</a> <a href="overview.mmd">Mermaid 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="rkisp1-dewarp.html"><small>이전</small>RKISP1 카메라별 왜곡 보정 ←</a><a class="next" href="camera-model.html"><small>다음</small>카메라와 요청 모델 →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · 인용 검사와 사람의 내용 검토는 별도입니다.</footer></main>
 <aside class="page-toc"><nav aria-label="현재 페이지 목차"><p>이 페이지에서</p><div class="toc">
 <ul>
-<li><a href="#탐색과-파이프라인-선택">탐색과 파이프라인 선택</a></li>
+<li><a href="#탐색과-파이프라인-선택">탐색과 파이프라인 선택</a><ul>
+<li><a href="#장치-탐색에서-camera-접근까지">장치 탐색에서 Camera 접근까지</a></li>
+</ul>
+</li>
 <li><a href="#컴포넌트별-책임">컴포넌트별 책임</a></li>
 <li><a href="#요청-생성과-소유권">요청 생성과 소유권</a></li>
 <li><a href="#캡처-세션의-상태와-자원">캡처 세션의 상태와 자원</a></li>
-<li><a href="#요청-제출과-완료">요청 제출과 완료</a></li>
+<li><a href="#요청-제출과-완료">요청 제출과 완료</a><ul>
+<li><a href="#접수-성공과-촬영-완료는-다른-시점">접수 성공과 촬영 완료는 다른 시점</a></li>
+</ul>
+</li>
 <li><a href="#버퍼-완료와-요청-완료">버퍼 완료와 요청 완료</a></li>
 <li><a href="#스레드-경계와-동기화">스레드 경계와 동기화</a></li>
 <li><a href="#정적-근거의-확인-범위">정적 근거의 확인 범위</a></li>

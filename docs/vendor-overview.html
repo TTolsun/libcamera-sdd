@@ -9,7 +9,10 @@
 <details class="mobile-toc"><summary>이 페이지의 목차</summary><div class="toc">
 <ul>
 <li><a href="#복잡한-카메라를-공통-api로-제어하기">복잡한 카메라를 공통 API로 제어하기</a></li>
-<li><a href="#제공-기능과-지원-범위">제공 기능과 지원 범위</a></li>
+<li><a href="#제공-기능과-지원-범위">제공 기능과 지원 범위</a><ul>
+<li><a href="#공통-camera와-장치별-구현의-경계">공통 Camera와 장치별 구현의 경계</a></li>
+</ul>
+</li>
 <li><a href="#구현-근거로-보는-강점">구현 근거로 보는 강점</a></li>
 <li><a href="#소스-근거">소스 근거</a></li>
 <li><a href="#클래스-관계">클래스 관계</a></li>
@@ -50,6 +53,53 @@
 <details class="evidence-links evidence-section"><summary>절 전체 근거 <span>1</span>개</summary><ul><li><code>Documentation/introduction.rst</code><span class="evidence-lines"><a aria-label="Documentation/introduction.rst:42" href="#source-d40613f3899f0ffc"><code>L42</code></a></span></li></ul></details>
 <h2 id="제공-기능과-지원-범위">제공 기능과 지원 범위</h2>
 <p><code>Camera</code>는 하나의 이미지 소스에서 하나 이상의 이미지 스트림을 만드는 카메라를 모델링합니다. 장치를 구성하고 제어하며 이미지 스트림을 캡처하는 주요 인터페이스를 제공합니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-8264067114dccdee" aria-label="src/libcamera/camera.cpp:752 발췌"><code>L752</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:752" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/camera.cpp#L752">전체 소스 <code>L752</code></a></span></li></ul></details>
+<!-- sdd:visual:hardware-boundary -->
+<h3 id="공통-camera와-장치별-구현의-경계">공통 Camera와 장치별 구현의 경계</h3>
+<p>장치 지원은 해당 PipelineHandler 구현과 필요한 미디어 장치 확보에 달려 있습니다. 지원 기종이나 성능을 보장하는 그림은 아닙니다.</p>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {&quot;공통 Camera 인터페이스&quot;: &quot;Common Camera interface&quot;, &quot;장치별 PipelineHandler 구현&quot;: &quot;Device-specific PipelineHandler&quot;, &quot;필요 장치와 시스템 장치 매칭&quot;: &quot;Match required devices to the system&quot;, &quot;필요한 미디어 장치 확보&quot;: &quot;Acquire required media devices&quot;, &quot;확보 성공 시 Camera 생성&quot;: &quot;Create Camera after acquisition&quot;}
+  v_handler[&quot;장치별 PipelineHandler 구현&quot;]
+  v_media[&quot;필요한 미디어 장치 확보&quot;]
+  v_camera[&quot;공통 Camera 인터페이스&quot;]
+  v_handler --&gt;|&quot;필요 장치와 시스템 장치 매칭&quot;| v_media
+  v_media --&gt;|&quot;확보 성공 시 Camera 생성&quot;| v_camera</pre>
+<p><a href="vendor-overview.hardware-boundary.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>장치별 PipelineHandler 구현</td>
+<td><a href="#source-05721740b01bcd0e">src/libcamera/pipeline_handler.cpp:30</a></td>
+</tr>
+<tr>
+<td>필요한 미디어 장치 확보</td>
+<td><a href="#source-05721740b01bcd0e">src/libcamera/pipeline_handler.cpp:30</a></td>
+</tr>
+<tr>
+<td>공통 Camera 인터페이스</td>
+<td><a href="#source-8264067114dccdee">src/libcamera/camera.cpp:752</a></td>
+</tr>
+<tr>
+<td>필요 장치와 시스템 장치 매칭</td>
+<td><a href="#source-05721740b01bcd0e">src/libcamera/pipeline_handler.cpp:30</a></td>
+</tr>
+<tr>
+<td>확보 성공 시 Camera 생성</td>
+<td><a href="#source-05721740b01bcd0e">src/libcamera/pipeline_handler.cpp:30</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:hardware-boundary -->
+
 <p>하드웨어 지원에는 미디어 장치를 다루는 <code>PipelineHandler</code> 구현이 필요합니다. 구현자는 필요한 장치를 시스템에서 찾아 확보한 뒤 대응하는 <code>Camera</code>를 생성하고, <code>PipelineHandler</code> 하위 클래스를 REGISTER_PIPELINE_HANDLER()로 등록해야 합니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="#source-05721740b01bcd0e" aria-label="src/libcamera/pipeline_handler.cpp:30 발췌"><code>L30</code> 발췌</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:30" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/pipeline_handler.cpp#L30">전체 소스 <code>L30</code></a></span></li></ul></details>
 <details class="evidence-links evidence-section"><summary>절 전체 근거 <span>2</span>개</summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/camera.cpp:752" href="#source-8264067114dccdee"><code>L752</code></a></span></li><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/pipeline_handler.cpp:30" href="#source-05721740b01bcd0e"><code>L30</code></a></span></li></ul></details>
 <h2 id="구현-근거로-보는-강점">구현 근거로 보는 강점</h2>
@@ -234,7 +284,10 @@ void PipelineHandler::queueRequest(Request *request)
 <aside class="page-toc"><nav aria-label="현재 페이지 목차"><p>이 페이지에서</p><div class="toc">
 <ul>
 <li><a href="#복잡한-카메라를-공통-api로-제어하기">복잡한 카메라를 공통 API로 제어하기</a></li>
-<li><a href="#제공-기능과-지원-범위">제공 기능과 지원 범위</a></li>
+<li><a href="#제공-기능과-지원-범위">제공 기능과 지원 범위</a><ul>
+<li><a href="#공통-camera와-장치별-구현의-경계">공통 Camera와 장치별 구현의 경계</a></li>
+</ul>
+</li>
 <li><a href="#구현-근거로-보는-강점">구현 근거로 보는 강점</a></li>
 <li><a href="#소스-근거">소스 근거</a></li>
 <li><a href="#클래스-관계">클래스 관계</a></li>

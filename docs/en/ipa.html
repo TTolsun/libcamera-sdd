@@ -8,8 +8,14 @@
 <main id="main"><p class="breadcrumb">For Vendor <span>/</span> IPA management and implementation entry points</p><h1>IPA management and implementation entry points</h1><div class="page-state"><span class="review-state">Human review pending</span><span>Automatic checks passed</span><span class="generation-method">Written from: extracted structure and a model-written draft</span><a class="state-help" href="#page-evidence">What these mean ↓</a></div>
 <details class="mobile-toc"><summary>Contents of this page</summary><div class="toc">
 <ul>
-<li><a href="#모듈-탐색과-격리-조건">Module discovery and isolation conditions</a></li>
-<li><a href="#스레드와-프로세스-경계">Thread and process boundaries</a></li>
+<li><a href="#모듈-탐색과-격리-조건">Module discovery and isolation conditions</a><ul>
+<li><a href="#ipa-모듈-선택과-실행-경계">IPA module selection and execution boundaries</a></li>
+</ul>
+</li>
+<li><a href="#스레드와-프로세스-경계">Thread and process boundaries</a><ul>
+<li><a href="#스레드-호출과-ipc-호출의-경계">Boundaries between thread calls and IPC calls</a></li>
+</ul>
+</li>
 <li><a href="#프레임-입력과-결과-인터페이스">Frame input and result interfaces</a></li>
 <li><a href="#ipa-객체와-종료-순서">IPA objects and shutdown order</a></li>
 <li><a href="#생성과-ipc-실패">Creation and IPC failures</a></li>
@@ -80,12 +86,161 @@
 </table></div>
 <h2 id="모듈-탐색과-격리-조건">Module discovery and isolation conditions</h2>
 <p><code>IPAManager</code> adds user-specified module paths first. If an uninstalled build path is found, it adds <code>src/ipa</code> beneath it, then checks the installed system module path. The comment explicitly gives user-specified paths priority.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/ipa_manager.cpp</code><span class="evidence-lines"><a href="#source-7603cbafe8eef490" aria-label="src/libcamera/ipa_manager.cpp:107 excerpt"><code>L107</code> excerpt</a> · <a aria-label="src/libcamera/ipa_manager.cpp:107" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipa_manager.cpp#L107">Full source <code>L107</code></a></span></li></ul></details>
+<!-- sdd:visual:proxy-selection -->
+<h3 id="ipa-모듈-선택과-실행-경계">IPA module selection and execution boundaries</h3>
+<p>Distinguish module selection, signature checking and proxy validation. The following explanation describes the configuration conditions for signature checking.</p>
+<pre class="mermaid">flowchart TB
+
+  v_module{"Module matching name and version?"}
+  v_signature{"isSignatureValid(m)?"}
+  v_threaded["Threaded proxy"]
+  v_isolated["Isolated proxy"]
+  v_valid{"Is the proxy valid?"}
+  v_failure["nullptr: creation failed"]
+  v_success["Return proxy"]
+  v_module --&gt;|"No"| v_failure
+  v_module --&gt;|"Yes"| v_signature
+  v_signature --&gt;|"true"| v_threaded
+  v_signature --&gt;|"false"| v_isolated
+  v_threaded --&gt;|"Check after construction"| v_valid
+  v_isolated --&gt;|"Check after construction"| v_valid
+  v_valid --&gt;|"No"| v_failure
+  v_valid --&gt;|"Yes"| v_success</pre>
+<p><a href="ipa.proxy-selection.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>This is an authored interpretation linked to source evidence. Automated binding checks are neither semantic approval nor device runtime validation.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Element or transition</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Module matching name and version?</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>isSignatureValid(m)?</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>Threaded proxy</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>Isolated proxy</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>Is the proxy valid?</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>nullptr: creation failed</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>Return proxy</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>No</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>Yes</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>true</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>false</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>Check after construction</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>Check after construction</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>No</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>Yes</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:proxy-selection -->
+
 <p><code>IPAModule::match()</code> checks an exact module-name match and the version range together. <code>pipelineVersion</code> must be at least the minimum and no greater than the maximum.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/ipa_module.cpp</code><span class="evidence-lines"><a href="#source-6e1525c1fc1aa55e" aria-label="src/libcamera/ipa_module.cpp:460 excerpt"><code>L460</code> excerpt</a> · <a aria-label="src/libcamera/ipa_module.cpp:460" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipa_module.cpp#L460">Full source <code>L460</code></a></span></li></ul></details>
 <p><code>createIPA()</code> returns null when no module matches the name and version. After finding a module, a true signature result selects <code>Threaded</code> and a false result selects <code>Isolated</code>. It also returns null if the created proxy's <code>isValid()</code> is false.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>include/libcamera/internal/ipa_manager.h</code><span class="evidence-lines"><a href="#source-2a1bbbc8623a516f" aria-label="include/libcamera/internal/ipa_manager.h:35 excerpt"><code>L35</code> excerpt</a> · <a aria-label="include/libcamera/internal/ipa_manager.h:35" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/include/libcamera/internal/ipa_manager.h#L35">Full source <code>L35</code></a></span></li></ul></details>
 <p>Signature evaluation depends on forced isolation, module-file opening and mapping, and verification. It also returns false when built without public-key support. False selects isolated execution; it is not itself immediate <code>createIPA()</code> creation failure.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/ipa_manager.cpp</code><span class="evidence-lines"><a href="#source-532f8ffa194bd319" aria-label="src/libcamera/ipa_manager.cpp:289 excerpt"><code>L289</code> excerpt</a> · <a aria-label="src/libcamera/ipa_manager.cpp:289" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipa_manager.cpp#L289">Full source <code>L289</code></a></span></li></ul></details>
 <details class="evidence-links evidence-section"><summary>Section evidence · <span>4</span></summary><ul><li><code>src/libcamera/ipa_manager.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/ipa_manager.cpp:107" href="#source-7603cbafe8eef490"><code>L107</code></a> · <a aria-label="src/libcamera/ipa_manager.cpp:289" href="#source-532f8ffa194bd319"><code>L289</code></a></span></li><li><code>src/libcamera/ipa_module.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/ipa_module.cpp:460" href="#source-6e1525c1fc1aa55e"><code>L460</code></a></span></li><li><code>include/libcamera/internal/ipa_manager.h</code><span class="evidence-lines"><a aria-label="include/libcamera/internal/ipa_manager.h:35" href="#source-2a1bbbc8623a516f"><code>L35</code></a></span></li></ul></details>
 <h2 id="스레드와-프로세스-경계">Thread and process boundaries</h2>
 <p>The <code>Threaded</code> proxy template calls <code>init()</code> directly on the IPA, then moves the internal proxy to its worker thread. During <code>start()</code>, it starts the thread and invokes the internal start method with a blocking call.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl</code><span class="evidence-lines"><a href="#source-c7fd6e52f2c537b5" aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48 excerpt"><code>L48</code> excerpt</a> · <a aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L48">Full source <code>L48</code></a></span></li></ul></details>
+<!-- sdd:visual:execution-boundaries -->
+<h3 id="스레드-호출과-ipc-호출의-경계">Boundaries between thread calls and IPC calls</h3>
+<p>Threaded and Isolated are alternative paths. Whether each API is synchronous or asynchronous depends on its interface declaration.</p>
+<pre class="mermaid">flowchart TB
+
+  v_threaded["Threaded proxy"]
+  v_thread["Queue asynchronous methods to worker thread"]
+  v_isolated["Isolated proxy"]
+  v_ipc["Communicate with worker over IPC"]
+  v_threaded --&gt;|"is_async methods"| v_thread
+  v_isolated --&gt;|"sendAsync or sendSync per declaration"| v_ipc</pre>
+<p><a href="ipa.execution-boundaries.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>This is an authored interpretation linked to source evidence. Automated binding checks are neither semantic approval nor device runtime validation.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Element or transition</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Threaded proxy</td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a></td>
+</tr>
+<tr>
+<td>Queue asynchronous methods to worker thread</td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a></td>
+</tr>
+<tr>
+<td>Isolated proxy</td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td>Communicate with worker over IPC</td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td>is_async methods</td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a></td>
+</tr>
+<tr>
+<td>sendAsync or sendSync per declaration</td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:execution-boundaries -->
+
 <p>Ordinary synchronous methods call the IPA object directly. Asynchronous methods check running state and use <code>ConnectionTypeQueued</code> to dispatch to the internal proxy. Not every method therefore reaches the worker thread in the same way.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl</code><span class="evidence-lines"><a href="#source-c7fd6e52f2c537b5" aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48 excerpt"><code>L48</code> excerpt</a> · <a aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L48">Full source <code>L48</code></a></span></li></ul></details>
 <p>The <code>Isolated</code> proxy resolves the worker path and constructs <code>IPCPipeUnixSocket</code>. Only a connected pipe allows it to connect reception and mark itself valid. Method inputs are serialized and sent through <code>sendAsync()</code> for asynchronous methods or <code>sendSync()</code> for the others.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl</code><span class="evidence-lines"><a href="#source-9ff6047b0a70ce66" aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130 excerpt"><code>L130</code> excerpt</a> · <a aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130">Full source <code>L130</code></a></span></li></ul></details>
 <p>The actual <code>resolvePath()</code> implementation checks configured paths first. When a build path exists, it checks the worker beneath it and returns an empty string if missing there. It checks the installation path only without a build path, so use the actual branches rather than the older comment claiming installation-first search.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/ipa_proxy.cpp</code><span class="evidence-lines"><a href="#source-59a673fb7c43c0e0" aria-label="src/libcamera/ipa_proxy.cpp:204 excerpt"><code>L204</code> excerpt</a> · <a aria-label="src/libcamera/ipa_proxy.cpp:204" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipa_proxy.cpp#L204">Full source <code>L204</code></a></span></li></ul></details>
@@ -1286,15 +1441,21 @@ interface IPASoftIspEventInterface {
 <li>Reference files: <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/ipa_module.h</code>, <code>include/libcamera/internal/ipa_proxy.h</code>, <code>include/libcamera/ipa/ipu3.mojom</code>, <code>include/libcamera/ipa/rkisp1.mojom</code>, <code>include/libcamera/ipa/softisp.mojom</code>, <code>src/ipa/ipu3/ipu3.cpp</code>, <code>src/ipa/mali-c55/data/uncalibrated.yaml</code>, <code>src/ipa/rkisp1/data/uncalibrated.yaml</code>, <code>src/ipa/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/egl.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/ipa_module.cpp</code>, <code>src/libcamera/ipa_proxy.cpp</code>, <code>src/libcamera/ipc_pipe_unixsocket.cpp</code>, <code>src/libcamera/pipeline/mali-c55/mali-c55.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/shaders/bayer_1x_packed.frag</code>, <code>src/libcamera/shaders/bayer_unpacked.frag</code>, <code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl</code>, <code>utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl</code></li>
 <li>Evidence level: code inspection (static analysis, simple_compdb configuration, commit <code>2c4b67c079</code>)</li>
 <li>Automatic checks (citations, prose and configured structure checks): passed</li>
-<li>Review status recorded: 2026-10-24 · Pending human review</li>
+<li>Review status recorded: 2026-10-25 · Awaiting human review</li>
 </ul>
 </details>
-<p>Next step: <a href="ipu3-lsc.html">IPU3 LSC and state connections</a></p></article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanations</dd><dt>Validation scope</dt><dd>Tables and diagrams come from extracted facts; an LLM writes the explanations. Citation, prose and configured structural checks are applied.</dd><dt>Automatic checks</dt><dd>Passed (<code>ok</code>). The checked items are listed under Validation scope. Whether the explanation is correct still needs a person to confirm.</dd><dt>Analyzed source commit</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>Document generation time</dt><dd><code>2026-10-24 10:45:11+00:00</code></dd><dt>Prose generation model</dt><dd><code>ollama/qwen3.5:9b, response-bundle/codex-session</code></dd></dl><a href="../ipa.md">Korean Markdown source ↗</a> <a href="ipa.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="pipeline-handler.html"><small>Previous</small>Pipeline Handler ←</a><a class="next" href="ipu3-lsc.html"><small>Next</small>IPU3 LSC and state connections →</a></nav>
+<p>Next step: <a href="ipu3-lsc.html">IPU3 LSC and state connections</a></p></article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanations</dd><dt>Validation scope</dt><dd>Tables and diagrams come from extracted facts; an LLM writes the explanations. Citation, prose and configured structural checks are applied.</dd><dt>Automatic checks</dt><dd>Passed (<code>ok</code>). The checked items are listed under Validation scope. Whether the explanation is correct still needs a person to confirm.</dd><dt>Analyzed source commit</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>Document generation time</dt><dd><code>2026-10-25 08:20:42+00:00</code></dd><dt>Prose generation model</dt><dd><code>ollama/qwen3.5:9b, response-bundle/codex-session</code></dd></dl><a href="../ipa.md">Korean Markdown source ↗</a> <a href="ipa.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="pipeline-handler.html"><small>Previous</small>Pipeline Handler ←</a><a class="next" href="ipu3-lsc.html"><small>Next</small>IPU3 LSC and state connections →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
 <aside class="page-toc"><nav aria-label="Current page contents"><p>On this page</p><div class="toc">
 <ul>
-<li><a href="#모듈-탐색과-격리-조건">Module discovery and isolation conditions</a></li>
-<li><a href="#스레드와-프로세스-경계">Thread and process boundaries</a></li>
+<li><a href="#모듈-탐색과-격리-조건">Module discovery and isolation conditions</a><ul>
+<li><a href="#ipa-모듈-선택과-실행-경계">IPA module selection and execution boundaries</a></li>
+</ul>
+</li>
+<li><a href="#스레드와-프로세스-경계">Thread and process boundaries</a><ul>
+<li><a href="#스레드-호출과-ipc-호출의-경계">Boundaries between thread calls and IPC calls</a></li>
+</ul>
+</li>
 <li><a href="#프레임-입력과-결과-인터페이스">Frame input and result interfaces</a></li>
 <li><a href="#ipa-객체와-종료-순서">IPA objects and shutdown order</a></li>
 <li><a href="#생성과-ipc-실패">Creation and IPC failures</a></li>

@@ -10,8 +10,14 @@
 <ul>
 <li><a href="#장치-매칭과-객체-수명">장치 매칭과 객체 수명</a></li>
 <li><a href="#구성의-입력과-검증-책임">구성의 입력과 검증 책임</a></li>
-<li><a href="#요청-준비와-장치-큐">요청 준비와 장치 큐</a></li>
-<li><a href="#버퍼-완료와-요청-반환">버퍼 완료와 요청 반환</a></li>
+<li><a href="#요청-준비와-장치-큐">요청 준비와 장치 큐</a><ul>
+<li><a href="#요청이-대기하거나-장치로-가는-조건">요청이 대기하거나 장치로 가는 조건</a></li>
+</ul>
+</li>
+<li><a href="#버퍼-완료와-요청-반환">버퍼 완료와 요청 반환</a><ul>
+<li><a href="#버퍼-완료에서-요청-반환까지">버퍼 완료에서 요청 반환까지</a></li>
+</ul>
+</li>
 <li><a href="#정지와-미완료-요청">정지와 미완료 요청</a></li>
 <li><a href="#소스-근거">소스 근거</a></li>
 <li><a href="#클래스-관계">클래스 관계</a></li>
@@ -20,11 +26,10 @@
 </div>
 </details><article><p><strong>파이프라인 구현이 지켜야 하는 구성·요청·완료·종료 계약을 확인하세요.</strong></p>
 <details class="page-terms">
-<summary>이 문서의 용어: Pipeline Handler, fence, IPA</summary>
+<summary>이 문서의 용어: Pipeline Handler, fence</summary>
 <ul>
 <li><strong>Pipeline Handler</strong>: 특정 하드웨어 플랫폼(IPU3, RKISP1 등)의 미디어 장치를 찾아 카메라를 만들고, 요청을 장치에 넣고 완료를 돌려주는 libcamera 구성 요소입니다. 플랫폼마다 하나씩 있습니다.</li>
 <li><strong>fence</strong>: 버퍼를 사용해도 되는 시점을 알리는 동기화 신호입니다. 요청에 유효한 fence가 연결돼 있으면 준비 단계에서 신호를 기다립니다. 요청 완료 신호와는 다릅니다.</li>
-<li><strong>IPA</strong> (Image Processing Algorithms): 화질 알고리즘을 담은 별도 모듈(.so)입니다. ISP가 보낸 통계를 보고 다음 프레임에 쓸 ISP 설정값을 계산합니다. 제조사가 소스를 공개하지 않고 제공할 수 있도록 libcamera 본체와 분리되어 있습니다.</li>
 </ul>
 <p>다른 용어는 <a href="glossary.html">용어집</a>에서 찾을 수 있습니다.</p>
 </details>
@@ -73,6 +78,93 @@
 <details class="evidence-links evidence-section"><summary>절 전체 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/pipeline_handler.cpp:271" href="#source-c81d81d5cce53ab8"><code>L271</code></a></span></li></ul></details>
 <h2 id="요청-준비와-장치-큐">요청 준비와 장치 큐</h2>
 <p><code>registerRequest()</code>는 요청 생성 시 수행할 일회성 초기화 지점입니다. 공통 구현은 요청의 <code>prepared</code> 신호를 연결해, 준비가 끝나면 해당 카메라의 <code>doQueueRequests()</code>를 호출합니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="#source-789eafedfaa7f3c5" aria-label="src/libcamera/pipeline_handler.cpp:428 발췌"><code>L428</code> 발췌</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:428" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/pipeline_handler.cpp#L428">전체 소스 <code>L428</code></a></span></li></ul></details>
+<!-- sdd:visual:queue-gates -->
+<h3 id="요청이-대기하거나-장치로-가는-조건">요청이 대기하거나 장치로 가는 조건</h3>
+<p>준비 대기와 장치 큐 한도를 구분하세요. 준비 실패와 장치 제출 실패는 취소 경로로 이어집니다.</p>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {&quot;doQueueRequests()에서 확인&quot;: &quot;Check in doQueueRequests()&quot;, &quot;queueRequestDevice()&quot;: &quot;queueRequestDevice()&quot;, &quot;waitingRequests_&quot;: &quot;waitingRequests_&quot;, &quot;대기열에 유지&quot;: &quot;Stay in waiting queue&quot;, &quot;선두 요청이 prepared_인가?&quot;: &quot;Is the front request prepared?&quot;, &quot;아니오: 선두 요청 확인&quot;: &quot;No: inspect front request&quot;, &quot;아니오: 준비를 기다림&quot;: &quot;No: wait for preparation&quot;, &quot;예: 새 요청을 전달하지 않음&quot;: &quot;Yes: stop forwarding&quot;, &quot;예: 준비 실패로 취소되지 않은 요청&quot;: &quot;Yes: unless cancelled during preparation&quot;, &quot;장치 제출 실패&quot;: &quot;Device queue failure&quot;, &quot;장치 큐 한도에 도달했는가?&quot;: &quot;Device queue at its limit?&quot;, &quot;준비 중 취소된 요청은 장치 제출 생략&quot;: &quot;Skip device for cancelled request&quot;, &quot;취소·완료 경로&quot;: &quot;Cancellation and completion&quot;}
+  v_wait[&quot;waitingRequests_&quot;]
+  v_ready{&quot;선두 요청이 prepared_인가?&quot;}
+  v_limit{&quot;장치 큐 한도에 도달했는가?&quot;}
+  v_hold[&quot;대기열에 유지&quot;]
+  v_device[&quot;queueRequestDevice()&quot;]
+  v_cancel[&quot;취소·완료 경로&quot;]
+  v_wait --&gt;|&quot;doQueueRequests()에서 확인&quot;| v_limit
+  v_limit --&gt;|&quot;예: 새 요청을 전달하지 않음&quot;| v_hold
+  v_limit --&gt;|&quot;아니오: 선두 요청 확인&quot;| v_ready
+  v_ready --&gt;|&quot;아니오: 준비를 기다림&quot;| v_hold
+  v_ready --&gt;|&quot;예: 준비 실패로 취소되지 않은 요청&quot;| v_device
+  v_device --&gt;|&quot;장치 제출 실패&quot;| v_cancel
+  v_ready --&gt;|&quot;준비 중 취소된 요청은 장치 제출 생략&quot;| v_cancel</pre>
+<p><a href="pipeline-handler.queue-gates.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>waitingRequests_</td>
+<td><a href="#source-789eafedfaa7f3c5">src/libcamera/pipeline_handler.cpp:428</a></td>
+</tr>
+<tr>
+<td>선두 요청이 prepared_인가?</td>
+<td><a href="#source-789eafedfaa7f3c5">src/libcamera/pipeline_handler.cpp:428</a></td>
+</tr>
+<tr>
+<td>장치 큐 한도에 도달했는가?</td>
+<td><a href="#source-789eafedfaa7f3c5">src/libcamera/pipeline_handler.cpp:428</a></td>
+</tr>
+<tr>
+<td>대기열에 유지</td>
+<td><a href="#source-789eafedfaa7f3c5">src/libcamera/pipeline_handler.cpp:428</a></td>
+</tr>
+<tr>
+<td>queueRequestDevice()</td>
+<td><a href="#source-789eafedfaa7f3c5">src/libcamera/pipeline_handler.cpp:428</a></td>
+</tr>
+<tr>
+<td>취소·완료 경로</td>
+<td><a href="#source-789eafedfaa7f3c5">src/libcamera/pipeline_handler.cpp:428</a></td>
+</tr>
+<tr>
+<td>doQueueRequests()에서 확인</td>
+<td><a href="#source-789eafedfaa7f3c5">src/libcamera/pipeline_handler.cpp:428</a></td>
+</tr>
+<tr>
+<td>예: 새 요청을 전달하지 않음</td>
+<td><a href="#source-789eafedfaa7f3c5">src/libcamera/pipeline_handler.cpp:428</a></td>
+</tr>
+<tr>
+<td>아니오: 선두 요청 확인</td>
+<td><a href="#source-789eafedfaa7f3c5">src/libcamera/pipeline_handler.cpp:428</a></td>
+</tr>
+<tr>
+<td>아니오: 준비를 기다림</td>
+<td><a href="#source-789eafedfaa7f3c5">src/libcamera/pipeline_handler.cpp:428</a></td>
+</tr>
+<tr>
+<td>예: 준비 실패로 취소되지 않은 요청</td>
+<td><a href="#source-789eafedfaa7f3c5">src/libcamera/pipeline_handler.cpp:428</a></td>
+</tr>
+<tr>
+<td>장치 제출 실패</td>
+<td><a href="#source-789eafedfaa7f3c5">src/libcamera/pipeline_handler.cpp:428</a></td>
+</tr>
+<tr>
+<td>준비 중 취소된 요청은 장치 제출 생략</td>
+<td><a href="#source-789eafedfaa7f3c5">src/libcamera/pipeline_handler.cpp:428</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:queue-gates -->
+
 <p><code>queueRequest()</code>는 요청을 <code>waitingRequests_</code>에 넣고 <code>prepare(300ms)</code>를 호출합니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="#source-789eafedfaa7f3c5" aria-label="src/libcamera/pipeline_handler.cpp:428 발췌"><code>L428</code> 발췌</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:428" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/pipeline_handler.cpp#L428">전체 소스 <code>L428</code></a></span></li></ul></details>
 <p><code>Request::Private::prepare()</code>는 버퍼의 acquire fence가 신호를 보내기를 기다립니다. 300ms는 준비 완료를 무조건 늦추는 시간이 아니라 선택적인 만료 시간입니다. 기다릴 fence가 없으면 즉시 준비 완료를 알리고, fence가 제대로 신호를 보내지 못하거나 시간이 만료되면 요청을 취소하고 준비 완료 신호를 냅니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/request.cpp</code><span class="evidence-lines"><a href="#source-4f52447929ee8da9" aria-label="src/libcamera/request.cpp:199 발췌"><code>L199</code> 발췌</a> · <a aria-label="src/libcamera/request.cpp:199" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/request.cpp#L199">전체 소스 <code>L199</code></a></span></li></ul></details>
 <p><code>doQueueRequests()</code>는 장치 큐 크기가 <code>maxQueuedRequestsDevice_</code>와 같거나 맨 앞 요청이 아직 준비되지 않았으면 멈춥니다. 뒤의 요청은 앞 요청을 건너뛰지 않습니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="#source-789eafedfaa7f3c5" aria-label="src/libcamera/pipeline_handler.cpp:428 발췌"><code>L428</code> 발췌</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:428" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/pipeline_handler.cpp#L428">전체 소스 <code>L428</code></a></span></li></ul></details>
@@ -82,6 +174,63 @@
 <details class="evidence-links evidence-section"><summary>절 전체 근거 <span>2</span>개</summary><ul><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/pipeline_handler.cpp:428" href="#source-789eafedfaa7f3c5"><code>L428</code></a></span></li><li><code>src/libcamera/request.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/request.cpp:199" href="#source-4f52447929ee8da9"><code>L199</code></a></span></li></ul></details>
 <h2 id="버퍼-완료와-요청-반환">버퍼 완료와 요청 반환</h2>
 <p><code>completeBuffer()</code>는 <code>bufferCompleted</code>로 애플리케이션에 버퍼 완료를 알린 뒤 요청의 버퍼 추적 상태를 갱신합니다. 모든 버퍼가 끝났으면 <code>true</code>를 반환하지만 요청 자체를 자동으로 완료하지는 않습니다. 파이프라인 구현은 필요한 후처리를 마치고 <code>completeRequest()</code>를 명시적으로 호출해야 합니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="#source-01ad7c6605c3296a" aria-label="src/libcamera/pipeline_handler.cpp:547 발췌"><code>L547</code> 발췌</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:547" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/pipeline_handler.cpp#L547">전체 소스 <code>L547</code></a></span></li></ul></details>
+<!-- sdd:visual:buffer-request-completion -->
+<h3 id="버퍼-완료에서-요청-반환까지">버퍼 완료에서 요청 반환까지</h3>
+<p>마지막 버퍼의 완료가 요청을 자동 완료하지 않습니다. 핸들러의 명시적 요청 완료 통지가 필요합니다.</p>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {&quot;completeBuffer()&quot;: &quot;completeBuffer()&quot;, &quot;completeRequest()&quot;: &quot;completeRequest()&quot;, &quot;버퍼 완료 알림&quot;: &quot;Notify buffer completion&quot;, &quot;버퍼 추적 상태 갱신&quot;: &quot;Update buffer completion tracking&quot;, &quot;선두 미완료 요청 뒤의 반환은 대기&quot;: &quot;Wait behind an incomplete head request&quot;, &quot;제출 순서로 애플리케이션 반환&quot;: &quot;Return to application in submission order&quot;, &quot;후처리 뒤 구현자가 명시적으로 호출&quot;: &quot;Handler explicitly completes after remaining work&quot;}
+  v_buffer[&quot;completeBuffer()&quot;]
+  v_remaining[&quot;버퍼 추적 상태 갱신&quot;]
+  v_request[&quot;completeRequest()&quot;]
+  v_application[&quot;제출 순서로 애플리케이션 반환&quot;]
+  v_buffer --&gt;|&quot;버퍼 완료 알림&quot;| v_remaining
+  v_remaining --&gt;|&quot;후처리 뒤 구현자가 명시적으로 호출&quot;| v_request
+  v_request --&gt;|&quot;선두 미완료 요청 뒤의 반환은 대기&quot;| v_application</pre>
+<p><a href="pipeline-handler.buffer-request-completion.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>completeBuffer()</td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td>버퍼 추적 상태 갱신</td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td>completeRequest()</td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td>제출 순서로 애플리케이션 반환</td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td>버퍼 완료 알림</td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td>후처리 뒤 구현자가 명시적으로 호출</td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td>선두 미완료 요청 뒤의 반환은 대기</td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:buffer-request-completion -->
+
 <p><code>completeRequest()</code>는 완료된 요청을 애플리케이션에 제출 순서대로 반환하도록 조정합니다. 핸들러는 완료된 요청에 대해 이 함수를 순서와 무관하게 호출할 수 있습니다. 함수가 반환한 뒤에는 핸들러가 해당 요청에 접근하면 안 됩니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="#source-01ad7c6605c3296a" aria-label="src/libcamera/pipeline_handler.cpp:547 발췌"><code>L547</code> 발췌</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:547" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/pipeline_handler.cpp#L547">전체 소스 <code>L547</code></a></span></li></ul></details>
 <p><code>completeRequest()</code>는 요청을 완료 상태로 바꾼 뒤 장치 큐의 맨 앞부터 확인합니다. 앞 요청이 <code>RequestPending</code>이면 반복을 멈추며, 그 요청을 제거하거나 취소하지 않습니다. 완료된 앞 요청은 큐에서 제거하고 <code>camera-&gt;requestComplete()</code>로 전달합니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="#source-01ad7c6605c3296a" aria-label="src/libcamera/pipeline_handler.cpp:547 발췌"><code>L547</code> 발췌</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:547" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/pipeline_handler.cpp#L547">전체 소스 <code>L547</code></a></span></li></ul></details>
 <p><code>completeRequest()</code>는 완료 요청을 반환한 뒤 <code>doQueueRequests()</code>로 대기 요청의 제출을 다시 시도합니다. <code>completeBuffer()</code>와 <code>completeRequest()</code>는 <code>CameraManager</code> 스레드에서 호출됩니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="#source-01ad7c6605c3296a" aria-label="src/libcamera/pipeline_handler.cpp:547 발췌"><code>L547</code> 발췌</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:547" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/pipeline_handler.cpp#L547">전체 소스 <code>L547</code></a></span></li></ul></details>
@@ -925,17 +1074,23 @@ void PipelineHandler::stop(Camera *camera)
 <li>근거 파일: <code>include/libcamera/internal/pipeline_handler.h</code>, <code>src/libcamera/pipeline/imx8-isi/imx8-isi.cpp</code>, <code>src/libcamera/pipeline/ipu3/ipu3.cpp</code>, <code>src/libcamera/pipeline/mali-c55/mali-c55.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/pipeline/rpi/pisp/pisp.cpp</code>, <code>src/libcamera/pipeline/rpi/vc4/vc4.cpp</code>, <code>src/libcamera/pipeline/uvcvideo/uvcvideo.cpp</code>, <code>src/libcamera/pipeline/vimc/vimc.cpp</code>, <code>src/libcamera/pipeline/virtual/virtual.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code>, <code>src/libcamera/request.cpp</code></li>
 <li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>2c4b67c079</code>)</li>
 <li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li>
-<li>검토 상태 기록일: 2026-10-24 · 사람 검토 전</li>
+<li>검토 상태 기록일: 2026-10-25 · 사람 검토 전</li>
 </ul>
 </details>
-<p>다음 단계: <a href="ipa.html">IPA 관련 클래스</a></p></article><section class="evidence"><h2 id="page-evidence">생성 근거</h2><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>분석 기준 커밋</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>문서 생성 시각</dt><dd><code>2026-10-24 08:59:47+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>response-bundle/codex-session</code></dd></dl><a href="pipeline-handler.md">Markdown 원문 ↗</a> <a href="pipeline-handler.mmd">Mermaid 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="vendor-integration.html"><small>이전</small>연동 가이드 ←</a><a class="next" href="overview.html"><small>다음</small>시스템 개요 →</a></nav>
+<p>다음 단계: <a href="overview.html">시스템 개요</a></p></article><section class="evidence"><h2 id="page-evidence">생성 근거</h2><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>분석 기준 커밋</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>문서 생성 시각</dt><dd><code>2026-10-25 08:20:41+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>response-bundle/codex-session</code></dd></dl><a href="pipeline-handler.md">Markdown 원문 ↗</a> <a href="pipeline-handler.mmd">Mermaid 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="vendor-integration.html"><small>이전</small>연동 가이드 ←</a><a class="next" href="overview.html"><small>다음</small>시스템 개요 →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · 인용 검사와 사람의 내용 검토는 별도입니다.</footer></main>
 <aside class="page-toc"><nav aria-label="현재 페이지 목차"><p>이 페이지에서</p><div class="toc">
 <ul>
 <li><a href="#장치-매칭과-객체-수명">장치 매칭과 객체 수명</a></li>
 <li><a href="#구성의-입력과-검증-책임">구성의 입력과 검증 책임</a></li>
-<li><a href="#요청-준비와-장치-큐">요청 준비와 장치 큐</a></li>
-<li><a href="#버퍼-완료와-요청-반환">버퍼 완료와 요청 반환</a></li>
+<li><a href="#요청-준비와-장치-큐">요청 준비와 장치 큐</a><ul>
+<li><a href="#요청이-대기하거나-장치로-가는-조건">요청이 대기하거나 장치로 가는 조건</a></li>
+</ul>
+</li>
+<li><a href="#버퍼-완료와-요청-반환">버퍼 완료와 요청 반환</a><ul>
+<li><a href="#버퍼-완료에서-요청-반환까지">버퍼 완료에서 요청 반환까지</a></li>
+</ul>
+</li>
 <li><a href="#정지와-미완료-요청">정지와 미완료 요청</a></li>
 <li><a href="#소스-근거">소스 근거</a></li>
 <li><a href="#클래스-관계">클래스 관계</a></li>

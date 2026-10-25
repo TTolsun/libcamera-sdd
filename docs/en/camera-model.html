@@ -9,9 +9,15 @@
 <details class="mobile-toc"><summary>Contents of this page</summary><div class="toc">
 <ul>
 <li><a href="#클래스별-책임">Responsibilities by class</a></li>
-<li><a href="#상태와-허용-호출">States and allowed calls</a></li>
+<li><a href="#상태와-허용-호출">States and allowed calls</a><ul>
+<li><a href="#카메라-상태와-허용-호출">Camera states and allowed calls</a></li>
+</ul>
+</li>
 <li><a href="#요청-생성과-완료">Request creation and completion</a></li>
-<li><a href="#소유권과-재사용">Ownership and reuse</a></li>
+<li><a href="#소유권과-재사용">Ownership and reuse</a><ul>
+<li><a href="#요청과-버퍼를-유지할-기간">How long to retain requests and buffers</a></li>
+</ul>
+</li>
 <li><a href="#오류와-종료">Errors and stopping</a></li>
 <li><a href="#동시성과-실행-확인">Concurrency and runtime checks</a></li>
 <li><a href="#연결-해제와-대기-요청">Disconnection and pending requests</a></li>
@@ -71,6 +77,103 @@
 <details class="evidence-links evidence-section"><summary>Section evidence · <span>3</span></summary><ul><li><code>src/libcamera/camera_manager.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/camera_manager.cpp:280" href="#source-fbcf3effd2584b79"><code>L280</code></a></span></li><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/camera.cpp:758" href="#source-6c066281dcce33d6"><code>L758</code></a></span></li><li><code>src/libcamera/request.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/request.cpp:343" href="#source-abce7dd469896527"><code>L343</code></a></span></li></ul></details>
 <h2 id="상태와-허용-호출">States and allowed calls</h2>
 <p>A camera moves from <code>Available</code> to <code>Acquired</code> through <code>acquire()</code>, then to <code>Configured</code> through <code>configure()</code>. <code>Configured</code> permits reconfiguration and request creation; requests can be submitted only after <code>start()</code> enters <code>Running</code>.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-4b17a07667f3a55d" aria-label="src/libcamera/camera.cpp:769 excerpt"><code>L769</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:769" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/camera.cpp#L769">Full source <code>L769</code></a></span></li></ul></details>
+<!-- sdd:visual:camera-states -->
+<h3 id="카메라-상태와-허용-호출">Camera states and allowed calls</h3>
+<p>Distinguish successful state transitions from calls that preserve state. The caller is responsible for synchronizing state-changing functions.</p>
+<pre class="mermaid">flowchart TB
+
+  v_available["Available"]
+  v_acquired["Acquired"]
+  v_configured["Configured"]
+  v_running["Running"]
+  v_stopping["Stopping"]
+  v_available --&gt;|"release()"| v_available
+  v_available --&gt;|"acquire()"| v_acquired
+  v_acquired --&gt;|"release()"| v_available
+  v_acquired --&gt;|"configure()"| v_configured
+  v_configured --&gt;|"release()"| v_available
+  v_configured --&gt;|"configure(), createRequest()"| v_configured
+  v_configured --&gt;|"start()"| v_running
+  v_running --&gt;|"stop()"| v_stopping
+  v_stopping --&gt;|"stop finished"| v_configured
+  v_running --&gt;|"createRequest(), queueRequest()"| v_running</pre>
+<p><a href="camera-model.camera-states.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>This is an authored interpretation linked to source evidence. Automated binding checks are neither semantic approval nor device runtime validation.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Element or transition</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Available</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>Acquired</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>Configured</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>Running</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>Stopping</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>release()</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>acquire()</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>release()</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>configure()</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>release()</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>configure(), createRequest()</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>start()</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>stop()</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>stop finished</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>createRequest(), queueRequest()</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:camera-states -->
+
 <p><code>createRequest()</code> is allowed in <code>Configured</code> and <code>Running</code>, whereas <code>queueRequest()</code> is allowed only in <code>Running</code>. <code>stop()</code> goes from <code>Running</code> through <code>Stopping</code> back to <code>Configured</code>. <code>release()</code> returns <code>Acquired</code> or <code>Configured</code> to <code>Available</code>, and can also leave an already <code>Available</code> camera in place.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-4b17a07667f3a55d" aria-label="src/libcamera/camera.cpp:769 excerpt"><code>L769</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:769" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/camera.cpp#L769">Full source <code>L769</code></a></span></li></ul></details>
 <p>Before release, a camera can be started and stopped repeatedly or reconfigured. <code>Camera</code> generally does not internally synchronize state-changing functions with each other, so the caller owns necessary synchronization.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-4b17a07667f3a55d" aria-label="src/libcamera/camera.cpp:769 excerpt"><code>L769</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:769" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/camera.cpp#L769">Full source <code>L769</code></a></span></li></ul></details>
 <details class="evidence-links evidence-section"><summary>Section evidence · <span>2</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/camera.cpp:769" href="#source-4b17a07667f3a55d"><code>L769</code></a> · <a aria-label="src/libcamera/camera.cpp:1383" href="#source-617d53c4c7de2c0c"><code>L1383</code></a></span></li></ul></details>
@@ -81,6 +184,73 @@
 <details class="evidence-links evidence-section"><summary>Section evidence · <span>3</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/camera.cpp:1243" href="#source-0ae00d77839f61cb"><code>L1243</code></a> · <a aria-label="src/libcamera/camera.cpp:1308" href="#source-28d007de6ad1a8a5"><code>L1308</code></a></span></li><li><code>src/libcamera/request.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/request.cpp:442" href="#source-95ae69eeb085e3b1"><code>L442</code></a></span></li></ul></details>
 <h2 id="소유권과-재사용">Ownership and reuse</h2>
 <p>The caller owns and disposes of the request returned by <code>createRequest()</code>. It can delete it in the completion handler or reset it with <code>reuse()</code> for reuse. This does not permit destruction before completion.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-0ae00d77839f61cb" aria-label="src/libcamera/camera.cpp:1243 excerpt"><code>L1243</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:1243" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/camera.cpp#L1243">Full source <code>L1243</code></a></span></li></ul></details>
+<!-- sdd:visual:request-ownership -->
+<h3 id="요청과-버퍼를-유지할-기간">How long to retain requests and buffers</h3>
+<p>The caller owns the request. Attaching a buffer reference preserves the caller's responsibility to keep the buffer valid.</p>
+<pre class="mermaid">flowchart TB
+
+  v_caller["Caller owns Request"]
+  v_buffer["Request references buffer"]
+  v_callback["Request completion callback"]
+  v_delete["Delete request"]
+  v_reuse["Reset before requeue"]
+  v_caller --&gt;|"addBuffer()"| v_buffer
+  v_buffer --&gt;|"Keep buffer valid until this point"| v_callback
+  v_callback --&gt;|"May delete in completion handler"| v_delete
+  v_callback --&gt;|"Reset state before reuse"| v_reuse</pre>
+<p><a href="camera-model.request-ownership.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>This is an authored interpretation linked to source evidence. Automated binding checks are neither semantic approval nor device runtime validation.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Element or transition</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Caller owns Request</td>
+<td><a href="#source-0ae00d77839f61cb">src/libcamera/camera.cpp:1243</a></td>
+</tr>
+<tr>
+<td>Request references buffer</td>
+<td><a href="#source-95ae69eeb085e3b1">src/libcamera/request.cpp:442</a></td>
+</tr>
+<tr>
+<td>Request completion callback</td>
+<td><a href="#source-95ae69eeb085e3b1">src/libcamera/request.cpp:442</a></td>
+</tr>
+<tr>
+<td>Delete request</td>
+<td><a href="#source-0ae00d77839f61cb">src/libcamera/camera.cpp:1243</a></td>
+</tr>
+<tr>
+<td>Reset before requeue</td>
+<td><a href="#source-38494771cb29cc8c">src/libcamera/request.cpp:376</a></td>
+</tr>
+<tr>
+<td>addBuffer()</td>
+<td><a href="#source-95ae69eeb085e3b1">src/libcamera/request.cpp:442</a></td>
+</tr>
+<tr>
+<td>Keep buffer valid until this point</td>
+<td><a href="#source-95ae69eeb085e3b1">src/libcamera/request.cpp:442</a></td>
+</tr>
+<tr>
+<td>May delete in completion handler</td>
+<td><a href="#source-0ae00d77839f61cb">src/libcamera/camera.cpp:1243</a></td>
+</tr>
+<tr>
+<td>Reset state before reuse</td>
+<td><a href="#source-38494771cb29cc8c">src/libcamera/request.cpp:376</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:request-ownership -->
+
 <p><code>Request::reuse()</code> resets internal state, changes request status to <code>RequestPending</code>, and clears controls and metadata. With <code>ReuseBuffers</code>, existing buffers are associated with the request again and added to its pending set. Otherwise the buffer map is cleared, so buffers for the next submission must be added again.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/request.cpp</code><span class="evidence-lines"><a href="#source-38494771cb29cc8c" aria-label="src/libcamera/request.cpp:376 excerpt"><code>L376</code> excerpt</a> · <a aria-label="src/libcamera/request.cpp:376" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/request.cpp#L376">Full source <code>L376</code></a></span></li></ul></details>
 <p><code>addBuffer()</code> stores buffer references rather than ownership, so buffers must remain alive until the request completion callback. A supplied valid fence moves to the buffer only on success. The request is not queued to the device until all its buffers' fences have signaled correctly.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/request.cpp</code><span class="evidence-lines"><a href="#source-95ae69eeb085e3b1" aria-label="src/libcamera/request.cpp:442 excerpt"><code>L442</code> excerpt</a> · <a aria-label="src/libcamera/request.cpp:442" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/request.cpp#L442">Full source <code>L442</code></a></span></li></ul></details>
 <p>If a request times out because its fence does not signal, the buffer retains the fence. The application must retrieve it with <code>FrameBuffer::releaseFence()</code> before using the buffer in another request. Adding a buffer that still holds a fence produces <code>-EEXIST</code>.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/request.cpp</code><span class="evidence-lines"><a href="#source-95ae69eeb085e3b1" aria-label="src/libcamera/request.cpp:442 excerpt"><code>L442</code> excerpt</a> · <a aria-label="src/libcamera/request.cpp:442" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/request.cpp#L442">Full source <code>L442</code></a></span></li></ul></details>
@@ -800,17 +970,23 @@ int Camera::exportFrameBuffers(Stream *stream,
 <li>Evidence files: <code>include/libcamera/camera.h</code>, <code>include/libcamera/camera_manager.h</code>, <code>include/libcamera/request.h</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/camera_manager.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code>, <code>src/libcamera/request.cpp</code></li>
 <li>Evidence level: code inspection (static analysis, simple_compdb configuration, commit <code>2c4b67c079</code>)</li>
 <li>Automatic checks (citations, prose and configured structure checks): passed</li>
-<li>Review status recorded: 2026-10-24 · Pending human review</li>
+<li>Review status recorded: 2026-10-25 · Awaiting human review</li>
 </ul>
 </details>
-<p>Next step: <a href="pipeline-handler.html">Pipeline Handler</a></p></article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanations</dd><dt>Validation scope</dt><dd>Tables and diagrams come from extracted facts; an LLM writes the explanations. Citation, prose and configured structural checks are applied.</dd><dt>Automatic checks</dt><dd>Passed (<code>ok</code>). The checked items are listed under Validation scope. Whether the explanation is correct still needs a person to confirm.</dd><dt>Analyzed source commit</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>Document generation time</dt><dd><code>2026-10-24 08:53:45+00:00</code></dd><dt>Prose generation model</dt><dd><code>response-bundle/codex-session</code></dd></dl><a href="../camera-model.md">Korean Markdown source ↗</a> <a href="camera-model.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="overview.html"><small>Previous</small>System overview ←</a><a class="next" href="pipeline-handler.html"><small>Next</small>Pipeline Handler →</a></nav>
+<p>Next step: <a href="pipeline-handler.html">Pipeline Handler</a></p></article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanations</dd><dt>Validation scope</dt><dd>Tables and diagrams come from extracted facts; an LLM writes the explanations. Citation, prose and configured structural checks are applied.</dd><dt>Automatic checks</dt><dd>Passed (<code>ok</code>). The checked items are listed under Validation scope. Whether the explanation is correct still needs a person to confirm.</dd><dt>Analyzed source commit</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>Document generation time</dt><dd><code>2026-10-25 08:20:44+00:00</code></dd><dt>Prose generation model</dt><dd><code>response-bundle/codex-session</code></dd></dl><a href="../camera-model.md">Korean Markdown source ↗</a> <a href="camera-model.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="overview.html"><small>Previous</small>System overview ←</a><a class="next" href="pipeline-handler.html"><small>Next</small>Pipeline Handler →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
 <aside class="page-toc"><nav aria-label="Current page contents"><p>On this page</p><div class="toc">
 <ul>
 <li><a href="#클래스별-책임">Responsibilities by class</a></li>
-<li><a href="#상태와-허용-호출">States and allowed calls</a></li>
+<li><a href="#상태와-허용-호출">States and allowed calls</a><ul>
+<li><a href="#카메라-상태와-허용-호출">Camera states and allowed calls</a></li>
+</ul>
+</li>
 <li><a href="#요청-생성과-완료">Request creation and completion</a></li>
-<li><a href="#소유권과-재사용">Ownership and reuse</a></li>
+<li><a href="#소유권과-재사용">Ownership and reuse</a><ul>
+<li><a href="#요청과-버퍼를-유지할-기간">How long to retain requests and buffers</a></li>
+</ul>
+</li>
 <li><a href="#오류와-종료">Errors and stopping</a></li>
 <li><a href="#동시성과-실행-확인">Concurrency and runtime checks</a></li>
 <li><a href="#연결-해제와-대기-요청">Disconnection and pending requests</a></li>

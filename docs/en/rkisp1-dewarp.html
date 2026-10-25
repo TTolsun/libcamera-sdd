@@ -8,8 +8,14 @@
 <main id="main"><p class="breadcrumb">For Vendor <span>/</span> RKISP1 per-camera lens dewarping</p><h1>RKISP1 per-camera lens dewarping</h1><div class="page-state"><span class="review-state">Human review pending</span><span>Automatic checks passed</span><span class="generation-method">Written from: extracted structure and a model-written draft</span><a class="state-help" href="#page-evidence">What these mean ↓</a></div>
 <details class="mobile-toc"><summary>Contents of this page</summary><div class="toc">
 <ul>
-<li><a href="#카메라별-보정값의-소유권">Ownership of per-camera dewarp parameters</a></li>
-<li><a href="#튜닝-입력의-기본값과-오류">Tuning input defaults and errors</a></li>
+<li><a href="#카메라별-보정값의-소유권">Ownership of per-camera dewarp parameters</a><ul>
+<li><a href="#보정값은-카메라별로-저장하고-구성-때-전달">Store correction parameters per camera and pass them during configuration</a></li>
+</ul>
+</li>
+<li><a href="#튜닝-입력의-기본값과-오류">Tuning input defaults and errors</a><ul>
+<li><a href="#보정-파라미터의-기본값과-입력-오류">Default correction parameters and input errors</a></li>
+</ul>
+</li>
 <li><a href="#스트림-적용과-실행-확인-범위">Stream configuration and runtime verification scope</a></li>
 <li><a href="#소스-근거">Source evidence</a></li>
 </ul>
@@ -48,12 +54,136 @@
 </table></div>
 <h2 id="카메라별-보정값의-소유권">Ownership of per-camera dewarp parameters</h2>
 <p>Dewarp parameters are stored per camera in <code>dewarpParams_</code> of <code>RkISP1CameraData</code>. Their type is <code>std::optional&lt;Dw100VertexMap::DewarpParams&gt;</code>, distinct from the two flags describing dewarper availability and actual use.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code><span class="evidence-lines"><a href="#source-04546183f68b35f4" aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:94 excerpt"><code>L94</code> excerpt</a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:94" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L94">Full source <code>L94</code></a></span></li></ul></details>
+<!-- sdd:visual:per-camera-parameters -->
+<h3 id="보정값은-카메라별로-저장하고-구성-때-전달">Store correction parameters per camera and pass them during configuration</h3>
+<p>This shows where parameters are stored and passed. It does not imply that all cameras share global correction parameters.</p>
+<pre class="mermaid">flowchart TB
+
+  v_tuning["Dewarp entry in tuning file"]
+  v_camera["RkISP1CameraData::dewarpParams_"]
+  v_configure["Current camera CameraData"]
+  v_converter["dewarper_-&amp;gt;configure()"]
+  v_tuning --&gt;|"loadDewarpParams() stores parameters"| v_camera
+  v_camera --&gt;|"Select with cameraData(camera)"| v_configure
+  v_configure --&gt;|"Configure mainPath when usesDewarper_"| v_converter</pre>
+<p><a href="rkisp1-dewarp.per-camera-parameters.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>This is an authored interpretation linked to source evidence. Automated binding checks are neither semantic approval nor device runtime validation.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Element or transition</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dewarp entry in tuning file</td>
+<td><a href="#source-af6210cb39d0385e">src/libcamera/pipeline/rkisp1/rkisp1.cpp:434</a></td>
+</tr>
+<tr>
+<td>RkISP1CameraData::dewarpParams_</td>
+<td><a href="#source-04546183f68b35f4">src/libcamera/pipeline/rkisp1/rkisp1.cpp:94</a></td>
+</tr>
+<tr>
+<td>Current camera CameraData</td>
+<td><a href="#source-c164eb4c00d1c1d6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td>dewarper_-&gt;configure()</td>
+<td><a href="#source-c164eb4c00d1c1d6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td>loadDewarpParams() stores parameters</td>
+<td><a href="#source-af6210cb39d0385e">src/libcamera/pipeline/rkisp1/rkisp1.cpp:434</a></td>
+</tr>
+<tr>
+<td>Select with cameraData(camera)</td>
+<td><a href="#source-c164eb4c00d1c1d6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td>Configure mainPath when usesDewarper_</td>
+<td><a href="#source-c164eb4c00d1c1d6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:per-camera-parameters -->
+
 <p>Without a dewarper, <code>loadTuningFile()</code> returns 0 without reading the file. File-open failure returns the file error; YAML parsing failure returns <code>-EINVAL</code>. Missing <code>modules</code> or a list without a <code>Dewarp</code> entry also returns 0.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code><span class="evidence-lines"><a href="#source-af6210cb39d0385e" aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:434 excerpt"><code>L434</code> excerpt</a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:434" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L434">Full source <code>L434</code></a></span></li></ul></details>
 <p><code>loadTuningFile()</code> passes the found <code>Dewarp</code> entry to the converter's <code>loadDewarpParams()</code>, storing the result in this camera's <code>dewarpParams_</code>. Errors are returned unchanged; success sets <code>canUseDewarper_</code> to <code>true</code>.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code><span class="evidence-lines"><a href="#source-af6210cb39d0385e" aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:434 excerpt"><code>L434</code> excerpt</a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:434" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L434">Full source <code>L434</code></a></span></li></ul></details>
 <p><code>PipelineHandlerRkISP1::configure()</code> sets <code>usesDewarper_</code> from the current camera's dewarper availability and whether output is raw. When configuring the main path with dewarping, it passes this camera's <code>data-&gt;dewarpParams_</code> to the converter's <code>configure()</code>.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code><span class="evidence-lines"><a href="#source-c164eb4c00d1c1d6" aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:914 excerpt"><code>L914</code> excerpt</a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:914" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L914">Full source <code>L914</code></a></span></li></ul></details>
 <details class="evidence-links evidence-section"><summary>Section evidence · <span>3</span></summary><ul><li><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:94" href="#source-04546183f68b35f4"><code>L94</code></a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:434" href="#source-af6210cb39d0385e"><code>L434</code></a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:914" href="#source-c164eb4c00d1c1d6"><code>L914</code></a></span></li></ul></details>
 <h2 id="튜닝-입력의-기본값과-오류">Tuning input defaults and errors</h2>
 <p><code>loadDewarpParams()</code> first clears the output optional. If <code>cm</code>, <code>coefficients</code> and <code>cmNew</code> are all absent, it returns 0 with the optional empty. Completely absent input therefore differs from partially missing parameters.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/converter/converter_dw100.cpp</code><span class="evidence-lines"><a href="#source-eacff078bd6a9d79" aria-label="src/libcamera/converter/converter_dw100.cpp:105 excerpt"><code>L105</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:105" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/converter/converter_dw100.cpp#L105">Full source <code>L105</code></a></span></li></ul></details>
+<!-- sdd:visual:dewarp-input-branches -->
+<h3 id="보정-파라미터의-기본값과-입력-오류">Default correction parameters and input errors</h3>
+<p>Distinguish absent inputs from partially supplied invalid inputs. A successful return alone does not establish that correction parameters were stored.</p>
+<pre class="mermaid">flowchart TB
+
+  v_empty{"Are cm, coefficients and cmNew all absent?"}
+  v_default["Return 0 with empty optional"]
+  v_valid{"Required matrix and coefficients valid?"}
+  v_error["Return -EINVAL"]
+  v_store["Apply cmNew default and store"]
+  v_empty --&gt;|"Yes: no explicit parameters"| v_default
+  v_empty --&gt;|"No: validate required input"| v_valid
+  v_valid --&gt;|"Missing or malformed required input"| v_error
+  v_valid --&gt;|"Valid; also validate cmNew when provided"| v_store</pre>
+<p><a href="rkisp1-dewarp.dewarp-input-branches.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>This is an authored interpretation linked to source evidence. Automated binding checks are neither semantic approval nor device runtime validation.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Element or transition</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Are cm, coefficients and cmNew all absent?</td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td>Return 0 with empty optional</td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td>Required matrix and coefficients valid?</td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td>Return -EINVAL</td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td>Apply cmNew default and store</td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td>Yes: no explicit parameters</td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td>No: validate required input</td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td>Missing or malformed required input</td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td>Valid; also validate cmNew when provided</td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:dewarp-input-branches -->
+
 <p>If any parameters are supplied, <code>cm</code> and <code>coefficients</code> are required. <code>cm</code> is read as a 3×3 floating-point matrix; absence or parsing failure returns <code>-EINVAL</code>. Missing <code>coefficients</code> or a value that is not a floating-point list returns the same error.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/converter/converter_dw100.cpp</code><span class="evidence-lines"><a href="#source-eacff078bd6a9d79" aria-label="src/libcamera/converter/converter_dw100.cpp:105 excerpt"><code>L105</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:105" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/converter/converter_dw100.cpp#L105">Full source <code>L105</code></a></span></li></ul></details>
 <p><code>loadDewarpParams()</code> accepts 4, 5, 8 or 12 distortion coefficients. A supplied <code>cmNew</code> must also be a 3×3 floating-point matrix; if absent, <code>cm</code> is used. The completed parameters are stored in the output optional only after every check passes.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/converter/converter_dw100.cpp</code><span class="evidence-lines"><a href="#source-eacff078bd6a9d79" aria-label="src/libcamera/converter/converter_dw100.cpp:105 excerpt"><code>L105</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:105" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/converter/converter_dw100.cpp#L105">Full source <code>L105</code></a></span></li></ul></details>
 <details class="evidence-links evidence-section"><summary>Section evidence · <span>1</span></summary><ul><li><code>src/libcamera/converter/converter_dw100.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/converter/converter_dw100.cpp:105" href="#source-eacff078bd6a9d79"><code>L105</code></a></span></li></ul></details>
@@ -665,15 +795,21 @@ void ConverterDW100Module::setSensorCrop(
 <li>Evidence files: <code>include/libcamera/internal/converter.h</code>, <code>include/libcamera/internal/converter/converter_dw100.h</code>, <code>include/libcamera/internal/converter/converter_dw100_vertexmap.h</code>, <code>src/libcamera/converter.cpp</code>, <code>src/libcamera/converter/converter_dw100.cpp</code>, <code>src/libcamera/converter/converter_dw100_vertexmap.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code></li>
 <li>Evidence level: code inspection (static analysis, simple_compdb configuration, commit <code>2c4b67c079</code>)</li>
 <li>Automatic checks (citations, prose and configured structure checks): passed</li>
-<li>Review status recorded: 2026-10-24 · Pending human review</li>
+<li>Review status recorded: 2026-10-25 · Awaiting human review</li>
 </ul>
 </details>
-<p>Next step: <a href="pipeline-handler.html">Pipeline Handler</a></p></article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanations</dd><dt>Validation scope</dt><dd>Tables and diagrams come from extracted facts; an LLM writes the explanations. Citation, prose and configured structural checks are applied.</dd><dt>Automatic checks</dt><dd>Passed (<code>ok</code>). The checked items are listed under Validation scope. Whether the explanation is correct still needs a person to confirm.</dd><dt>Analyzed source commit</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>Document generation time</dt><dd><code>2026-10-24 08:53:45+00:00</code></dd><dt>Prose generation model</dt><dd><code>response-bundle/codex-session</code></dd></dl><a href="../rkisp1-dewarp.md">Korean Markdown source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="ipu3-lsc-flow.html"><small>Previous</small>IPU3 LSC configuration and frame processing ←</a><a class="next" href="pipeline-handler.html"><small>Next</small>Pipeline Handler →</a></nav>
+<p>Next step: <a href="pipeline-handler.html">Pipeline Handler</a></p></article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanations</dd><dt>Validation scope</dt><dd>Tables and diagrams come from extracted facts; an LLM writes the explanations. Citation, prose and configured structural checks are applied.</dd><dt>Automatic checks</dt><dd>Passed (<code>ok</code>). The checked items are listed under Validation scope. Whether the explanation is correct still needs a person to confirm.</dd><dt>Analyzed source commit</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>Document generation time</dt><dd><code>2026-10-25 08:20:43+00:00</code></dd><dt>Prose generation model</dt><dd><code>response-bundle/codex-session</code></dd></dl><a href="../rkisp1-dewarp.md">Korean Markdown source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="ipu3-lsc-flow.html"><small>Previous</small>IPU3 LSC configuration and frame processing ←</a><a class="next" href="pipeline-handler.html"><small>Next</small>Pipeline Handler →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
 <aside class="page-toc"><nav aria-label="Current page contents"><p>On this page</p><div class="toc">
 <ul>
-<li><a href="#카메라별-보정값의-소유권">Ownership of per-camera dewarp parameters</a></li>
-<li><a href="#튜닝-입력의-기본값과-오류">Tuning input defaults and errors</a></li>
+<li><a href="#카메라별-보정값의-소유권">Ownership of per-camera dewarp parameters</a><ul>
+<li><a href="#보정값은-카메라별로-저장하고-구성-때-전달">Store correction parameters per camera and pass them during configuration</a></li>
+</ul>
+</li>
+<li><a href="#튜닝-입력의-기본값과-오류">Tuning input defaults and errors</a><ul>
+<li><a href="#보정-파라미터의-기본값과-입력-오류">Default correction parameters and input errors</a></li>
+</ul>
+</li>
 <li><a href="#스트림-적용과-실행-확인-범위">Stream configuration and runtime verification scope</a></li>
 <li><a href="#소스-근거">Source evidence</a></li>
 </ul>
