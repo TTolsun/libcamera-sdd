@@ -10,8 +10,14 @@
 <ul>
 <li><a href="#빌드와-상태-연결">Build and state connections</a></li>
 <li><a href="#초기화와-크롭-설정">Initialization and crop configuration</a></li>
-<li><a href="#첫-프레임과-요청별-제어">First frame and per-request controls</a></li>
-<li><a href="#파라미터-갱신-조건">Parameter update conditions</a></li>
+<li><a href="#첫-프레임과-요청별-제어">First frame and per-request controls</a><ul>
+<li><a href="#요청-제어가-프레임-상태에-반영되는-곳">Where request controls update frame state</a></li>
+</ul>
+</li>
+<li><a href="#파라미터-갱신-조건">Parameter update conditions</a><ul>
+<li><a href="#lsc-파라미터를-갱신하는-분기">Branches that update LSC parameters</a></li>
+</ul>
+</li>
 <li><a href="#메타데이터와-확인-범위">Metadata and validation scope</a></li>
 <li><a href="#소스-근거">Source evidence</a></li>
 <li><a href="#클래스-관계">Class relationships</a></li>
@@ -73,10 +79,179 @@
 <details class="evidence-links evidence-section"><summary>Section evidence · <span>1</span></summary><ul><li><code>src/ipa/ipu3/algorithms/lsc.cpp</code><span class="evidence-lines"><a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:31" href="#source-441d18135ba28bdb"><code>L31</code></a></span></li></ul></details>
 <h2 id="첫-프레임과-요청별-제어">First frame and per-request controls</h2>
 <p>On the first frame, <code>frame == 0</code>, <code>Lsc::queueRequest()</code> checks whether <code>LensShadingCorrectionEnable</code> is present. Only when it is absent does it set this frame's <code>enabled</code> and <code>update</code> to <code>true</code>. The comment explains that the common algorithm advertises enabled by default, while the IPU3 driver defaults to disabled.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/ipa/ipu3/algorithms/lsc.cpp</code><span class="evidence-lines"><a href="#source-80fd6c99ec2c0ae8" aria-label="src/ipa/ipu3/algorithms/lsc.cpp:121 excerpt"><code>L121</code> excerpt</a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:121" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.cpp#L121">Full source <code>L121</code></a></span></li></ul></details>
+<!-- sdd:visual:lsc-request-input -->
+<h3 id="요청-제어가-프레임-상태에-반영되는-곳">Where request controls update frame state</h3>
+<p>When the first frame has no enable control, apply the advertised default. Request controls are then passed to the common LSC algorithm.</p>
+<pre class="mermaid">flowchart TB
+
+  v_first{"First frame?"}
+  v_control{"Enable control absent?"}
+  v_default["enabled=true, update=true"]
+  v_common["Common LSC queueRequest()"]
+  v_first --&gt;|"Yes"| v_control
+  v_first --&gt;|"No"| v_common
+  v_control --&gt;|"Yes"| v_default
+  v_control --&gt;|"No: use supplied control"| v_common
+  v_default --&gt;|"Forward after applying default"| v_common</pre>
+<p><a href="ipu3-lsc-flow.lsc-request-input.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>This is an authored interpretation linked to source evidence. Automated binding checks are neither semantic approval nor device runtime validation.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Element or transition</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>First frame?</td>
+<td><a href="#source-80fd6c99ec2c0ae8">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td>Enable control absent?</td>
+<td><a href="#source-80fd6c99ec2c0ae8">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td>enabled=true, update=true</td>
+<td><a href="#source-80fd6c99ec2c0ae8">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td>Common LSC queueRequest()</td>
+<td><a href="#source-80fd6c99ec2c0ae8">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td>Yes</td>
+<td><a href="#source-80fd6c99ec2c0ae8">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td>No</td>
+<td><a href="#source-80fd6c99ec2c0ae8">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td>Yes</td>
+<td><a href="#source-80fd6c99ec2c0ae8">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td>No: use supplied control</td>
+<td><a href="#source-80fd6c99ec2c0ae8">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td>Forward after applying default</td>
+<td><a href="#source-80fd6c99ec2c0ae8">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:lsc-request-input -->
+
 <p><code>Lsc::queueRequest()</code> then passes <code>context.activeState.lsc</code>, <code>frameContext.lsc</code> and request <code>controls</code> to the common algorithm. Shared active state, this frame's state and controls are separate arguments.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/ipa/ipu3/algorithms/lsc.cpp</code><span class="evidence-lines"><a href="#source-80fd6c99ec2c0ae8" aria-label="src/ipa/ipu3/algorithms/lsc.cpp:121 excerpt"><code>L121</code> excerpt</a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:121" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.cpp#L121">Full source <code>L121</code></a></span></li></ul></details>
 <details class="evidence-links evidence-section"><summary>Section evidence · <span>1</span></summary><ul><li><code>src/ipa/ipu3/algorithms/lsc.cpp</code><span class="evidence-lines"><a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:121" href="#source-80fd6c99ec2c0ae8"><code>L121</code></a></span></li></ul></details>
 <h2 id="파라미터-갱신-조건">Parameter update conditions</h2>
 <p><code>Lsc::prepare()</code> reads the frame's AWB color temperature and quantizes it in steps of 10. <code>quantize()</code> divides by the step, rounds, then multiplies by the step again.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/ipa/ipu3/algorithms/lsc.cpp</code><span class="evidence-lines"><a href="#source-026024190618ffa6" aria-label="src/ipa/ipu3/algorithms/lsc.cpp:142 excerpt"><code>L142</code> excerpt</a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:142" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.cpp#L142">Full source <code>L142</code></a></span></li></ul></details>
+<!-- sdd:visual:lsc-update-gates -->
+<h3 id="lsc-파라미터를-갱신하는-분기">Branches that update LSC parameters</h3>
+<p>An explicit update bypasses the colour-temperature skip checks. After notifying the update, a disabled state returns without computing the LUT.</p>
+<pre class="mermaid">flowchart TB
+
+  v_update{"lsc.update?"}
+  v_enabled{"lsc.enabled?"}
+  v_threshold{"Colour-temperature difference reaches threshold?"}
+  v_quantized{"Quantized temperature changed?"}
+  v_skip["Return without updating parameters"]
+  v_notify["Write use.acc_shd and enable flag"]
+  v_lut["Compute and write LUT when enabled"]
+  v_update --&gt;|"Yes"| v_notify
+  v_update --&gt;|"No"| v_enabled
+  v_enabled --&gt;|"No"| v_skip
+  v_enabled --&gt;|"Yes"| v_threshold
+  v_threshold --&gt;|"No"| v_skip
+  v_threshold --&gt;|"Yes"| v_quantized
+  v_quantized --&gt;|"No"| v_skip
+  v_quantized --&gt;|"Yes"| v_notify
+  v_notify --&gt;|"Only when enabled"| v_lut</pre>
+<p><a href="ipu3-lsc-flow.lsc-update-gates.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>This is an authored interpretation linked to source evidence. Automated binding checks are neither semantic approval nor device runtime validation.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Element or transition</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>lsc.update?</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>lsc.enabled?</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>Colour-temperature difference reaches threshold?</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>Quantized temperature changed?</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>Return without updating parameters</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>Write use.acc_shd and enable flag</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>Compute and write LUT when enabled</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>Yes</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>No</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>No</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>Yes</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>No</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>Yes</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>No</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>Yes</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>Only when enabled</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:lsc-update-gates -->
+
 <p>When <code>update</code> is <code>false</code>, disabled correction returns immediately. Within that same branch, a difference of less than 5 from the last applied temperature, or an unchanged quantized temperature, also causes a return. These three skip conditions must not be extended to the <code>update == true</code> path.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/ipa/ipu3/algorithms/lsc.cpp</code><span class="evidence-lines"><a href="#source-026024190618ffa6" aria-label="src/ipa/ipu3/algorithms/lsc.cpp:142 excerpt"><code>L142</code> excerpt</a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:142" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.cpp#L142">Full source <code>L142</code></a></span></li></ul></details>
 <p>When proceeding with an update, <code>prepare()</code> first sets <code>params-&gt;use.acc_shd</code> to 1 and writes this frame's enabled state to <code>shd_enable</code>. It returns afterward if disabled, so a disabling transition with <code>update == true</code> still transmits these flags.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/ipa/ipu3/algorithms/lsc.cpp</code><span class="evidence-lines"><a href="#source-026024190618ffa6" aria-label="src/ipa/ipu3/algorithms/lsc.cpp:142 excerpt"><code>L142</code> excerpt</a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:142" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.cpp#L142">Full source <code>L142</code></a></span></li></ul></details>
 <p>The active path of <code>prepare()</code> writes calculated horizontal and vertical cell counts, log2 cell sizes and grid height per slice to hardware parameters. It uses zero start coordinates for the polynomial method, or half the crop-size minus sensor-size difference otherwise.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/ipa/ipu3/algorithms/lsc.cpp</code><span class="evidence-lines"><a href="#source-026024190618ffa6" aria-label="src/ipa/ipu3/algorithms/lsc.cpp:142 excerpt"><code>L142</code> excerpt</a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:142" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.cpp#L142">Full source <code>L142</code></a></span></li></ul></details>
@@ -606,17 +781,23 @@ REGISTER_IPA_ALGORITHM(Lsc, "Lsc")
 <li>Source files: <code>src/ipa/ipu3/algorithms/lsc.cpp</code>, <code>src/ipa/ipu3/algorithms/lsc.h</code>, <code>src/ipa/ipu3/algorithms/meson.build</code>, <code>src/ipa/ipu3/ipa_context.h</code>, <code>src/ipa/libipa/lsc.h</code></li>
 <li>Evidence level: code inspection (static analysis, simple_compdb configuration, commit <code>2c4b67c079</code>)</li>
 <li>Automatic checks (citations, prose and configured structure checks): passed</li>
-<li>Review status recorded: 2026-10-24 · Pending human review</li>
+<li>Review status recorded: 2026-10-25 · Awaiting human review</li>
 </ul>
 </details>
-<p>Next step: <a href="overview.html">System overview</a></p></article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanations</dd><dt>Validation scope</dt><dd>Tables and diagrams come from extracted facts; an LLM writes the explanations. Citation, prose and configured structural checks are applied.</dd><dt>Automatic checks</dt><dd>Passed (<code>ok</code>). The checked items are listed under Validation scope. Whether the explanation is correct still needs a person to confirm.</dd><dt>Analyzed source commit</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>Document generation time</dt><dd><code>2026-10-24 08:53:45+00:00</code></dd><dt>Prose generation model</dt><dd><code>response-bundle/codex-session</code></dd></dl><a href="../ipu3-lsc-flow.md">Korean Markdown source ↗</a> <a href="ipu3-lsc-flow.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="ipu3-lsc.html"><small>Previous</small>IPU3 LSC and state connections ←</a><a class="next" href="overview.html"><small>Next</small>System overview →</a></nav>
+<p>Next step: <a href="overview.html">System overview</a></p></article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanations</dd><dt>Validation scope</dt><dd>Tables and diagrams come from extracted facts; an LLM writes the explanations. Citation, prose and configured structural checks are applied.</dd><dt>Automatic checks</dt><dd>Passed (<code>ok</code>). The checked items are listed under Validation scope. Whether the explanation is correct still needs a person to confirm.</dd><dt>Analyzed source commit</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>Document generation time</dt><dd><code>2026-10-25 08:20:42+00:00</code></dd><dt>Prose generation model</dt><dd><code>response-bundle/codex-session</code></dd></dl><a href="../ipu3-lsc-flow.md">Korean Markdown source ↗</a> <a href="ipu3-lsc-flow.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="ipu3-lsc.html"><small>Previous</small>IPU3 LSC and state connections ←</a><a class="next" href="overview.html"><small>Next</small>System overview →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
 <aside class="page-toc"><nav aria-label="Current page contents"><p>On this page</p><div class="toc">
 <ul>
 <li><a href="#빌드와-상태-연결">Build and state connections</a></li>
 <li><a href="#초기화와-크롭-설정">Initialization and crop configuration</a></li>
-<li><a href="#첫-프레임과-요청별-제어">First frame and per-request controls</a></li>
-<li><a href="#파라미터-갱신-조건">Parameter update conditions</a></li>
+<li><a href="#첫-프레임과-요청별-제어">First frame and per-request controls</a><ul>
+<li><a href="#요청-제어가-프레임-상태에-반영되는-곳">Where request controls update frame state</a></li>
+</ul>
+</li>
+<li><a href="#파라미터-갱신-조건">Parameter update conditions</a><ul>
+<li><a href="#lsc-파라미터를-갱신하는-분기">Branches that update LSC parameters</a></li>
+</ul>
+</li>
 <li><a href="#메타데이터와-확인-범위">Metadata and validation scope</a></li>
 <li><a href="#소스-근거">Source evidence</a></li>
 <li><a href="#클래스-관계">Class relationships</a></li>

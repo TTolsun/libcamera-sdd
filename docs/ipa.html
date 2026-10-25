@@ -8,8 +8,14 @@
 <main id="main"><p class="breadcrumb">For Vendor <span>/</span> IPA 관리와 구현 진입점</p><h1>IPA 관리와 구현 진입점</h1><div class="page-state"><span class="review-state">사람 검토 전</span><span>자동 검사 통과</span><span class="generation-method">작성: 추출한 구조와 모델이 쓴 초안</span><a class="state-help" href="#page-evidence">상태 설명 ↓</a></div>
 <details class="mobile-toc"><summary>이 페이지의 목차</summary><div class="toc">
 <ul>
-<li><a href="#모듈-탐색과-격리-조건">모듈 탐색과 격리 조건</a></li>
-<li><a href="#스레드와-프로세스-경계">스레드와 프로세스 경계</a></li>
+<li><a href="#모듈-탐색과-격리-조건">모듈 탐색과 격리 조건</a><ul>
+<li><a href="#ipa-모듈-선택과-실행-경계">IPA 모듈 선택과 실행 경계</a></li>
+</ul>
+</li>
+<li><a href="#스레드와-프로세스-경계">스레드와 프로세스 경계</a><ul>
+<li><a href="#스레드-호출과-ipc-호출의-경계">스레드 호출과 IPC 호출의 경계</a></li>
+</ul>
+</li>
 <li><a href="#프레임-입력과-결과-인터페이스">프레임 입력과 결과 인터페이스</a></li>
 <li><a href="#ipa-객체와-종료-순서">IPA 객체와 종료 순서</a></li>
 <li><a href="#생성과-ipc-실패">생성과 IPC 실패</a></li>
@@ -80,12 +86,161 @@
 </table></div>
 <h2 id="모듈-탐색과-격리-조건">모듈 탐색과 격리 조건</h2>
 <p><code>IPAManager</code>는 사용자가 지정한 모듈 경로를 먼저 추가합니다. 설치 전 빌드 경로를 찾을 수 있으면 그 아래 <code>src/ipa</code>를 추가하고, 마지막으로 설치된 시스템 모듈 경로를 확인합니다. 사용자 지정 경로가 우선한다는 주석이 이 순서를 설명합니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/ipa_manager.cpp</code><span class="evidence-lines"><a href="#source-7603cbafe8eef490" aria-label="src/libcamera/ipa_manager.cpp:107 발췌"><code>L107</code> 발췌</a> · <a aria-label="src/libcamera/ipa_manager.cpp:107" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipa_manager.cpp#L107">전체 소스 <code>L107</code></a></span></li></ul></details>
+<!-- sdd:visual:proxy-selection -->
+<h3 id="ipa-모듈-선택과-실행-경계">IPA 모듈 선택과 실행 경계</h3>
+<p>모듈 선택, 서명 판정, 프록시 유효성의 분기를 구분하세요. 서명 판정의 구성 조건은 이어지는 설명에서 확인합니다.</p>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {&quot;Isolated 프록시&quot;: &quot;Isolated proxy&quot;, &quot;Threaded 프록시&quot;: &quot;Threaded proxy&quot;, &quot;false&quot;: &quot;false&quot;, &quot;isSignatureValid(m)?&quot;: &quot;isSignatureValid(m)?&quot;, &quot;nullptr: 생성 실패&quot;: &quot;nullptr: creation failed&quot;, &quot;true&quot;: &quot;true&quot;, &quot;생성 후 검사&quot;: &quot;Check after construction&quot;, &quot;아니오&quot;: &quot;No&quot;, &quot;예&quot;: &quot;Yes&quot;, &quot;이름·버전의 모듈이 있는가?&quot;: &quot;Module matching name and version?&quot;, &quot;프록시 반환&quot;: &quot;Return proxy&quot;, &quot;프록시가 유효한가?&quot;: &quot;Is the proxy valid?&quot;}
+  v_module{&quot;이름·버전의 모듈이 있는가?&quot;}
+  v_signature{&quot;isSignatureValid(m)?&quot;}
+  v_threaded[&quot;Threaded 프록시&quot;]
+  v_isolated[&quot;Isolated 프록시&quot;]
+  v_valid{&quot;프록시가 유효한가?&quot;}
+  v_failure[&quot;nullptr: 생성 실패&quot;]
+  v_success[&quot;프록시 반환&quot;]
+  v_module --&gt;|&quot;아니오&quot;| v_failure
+  v_module --&gt;|&quot;예&quot;| v_signature
+  v_signature --&gt;|&quot;true&quot;| v_threaded
+  v_signature --&gt;|&quot;false&quot;| v_isolated
+  v_threaded --&gt;|&quot;생성 후 검사&quot;| v_valid
+  v_isolated --&gt;|&quot;생성 후 검사&quot;| v_valid
+  v_valid --&gt;|&quot;아니오&quot;| v_failure
+  v_valid --&gt;|&quot;예&quot;| v_success</pre>
+<p><a href="ipa.proxy-selection.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>이름·버전의 모듈이 있는가?</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>isSignatureValid(m)?</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>Threaded 프록시</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>Isolated 프록시</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>프록시가 유효한가?</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>nullptr: 생성 실패</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>프록시 반환</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>아니오</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>예</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>true</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>false</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>생성 후 검사</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>생성 후 검사</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>아니오</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td>예</td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:proxy-selection -->
+
 <p><code>IPAModule::match()</code>는 모듈 이름의 정확한 일치와 버전 범위를 함께 검사합니다. <code>pipelineVersion</code>은 최소 버전 이상이면서 최대 버전 이하여야 합니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/ipa_module.cpp</code><span class="evidence-lines"><a href="#source-6e1525c1fc1aa55e" aria-label="src/libcamera/ipa_module.cpp:460 발췌"><code>L460</code> 발췌</a> · <a aria-label="src/libcamera/ipa_module.cpp:460" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipa_module.cpp#L460">전체 소스 <code>L460</code></a></span></li></ul></details>
 <p><code>createIPA()</code>는 이름과 버전에 맞는 모듈이 없으면 null 포인터를 반환합니다. 모듈을 찾은 뒤에는 서명 판정이 참이면 <code>Threaded</code>, 거짓이면 <code>Isolated</code> 프록시를 선택합니다. 생성한 프록시의 <code>isValid()</code>가 거짓일 때도 null 포인터를 반환합니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>include/libcamera/internal/ipa_manager.h</code><span class="evidence-lines"><a href="#source-2a1bbbc8623a516f" aria-label="include/libcamera/internal/ipa_manager.h:35 발췌"><code>L35</code> 발췌</a> · <a aria-label="include/libcamera/internal/ipa_manager.h:35" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/include/libcamera/internal/ipa_manager.h#L35">전체 소스 <code>L35</code></a></span></li></ul></details>
 <p>서명 판정은 강제 격리 설정, 모듈 파일 열기·매핑 실패, 서명 검증 결과에 영향을 받습니다. 공개 키 지원 없이 빌드한 경우에도 거짓을 반환합니다. 이 거짓 판정은 격리 실행을 선택하는 입력이며, 그 자체가 <code>createIPA()</code>의 즉시 생성 실패는 아닙니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/ipa_manager.cpp</code><span class="evidence-lines"><a href="#source-532f8ffa194bd319" aria-label="src/libcamera/ipa_manager.cpp:289 발췌"><code>L289</code> 발췌</a> · <a aria-label="src/libcamera/ipa_manager.cpp:289" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipa_manager.cpp#L289">전체 소스 <code>L289</code></a></span></li></ul></details>
 <details class="evidence-links evidence-section"><summary>절 전체 근거 <span>4</span>개</summary><ul><li><code>src/libcamera/ipa_manager.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/ipa_manager.cpp:107" href="#source-7603cbafe8eef490"><code>L107</code></a> · <a aria-label="src/libcamera/ipa_manager.cpp:289" href="#source-532f8ffa194bd319"><code>L289</code></a></span></li><li><code>src/libcamera/ipa_module.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/ipa_module.cpp:460" href="#source-6e1525c1fc1aa55e"><code>L460</code></a></span></li><li><code>include/libcamera/internal/ipa_manager.h</code><span class="evidence-lines"><a aria-label="include/libcamera/internal/ipa_manager.h:35" href="#source-2a1bbbc8623a516f"><code>L35</code></a></span></li></ul></details>
 <h2 id="스레드와-프로세스-경계">스레드와 프로세스 경계</h2>
 <p><code>Threaded</code> 프록시 템플릿은 <code>init()</code>을 IPA에 직접 호출한 뒤 내부 프록시를 작업 스레드로 옮깁니다. <code>start()</code>에서는 스레드를 시작하고 blocking 호출로 내부 시작을 수행합니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl</code><span class="evidence-lines"><a href="#source-c7fd6e52f2c537b5" aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48 발췌"><code>L48</code> 발췌</a> · <a aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L48">전체 소스 <code>L48</code></a></span></li></ul></details>
+<!-- sdd:visual:execution-boundaries -->
+<h3 id="스레드-호출과-ipc-호출의-경계">스레드 호출과 IPC 호출의 경계</h3>
+<p>Threaded와 Isolated는 대체 경로입니다. 각 API가 동기인지 비동기인지는 인터페이스 선언에 따라 달라집니다.</p>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {&quot;IPC로 worker와 통신&quot;: &quot;Communicate with worker over IPC&quot;, &quot;Isolated 프록시&quot;: &quot;Isolated proxy&quot;, &quot;Threaded 프록시&quot;: &quot;Threaded proxy&quot;, &quot;is_async 메서드&quot;: &quot;is_async methods&quot;, &quot;비동기 메서드는 작업 스레드로 예약&quot;: &quot;Queue asynchronous methods to worker thread&quot;, &quot;선언에 따라 sendAsync 또는 sendSync&quot;: &quot;sendAsync or sendSync per declaration&quot;}
+  v_threaded[&quot;Threaded 프록시&quot;]
+  v_thread[&quot;비동기 메서드는 작업 스레드로 예약&quot;]
+  v_isolated[&quot;Isolated 프록시&quot;]
+  v_ipc[&quot;IPC로 worker와 통신&quot;]
+  v_threaded --&gt;|&quot;is_async 메서드&quot;| v_thread
+  v_isolated --&gt;|&quot;선언에 따라 sendAsync 또는 sendSync&quot;| v_ipc</pre>
+<p><a href="ipa.execution-boundaries.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Threaded 프록시</td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a></td>
+</tr>
+<tr>
+<td>비동기 메서드는 작업 스레드로 예약</td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a></td>
+</tr>
+<tr>
+<td>Isolated 프록시</td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td>IPC로 worker와 통신</td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td>is_async 메서드</td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a></td>
+</tr>
+<tr>
+<td>선언에 따라 sendAsync 또는 sendSync</td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:execution-boundaries -->
+
 <p>일반 동기 메서드는 IPA 객체를 직접 호출하고, async 메서드는 실행 상태를 확인한 뒤 <code>ConnectionTypeQueued</code>로 내부 프록시에 전달합니다. 따라서 메서드가 모두 같은 방식으로 작업 스레드에 전달된다고 보면 안 됩니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl</code><span class="evidence-lines"><a href="#source-c7fd6e52f2c537b5" aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48 발췌"><code>L48</code> 발췌</a> · <a aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L48">전체 소스 <code>L48</code></a></span></li></ul></details>
 <p><code>Isolated</code> 프록시는 worker 경로를 찾고 <code>IPCPipeUnixSocket</code>을 구성합니다. 파이프가 연결돼야 수신 신호를 연결하고 프록시를 유효한 상태로 표시합니다. 메서드 입력을 직렬화한 뒤 async는 <code>sendAsync()</code>, 나머지는 <code>sendSync()</code>로 보냅니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl</code><span class="evidence-lines"><a href="#source-9ff6047b0a70ce66" aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130 발췌"><code>L130</code> 발췌</a> · <a aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130">전체 소스 <code>L130</code></a></span></li></ul></details>
 <p><code>resolvePath()</code>의 실제 구현은 설정 경로를 먼저 확인합니다. 빌드 경로가 있으면 그 아래 worker를 확인하고, 그 경로에서 찾지 못하면 빈 문자열을 반환합니다. 빌드 경로가 없는 경우에 설치 경로를 확인하므로, 설치 경로가 먼저라는 오래된 주석보다 실제 분기를 기준으로 읽어야 합니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/ipa_proxy.cpp</code><span class="evidence-lines"><a href="#source-59a673fb7c43c0e0" aria-label="src/libcamera/ipa_proxy.cpp:204 발췌"><code>L204</code> 발췌</a> · <a aria-label="src/libcamera/ipa_proxy.cpp:204" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/ipa_proxy.cpp#L204">전체 소스 <code>L204</code></a></span></li></ul></details>
@@ -1286,15 +1441,21 @@ interface IPASoftIspEventInterface {
 <li>근거 파일: <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/ipa_module.h</code>, <code>include/libcamera/internal/ipa_proxy.h</code>, <code>include/libcamera/ipa/ipu3.mojom</code>, <code>include/libcamera/ipa/rkisp1.mojom</code>, <code>include/libcamera/ipa/softisp.mojom</code>, <code>src/ipa/ipu3/ipu3.cpp</code>, <code>src/ipa/mali-c55/data/uncalibrated.yaml</code>, <code>src/ipa/rkisp1/data/uncalibrated.yaml</code>, <code>src/ipa/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/egl.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/ipa_module.cpp</code>, <code>src/libcamera/ipa_proxy.cpp</code>, <code>src/libcamera/ipc_pipe_unixsocket.cpp</code>, <code>src/libcamera/pipeline/mali-c55/mali-c55.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/shaders/bayer_1x_packed.frag</code>, <code>src/libcamera/shaders/bayer_unpacked.frag</code>, <code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl</code>, <code>utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl</code></li>
 <li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>2c4b67c079</code>)</li>
 <li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li>
-<li>검토 상태 기록일: 2026-10-24 · 사람 검토 전</li>
+<li>검토 상태 기록일: 2026-10-25 · 사람 검토 전</li>
 </ul>
 </details>
-<p>다음 단계: <a href="ipu3-lsc.html">IPU3 LSC와 상태 연결</a></p></article><section class="evidence"><h2 id="page-evidence">생성 근거</h2><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>분석 기준 커밋</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>문서 생성 시각</dt><dd><code>2026-10-24 10:45:11+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>ollama/qwen3.5:9b, response-bundle/codex-session</code></dd></dl><a href="ipa.md">Markdown 원문 ↗</a> <a href="ipa.mmd">Mermaid 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="pipeline-handler.html"><small>이전</small>Pipeline Handler ←</a><a class="next" href="ipu3-lsc.html"><small>다음</small>IPU3 LSC와 상태 연결 →</a></nav>
+<p>다음 단계: <a href="ipu3-lsc.html">IPU3 LSC와 상태 연결</a></p></article><section class="evidence"><h2 id="page-evidence">생성 근거</h2><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>분석 기준 커밋</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>문서 생성 시각</dt><dd><code>2026-10-25 08:20:42+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>ollama/qwen3.5:9b, response-bundle/codex-session</code></dd></dl><a href="ipa.md">Markdown 원문 ↗</a> <a href="ipa.mmd">Mermaid 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="pipeline-handler.html"><small>이전</small>Pipeline Handler ←</a><a class="next" href="ipu3-lsc.html"><small>다음</small>IPU3 LSC와 상태 연결 →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · 인용 검사와 사람의 내용 검토는 별도입니다.</footer></main>
 <aside class="page-toc"><nav aria-label="현재 페이지 목차"><p>이 페이지에서</p><div class="toc">
 <ul>
-<li><a href="#모듈-탐색과-격리-조건">모듈 탐색과 격리 조건</a></li>
-<li><a href="#스레드와-프로세스-경계">스레드와 프로세스 경계</a></li>
+<li><a href="#모듈-탐색과-격리-조건">모듈 탐색과 격리 조건</a><ul>
+<li><a href="#ipa-모듈-선택과-실행-경계">IPA 모듈 선택과 실행 경계</a></li>
+</ul>
+</li>
+<li><a href="#스레드와-프로세스-경계">스레드와 프로세스 경계</a><ul>
+<li><a href="#스레드-호출과-ipc-호출의-경계">스레드 호출과 IPC 호출의 경계</a></li>
+</ul>
+</li>
 <li><a href="#프레임-입력과-결과-인터페이스">프레임 입력과 결과 인터페이스</a></li>
 <li><a href="#ipa-객체와-종료-순서">IPA 객체와 종료 순서</a></li>
 <li><a href="#생성과-ipc-실패">생성과 IPC 실패</a></li>

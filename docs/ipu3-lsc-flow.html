@@ -10,8 +10,14 @@
 <ul>
 <li><a href="#빌드와-상태-연결">빌드와 상태 연결</a></li>
 <li><a href="#초기화와-크롭-설정">초기화와 크롭 설정</a></li>
-<li><a href="#첫-프레임과-요청별-제어">첫 프레임과 요청별 제어</a></li>
-<li><a href="#파라미터-갱신-조건">파라미터 갱신 조건</a></li>
+<li><a href="#첫-프레임과-요청별-제어">첫 프레임과 요청별 제어</a><ul>
+<li><a href="#요청-제어가-프레임-상태에-반영되는-곳">요청 제어가 프레임 상태에 반영되는 곳</a></li>
+</ul>
+</li>
+<li><a href="#파라미터-갱신-조건">파라미터 갱신 조건</a><ul>
+<li><a href="#lsc-파라미터를-갱신하는-분기">LSC 파라미터를 갱신하는 분기</a></li>
+</ul>
+</li>
 <li><a href="#메타데이터와-확인-범위">메타데이터와 확인 범위</a></li>
 <li><a href="#소스-근거">소스 근거</a></li>
 <li><a href="#클래스-관계">클래스 관계</a></li>
@@ -73,10 +79,179 @@
 <details class="evidence-links evidence-section"><summary>절 전체 근거 <span>1</span>개</summary><ul><li><code>src/ipa/ipu3/algorithms/lsc.cpp</code><span class="evidence-lines"><a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:31" href="#source-441d18135ba28bdb"><code>L31</code></a></span></li></ul></details>
 <h2 id="첫-프레임과-요청별-제어">첫 프레임과 요청별 제어</h2>
 <p><code>Lsc::queueRequest()</code>는 첫 프레임인 <code>frame == 0</code>에서 <code>LensShadingCorrectionEnable</code> 제어의 포함 여부를 확인합니다. 제어가 없을 때만 해당 프레임의 <code>enabled</code>와 <code>update</code>를 모두 <code>true</code>로 설정합니다. 주석은 공통 알고리즘의 기본값이 켜짐인 반면 IPU3 드라이버 기본값은 꺼짐이어서 이 처리가 필요하다고 설명합니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/ipa/ipu3/algorithms/lsc.cpp</code><span class="evidence-lines"><a href="#source-80fd6c99ec2c0ae8" aria-label="src/ipa/ipu3/algorithms/lsc.cpp:121 발췌"><code>L121</code> 발췌</a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:121" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.cpp#L121">전체 소스 <code>L121</code></a></span></li></ul></details>
+<!-- sdd:visual:lsc-request-input -->
+<h3 id="요청-제어가-프레임-상태에-반영되는-곳">요청 제어가 프레임 상태에 반영되는 곳</h3>
+<p>첫 프레임에서 활성화 제어가 없으면 광고한 기본값을 맞춥니다. 이후 공통 LSC 알고리즘에 요청 제어를 전달합니다.</p>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {&quot;enabled=true, update=true&quot;: &quot;enabled=true, update=true&quot;, &quot;공통 LSC queueRequest()&quot;: &quot;Common LSC queueRequest()&quot;, &quot;기본값 적용 후 전달&quot;: &quot;Forward after applying default&quot;, &quot;아니오&quot;: &quot;No&quot;, &quot;아니오: 전달된 제어 사용&quot;: &quot;No: use supplied control&quot;, &quot;예&quot;: &quot;Yes&quot;, &quot;첫 프레임인가?&quot;: &quot;First frame?&quot;, &quot;활성화 제어가 없는가?&quot;: &quot;Enable control absent?&quot;}
+  v_first{&quot;첫 프레임인가?&quot;}
+  v_control{&quot;활성화 제어가 없는가?&quot;}
+  v_default[&quot;enabled=true, update=true&quot;]
+  v_common[&quot;공통 LSC queueRequest()&quot;]
+  v_first --&gt;|&quot;예&quot;| v_control
+  v_first --&gt;|&quot;아니오&quot;| v_common
+  v_control --&gt;|&quot;예&quot;| v_default
+  v_control --&gt;|&quot;아니오: 전달된 제어 사용&quot;| v_common
+  v_default --&gt;|&quot;기본값 적용 후 전달&quot;| v_common</pre>
+<p><a href="ipu3-lsc-flow.lsc-request-input.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>첫 프레임인가?</td>
+<td><a href="#source-80fd6c99ec2c0ae8">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td>활성화 제어가 없는가?</td>
+<td><a href="#source-80fd6c99ec2c0ae8">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td>enabled=true, update=true</td>
+<td><a href="#source-80fd6c99ec2c0ae8">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td>공통 LSC queueRequest()</td>
+<td><a href="#source-80fd6c99ec2c0ae8">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td>예</td>
+<td><a href="#source-80fd6c99ec2c0ae8">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td>아니오</td>
+<td><a href="#source-80fd6c99ec2c0ae8">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td>예</td>
+<td><a href="#source-80fd6c99ec2c0ae8">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td>아니오: 전달된 제어 사용</td>
+<td><a href="#source-80fd6c99ec2c0ae8">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td>기본값 적용 후 전달</td>
+<td><a href="#source-80fd6c99ec2c0ae8">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:lsc-request-input -->
+
 <p><code>Lsc::queueRequest()</code>는 이후 공통 알고리즘에 <code>context.activeState.lsc</code>, <code>frameContext.lsc</code>, 요청의 <code>controls</code>를 전달합니다. 따라서 공유 활성 상태와 이번 프레임 상태, 제어 목록이 서로 다른 인자로 연결됩니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/ipa/ipu3/algorithms/lsc.cpp</code><span class="evidence-lines"><a href="#source-80fd6c99ec2c0ae8" aria-label="src/ipa/ipu3/algorithms/lsc.cpp:121 발췌"><code>L121</code> 발췌</a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:121" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.cpp#L121">전체 소스 <code>L121</code></a></span></li></ul></details>
 <details class="evidence-links evidence-section"><summary>절 전체 근거 <span>1</span>개</summary><ul><li><code>src/ipa/ipu3/algorithms/lsc.cpp</code><span class="evidence-lines"><a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:121" href="#source-80fd6c99ec2c0ae8"><code>L121</code></a></span></li></ul></details>
 <h2 id="파라미터-갱신-조건">파라미터 갱신 조건</h2>
 <p><code>Lsc::prepare()</code>는 프레임의 AWB 색온도를 읽고 10 단위로 양자화합니다. <code>quantize()</code>는 값을 단위 크기로 나눈 뒤 반올림하고 다시 그 단위를 곱합니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/ipa/ipu3/algorithms/lsc.cpp</code><span class="evidence-lines"><a href="#source-026024190618ffa6" aria-label="src/ipa/ipu3/algorithms/lsc.cpp:142 발췌"><code>L142</code> 발췌</a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:142" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.cpp#L142">전체 소스 <code>L142</code></a></span></li></ul></details>
+<!-- sdd:visual:lsc-update-gates -->
+<h3 id="lsc-파라미터를-갱신하는-분기">LSC 파라미터를 갱신하는 분기</h3>
+<p>명시적 update가 있으면 색온도 생략 검사를 건너뜁니다. 갱신을 통지한 뒤 비활성 상태이면 LUT 계산은 수행하지 않습니다.</p>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {&quot;lsc.enabled인가?&quot;: &quot;lsc.enabled?&quot;, &quot;lsc.update인가?&quot;: &quot;lsc.update?&quot;, &quot;use.acc_shd와 활성화 값 기록&quot;: &quot;Write use.acc_shd and enable flag&quot;, &quot;색온도 차이가 임계값 이상인가?&quot;: &quot;Colour-temperature difference reaches threshold?&quot;, &quot;아니오&quot;: &quot;No&quot;, &quot;양자화된 색온도가 달라졌는가?&quot;: &quot;Quantized temperature changed?&quot;, &quot;예&quot;: &quot;Yes&quot;, &quot;파라미터 갱신 없이 반환&quot;: &quot;Return without updating parameters&quot;, &quot;활성 상태면 LUT 계산·기록&quot;: &quot;Compute and write LUT when enabled&quot;, &quot;활성 상태일 때만&quot;: &quot;Only when enabled&quot;}
+  v_update{&quot;lsc.update인가?&quot;}
+  v_enabled{&quot;lsc.enabled인가?&quot;}
+  v_threshold{&quot;색온도 차이가 임계값 이상인가?&quot;}
+  v_quantized{&quot;양자화된 색온도가 달라졌는가?&quot;}
+  v_skip[&quot;파라미터 갱신 없이 반환&quot;]
+  v_notify[&quot;use.acc_shd와 활성화 값 기록&quot;]
+  v_lut[&quot;활성 상태면 LUT 계산·기록&quot;]
+  v_update --&gt;|&quot;예&quot;| v_notify
+  v_update --&gt;|&quot;아니오&quot;| v_enabled
+  v_enabled --&gt;|&quot;아니오&quot;| v_skip
+  v_enabled --&gt;|&quot;예&quot;| v_threshold
+  v_threshold --&gt;|&quot;아니오&quot;| v_skip
+  v_threshold --&gt;|&quot;예&quot;| v_quantized
+  v_quantized --&gt;|&quot;아니오&quot;| v_skip
+  v_quantized --&gt;|&quot;예&quot;| v_notify
+  v_notify --&gt;|&quot;활성 상태일 때만&quot;| v_lut</pre>
+<p><a href="ipu3-lsc-flow.lsc-update-gates.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>lsc.update인가?</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>lsc.enabled인가?</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>색온도 차이가 임계값 이상인가?</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>양자화된 색온도가 달라졌는가?</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>파라미터 갱신 없이 반환</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>use.acc_shd와 활성화 값 기록</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>활성 상태면 LUT 계산·기록</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>예</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>아니오</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>아니오</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>예</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>아니오</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>예</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>아니오</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>예</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td>활성 상태일 때만</td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:lsc-update-gates -->
+
 <p><code>update</code>가 <code>false</code>일 때는 보정이 비활성인 경우 바로 반환합니다. 같은 분기 안에서 원래 색온도와 마지막 적용 색온도의 차이가 5보다 작거나, 양자화 색온도가 마지막 값과 같아도 반환합니다. 이 세 가지 생략 조건을 <code>update == true</code> 경로까지 확대하면 안 됩니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/ipa/ipu3/algorithms/lsc.cpp</code><span class="evidence-lines"><a href="#source-026024190618ffa6" aria-label="src/ipa/ipu3/algorithms/lsc.cpp:142 발췌"><code>L142</code> 발췌</a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:142" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.cpp#L142">전체 소스 <code>L142</code></a></span></li></ul></details>
 <p>갱신을 진행하는 <code>prepare()</code>는 먼저 <code>params-&gt;use.acc_shd</code>를 1로 설정하고 <code>shd_enable</code>에 이번 프레임의 활성 상태를 기록합니다. 비활성 상태라면 그 뒤에 반환하므로, <code>update == true</code>인 비활성화 전환도 이 플래그들을 전달합니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/ipa/ipu3/algorithms/lsc.cpp</code><span class="evidence-lines"><a href="#source-026024190618ffa6" aria-label="src/ipa/ipu3/algorithms/lsc.cpp:142 발췌"><code>L142</code> 발췌</a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:142" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.cpp#L142">전체 소스 <code>L142</code></a></span></li></ul></details>
 <p>활성 경로의 <code>prepare()</code>는 계산해 둔 가로·세로 셀 수와 셀 크기의 log2 값, 슬라이스당 그리드 높이를 하드웨어 파라미터에 씁니다. 다항식 방식이면 시작 위치를 0으로, 그 외에는 크롭 크기와 센서 크기의 차이를 절반으로 나눈 값으로 설정합니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/ipa/ipu3/algorithms/lsc.cpp</code><span class="evidence-lines"><a href="#source-026024190618ffa6" aria-label="src/ipa/ipu3/algorithms/lsc.cpp:142 발췌"><code>L142</code> 발췌</a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:142" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/ipa/ipu3/algorithms/lsc.cpp#L142">전체 소스 <code>L142</code></a></span></li></ul></details>
@@ -606,17 +781,23 @@ REGISTER_IPA_ALGORITHM(Lsc, "Lsc")
 <li>근거 파일: <code>src/ipa/ipu3/algorithms/lsc.cpp</code>, <code>src/ipa/ipu3/algorithms/lsc.h</code>, <code>src/ipa/ipu3/algorithms/meson.build</code>, <code>src/ipa/ipu3/ipa_context.h</code>, <code>src/ipa/libipa/lsc.h</code></li>
 <li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>2c4b67c079</code>)</li>
 <li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li>
-<li>검토 상태 기록일: 2026-10-24 · 사람 검토 전</li>
+<li>검토 상태 기록일: 2026-10-25 · 사람 검토 전</li>
 </ul>
 </details>
-<p>다음 단계: <a href="overview.html">시스템 개요</a></p></article><section class="evidence"><h2 id="page-evidence">생성 근거</h2><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>분석 기준 커밋</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>문서 생성 시각</dt><dd><code>2026-10-24 08:53:45+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>response-bundle/codex-session</code></dd></dl><a href="ipu3-lsc-flow.md">Markdown 원문 ↗</a> <a href="ipu3-lsc-flow.mmd">Mermaid 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="ipu3-lsc.html"><small>이전</small>IPU3 LSC와 상태 연결 ←</a><a class="next" href="overview.html"><small>다음</small>시스템 개요 →</a></nav>
+<p>다음 단계: <a href="overview.html">시스템 개요</a></p></article><section class="evidence"><h2 id="page-evidence">생성 근거</h2><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>분석 기준 커밋</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>문서 생성 시각</dt><dd><code>2026-10-25 08:20:42+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>response-bundle/codex-session</code></dd></dl><a href="ipu3-lsc-flow.md">Markdown 원문 ↗</a> <a href="ipu3-lsc-flow.mmd">Mermaid 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="ipu3-lsc.html"><small>이전</small>IPU3 LSC와 상태 연결 ←</a><a class="next" href="overview.html"><small>다음</small>시스템 개요 →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · 인용 검사와 사람의 내용 검토는 별도입니다.</footer></main>
 <aside class="page-toc"><nav aria-label="현재 페이지 목차"><p>이 페이지에서</p><div class="toc">
 <ul>
 <li><a href="#빌드와-상태-연결">빌드와 상태 연결</a></li>
 <li><a href="#초기화와-크롭-설정">초기화와 크롭 설정</a></li>
-<li><a href="#첫-프레임과-요청별-제어">첫 프레임과 요청별 제어</a></li>
-<li><a href="#파라미터-갱신-조건">파라미터 갱신 조건</a></li>
+<li><a href="#첫-프레임과-요청별-제어">첫 프레임과 요청별 제어</a><ul>
+<li><a href="#요청-제어가-프레임-상태에-반영되는-곳">요청 제어가 프레임 상태에 반영되는 곳</a></li>
+</ul>
+</li>
+<li><a href="#파라미터-갱신-조건">파라미터 갱신 조건</a><ul>
+<li><a href="#lsc-파라미터를-갱신하는-분기">LSC 파라미터를 갱신하는 분기</a></li>
+</ul>
+</li>
 <li><a href="#메타데이터와-확인-범위">메타데이터와 확인 범위</a></li>
 <li><a href="#소스-근거">소스 근거</a></li>
 <li><a href="#클래스-관계">클래스 관계</a></li>

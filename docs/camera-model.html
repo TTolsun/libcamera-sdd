@@ -9,9 +9,15 @@
 <details class="mobile-toc"><summary>이 페이지의 목차</summary><div class="toc">
 <ul>
 <li><a href="#클래스별-책임">클래스별 책임</a></li>
-<li><a href="#상태와-허용-호출">상태와 허용 호출</a></li>
+<li><a href="#상태와-허용-호출">상태와 허용 호출</a><ul>
+<li><a href="#카메라-상태와-허용-호출">카메라 상태와 허용 호출</a></li>
+</ul>
+</li>
 <li><a href="#요청-생성과-완료">요청 생성과 완료</a></li>
-<li><a href="#소유권과-재사용">소유권과 재사용</a></li>
+<li><a href="#소유권과-재사용">소유권과 재사용</a><ul>
+<li><a href="#요청과-버퍼를-유지할-기간">요청과 버퍼를 유지할 기간</a></li>
+</ul>
+</li>
 <li><a href="#오류와-종료">오류와 종료</a></li>
 <li><a href="#동시성과-실행-확인">동시성과 실행 확인</a></li>
 <li><a href="#연결-해제와-대기-요청">연결 해제와 대기 요청</a></li>
@@ -71,6 +77,103 @@
 <details class="evidence-links evidence-section"><summary>절 전체 근거 <span>3</span>개</summary><ul><li><code>src/libcamera/camera_manager.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/camera_manager.cpp:280" href="#source-fbcf3effd2584b79"><code>L280</code></a></span></li><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/camera.cpp:758" href="#source-6c066281dcce33d6"><code>L758</code></a></span></li><li><code>src/libcamera/request.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/request.cpp:343" href="#source-abce7dd469896527"><code>L343</code></a></span></li></ul></details>
 <h2 id="상태와-허용-호출">상태와 허용 호출</h2>
 <p>카메라는 <code>Available</code>에서 <code>acquire()</code>로 <code>Acquired</code>가 되고, <code>configure()</code>로 <code>Configured</code>가 됩니다. <code>Configured</code>에서는 재구성과 요청 생성이 가능하며, <code>start()</code>로 <code>Running</code>에 들어가야 요청을 제출할 수 있습니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-4b17a07667f3a55d" aria-label="src/libcamera/camera.cpp:769 발췌"><code>L769</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:769" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/camera.cpp#L769">전체 소스 <code>L769</code></a></span></li></ul></details>
+<!-- sdd:visual:camera-states -->
+<h3 id="카메라-상태와-허용-호출">카메라 상태와 허용 호출</h3>
+<p>성공한 상태 전이와 상태를 유지하는 호출을 구분하세요. 상태 변경 함수의 동기화는 호출자가 책임집니다.</p>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {&quot;Acquired&quot;: &quot;Acquired&quot;, &quot;Available&quot;: &quot;Available&quot;, &quot;Configured&quot;: &quot;Configured&quot;, &quot;Running&quot;: &quot;Running&quot;, &quot;Stopping&quot;: &quot;Stopping&quot;, &quot;acquire()&quot;: &quot;acquire()&quot;, &quot;configure()&quot;: &quot;configure()&quot;, &quot;configure(), createRequest()&quot;: &quot;configure(), createRequest()&quot;, &quot;createRequest(), queueRequest()&quot;: &quot;createRequest(), queueRequest()&quot;, &quot;release()&quot;: &quot;release()&quot;, &quot;start()&quot;: &quot;start()&quot;, &quot;stop()&quot;: &quot;stop()&quot;, &quot;정지 처리 종료&quot;: &quot;stop finished&quot;}
+  v_available[&quot;Available&quot;]
+  v_acquired[&quot;Acquired&quot;]
+  v_configured[&quot;Configured&quot;]
+  v_running[&quot;Running&quot;]
+  v_stopping[&quot;Stopping&quot;]
+  v_available --&gt;|&quot;release()&quot;| v_available
+  v_available --&gt;|&quot;acquire()&quot;| v_acquired
+  v_acquired --&gt;|&quot;release()&quot;| v_available
+  v_acquired --&gt;|&quot;configure()&quot;| v_configured
+  v_configured --&gt;|&quot;release()&quot;| v_available
+  v_configured --&gt;|&quot;configure(), createRequest()&quot;| v_configured
+  v_configured --&gt;|&quot;start()&quot;| v_running
+  v_running --&gt;|&quot;stop()&quot;| v_stopping
+  v_stopping --&gt;|&quot;정지 처리 종료&quot;| v_configured
+  v_running --&gt;|&quot;createRequest(), queueRequest()&quot;| v_running</pre>
+<p><a href="camera-model.camera-states.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Available</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>Acquired</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>Configured</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>Running</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>Stopping</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>release()</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>acquire()</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>release()</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>configure()</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>release()</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>configure(), createRequest()</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>start()</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>stop()</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>정지 처리 종료</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td>createRequest(), queueRequest()</td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:camera-states -->
+
 <p><code>createRequest()</code>는 <code>Configured</code>와 <code>Running</code>에서 허용되지만 <code>queueRequest()</code>는 <code>Running</code>에서만 허용됩니다. <code>stop()</code>의 실행 경로는 <code>Running</code>에서 <code>Stopping</code>을 거쳐 <code>Configured</code>로 돌아옵니다. <code>release()</code>는 <code>Acquired</code>나 <code>Configured</code>를 <code>Available</code>로 돌리고, 이미 <code>Available</code>인 상태도 유지할 수 있습니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-4b17a07667f3a55d" aria-label="src/libcamera/camera.cpp:769 발췌"><code>L769</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:769" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/camera.cpp#L769">전체 소스 <code>L769</code></a></span></li></ul></details>
 <p>카메라를 해제하지 않았다면 시작과 정지를 반복하거나 다시 구성할 수 있습니다. 상태를 바꾸는 함수들은 일반적으로 <code>Camera</code> 내부에서 서로 동기화되지 않으므로, 필요한 동기화는 호출자가 책임집니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-4b17a07667f3a55d" aria-label="src/libcamera/camera.cpp:769 발췌"><code>L769</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:769" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/camera.cpp#L769">전체 소스 <code>L769</code></a></span></li></ul></details>
 <details class="evidence-links evidence-section"><summary>절 전체 근거 <span>2</span>개</summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/camera.cpp:769" href="#source-4b17a07667f3a55d"><code>L769</code></a> · <a aria-label="src/libcamera/camera.cpp:1383" href="#source-617d53c4c7de2c0c"><code>L1383</code></a></span></li></ul></details>
@@ -81,6 +184,73 @@
 <details class="evidence-links evidence-section"><summary>절 전체 근거 <span>3</span>개</summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/camera.cpp:1243" href="#source-0ae00d77839f61cb"><code>L1243</code></a> · <a aria-label="src/libcamera/camera.cpp:1308" href="#source-28d007de6ad1a8a5"><code>L1308</code></a></span></li><li><code>src/libcamera/request.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/request.cpp:442" href="#source-95ae69eeb085e3b1"><code>L442</code></a></span></li></ul></details>
 <h2 id="소유권과-재사용">소유권과 재사용</h2>
 <p><code>createRequest()</code>가 반환한 요청은 호출자가 소유하고 정리합니다. 완료 핸들러에서 요청을 삭제하거나 <code>reuse()</code>로 상태를 초기화한 뒤 다시 사용할 수 있습니다. 완료 전에 객체를 파괴해도 된다는 의미는 아닙니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-0ae00d77839f61cb" aria-label="src/libcamera/camera.cpp:1243 발췌"><code>L1243</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:1243" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/camera.cpp#L1243">전체 소스 <code>L1243</code></a></span></li></ul></details>
+<!-- sdd:visual:request-ownership -->
+<h3 id="요청과-버퍼를-유지할-기간">요청과 버퍼를 유지할 기간</h3>
+<p>요청의 소유권은 호출자에게 있습니다. 버퍼 참조를 연결해도 호출자의 버퍼 유지 책임은 계속됩니다.</p>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {&quot;Request가 버퍼를 참조&quot;: &quot;Request references buffer&quot;, &quot;addBuffer()&quot;: &quot;addBuffer()&quot;, &quot;reuse() 후 다시 제출&quot;: &quot;Reset before requeue&quot;, &quot;완료 핸들러에서 삭제 가능&quot;: &quot;May delete in completion handler&quot;, &quot;요청 삭제&quot;: &quot;Delete request&quot;, &quot;요청 완료 콜백&quot;: &quot;Request completion callback&quot;, &quot;이 시점까지 버퍼를 유효하게 유지&quot;: &quot;Keep buffer valid until this point&quot;, &quot;재사용 전 상태 초기화&quot;: &quot;Reset state before reuse&quot;, &quot;호출자가 Request를 소유&quot;: &quot;Caller owns Request&quot;}
+  v_caller[&quot;호출자가 Request를 소유&quot;]
+  v_buffer[&quot;Request가 버퍼를 참조&quot;]
+  v_callback[&quot;요청 완료 콜백&quot;]
+  v_delete[&quot;요청 삭제&quot;]
+  v_reuse[&quot;reuse() 후 다시 제출&quot;]
+  v_caller --&gt;|&quot;addBuffer()&quot;| v_buffer
+  v_buffer --&gt;|&quot;이 시점까지 버퍼를 유효하게 유지&quot;| v_callback
+  v_callback --&gt;|&quot;완료 핸들러에서 삭제 가능&quot;| v_delete
+  v_callback --&gt;|&quot;재사용 전 상태 초기화&quot;| v_reuse</pre>
+<p><a href="camera-model.request-ownership.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>호출자가 Request를 소유</td>
+<td><a href="#source-0ae00d77839f61cb">src/libcamera/camera.cpp:1243</a></td>
+</tr>
+<tr>
+<td>Request가 버퍼를 참조</td>
+<td><a href="#source-95ae69eeb085e3b1">src/libcamera/request.cpp:442</a></td>
+</tr>
+<tr>
+<td>요청 완료 콜백</td>
+<td><a href="#source-95ae69eeb085e3b1">src/libcamera/request.cpp:442</a></td>
+</tr>
+<tr>
+<td>요청 삭제</td>
+<td><a href="#source-0ae00d77839f61cb">src/libcamera/camera.cpp:1243</a></td>
+</tr>
+<tr>
+<td>reuse() 후 다시 제출</td>
+<td><a href="#source-38494771cb29cc8c">src/libcamera/request.cpp:376</a></td>
+</tr>
+<tr>
+<td>addBuffer()</td>
+<td><a href="#source-95ae69eeb085e3b1">src/libcamera/request.cpp:442</a></td>
+</tr>
+<tr>
+<td>이 시점까지 버퍼를 유효하게 유지</td>
+<td><a href="#source-95ae69eeb085e3b1">src/libcamera/request.cpp:442</a></td>
+</tr>
+<tr>
+<td>완료 핸들러에서 삭제 가능</td>
+<td><a href="#source-0ae00d77839f61cb">src/libcamera/camera.cpp:1243</a></td>
+</tr>
+<tr>
+<td>재사용 전 상태 초기화</td>
+<td><a href="#source-38494771cb29cc8c">src/libcamera/request.cpp:376</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:request-ownership -->
+
 <p><code>Request::reuse()</code>는 내부 상태를 재설정하고 요청 상태를 <code>RequestPending</code>으로 바꾸며 controls와 metadata를 비웁니다. <code>ReuseBuffers</code>를 지정하면 기존 버퍼를 다시 요청과 연결하고 미완료 버퍼 집합에 넣습니다. 지정하지 않으면 버퍼 맵을 비우므로 다음 제출에 필요한 버퍼를 다시 추가해야 합니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/request.cpp</code><span class="evidence-lines"><a href="#source-38494771cb29cc8c" aria-label="src/libcamera/request.cpp:376 발췌"><code>L376</code> 발췌</a> · <a aria-label="src/libcamera/request.cpp:376" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/request.cpp#L376">전체 소스 <code>L376</code></a></span></li></ul></details>
 <p><code>addBuffer()</code>는 버퍼의 소유권 대신 참조를 저장하므로 버퍼는 요청 완료 콜백까지 살아 있어야 합니다. 유효한 fence를 전달하면 성공한 경우에만 그 소유권이 버퍼로 이동합니다. 모든 버퍼의 fence가 올바르게 신호를 보내기 전에는 요청을 장치에 제출하지 않습니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/request.cpp</code><span class="evidence-lines"><a href="#source-95ae69eeb085e3b1" aria-label="src/libcamera/request.cpp:442 발췌"><code>L442</code> 발췌</a> · <a aria-label="src/libcamera/request.cpp:442" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/request.cpp#L442">전체 소스 <code>L442</code></a></span></li></ul></details>
 <p>fence가 신호를 보내지 않아 요청이 타임아웃되면 버퍼에 fence가 남습니다. 애플리케이션은 다른 요청에서 버퍼를 쓰기 전에 <code>FrameBuffer::releaseFence()</code>로 이를 회수해야 합니다. fence가 남은 버퍼를 추가하면 <code>-EEXIST</code>가 발생합니다.</p><details class="evidence-links evidence-paragraph"><summary>문단 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/request.cpp</code><span class="evidence-lines"><a href="#source-95ae69eeb085e3b1" aria-label="src/libcamera/request.cpp:442 발췌"><code>L442</code> 발췌</a> · <a aria-label="src/libcamera/request.cpp:442" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/src/libcamera/request.cpp#L442">전체 소스 <code>L442</code></a></span></li></ul></details>
@@ -800,17 +970,23 @@ int Camera::exportFrameBuffers(Stream *stream,
 <li>근거 파일: <code>include/libcamera/camera.h</code>, <code>include/libcamera/camera_manager.h</code>, <code>include/libcamera/request.h</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/camera_manager.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code>, <code>src/libcamera/request.cpp</code></li>
 <li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>2c4b67c079</code>)</li>
 <li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li>
-<li>검토 상태 기록일: 2026-10-24 · 사람 검토 전</li>
+<li>검토 상태 기록일: 2026-10-25 · 사람 검토 전</li>
 </ul>
 </details>
-<p>다음 단계: <a href="pipeline-handler.html">Pipeline Handler</a></p></article><section class="evidence"><h2 id="page-evidence">생성 근거</h2><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>분석 기준 커밋</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>문서 생성 시각</dt><dd><code>2026-10-24 08:53:45+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>response-bundle/codex-session</code></dd></dl><a href="camera-model.md">Markdown 원문 ↗</a> <a href="camera-model.mmd">Mermaid 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="overview.html"><small>이전</small>시스템 개요 ←</a><a class="next" href="pipeline-handler.html"><small>다음</small>Pipeline Handler →</a></nav>
+<p>다음 단계: <a href="pipeline-handler.html">Pipeline Handler</a></p></article><section class="evidence"><h2 id="page-evidence">생성 근거</h2><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>분석 기준 커밋</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>문서 생성 시각</dt><dd><code>2026-10-25 08:20:44+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>response-bundle/codex-session</code></dd></dl><a href="camera-model.md">Markdown 원문 ↗</a> <a href="camera-model.mmd">Mermaid 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="overview.html"><small>이전</small>시스템 개요 ←</a><a class="next" href="pipeline-handler.html"><small>다음</small>Pipeline Handler →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · 인용 검사와 사람의 내용 검토는 별도입니다.</footer></main>
 <aside class="page-toc"><nav aria-label="현재 페이지 목차"><p>이 페이지에서</p><div class="toc">
 <ul>
 <li><a href="#클래스별-책임">클래스별 책임</a></li>
-<li><a href="#상태와-허용-호출">상태와 허용 호출</a></li>
+<li><a href="#상태와-허용-호출">상태와 허용 호출</a><ul>
+<li><a href="#카메라-상태와-허용-호출">카메라 상태와 허용 호출</a></li>
+</ul>
+</li>
 <li><a href="#요청-생성과-완료">요청 생성과 완료</a></li>
-<li><a href="#소유권과-재사용">소유권과 재사용</a></li>
+<li><a href="#소유권과-재사용">소유권과 재사용</a><ul>
+<li><a href="#요청과-버퍼를-유지할-기간">요청과 버퍼를 유지할 기간</a></li>
+</ul>
+</li>
 <li><a href="#오류와-종료">오류와 종료</a></li>
 <li><a href="#동시성과-실행-확인">동시성과 실행 확인</a></li>
 <li><a href="#연결-해제와-대기-요청">연결 해제와 대기 요청</a></li>
