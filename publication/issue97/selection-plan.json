@@ -1,0 +1,2118 @@
+{
+  "schema": 1,
+  "source_commit": "2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f",
+  "sections": {
+    "ipa": {
+      "original_page_sha256": "0168aca3d0a5e6960126144450fce443ef5051c411b7e582cddacd1f2dd3f7ee",
+      "before_section": {
+        "id": "ipa",
+        "group": "For Vendor",
+        "nav_section": "연동 구현",
+        "title": "IPA 관리와 구현 진입점",
+        "output": "ipa.md",
+        "kind": "prose",
+        "lead": "IPA 모듈 선택, 스레드·프로세스 경계와 요청·결과 인터페이스를 구현 근거로 확인하세요.",
+        "reader": "영상 처리 알고리즘과 프로세스 경계를 분석하는 개발자",
+        "answers": [
+          "사실에 포함된 IPA 관련 클래스는 무엇인가?",
+          "프록시와 알고리즘 사이에서 추가 확인이 필요한 경계는 무엇인가?"
+        ],
+        "facts": {
+          "classes": [
+            "libcamera::IPAManager",
+            "libcamera::IPAModule",
+            "libcamera::IPAProxy",
+            "libcamera::ipa::ipu3::IPAIPU3",
+            "libcamera::ipa::rkisp1::IPARkISP1"
+          ]
+        },
+        "watch": [
+          "src/ipa/**",
+          "src/libcamera/ipa*",
+          "src/libcamera/proxy/**",
+          "include/libcamera/ipa/**",
+          "include/libcamera/internal/ipa*",
+          "src/ipa/**/meson.build",
+          "src/libcamera/proxy/**/meson.build",
+          "meson.options",
+          "meson_options.txt",
+          "utils/codegen/ipc/**",
+          "src/libcamera/ipc_pipe*",
+          "src/libcamera/shaders/**"
+        ],
+        "next": {
+          "title": "IPU3 LSC와 상태 연결",
+          "link": "ipu3-lsc.md"
+        },
+        "semantic_review": true,
+        "design_topics": [
+          {
+            "id": "selection",
+            "title": "모듈 탐색과 격리 조건",
+            "question": "모듈 검색 경로와 우선순위, 이름·버전 매칭, createIPA()의 모듈 없음·프록시 무효 분기를 설명하세요. 서명 실패는 isolated 선택인지 nullptr 반환인지 코드를 대조하세요.",
+            "sources": [
+              {
+                "id": "modules",
+                "file": "src/libcamera/ipa_manager.cpp",
+                "start": "IPAManager::IPAManager(",
+                "end": "IPAManager::~IPAManager() = default;"
+              },
+              {
+                "id": "match",
+                "file": "src/libcamera/ipa_module.cpp",
+                "start": "\\brief Verify if the IPA module matches a given name",
+                "end": "std::string IPAModule::logPrefix()"
+              },
+              {
+                "id": "selection",
+                "file": "include/libcamera/internal/ipa_manager.h",
+                "start": "template<typename T>",
+                "end": "#if HAVE_IPA_PUBKEY"
+              },
+              {
+                "id": "signature",
+                "file": "src/libcamera/ipa_manager.cpp",
+                "start": "bool IPAManager::isSignatureValid(",
+                "end": "} /* namespace libcamera */"
+              }
+            ],
+            "covers": [
+              "selection"
+            ]
+          },
+          {
+            "id": "execution",
+            "title": "스레드와 프로세스 경계",
+            "question": "Threaded 프록시의 sync·async 메서드 실행 경계와 Isolated 프록시의 worker·IPC 경계를 구분하세요. worker 경로 검색과 메시지 전달이 모든 콜백의 실행 스레드를 보장한다고 추정하지 마세요.",
+            "sources": [
+              {
+                "id": "threaded",
+                "file": "utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl",
+                "start": "{{proxy_name}}Threaded::{{proxy_name}}Threaded(",
+                "end": "/* ========================================================================== */"
+              },
+              {
+                "id": "isolated",
+                "file": "utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl",
+                "start": "{{proxy_name}}Isolated::{{proxy_name}}Isolated(",
+                "end": "void {{proxy_name}}Isolated::recvMessage("
+              },
+              {
+                "id": "worker-path",
+                "file": "src/libcamera/ipa_proxy.cpp",
+                "start": "\\brief Find a valid full path for a proxy worker",
+                "end": "\\var IPAProxy::valid_"
+              },
+              {
+                "id": "ipc",
+                "file": "src/libcamera/ipc_pipe_unixsocket.cpp",
+                "start": "IPCPipeUnixSocket::IPCPipeUnixSocket(",
+                "end": "} /* namespace libcamera */"
+              },
+              {
+                "id": "dispatch",
+                "file": "utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl",
+                "start": "{{proxy_name}}Threaded::~{{proxy_name}}Threaded() = default;\n\n{% for method in interface_main.methods %}",
+                "end": "/* ========================================================================== */"
+              },
+              {
+                "id": "start-branch",
+                "file": "utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl",
+                "start": "{%- elif method.mojom_name == \"start\" %}",
+                "end": "{%- elif not method|is_async %}"
+              },
+              {
+                "id": "async-branch",
+                "file": "utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl",
+                "start": "{% elif method|is_async %}\n\tASSERT(state_ == ProxyRunning);",
+                "end": "{%- endif %}\n}\n{% endfor %}"
+              },
+              {
+                "id": "init-branch",
+                "file": "utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl",
+                "start": "{%- elif method.mojom_name == \"init\" %}",
+                "end": "{%- elif method.mojom_name == \"start\" %}"
+              },
+              {
+                "id": "async-assert",
+                "file": "utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl",
+                "start": "ASSERT(",
+                "end": "ProxyRunning);",
+                "scope": {
+                  "start": "{% elif method|is_async %}\n\tASSERT(state_ == ProxyRunning);",
+                  "end": "{%- endif %}\n}\n{% endfor %}"
+                }
+              },
+              {
+                "id": "ctor-load",
+                "file": "utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl",
+                "start": "if (!ipam->load())",
+                "end": "return;",
+                "scope": {
+                  "start": "{{proxy_name}}Threaded::{{proxy_name}}Threaded(",
+                  "end": "{{proxy_name}}Threaded::~{{proxy_name}}Threaded() = default;"
+                }
+              },
+              {
+                "id": "ctor-interface",
+                "file": "utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl",
+                "start": "IPAInterface *ipai = ipam->createInterface();",
+                "end": "return;",
+                "scope": {
+                  "start": "{{proxy_name}}Threaded::{{proxy_name}}Threaded(",
+                  "end": "{{proxy_name}}Threaded::~{{proxy_name}}Threaded() = default;"
+                }
+              },
+              {
+                "id": "ctor-events",
+                "file": "utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl",
+                "start": "ipa_->{{method.mojom_name}}.connect",
+                "end": "Handler);",
+                "scope": {
+                  "start": "{{proxy_name}}Threaded::{{proxy_name}}Threaded(",
+                  "end": "{{proxy_name}}Threaded::~{{proxy_name}}Threaded() = default;"
+                }
+              },
+              {
+                "id": "isolated-valid",
+                "file": "utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl",
+                "start": "ipc->recv.connect",
+                "end": "recvMessage);",
+                "scope": {
+                  "start": "{{proxy_name}}Isolated::{{proxy_name}}Isolated(",
+                  "end": "{{proxy_name}}Isolated::~{{proxy_name}}Isolated()"
+                }
+              },
+              {
+                "id": "send-async",
+                "file": "src/libcamera/ipc_pipe_unixsocket.cpp",
+                "start": "int IPCPipeUnixSocket::sendAsync(const IPCMessage &data)",
+                "end": "void IPCPipeUnixSocket::readyRead()"
+              },
+              {
+                "id": "isolated-store",
+                "file": "utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl",
+                "start": "ipc_ = std::move(ipc);",
+                "end": "valid_ = true;",
+                "scope": {
+                  "start": "{{proxy_name}}Isolated::{{proxy_name}}Isolated(",
+                  "end": "{{proxy_name}}Isolated::~{{proxy_name}}Isolated()"
+                }
+              },
+              {
+                "id": "isolated-ready",
+                "file": "utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl",
+                "start": "valid_ =",
+                "end": "true;",
+                "scope": {
+                  "start": "{{proxy_name}}Isolated::{{proxy_name}}Isolated(",
+                  "end": "{{proxy_name}}Isolated::~{{proxy_name}}Isolated()"
+                }
+              }
+            ],
+            "covers": [
+              "execution"
+            ],
+            "parts": [
+              {
+                "id": "init",
+                "question": "Threaded init 템플릿에서 IPA 메서드를 직접 호출하는 경로만 설명하세요. 스레드 이동은 다음 질문에서 다룹니다.",
+                "sources": [
+                  "init-branch"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "ipa_"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "init-move",
+                "question": "init의 IPA 메서드 호출 뒤 proxy_.moveToThread 호출에 전달하는 스레드 객체만 설명하세요.",
+                "sources": [
+                  "init-branch"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "moveToThread"
+                    ],
+                    [
+                      "thread_"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "start",
+                "question": "이 Threaded start 템플릿 분기에서 worker 스레드를 시작한 뒤 ThreadProxy::start를 어떤 연결 유형으로 호출합니까? 코드에 쓰인 두 호출과 순서를 설명하세요.",
+                "sources": [
+                  "start-branch"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "thread_"
+                    ],
+                    [
+                      "ConnectionTypeBlocking"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "sync",
+                "question": "init·start·stop을 제외한 일반 동기 메서드 분기에서 ipa_ 호출 경로만 설명하세요. 모든 동기 메서드를 worker 스레드 실행으로 묶지 마세요.",
+                "sources": [
+                  "dispatch"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "ipa_"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "async",
+                "question": "이 원문 단언문에 사용된 매크로 이름과 검사식을 코드 식별자로 그대로 설명하세요. 실행 수명이나 안전 보장은 추정하지 마세요.",
+                "sources": [
+                  "async-assert"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "ASSERT"
+                    ],
+                    [
+                      "ProxyRunning"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "async-dispatch",
+                "question": "이 Threaded 비동기 분기의 invokeMethod가 ThreadProxy 메서드를 전달할 때 사용하는 연결 유형만 설명하세요.",
+                "sources": [
+                  "async-branch"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "invokeMethod"
+                    ],
+                    [
+                      "ConnectionTypeQueued"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "constructor",
+                "question": "Threaded 생성자의 ipam->load() 호출과 실패 시 처리를 설명하세요. 인터페이스 생성은 다음 질문에서 다룹니다.",
+                "sources": [
+                  "ctor-load",
+                  "threaded"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "load",
+                      "로드"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "constructor-interface",
+                "question": "Threaded 생성자의 createInterface 호출과 반환 포인터가 없을 때의 처리만 설명하세요.",
+                "sources": [
+                  "ctor-interface"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "createInterface"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "constructor-events",
+                "question": "생성되는 코드의 이 connect 호출이 IPA 이벤트를 연결하는 수신 객체와 Handler 메서드를 설명하세요. 템플릿 반복을 런타임 반복문으로 쓰지 마세요.",
+                "sources": [
+                  "ctor-events"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "connect",
+                      "연결"
+                    ],
+                    [
+                      "Handler"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "isolated",
+                "question": "Isolated 생성자가 worker 경로로 IPCPipeUnixSocket을 생성하고 연결 실패를 처리하는 경로만 설명하세요.",
+                "sources": [
+                  "isolated"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "IPCPipeUnixSocket"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "isolated-valid",
+                "question": "이 recv.connect 호출의 수신 객체와 콜백 연결만 설명하세요.",
+                "sources": [
+                  "isolated-valid"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "recv"
+                    ],
+                    [
+                      "connect",
+                      "연결"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "isolated-store",
+                "question": "이 ipc_ 대입문에서 사용하는 이동 연산만 설명하세요.",
+                "sources": [
+                  "isolated-store"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "ipc_"
+                    ],
+                    [
+                      "move"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "isolated-ready",
+                "question": "이 코드 지점에서 valid_에 대입하는 bool 값만 설명하세요.",
+                "sources": [
+                  "isolated-ready"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "valid_"
+                    ],
+                    [
+                      "true"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "worker",
+                "question": "resolvePath의 worker 경로 검색과 찾지 못했을 때 반환을 설명하세요. 메시지 전달이나 콜백 스레드 보장으로 확대하지 마세요.",
+                "sources": [
+                  "worker-path"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "resolvePath"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "ipc",
+                "question": "IPCPipeUnixSocket::sendSync의 call 호출과 응답 반환 경로만 설명하세요. 응답 대기는 함께 제공된 call 구현의 범위에서 설명하세요.",
+                "sources": [
+                  "ipc"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "sendSync"
+                    ],
+                    [
+                      "call"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "ipc-async",
+                "question": "IPCPipeUnixSocket::sendAsync의 소켓 전송과 반환 경로만 설명하세요. 동기 응답 처리로 바꾸지 마세요.",
+                "sources": [
+                  "send-async"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "sendAsync"
+                    ],
+                    [
+                      "send"
+                    ]
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "interface",
+            "title": "프레임 입력과 결과 인터페이스",
+            "question": "IPU3와 RKISP1 인터페이스에 선언된 요청·통계 입력 및 paramsComputed·metadataReady 결과를 각각 함수 이름과 인자에서 설명하세요. [async] 메서드와 EventInterface를 구분하고 선언만으로 실행 타이밍을 보장하지 마세요.",
+            "sources": [
+              {
+                "id": "ipu3-api",
+                "file": "include/libcamera/ipa/ipu3.mojom",
+                "start": "interface IPAIPU3Interface {",
+                "end": "metadataReady(uint32 frame, libcamera.ControlList metadata);\n};"
+              },
+              {
+                "id": "rkisp1-api",
+                "file": "include/libcamera/ipa/rkisp1.mojom",
+                "start": "interface IPARkISP1Interface {",
+                "end": "metadataReady(uint32 frame, libcamera.ControlList metadata);\n};"
+              }
+            ],
+            "covers": [
+              "interface"
+            ]
+          },
+          {
+            "id": "lifetime",
+            "title": "IPA 객체와 종료 순서",
+            "question": "모듈 로딩과 인터페이스 생성 실패, Threaded 프록시의 start/stop과 thread 정리 순서, Isolated 프록시 생성과 종료 경계를 코드에서 구분하세요.",
+            "sources": [
+              {
+                "id": "load",
+                "file": "src/libcamera/ipa_module.cpp",
+                "start": "\\brief Load the IPA implementation factory",
+                "end": "\\brief Verify if the IPA module matches"
+              },
+              {
+                "id": "threaded",
+                "file": "utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl",
+                "start": "{{proxy_name}}Threaded::{{proxy_name}}Threaded(",
+                "end": "/* ========================================================================== */"
+              },
+              {
+                "id": "thread-stop",
+                "file": "utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl",
+                "start": "{%- macro stop_thread_body() -%}",
+                "end": "{%- endmacro -%}"
+              },
+              {
+                "id": "isolated",
+                "file": "utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl",
+                "start": "{{proxy_name}}Isolated::{{proxy_name}}Isolated(",
+                "end": "void {{proxy_name}}Isolated::recvMessage("
+              }
+            ],
+            "covers": [
+              "lifetime"
+            ]
+          },
+          {
+            "id": "errors",
+            "title": "생성과 IPC 실패",
+            "question": "createIPA의 nullptr 반환 조건, 모듈 로딩·심볼 검색 오류, Isolated 프록시 유효성 및 IPC sendSync의 타임아웃·오류 반환을 구분하세요. 서명 판정을 생성 실패로 바꾸지 마세요.",
+            "sources": [
+              {
+                "id": "selection",
+                "file": "include/libcamera/internal/ipa_manager.h",
+                "start": "template<typename T>",
+                "end": "#if HAVE_IPA_PUBKEY"
+              },
+              {
+                "id": "load",
+                "file": "src/libcamera/ipa_module.cpp",
+                "start": "\\brief Load the IPA implementation factory",
+                "end": "\\brief Verify if the IPA module matches"
+              },
+              {
+                "id": "isolated",
+                "file": "utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl",
+                "start": "{{proxy_name}}Isolated::{{proxy_name}}Isolated(",
+                "end": "void {{proxy_name}}Isolated::recvMessage("
+              },
+              {
+                "id": "ipc",
+                "file": "src/libcamera/ipc_pipe_unixsocket.cpp",
+                "start": "IPCPipeUnixSocket::IPCPipeUnixSocket(",
+                "end": "} /* namespace libcamera */"
+              }
+            ],
+            "covers": [
+              "errors"
+            ]
+          },
+          {
+            "id": "tuning",
+            "title": "보정 전 튜닝 파일",
+            "question": "RKISP1과 Mali-C55의 센서별 파일 이름과 fallback 요청, IPAProxy::configurationFile()의 대체 파일 검색, 두 uncalibrated.yaml의 알고리즘 목록을 설명하세요. 목록에 없는 보정 알고리즘이 활성화된다고 추정하지 마세요.",
+            "sources": [
+              {
+                "id": "rkisp1-tuning",
+                "file": "src/libcamera/pipeline/rkisp1/rkisp1.cpp",
+                "start": "/* The IPA tuning file is made from the sensor name. */",
+                "end": "\"uncalibrated.yaml\");"
+              },
+              {
+                "id": "mali-c55-tuning",
+                "file": "src/libcamera/pipeline/mali-c55/mali-c55.cpp",
+                "start": "std::string ipaTuningFile = ipa_->configurationFile(sensor()->model() + \".yaml\",",
+                "end": "\"uncalibrated.yaml\");"
+              },
+              {
+                "id": "fallback",
+                "file": "src/libcamera/ipa_proxy.cpp",
+                "start": "std::string IPAProxy::configurationFile(const std::string &name,",
+                "end": "\"', falling back to '\" << confPath << \"'\";"
+              },
+              {
+                "id": "rkisp1-uncalibrated",
+                "file": "src/ipa/rkisp1/data/uncalibrated.yaml",
+                "start": "# SPDX-License-Identifier: CC0-1.0",
+                "end": "..."
+              },
+              {
+                "id": "mali-c55-uncalibrated",
+                "file": "src/ipa/mali-c55/data/uncalibrated.yaml",
+                "start": "# SPDX-License-Identifier: CC0-1.0",
+                "end": "..."
+              }
+            ],
+            "covers": [
+              "tuning"
+            ]
+          },
+          {
+            "id": "dma-import",
+            "title": "소프트웨어 ISP 입력 버퍼의 텍스처 형식",
+            "question": "createDMABufTexture2D()에서 각 GL 형식이 어떤 DRM 형식으로 연결되는지 설명하세요. 지원하지 않는 형식과 EGL 이미지 생성 실패의 반환값·실패 표시를 구분하고, 입력 텍스처와 출력 텍스처의 framebuffer 연결 차이를 설명하세요. 실제 장치의 성공률이나 성능은 추정하지 마세요.",
+            "sources": [
+              {
+                "id": "import",
+                "file": "src/libcamera/egl.cpp",
+                "start": "int eGL::createDMABufTexture2D(",
+                "end": "\\brief Create a 2D texture from a memory buffer"
+              }
+            ],
+            "covers": [
+              "dma-import"
+            ],
+            "parts": [
+              {
+                "id": "formats",
+                "question": "createDMABufTexture2D()의 switch에 나온 GL 형식과 DRM 형식의 대응을 모두 한 문단으로 설명하세요. 각 case를 구분하고 오류 처리나 다른 동작은 설명하지 마세요.",
+                "sources": [
+                  "import"
+                ]
+              },
+              {
+                "id": "unsupported",
+                "question": "createDMABufTexture2D()의 switch default 분기에서 로그와 반환값은 무엇입니까? 이 분기에 실패 플래그 대입이 있는지도 구분하세요.",
+                "sources": [
+                  "import"
+                ]
+              },
+              {
+                "id": "image-failure",
+                "question": "createDMABufTexture2D()에서 eglCreateImageKHR() 결과가 EGL_NO_IMAGE_KHR일 때의 로그·실패 플래그 대입·반환값만 한 문단으로 설명하세요. 다른 분기는 설명하지 마세요.",
+                "sources": [
+                  "import"
+                ]
+              },
+              {
+                "id": "wrappers",
+                "question": "createInputDMABufTexture2D()와 createOutputDMABufTexture2D()가 createDMABufTexture2D()에 전달하는 마지막 인자의 값을 각각 설명하세요.",
+                "sources": [
+                  "import"
+                ]
+              },
+              {
+                "id": "framebuffer",
+                "question": "createDMABufTexture2D()에서 output 조건이 참일 때 수행되는 framebuffer 연결과 ret 대입을 설명하세요. 앞선 오류 분기에서 반환하지 않은 경로의 최종 ret 반환을 구분하세요.",
+                "sources": [
+                  "import"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "softisp-lsc",
+            "title": "소프트웨어 ISP 셰이더의 렌즈 음영 보정",
+            "question": "두 셰이더에서 블랙 레벨, APPLY_LSC 조건, 텍스처 좌표·4.0 배율, AWB·색 보정·감마의 순서를 설명하세요. softisp 인터페이스의 LSC 버퍼 전달은 선언 범위에서 설명하고 실제 GPU 실행을 검증했다고 쓰지 마세요.",
+            "sources": [
+              {
+                "id": "packed-shader",
+                "file": "src/libcamera/shaders/bayer_1x_packed.frag",
+                "start": "rgb = (rgb - blacklevel) / (1.0 - blacklevel);",
+                "end": "gl_FragColor = vec4(rgb, 1.0);\n#endif\n}",
+                "scope": {
+                  "start": "void main(void)",
+                  "end": "gl_FragColor = vec4(rgb, 1.0);\n#endif\n}"
+                }
+              },
+              {
+                "id": "unpacked-shader",
+                "file": "src/libcamera/shaders/bayer_unpacked.frag",
+                "start": "rgb = (rgb - blacklevel) / (1.0 - blacklevel);",
+                "end": "gl_FragColor = vec4(rgb, 1.0);\n#endif\n}",
+                "scope": {
+                  "start": "void main(void)",
+                  "end": "gl_FragColor = vec4(rgb, 1.0);\n#endif\n}"
+                }
+              },
+              {
+                "id": "softisp-interface",
+                "file": "include/libcamera/ipa/softisp.mojom",
+                "start": "/* SPDX-License-Identifier: LGPL-2.1-or-later */",
+                "end": "metadataReady(uint32 frame, libcamera.ControlList metadata);\n};"
+              }
+            ],
+            "covers": [
+              "softisp-lsc"
+            ]
+          }
+        ],
+        "design_requirements": [
+          {
+            "id": "selection",
+            "question": "어떤 IPA 모듈과 실행 방식이 선택됩니까?"
+          },
+          {
+            "id": "execution",
+            "question": "동기 호출과 비동기 호출은 어디에서 실행됩니까?"
+          },
+          {
+            "id": "interface",
+            "question": "파이프라인과 알고리즘은 어떤 입력과 결과를 주고받습니까?"
+          },
+          {
+            "id": "lifetime",
+            "question": "인터페이스를 만들고 비동기 처리를 끝내는 계약은 무엇입니까?"
+          },
+          {
+            "id": "errors",
+            "question": "모듈 생성과 IPC 오류는 어떻게 관찰됩니까?"
+          },
+          {
+            "id": "tuning",
+            "question": "센서별 튜닝 파일이 없으면 어떤 파일과 알고리즘이 쓰입니까?"
+          },
+          {
+            "id": "softisp-lsc",
+            "question": "소프트웨어 ISP의 GPU 셰이더는 렌즈 음영 보정을 어느 단계에 적용합니까?"
+          },
+          {
+            "id": "dma-import",
+            "question": "소프트웨어 ISP의 입력 버퍼를 텍스처로 가져올 때 형식과 실패 처리는 어떻게 연결됩니까?"
+          }
+        ],
+        "show_evidence": true,
+        "design_generation": "llm",
+        "design_grounding": true
+      },
+      "remove_statements": [
+        {
+          "topic": "errors",
+          "index": 2,
+          "sha256": "03c88723da7f082baf536577f8b384b45d9bde2382e8fb60d5b4faa758bf46cb"
+        }
+      ],
+      "remove_parts": []
+    },
+    "vendor-integration": {
+      "original_page_sha256": "e86035cd0e800bb2e0e1ec6e6c231947d12a2c72ce7e6bfd2046d299bfec8554",
+      "before_section": {
+        "id": "vendor-integration",
+        "group": "For Vendor",
+        "nav_section": "연동 구현",
+        "title": "연동 가이드",
+        "output": "vendor-integration.md",
+        "kind": "prose",
+        "lead": "연동 순서와 구현 책임을 확인하고 설정·요청·정지 계약을 적용하세요.",
+        "reader": "기술 채택을 검토하고 연동·구현 범위를 정하는 Vendor 담당자",
+        "design_generation": "llm",
+        "semantic_review": true,
+        "show_evidence": true,
+        "facts": {
+          "classes": [
+            "libcamera::PipelineHandler",
+            "libcamera::PipelineHandlerIPU3",
+            "libcamera::PipelineHandlerRkISP1",
+            "libcamera::Camera",
+            "libcamera::IPAManager"
+          ],
+          "class_table": false
+        },
+        "diagram": {
+          "max_nodes": 24
+        },
+        "watch": [
+          "src/libcamera/pipeline/**",
+          "src/libcamera/pipeline_handler.cpp",
+          "include/libcamera/internal/pipeline_handler.h",
+          "src/libcamera/camera_manager.cpp",
+          "src/ipa/**",
+          "include/libcamera/ipa/**",
+          "include/libcamera/internal/ipa_manager.h",
+          "src/libcamera/camera.cpp",
+          "src/libcamera/ipa_manager.cpp"
+        ],
+        "design_requirements": [
+          {
+            "id": "integration",
+            "question": "연동을 시작할 순서와 제공 측·Vendor의 구현 책임은 무엇입니까?",
+            "aspects": [
+              "inputs"
+            ]
+          },
+          {
+            "id": "boundary",
+            "question": "하드웨어의 장치 매칭과 카메라 등록은 누가 구현합니까?",
+            "aspects": [
+              "inputs"
+            ]
+          },
+          {
+            "id": "configuration",
+            "question": "스트림 구성 구현은 어떤 입력과 출력 계약을 지킵니까?",
+            "aspects": [
+              "inputs"
+            ]
+          },
+          {
+            "id": "request",
+            "question": "공통 큐와 하드웨어 구현은 요청 처리 책임을 어떻게 나눕니까?",
+            "aspects": [
+              "completion"
+            ]
+          },
+          {
+            "id": "algorithm",
+            "question": "IPA 모듈과 실행 방식은 어떻게 선택되며 언제 생성에 실패합니까?",
+            "aspects": [
+              "failure"
+            ]
+          },
+          {
+            "id": "shutdown",
+            "question": "정지 시 공통 코드와 하드웨어 구현은 무엇을 끝내야 합니까?",
+            "aspects": [
+              "completion",
+              "failure"
+            ]
+          },
+          {
+            "id": "validation",
+            "question": "코드 계약과 별도 실행 검증 항목은 무엇입니까?",
+            "aspects": [
+              "ownership",
+              "verification"
+            ]
+          }
+        ],
+        "design_topics": [
+          {
+            "id": "integration",
+            "title": "연동 순서와 책임",
+            "question": "애플리케이션 연동은 acquire, configure, start, 요청 처리, stop, release 순서로 설명하세요. 하드웨어 구현자는 match에서 장치를 확보하고 Camera를 등록하는 별도 책임이 있습니다. match 성공·실패 계약을 지키고 상태 변경 함수의 동기화 책임이 호출자에게 있음을 설명하세요. 상세 함수 구현을 모두 반복하지 마세요.",
+            "covers": [
+              "integration"
+            ],
+            "sources": [
+              {
+                "id": "camera",
+                "file": "src/libcamera/camera.cpp",
+                "start": "An application needs to perform a sequence of operations on a camera before",
+                "end": "camera, the camera needs to be released."
+              },
+              {
+                "id": "handler",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "This function is the main entry point of the pipeline handler.",
+                "end": "camera manager.\n *",
+                "scope": {
+                  "start": "\\fn PipelineHandler::match(DeviceEnumerator *enumerator)",
+                  "end": "*/"
+                }
+              },
+              {
+                "id": "synchronization",
+                "file": "src/libcamera/camera.cpp",
+                "start": "Functions that affect the camera state as defined below are generally not",
+                "end": "for ensuring their synchronization if necessary."
+              },
+              {
+                "id": "restart",
+                "file": "src/libcamera/camera.cpp",
+                "start": "An application may start and stop a camera multiple times as long as it is",
+                "end": "The camera may also be reconfigured."
+              }
+            ],
+            "parts": [
+              {
+                "id": "application",
+                "question": "애플리케이션이 카메라를 확보·구성·시작하고 요청을 처리하다가 정지한 뒤 해제하는 순서를 설명하세요. 정지와 해제의 순서를 빠뜨리지 마세요. 질문의 모든 항목을 한 문장으로 설명하세요.",
+                "sources": [
+                  "camera"
+                ],
+                "answer_contract": {
+                  "basis": "contract",
+                  "required_terms": [
+                    [
+                      "확보"
+                    ],
+                    [
+                      "구성"
+                    ],
+                    [
+                      "시작"
+                    ],
+                    [
+                      "정지"
+                    ],
+                    [
+                      "해제"
+                    ]
+                  ],
+                  "reject_patterns": []
+                }
+              },
+              {
+                "id": "restart",
+                "question": "해제하지 않은 카메라의 반복 시작·정지와 재구성 가능성을 한 문장으로 설명하세요.",
+                "sources": [
+                  "restart"
+                ],
+                "answer_contract": {
+                  "basis": "description",
+                  "required_terms": [
+                    [
+                      "해제"
+                    ],
+                    [
+                      "시작"
+                    ],
+                    [
+                      "정지"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "synchronization",
+                "question": "Camera의 상태에 영향을 주는 함수들이 일반적으로 동기화되는지와 필요한 경우 누가 동기화해야 하는지를 한 문장으로 설명하세요. generally의 한정을 보존하고 원문의 아래라는 페이지 참조는 사용하지 마세요.",
+                "sources": [
+                  "synchronization"
+                ],
+                "answer_contract": {
+                  "basis": "contract",
+                  "required_terms": [
+                    [
+                      "동기화"
+                    ],
+                    [
+                      "호출자"
+                    ],
+                    [
+                      "일반적으로",
+                      "대체로",
+                      "보통",
+                      "일반적인 원칙"
+                    ],
+                    [
+                      "필요"
+                    ]
+                  ],
+                  "reject_patterns": [
+                    {
+                      "pattern": "아래에?\\s*정의|as defined below",
+                      "message": "현재 문서에 없는 아래의 정의를 참조하지 마세요. 상태에 영향을 주는 함수와 동기화 책임을 독립적인 문장으로 설명하세요."
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "hardware",
+                "question": "새 하드웨어의 match 구현자가 장치를 모두 확보한 경우 Camera 생성·등록까지 수행해야 하는 책임만 설명하세요. 성공·실패의 상세 반환 계약은 다음 절에서 다룹니다. 질문의 모든 항목을 한 문장으로 설명하세요.",
+                "sources": [
+                  "handler"
+                ],
+                "answer_contract": {
+                  "basis": "contract",
+                  "required_terms": [
+                    [
+                      "match"
+                    ],
+                    [
+                      "Camera"
+                    ],
+                    [
+                      "등록"
+                    ]
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "boundary",
+            "title": "하드웨어와 공통 계층의 경계",
+            "question": "새 하드웨어의 match() 구현자가 장치 매칭 성공과 실패 때 각각 수행할 일과 카메라 등록 책임을 설명하세요. 객체 생성자나 다른 함수의 역할은 추정하지 마세요.",
+            "covers": [
+              "boundary"
+            ],
+            "sources": [
+              {
+                "id": "handler",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "This function is the main entry point of the pipeline handler.",
+                "end": "return false.\n *",
+                "scope": {
+                  "start": "\\fn PipelineHandler::match(DeviceEnumerator *enumerator)",
+                  "end": "*/"
+                }
+              },
+              {
+                "id": "repeat",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "If this function returns true, a new instance of the pipeline handler will",
+                "end": "\\context This function is called from the CameraManager thread.",
+                "scope": {
+                  "start": "\\fn PipelineHandler::match(DeviceEnumerator *enumerator)",
+                  "end": "*/"
+                }
+              },
+              {
+                "id": "failure",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "If all media devices needed by the pipeline handler are found, they must all",
+                "end": "return false.\n *",
+                "scope": {
+                  "start": "\\fn PipelineHandler::match(DeviceEnumerator *enumerator)",
+                  "end": "*/"
+                }
+              }
+            ],
+            "parts": [
+              {
+                "id": "success",
+                "question": "단일 파이프라인에 필요한 모든 미디어 장치를 찾았을 때 match 구현자가 지켜야 할 의무를 설명하세요. MediaDevice::acquire, Camera 생성·저장·카메라 매니저 등록과 true 반환을 포함하세요. 다른 파이프라인의 장치까지 확보하는 것으로 확대하지 마세요. 질문의 모든 항목을 한 문장으로 설명하세요.",
+                "sources": [
+                  "handler"
+                ],
+                "answer_contract": {
+                  "basis": "contract",
+                  "required_terms": [
+                    [
+                      "acquire"
+                    ],
+                    [
+                      "Camera",
+                      "카메라 인스턴스"
+                    ],
+                    [
+                      "등록"
+                    ],
+                    [
+                      "true"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "failure",
+                "question": "match 구현자가 필요한 장치를 모두 찾지 못했을 때 지켜야 할 계약을 설명하세요. 아직 확보하지 않은 경우와 이미 일부 확보한 경우를 구분하고 false 반환까지 포함하세요. 질문의 모든 항목을 한 문장으로 설명하세요.",
+                "sources": [
+                  "failure"
+                ],
+                "answer_contract": {
+                  "basis": "contract",
+                  "required_terms": [
+                    [
+                      "release"
+                    ],
+                    [
+                      "false"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "repeat",
+                "question": "match의 호출 스레드와 true 반환 뒤 새 PipelineHandler 인스턴스에서 match를 반복하는 절차를 한 문장으로 설명하세요. 호출 사이의 실제 시간은 추정하지 마세요.",
+                "sources": [
+                  "repeat"
+                ],
+                "answer_contract": {
+                  "basis": "description",
+                  "required_terms": [
+                    [
+                      "CameraManager"
+                    ],
+                    [
+                      "인스턴스"
+                    ]
+                  ],
+                  "reject_patterns": [
+                    {
+                      "pattern": "(생성되고|생성된\\s*뒤)\\s*(곧바로|즉시)",
+                      "message": "원문은 새 인스턴스의 반복 호출 절차를 설명합니다. 호출 사이의 시간을 보장하는 부사 없이 절차만 설명하세요."
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "configuration",
+            "title": "구현할 설정 인터페이스",
+            "question": "하드웨어 구현자가 generateConfiguration()과 configure()를 구현할 때 각각 받는 입력, 만들어야 할 출력과 실패 반환값을 설명하세요. 호출자의 API 사용 절차와 구현자의 의무를 구분하세요.",
+            "covers": [
+              "configuration"
+            ],
+            "sources": [
+              {
+                "id": "generate-input",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "Generate a default configuration for the \\a camera for a specified list of",
+                "end": "their default parameters.",
+                "scope": {
+                  "start": "\\fn PipelineHandler::generateConfiguration()",
+                  "end": "*/"
+                }
+              },
+              {
+                "id": "generate-result",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "\\return A valid CameraConfiguration if the requested roles can be satisfied,",
+                "end": "or a null pointer otherwise.",
+                "scope": {
+                  "start": "\\fn PipelineHandler::generateConfiguration()",
+                  "end": "*/"
+                }
+              },
+              {
+                "id": "generate-context",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "\\context This function may be called from any thread and shall be",
+                "end": "\\threadsafe.",
+                "scope": {
+                  "start": "\\fn PipelineHandler::generateConfiguration()",
+                  "end": "*/"
+                }
+              },
+              {
+                "id": "configure-input",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "The configuration is guaranteed to have been validated with",
+                "end": "not perform further validation",
+                "scope": {
+                  "start": "\\fn PipelineHandler::configure()",
+                  "end": "*/"
+                }
+              },
+              {
+                "id": "configure-stream",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "When configuring the camera the pipeline handler shall associate a Stream",
+                "end": "the StreamConfiguration::setStream() function.",
+                "scope": {
+                  "start": "\\fn PipelineHandler::configure()",
+                  "end": "*/"
+                }
+              },
+              {
+                "id": "configure-result",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "\\context This function is called from the CameraManager thread.",
+                "end": "\\return 0 on success or a negative error code otherwise",
+                "scope": {
+                  "start": "\\fn PipelineHandler::configure()",
+                  "end": "*/"
+                }
+              },
+              {
+                "id": "configure-fields",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "may rely on any custom field stored in its",
+                "end": "custom CameraConfiguration derived class.",
+                "scope": {
+                  "start": "\\fn PipelineHandler::configure()",
+                  "end": "*/"
+                }
+              },
+              {
+                "id": "generate-state",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "It shall not modify the state",
+                "end": "handler.",
+                "scope": {
+                  "start": "\\fn PipelineHandler::generateConfiguration()",
+                  "end": "*/"
+                }
+              }
+            ],
+            "parts": [
+              {
+                "id": "generate",
+                "question": "generateConfiguration 호출자가 roles에 채워야 하는 내용을 한 문장으로 설명하세요.",
+                "sources": [
+                  "generate-input"
+                ],
+                "answer_contract": {
+                  "basis": "contract",
+                  "required_terms": [
+                    [
+                      "roles"
+                    ],
+                    [
+                      "호출자"
+                    ],
+                    [
+                      "generateConfiguration"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "generate-output",
+                "question": "generateConfiguration이 반환하는 구성에는 어떤 스트림과 파라미터 정보가 포함됩니까? 스트림 집합과 기본 파라미터를 한 문장으로 설명하세요.",
+                "sources": [
+                  "generate-input"
+                ],
+                "answer_contract": {
+                  "basis": "description",
+                  "required_terms": [
+                    [
+                      "generateConfiguration"
+                    ],
+                    [
+                      "스트림"
+                    ],
+                    [
+                      "기본"
+                    ],
+                    [
+                      "파라미터"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "generate-result",
+                "question": "generateConfiguration은 요청된 roles의 충족 여부에 따라 무엇을 반환해야 합니까? 성공 조건과 실패 반환을 함께 설명하세요. 질문의 모든 항목을 한 문장으로 설명하세요.",
+                "sources": [
+                  "generate-result"
+                ],
+                "answer_contract": {
+                  "basis": "contract",
+                  "required_terms": [
+                    [
+                      "generateConfiguration"
+                    ],
+                    [
+                      "roles"
+                    ],
+                    [
+                      "null",
+                      "nullptr"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "generate-context",
+                "question": "generateConfiguration은 어떤 스레드에서 호출할 수 있습니까? 호출 가능 범위만 설명하세요.",
+                "sources": [
+                  "generate-context"
+                ],
+                "answer_contract": {
+                  "basis": "description",
+                  "required_terms": [
+                    [
+                      "generateConfiguration"
+                    ],
+                    [
+                      "스레드"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "generate-safety",
+                "question": "generateConfiguration 구현에 요구되는 스레드 안전성 계약만 설명하세요. 호출 가능 범위나 카메라 상태 변경 금지로 대신하지 마세요.",
+                "sources": [
+                  "generate-context"
+                ],
+                "answer_contract": {
+                  "basis": "contract",
+                  "required_terms": [
+                    [
+                      "generateConfiguration"
+                    ],
+                    [
+                      "스레드"
+                    ],
+                    [
+                      "안전"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "generate-state",
+                "question": "generateConfiguration 구현자는 파이프라인 핸들러 내의 camera 상태를 변경할 수 있습니까? 해당 의무를 함수 이름과 함께 한 문장으로 설명하세요.",
+                "sources": [
+                  "generate-state"
+                ],
+                "answer_contract": {
+                  "basis": "contract",
+                  "required_terms": [
+                    [
+                      "generateConfiguration"
+                    ],
+                    [
+                      "상태"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "configure",
+                "question": "configure의 검증된 입력 전제와 구현자의 추가 검증 금지 의무를 한 문장으로 설명하세요.",
+                "sources": [
+                  "configure-input"
+                ],
+                "answer_contract": {
+                  "basis": "contract",
+                  "required_terms": [
+                    [
+                      "configure"
+                    ],
+                    [
+                      "validate"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "configure-fields",
+                "question": "configure 구현자가 추가 검증 없이 의존할 수 있는 파생 CameraConfiguration의 정보는 무엇입니까? 허용된 범위를 한 문장으로 설명하세요.",
+                "sources": [
+                  "configure-fields"
+                ],
+                "answer_contract": {
+                  "basis": "description",
+                  "required_terms": [
+                    [
+                      "configure"
+                    ],
+                    [
+                      "필드"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "configure-stream",
+                "question": "configure 구현자가 각 StreamConfiguration에 Stream을 연결할 때 지켜야 하는 의무를 설명하세요. 질문의 모든 항목을 한 문장으로 설명하세요.",
+                "sources": [
+                  "configure-stream"
+                ],
+                "answer_contract": {
+                  "basis": "contract",
+                  "required_terms": [
+                    [
+                      "configure"
+                    ],
+                    [
+                      "StreamConfiguration"
+                    ],
+                    [
+                      "setStream"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "configure-result",
+                "question": "configure의 CameraManager 호출 문맥과 성공·실패 때 반환해야 하는 값을 설명하세요. 입력 검증·스트림 연결은 다른 질문에서 다룹니다. 질문의 모든 항목을 한 문장으로 설명하세요.",
+                "sources": [
+                  "configure-result"
+                ],
+                "answer_contract": {
+                  "basis": "contract",
+                  "required_terms": [
+                    [
+                      "configure"
+                    ],
+                    [
+                      "CameraManager"
+                    ],
+                    [
+                      "0"
+                    ],
+                    [
+                      "음수"
+                    ]
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "request",
+            "title": "요청을 장치에 전달하고 반환하기",
+            "question": "queueRequestDevice 구현자가 버퍼와 파라미터에 대해 지킬 계약과 completeBuffer에서 버퍼 완료와 요청 완료를 구분하는 계약을 설명하세요.",
+            "covers": [
+              "request"
+            ],
+            "sources": [
+              {
+                "id": "device",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "This function queues a capture request to the device for processing. The",
+                "end": "the request.\n *",
+                "scope": {
+                  "start": "\\fn PipelineHandler::queueRequestDevice()",
+                  "end": "*/"
+                }
+              },
+              {
+                "id": "device-result",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "\\context This function is called from the CameraManager thread.",
+                "end": "\\return 0 on success or a negative error code otherwise",
+                "scope": {
+                  "start": "\\fn PipelineHandler::queueRequestDevice()",
+                  "end": "*/"
+                }
+              },
+              {
+                "id": "buffer",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "This function shall be called by pipeline handlers to signal completion of",
+                "end": "completion and updates the request's internal buffer tracking.",
+                "scope": {
+                  "start": "\\brief Complete a buffer for a request",
+                  "end": "bool PipelineHandler::completeBuffer"
+                }
+              },
+              {
+                "id": "completion",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "The request\n * is not completed automatically when the last buffer completes to give",
+                "end": "needed.",
+                "scope": {
+                  "start": "\\brief Complete a buffer for a request",
+                  "end": "bool PipelineHandler::completeBuffer"
+                }
+              },
+              {
+                "id": "completion-context",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "\\context This function shall be called from the CameraManager",
+                "end": "thread.",
+                "scope": {
+                  "start": "\\brief Complete a buffer for a request",
+                  "end": "bool PipelineHandler::completeBuffer"
+                }
+              },
+              {
+                "id": "notification",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "They shall complete requests explicitly",
+                "end": "with completeRequest().",
+                "scope": {
+                  "start": "\\brief Complete a buffer for a request",
+                  "end": "bool PipelineHandler::completeBuffer"
+                }
+              }
+            ],
+            "parts": [
+              {
+                "id": "device",
+                "question": "queueRequestDevice 구현자는 요청 파라미터를 어느 버퍼의 프레임에 적용해야 합니까? 버퍼와 파라미터의 관계를 설명하세요. 질문의 모든 항목을 한 문장으로 설명하세요.",
+                "sources": [
+                  "device"
+                ],
+                "answer_contract": {
+                  "basis": "contract",
+                  "required_terms": [
+                    [
+                      "queueRequestDevice"
+                    ],
+                    [
+                      "버퍼"
+                    ],
+                    [
+                      "파라미터"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "device-result",
+                "question": "queueRequestDevice의 호출 스레드와 성공·실패 때 반환해야 하는 값을 설명하세요. 질문의 모든 항목을 한 문장으로 설명하세요.",
+                "sources": [
+                  "device-result"
+                ],
+                "answer_contract": {
+                  "basis": "contract",
+                  "required_terms": [
+                    [
+                      "queueRequestDevice"
+                    ],
+                    [
+                      "CameraManager"
+                    ],
+                    [
+                      "0"
+                    ],
+                    [
+                      "음수"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "buffer",
+                "question": "파이프라인 핸들러는 버퍼 완료를 통지하려면 completeBuffer를 어떻게 사용해야 합니까? 호출 의무를 한 문장으로 설명하세요.",
+                "sources": [
+                  "buffer"
+                ],
+                "answer_contract": {
+                  "basis": "contract",
+                  "required_terms": [
+                    [
+                      "completeBuffer"
+                    ],
+                    [
+                      "버퍼"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "buffer-tracking",
+                "question": "completeBuffer가 수행하는 버퍼 완료 알림과 요청 내부의 버퍼 추적 갱신을 한 문장으로 설명하세요.",
+                "sources": [
+                  "buffer"
+                ],
+                "answer_contract": {
+                  "basis": "description",
+                  "required_terms": [
+                    [
+                      "completeBuffer"
+                    ],
+                    [
+                      "버퍼"
+                    ],
+                    [
+                      "추적"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "completion",
+                "question": "completeBuffer에서 마지막 버퍼가 완료되면 요청도 자동으로 완료됩니까? 마지막 버퍼 완료와 요청 완료의 차이만 한 문장으로 설명하세요.",
+                "sources": [
+                  "completion"
+                ],
+                "answer_contract": {
+                  "basis": "description",
+                  "required_terms": [
+                    [
+                      "completeBuffer"
+                    ],
+                    [
+                      "자동"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "notification",
+                "question": "요청을 완료할 파이프라인 핸들러는 어떤 함수를 명시적으로 호출해야 합니까? 핸들러의 의무만 한 문장으로 설명하세요.",
+                "sources": [
+                  "notification"
+                ],
+                "answer_contract": {
+                  "basis": "contract",
+                  "required_terms": [
+                    [
+                      "completeRequest"
+                    ],
+                    [
+                      "핸들러",
+                      "구현자"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "completion-context",
+                "question": "completeBuffer는 어느 스레드에서 호출해야 합니까? 호출 문맥만 설명하고 스레드 안전성이나 순서 보장으로 확대하지 마세요. 질문의 모든 항목을 한 문장으로 설명하세요.",
+                "sources": [
+                  "completion-context"
+                ],
+                "answer_contract": {
+                  "basis": "contract",
+                  "required_terms": [
+                    [
+                      "completeBuffer"
+                    ],
+                    [
+                      "CameraManager"
+                    ]
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "algorithm",
+            "title": "IPA 모듈 선택과 실패 조건",
+            "question": "createIPA()의 모듈 검색, 서명 판정, 생성된 프록시 유효성 검사를 각각 설명하세요. nullptr를 반환하는 분기와 실행 방식을 선택하는 분기를 구분하세요.",
+            "covers": [
+              "algorithm"
+            ],
+            "sources": [
+              {
+                "id": "proxy-kind",
+                "file": "include/libcamera/internal/ipa_manager.h",
+                "start": "auto proxy = [&]() -> std::unique_ptr<T> {",
+                "end": "}();",
+                "scope": {
+                  "start": "template<typename T>",
+                  "end": "return proxy;\n\t}"
+                }
+              },
+              {
+                "id": "module-call",
+                "file": "include/libcamera/internal/ipa_manager.h",
+                "start": "IPAModule *m = module(",
+                "end": "maxVersion);",
+                "scope": {
+                  "start": "template<typename T>",
+                  "end": "return proxy;\n\t}"
+                }
+              },
+              {
+                "id": "module-missing",
+                "file": "include/libcamera/internal/ipa_manager.h",
+                "start": "IPAModule *m = module(",
+                "end": "return nullptr;",
+                "scope": {
+                  "start": "template<typename T>",
+                  "end": "return proxy;\n\t}"
+                }
+              },
+              {
+                "id": "proxy-result",
+                "file": "include/libcamera/internal/ipa_manager.h",
+                "start": "if (!proxy->isValid()) {",
+                "end": "return proxy;",
+                "scope": {
+                  "start": "template<typename T>",
+                  "end": "return proxy;\n\t}"
+                }
+              },
+              {
+                "id": "module-lookup",
+                "file": "src/libcamera/ipa_manager.cpp",
+                "start": "\\brief Retrieve an IPA module that matches a given pipeline handler",
+                "end": "return nullptr;\n}",
+                "scope": {
+                  "start": "\\brief Retrieve an IPA module that matches a given pipeline handler",
+                  "end": "return nullptr;\n}"
+                }
+              }
+            ],
+            "parts": [
+              {
+                "id": "module",
+                "question": "createIPA의 module 호출식에 전달하는 세 인자를 순서대로 한 문장으로 설명하세요. name, minVersion, maxVersion 식별자를 그대로 쓰고 인자 설명에 집중하세요. 호출식만으로 내부에서 객체를 생성한다고 추정하지 마세요.",
+                "sources": [
+                  "module-call"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "module"
+                    ],
+                    [
+                      "name"
+                    ],
+                    [
+                      "minVersion"
+                    ],
+                    [
+                      "maxVersion"
+                    ]
+                  ],
+                  "reject_patterns": [
+                    {
+                      "pattern": "생성",
+                      "message": "이 질문은 호출식의 세 인자를 설명합니다. module 내부 동작은 별도 근거와 질문으로 다룹니다."
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "module-lookup",
+                "question": "IPAManager::module의 반복문에서 match가 처음 참이 된 경우 무엇을 반환합니까? 그때 반복을 계속하는지도 반환문에 근거하여 한 문장으로 설명하세요.",
+                "sources": [
+                  "module-lookup"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "module"
+                    ],
+                    [
+                      "match"
+                    ],
+                    [
+                      "반환"
+                    ],
+                    [
+                      "첫",
+                      "처음"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "module-missing",
+                "question": "createIPA에서 module 호출로 모듈을 찾지 못한 분기의 반환값을 한 문장으로 설명하세요.",
+                "sources": [
+                  "module-missing"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "createIPA"
+                    ],
+                    [
+                      "nullptr"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "signature",
+                "question": "createIPA 내부 람다에서 isSignatureValid 결과가 참·거짓일 때 각각 생성하는 프록시 객체의 종류를 한 문장으로 설명하세요. 객체 생성과 최종 성공 반환은 별도 단계입니다. 포인터의 템플릿 반환형은 이 질문의 범위가 아닙니다.",
+                "sources": [
+                  "proxy-kind"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "Threaded"
+                    ],
+                    [
+                      "Isolated"
+                    ],
+                    [
+                      "isSignatureValid"
+                    ]
+                  ],
+                  "reject_patterns": []
+                }
+              },
+              {
+                "id": "proxy",
+                "question": "createIPA에서 생성한 프록시의 isValid 검사에 실패한 경우 오류 기록과 반환값을 한 문장으로 설명하세요.",
+                "sources": [
+                  "proxy-result"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "isValid"
+                    ],
+                    [
+                      "nullptr"
+                    ],
+                    [
+                      "오류",
+                      "LOG"
+                    ]
+                  ],
+                  "reject_patterns": []
+                }
+              },
+              {
+                "id": "proxy-success",
+                "question": "createIPA에서 생성한 프록시의 유효성 검사를 통과한 경우 무엇을 반환합니까? 한 문장으로 설명하세요.",
+                "sources": [
+                  "proxy-result"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "createIPA"
+                    ],
+                    [
+                      "프록시",
+                      "proxy"
+                    ]
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "shutdown",
+            "title": "정지와 오류 처리의 책임",
+            "question": "공통 stop과 하드웨어별 stopDevice의 책임을 나누고 대기 요청과 장치 요청이 종료되는 조건을 설명하세요.",
+            "covers": [
+              "shutdown"
+            ],
+            "sources": [
+              {
+                "id": "stop",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "void PipelineHandler::stop(Camera *camera)",
+                "end": "data->requestSequence_ = 0;\n}",
+                "scope": {
+                  "start": "void PipelineHandler::stop(Camera *camera)",
+                  "end": "data->requestSequence_ = 0;\n}"
+                }
+              },
+              {
+                "id": "device",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "\\fn PipelineHandler::stopDevice()",
+                "end": "pending requests are cancelled and complete immediately in an error state.\n */"
+              },
+              {
+                "id": "stop-order",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "void PipelineHandler::stop(Camera *camera)",
+                "end": "stopDevice(camera);",
+                "scope": {
+                  "start": "void PipelineHandler::stop(Camera *camera)",
+                  "end": "data->requestSequence_ = 0;\n}"
+                }
+              },
+              {
+                "id": "stop-rationale",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "Take all waiting requests so that they are not requeued in response",
+                "end": "to completeRequest() being called inside stopDevice().",
+                "scope": {
+                  "start": "void PipelineHandler::stop(Camera *camera)",
+                  "end": "data->requestSequence_ = 0;\n}"
+                }
+              }
+            ],
+            "parts": [
+              {
+                "id": "order",
+                "question": "공통 stop에서 waitingRequests.swap(data->waitingRequests_)와 stopDevice(camera) 중 무엇이 먼저 실행됩니까? 두 호출의 순서만 한 문장으로 설명하세요.",
+                "sources": [
+                  "stop-order"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "waitingRequests_"
+                    ],
+                    [
+                      "stopDevice"
+                    ]
+                  ],
+                  "reject_patterns": [
+                    {
+                      "pattern": "완료",
+                      "message": "이 질문에서는 두 호출의 순서만 설명하세요. 요청 완료의 주체와 조건은 별도 질문에서 다룹니다."
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "rationale",
+                "question": "stop에서 대기 요청을 따로 옮기는 이유를 stopDevice 내부의 completeRequest 호출과 연결하여 한 문장으로 설명하세요. 소스 주석에 있는 이유만 사용하세요.",
+                "sources": [
+                  "stop-rationale"
+                ],
+                "answer_contract": {
+                  "basis": "description",
+                  "required_terms": [
+                    [
+                      "stopDevice"
+                    ],
+                    [
+                      "completeRequest"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "device",
+                "question": "stopDevice의 장치 구현자가 캡처·요청 처리와 남은 요청에 대해 지켜야 하는 중단·취소·오류 완료 의무를 설명하세요. 이는 선언의 계약입니다. 질문의 모든 항목을 한 문장으로 설명하세요.",
+                "sources": [
+                  "device"
+                ],
+                "answer_contract": {
+                  "basis": "contract",
+                  "required_terms": [
+                    [
+                      "stopDevice"
+                    ],
+                    [
+                      "취소"
+                    ],
+                    [
+                      "오류"
+                    ]
+                  ],
+                  "reject_patterns": []
+                }
+              },
+              {
+                "id": "waiting",
+                "question": "stopDevice 뒤 대기 요청을 cancel하고 doQueueRequest로 전달하는 처리와 그 경로에서의 순번·queuedRequests_ 사용을 한 문장으로 설명하세요.",
+                "sources": [
+                  "stop"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "cancel",
+                      "취소"
+                    ],
+                    [
+                      "doQueueRequest"
+                    ],
+                    [
+                      "순번",
+                      "sequence"
+                    ],
+                    [
+                      "queuedRequests_"
+                    ]
+                  ],
+                  "reject_patterns": []
+                }
+              },
+              {
+                "id": "final-state",
+                "question": "대기 요청을 처리한 뒤 stop의 마지막 두 ASSERT가 확인하는 큐와 requestSequence_에 저장하는 값을 한 문장으로 설명하세요. ASSERT를 실기기 종료 검증 결과로 확대하지 마세요.",
+                "sources": [
+                  "stop"
+                ],
+                "answer_contract": {
+                  "basis": "implementation",
+                  "required_terms": [
+                    [
+                      "ASSERT"
+                    ],
+                    [
+                      "queuedRequests_"
+                    ],
+                    [
+                      "waitingRequests_"
+                    ],
+                    [
+                      "requestSequence_"
+                    ],
+                    [
+                      "0"
+                    ]
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "validation",
+            "title": "구현 뒤 확인할 계약과 실행 한계",
+            "question": "completeRequest가 반환된 뒤 요청 접근 금지와 애플리케이션 반환 순서를 각각 설명하세요. 이 계약을 구현 뒤 확인할 기준으로 제시하고 실제 실행을 검증했다고 주장하지 마세요.",
+            "covers": [
+              "validation"
+            ],
+            "sources": [
+              {
+                "id": "completion",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "\\brief Signal request completion",
+                "end": "void PipelineHandler::completeRequest"
+              },
+              {
+                "id": "completion-order",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "This function ensures that requests will be returned to the application in",
+                "end": "without any ordering constraint.",
+                "scope": {
+                  "start": "\\brief Signal request completion",
+                  "end": "void PipelineHandler::completeRequest"
+                }
+              },
+              {
+                "id": "completion-thread",
+                "file": "src/libcamera/pipeline_handler.cpp",
+                "start": "\\context This function shall be called from the CameraManager thread.",
+                "end": "*/",
+                "scope": {
+                  "start": "\\brief Signal request completion",
+                  "end": "void PipelineHandler::completeRequest"
+                }
+              }
+            ],
+            "parts": [
+              {
+                "id": "lifetime",
+                "question": "completeRequest 반환 뒤 요청 접근에 관한 파이프라인 구현자의 금지 의무를 설명하세요. 애플리케이션 소유권을 추정하지 마세요. 질문의 모든 항목을 한 문장으로 설명하세요.",
+                "sources": [
+                  "completion"
+                ],
+                "answer_contract": {
+                  "basis": "contract",
+                  "required_terms": [
+                    [
+                      "completeRequest"
+                    ],
+                    [
+                      "반환"
+                    ]
+                  ],
+                  "reject_patterns": []
+                }
+              },
+              {
+                "id": "order",
+                "question": "파이프라인 핸들러가 완료된 요청을 completeRequest에 전달할 때 순서 제약이 있습니까? 이 함수가 애플리케이션에 반환하는 순서와 구분하여 한 문장으로 설명하세요.",
+                "sources": [
+                  "completion-order"
+                ],
+                "answer_contract": {
+                  "basis": "description",
+                  "required_terms": [
+                    [
+                      "completeRequest"
+                    ],
+                    [
+                      "제출"
+                    ],
+                    [
+                      "순서"
+                    ]
+                  ]
+                }
+              },
+              {
+                "id": "context",
+                "question": "completeRequest는 어느 스레드에서 호출해야 합니까? 호출자의 의무만 한 문장으로 설명하세요.",
+                "sources": [
+                  "completion-thread"
+                ],
+                "answer_contract": {
+                  "basis": "contract",
+                  "required_terms": [
+                    [
+                      "completeRequest"
+                    ],
+                    [
+                      "CameraManager"
+                    ]
+                  ]
+                }
+              }
+            ]
+          }
+        ],
+        "reader_profile": "vendor",
+        "routes": [
+          {
+            "q": "libcamera 제품 개요에서 필요한 내용을 확인합니다.",
+            "to": "vendor-overview.md"
+          },
+          {
+            "q": "지원 범위와 검증에서 필요한 내용을 확인합니다.",
+            "to": "vendor-assurance.md"
+          },
+          {
+            "q": "장치별 파이프라인을 구현합니다.",
+            "to": "pipeline-handler.md"
+          }
+        ],
+        "next": {
+          "title": "지원 범위와 검증",
+          "link": "vendor-assurance.md"
+        }
+      },
+      "remove_statements": [
+        {
+          "topic": "configuration",
+          "index": 3,
+          "sha256": "6d235e6b6516f9f175e7cd084c1b554e38bf711b289ca160a4e8eef561ca34c9"
+        },
+        {
+          "topic": "request",
+          "index": 3,
+          "sha256": "41f933364680fe4780f384c4ab791e3b872bd499aef81f49b6309bea58d30482"
+        }
+      ],
+      "remove_parts": [
+        {
+          "topic": "configuration",
+          "part_id": "generate-context"
+        },
+        {
+          "topic": "request",
+          "part_id": "buffer-tracking"
+        }
+      ]
+    }
+  }
+}
