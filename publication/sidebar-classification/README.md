@@ -1,0 +1,37 @@
+# Sidebar classification audit
+
+현재 공개 문서 23편의 본문과 주요 독자 과제를 점검해 2편을 옮기고 21편을 유지했습니다. 제목의 클래스명·장치명·오류 단어만으로 분류하지 않고, 본문에서 독자가 완료할 일을 기준으로 판단했습니다.
+
+| 문서 | 이전 분류 | 적용 분류 | 이유 |
+|---|---|---|---|
+| [카메라와 요청 모델](https://ttolsun.github.io/libcamera-sdd/camera-model.html) | For Developer / 구조 이해 | For Developer / 구조 이해 | 객체 모델의 책임·상태 전이·허용 호출·소유권 계약을 가르치는 개념 문서이다. 오류와 종료/수명은 모델의 정확한 사용 조건이지 증상별 분기 조사만을 위한 문서가 아니다. |
+| [구성 요소 색인](https://ttolsun.github.io/libcamera-sdd/component-index.html) | For Developer / 코드 탐색 | For Developer / 코드 탐색 | 첫 문장이 표는 추출 사실에서 만들었고 동작은 설명하지 않는다고 한정한다. 패키지별 선언·상속·주석/정의 위치 참조가 주된 산출물이다. 기초 개념을 순서대로 학습하는 구조 이해나 첫 읽기 안내와 구분한다. |
+| [FrameBufferAllocator의 실패와 참조 수명](https://ttolsun.github.io/libcamera-sdd/framebuffer-allocator.html) | For Developer / 동작 추적과 문제 진단 | For Developer / 동작 추적과 문제 진단 | 특정 API의 오류 반환과 조건문 범위 및 수명 경계를 확인하는 좁은 작업 문서이다. 이전 턴에 적용된 동작 추적과 문제 진단 배치가 적절하며 추가 이동은 필요 없다. |
+| [용어집](https://ttolsun.github.io/libcamera-sdd/glossary.html) | 공통 / 시작하기 | 공통 / 시작하기 | 약어·분야 용어의 의미를 두 독자가 공통으로 찾는 보조 자료이다. 선언 파일/클래스 위치를 찾는 구성 요소 색인과 다르며 특정 구현 작업에 종속되지 않는다. 홈과 함께 전용 시작하기에 두고 본문 뜻 상자·용어 검색의 공통 목적지를 유지한다. |
+| [문서 안내](https://ttolsun.github.io/libcamera-sdd/index.html) | 공통 / 시작하기 | 공통 / 시작하기 | 독자 그룹을 선택하고 첫 읽기 순서를 정하는 공통 홈이다. Vendor와 Developer의 방향을 모두 안내하므로 한 독자의 코드 탐색/구조 이해 밑으로 편입하면 공통 진입점이 사라진다. 전용 시작하기 위치를 유지한다. |
+| [IPA 모듈 정보 검사와 서명 파일 누락](https://ttolsun.github.io/libcamera-sdd/ipa-module-validation.html) | For Vendor / 연동 구현 | For Developer / 동작 추적과 문제 진단 | 본문은 두 내용 절뿐입니다. 첫 절은 크기 부족·API 버전 불일치의 -EINVAL 두 실패 조건이고, 둘째 절은 서명 파일을 열지 못해도 0을 반환하는 별도 경로입니다. 넓은 모듈 연동 절차보다 로딩 결과를 해석하는 진단 과제가 중심입니다. |
+| [IPA 관리와 구현 진입점](https://ttolsun.github.io/libcamera-sdd/ipa.html) | For Vendor / 연동 구현 | For Vendor / 연동 구현 | 생성 실패와 코드 분기만 있는 문서가 아닙니다. 초기화·설정·버퍼·요청/결과/Event 인터페이스와 프록시 수명, 센서 튜닝 파일의 연결 조건이 주된 연동 과제입니다. 소프트웨어 ISP 세부 절은 보조 내용으로 봅니다. |
+| [IPU3 LSC의 설정과 프레임 처리](https://ttolsun.github.io/libcamera-sdd/ipu3-lsc-flow.html) | For Vendor / 장치별 기능 구현 | For Vendor / 장치별 기능 구현 | 초기화와 구성 계산, 첫 프레임 제어, 갱신 분기, UAPI 파라미터 기록과 메타데이터 연결을 설명합니다. 관련 타입을 찾는 참조 페이지와 달리 장치 기능을 구현·수정하는 과제가 중심입니다. |
+| [IPU3 LSC와 상태 연결](https://ttolsun.github.io/libcamera-sdd/ipu3-lsc.html) | For Vendor / 장치별 기능 구현 | For Developer / 코드 탐색 | 22–36줄은 추출된 상속·필드 참조 사실이고 73–89줄은 함수·클래스 선언 위치를 찾는 표입니다. 상태의 의미·갱신 책임·설정 절차를 설명하지 않아 주제별 구성 요소 색인에 가깝습니다. 구조 설명이라는 제목이 아니라 이 페이지에서 끝낼 수 있는 탐색 과제를 기준으로 골랐습니다. |
+| [시스템 개요](https://ttolsun.github.io/libcamera-sdd/overview.html) | For Developer / 구조 이해 | For Developer / 구조 이해 | 시스템 전체의 첫 읽기 경로와 책임 지도를 제공한다. 상태·수명·동기화와 실패 문서는 기초 흐름을 이해하거나 상세 문서로 이동하기 위한 일부이다. 진단 링크가 있다는 이유로 전체 개요를 문제 진단으로 옮기지 않는다. |
+| [Pipeline Handler](https://ttolsun.github.io/libcamera-sdd/pipeline-handler.html) | For Vendor / 연동 구현 | For Vendor / 연동 구현 | 내부 큐 분기도 설명하지만 주된 독자 과제는 장치별 PipelineHandler 구현자가 지킬 생성·구성·제출·완료·스레드 의무를 찾는 것입니다. |
+| [요청 처리와 문제 진단](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.html) | For Developer / 동작 추적과 문제 진단 | For Developer / 동작 추적과 문제 진단 | 정상 제출/완료와 수명을 설명하지만 주된 독자 과제는 실패 위치를 좁히고 실제 코드의 관측 지점을 고르는 것이다. 구성 실패 순서, 실패 위치별 확인, 변경 검토/실행 확인이 진단 작업을 직접 지원한다. |
+| [RKISP1 카메라별 왜곡 보정](https://ttolsun.github.io/libcamera-sdd/rkisp1-dewarp.html) | For Vendor / 장치별 기능 구현 | For Vendor / 장치별 기능 구현 | 입력 오류 절이 있지만 보정값의 소유 위치부터 YAML 적재, DW100 구성, 제어 등록과 메타데이터까지 기능 연결을 다룹니다. 오류 단어만으로 일반 진단 범주로 옮기지 않습니다. |
+| [캡처 시작 (Camera::start)](https://ttolsun.github.io/libcamera-sdd/scenarios/camera_start.html) | For Developer / 동작 추적과 문제 진단 | For Developer / 동작 추적과 문제 진단 | 각 자식 문서는 호출 측과 대상을 따라 코드 위치를 찾는 정적 추적 자료이다. 주요 확인 지점은 실행 순서가 아니며 관계도는 시간 순서나 모든 경로 실행을 뜻하지 않는다고 명시한다. 참조 목록이 있어도 주된 작업은 특정 동작 추적이므로 일반 코드 색인으로 옮기지 않는다. |
+| [캡처 종료 요청 (Camera::stop)](https://ttolsun.github.io/libcamera-sdd/scenarios/camera_stop.html) | For Developer / 동작 추적과 문제 진단 | For Developer / 동작 추적과 문제 진단 | 각 자식 문서는 호출 측과 대상을 따라 코드 위치를 찾는 정적 추적 자료이다. 주요 확인 지점은 실행 순서가 아니며 관계도는 시간 순서나 모든 경로 실행을 뜻하지 않는다고 명시한다. 참조 목록이 있어도 주된 작업은 특정 동작 추적이므로 일반 코드 색인으로 옮기지 않는다. |
+| [요청 완료 통지 (PipelineHandler::completeRequest)](https://ttolsun.github.io/libcamera-sdd/scenarios/complete_request.html) | For Developer / 동작 추적과 문제 진단 | For Developer / 동작 추적과 문제 진단 | 각 자식 문서는 호출 측과 대상을 따라 코드 위치를 찾는 정적 추적 자료이다. 주요 확인 지점은 실행 순서가 아니며 관계도는 시간 순서나 모든 경로 실행을 뜻하지 않는다고 명시한다. 참조 목록이 있어도 주된 작업은 특정 동작 추적이므로 일반 코드 색인으로 옮기지 않는다. |
+| [스트림 구성 (Camera::configure)](https://ttolsun.github.io/libcamera-sdd/scenarios/configure.html) | For Developer / 동작 추적과 문제 진단 | For Developer / 동작 추적과 문제 진단 | 각 자식 문서는 호출 측과 대상을 따라 코드 위치를 찾는 정적 추적 자료이다. 주요 확인 지점은 실행 순서가 아니며 관계도는 시간 순서나 모든 경로 실행을 뜻하지 않는다고 명시한다. 참조 목록이 있어도 주된 작업은 특정 동작 추적이므로 일반 코드 색인으로 옮기지 않는다. |
+| [핵심 시나리오](https://ttolsun.github.io/libcamera-sdd/scenarios/index.html) | For Developer / 동작 추적과 문제 진단 | For Developer / 동작 추적과 문제 진단 | 색인 형식이지만 일반 심볼 위치 색인이 아니라 여섯 동작 추적의 작업 선택기이다. 같은 추적 소분류 안에 두고 자식 문서와 접히는 탐색 가지를 유지하는 것이 독자 과제를 보존한다. |
+| [카메라 탐색 (CameraManager::start)](https://ttolsun.github.io/libcamera-sdd/scenarios/manager_start.html) | For Developer / 동작 추적과 문제 진단 | For Developer / 동작 추적과 문제 진단 | 각 자식 문서는 호출 측과 대상을 따라 코드 위치를 찾는 정적 추적 자료이다. 주요 확인 지점은 실행 순서가 아니며 관계도는 시간 순서나 모든 경로 실행을 뜻하지 않는다고 명시한다. 참조 목록이 있어도 주된 작업은 특정 동작 추적이므로 일반 코드 색인으로 옮기지 않는다. |
+| [요청 제출 (Camera::queueRequest)](https://ttolsun.github.io/libcamera-sdd/scenarios/queue_request.html) | For Developer / 동작 추적과 문제 진단 | For Developer / 동작 추적과 문제 진단 | 각 자식 문서는 호출 측과 대상을 따라 코드 위치를 찾는 정적 추적 자료이다. 주요 확인 지점은 실행 순서가 아니며 관계도는 시간 순서나 모든 경로 실행을 뜻하지 않는다고 명시한다. 참조 목록이 있어도 주된 작업은 특정 동작 추적이므로 일반 코드 색인으로 옮기지 않는다. |
+| [지원 범위와 검증](https://ttolsun.github.io/libcamera-sdd/vendor-assurance.html) | For Vendor / 도입 판단 | For Vendor / 도입 판단 | Invalid·Adjusted·Valid와 역할 충족 조건을 지원 범위로 해석하고, 벤치마크가 측정하지 않는 범위를 함께 제시합니다. 특정 장애 한 건의 진단 문서보다 채택 판단 과제에 가깝습니다. |
+| [연동 가이드](https://ttolsun.github.io/libcamera-sdd/vendor-integration.html) | For Vendor / 연동 구현 | For Vendor / 연동 구현 | 시작·종료 순서와 하드웨어 확보, 스레드 안전성, 장치 제출·완료 통지, 반환 뒤 접근 금지를 연동 책임으로 다룹니다. |
+| [libcamera 제품 개요](https://ttolsun.github.io/libcamera-sdd/vendor-overview.html) | For Vendor / 도입 판단 | For Vendor / 도입 판단 | 제공 기능·지원 전제·공통 처리의 근거를 모아 연동 문서로 연결하는 채택 진입점입니다. |
+
+Generator `78298c1c4879673a2a0945ccd9c7fc97fdf6396d` ([PR132](https://github.com/TTolsun/camera-hal-sdd-generator/pull/132)); source `2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f`; previous public release `e51f852f459a2ea4da58d05071782ca1a9898c2a`.
+
+Use the prior [rendering instructions](../allocator-navigation/README.md) with sections.yaml and english.json from this directory. Keep the frozen glossary at ../sidebar-resize/glossary.yaml and visuals at ../issue97/visuals.yaml. The historical HTTP identity is offline validation of saved visual provenance, not a new model request.
+
+All 21 manuscript bytes, facts and historical CLI/model archives are preserved. The resize JS/CSS assets exactly match the previous deployment. Four new navigation units only substitute an unchanged existing English title into unchanged breadcrumb/arrow/placeholder formatting. Existing English values are retained. No new prose translation, inference or CLI reproduction is claimed. Both model transports were blocked during catalog preparation and repeat rendering.
+
+The unpublished Team/onboarding configurations are excluded from the 23 published-page audit; no review of their unpublished manuscripts is claimed. Human approval is pending; internal HAL/device validation is not performed. Prepared checks are not live Pages success; deployment evidence is recorded in the public PR.
