@@ -16,3 +16,10 @@
 생성기의 기본 모델 실행 경로는 Hermes CLI입니다. 모델과 제공자는 선택한 CLI 설정을 사용하며, 사용자가 원하면 OpenCode 또는 Claude Code를 독립적으로 선택할 수 있습니다. [실제 Hermes → Qwen 두 커밋 시험](cli-runners/mini-hal/report.json)과 [CLI 증거 검증 요약](cli-runners/mini-hal/verification.json)을 함께 보관합니다. Claude Code는 OAuth 만료로 실패했고 OpenCode는 설치하지 않았습니다.
 
 공식 upstream SHA는 바뀌지 않았습니다. 기존 IPA 범주의 [모듈 정보 검사와 서명 파일 누락 설명](https://ttolsun.github.io/libcamera-sdd/ipa-module-validation.html)을 Hermes로 보완했습니다. 기존 공개 300-TU facts를 같은 SHA에서 재사용했으며 새로운 추출이나 사내 HAL 검증으로 보고하지 않습니다. 원응답과 실패 후보는 cli-runners/libcamera/에 남기며 사람 승인은 아직 없습니다.
+
+
+## Complete local Qwen document and sidebar validation
+
+[Generator PR89](https://github.com/TTolsun/camera-hal-sdd-generator/pull/89) exercises all 13 original sections (19 manuscripts) with real Local Qwen responses, repairs failed source-bound answers, and passes provenance, audit, English translation, site verification and identical repeat builds. The final repair retains all 56 topics with zero new prose-generation calls. See [trial evidence](qwen-full/README.md), [trial summary](qwen-full/summary.json), [independent reader evaluation](qwen-full/reader-evaluation-final.json) and [published composition](qwen-full/publication.json).
+
+The final site has 44 Korean/English pages, including the existing Hermes IPA validation page from PR41. It preserves the source commit and existing CLI proof. Audience headings, task categories and document links now have distinct sidebar typography and indentation from generator CSS. No generated HTML was manually edited. Public libcamera/Qwen results do not establish internal HAL/model validation or human approval.
