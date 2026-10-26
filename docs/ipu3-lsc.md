@@ -1,12 +1,11 @@
 ---
-generated_at: 2026-10-26T11:47:36+00:00
+generated_at: 2026-10-26T14:23:11+00:00
 source_commit: 2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f
 status: ok
 section: ipu3-lsc
 generation_method: extracted-structure
 evidence_fingerprint: 66a7bcaf3c01dcf762b0378043e60b74fd7337e58932d0c599010e5be2bbb91c
 semantic_review: human-review-required
-revalidated_from: 960713a8f9b404bb64ce9b05d1ffd5df7e84dd05
 ---
 
 # IPU3 LSC와 상태 연결
@@ -93,7 +92,7 @@ flowchart LR
     - 생성 방식: 추출 사실로 만든 구조 설명
     - 검증 범위: 클래스와 관계를 facts에서 구성합니다. 실행 동작을 검증하지 않습니다.
     - 근거 파일: `src/ipa/ipu3/algorithms/lsc.cpp`, `src/ipa/ipu3/algorithms/lsc.h`, `src/ipa/ipu3/ipa_context.h`, `src/ipa/libipa/lsc.h`
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `960713a8f9`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `2c4b67c079`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
     - 검토 상태 기록일: 2026-10-26 · 사람 검토 전
 
