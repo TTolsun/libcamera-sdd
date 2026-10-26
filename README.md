@@ -9,3 +9,10 @@
 한영 42페이지의 링크 검사와 반복 빌드 139개 파일의 일치를 확인했습니다. 새 영어 문장도 실제 Qwen으로 번역했습니다. 자동 검사와 작성 세션의 소스 대조를 수행했으며, 사람 승인·사내 HAL·실기기 검증은 수행하지 않았습니다.
 
 `upstream/master`는 공식 이력을 보관하고 `main`의 `docs/`를 GitHub Pages로 게시합니다. 공개 libcamera 입력만 사용하고 HTML은 생성기에서 만듭니다. 정기 예약은 설치하지 않았습니다. 소스 변경 처리는 생성기의 `sdd update --to <commit>` 경로로 실행합니다.
+
+
+## CLI 실행 검증 (2026-10-26)
+
+생성기의 기본 모델 실행 경로는 Hermes CLI입니다. 모델과 제공자는 선택한 CLI 설정을 사용하며, 사용자가 원하면 OpenCode 또는 Claude Code를 독립적으로 선택할 수 있습니다. [실제 Hermes → Qwen 두 커밋 시험](cli-runners/mini-hal/report.json)과 [CLI 증거 검증 요약](cli-runners/mini-hal/verification.json)을 함께 보관합니다. Claude Code는 OAuth 만료로 실패했고 OpenCode는 설치하지 않았습니다.
+
+공식 upstream SHA는 바뀌지 않았습니다. 기존 IPA 범주의 [모듈 정보 검사와 서명 파일 누락 설명](https://ttolsun.github.io/libcamera-sdd/ipa-module-validation.html)을 Hermes로 보완했습니다. 기존 공개 300-TU facts를 같은 SHA에서 재사용했으며 새로운 추출이나 사내 HAL 검증으로 보고하지 않습니다. 원응답과 실패 후보는 cli-runners/libcamera/에 남기며 사람 승인은 아직 없습니다.

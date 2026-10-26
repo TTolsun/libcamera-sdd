@@ -1,0 +1,1 @@
+{"statements":[{"text":"서명 파일打开 실패 시 loadIPAModuleInfo()는 0을 반환하고, 생성자의 valid_ 플래그는 여전히 false로 설정되지 않은 상태입니다.","quote_id":"constructor:0","covers":["signature"],"kind":"behavior"}]}

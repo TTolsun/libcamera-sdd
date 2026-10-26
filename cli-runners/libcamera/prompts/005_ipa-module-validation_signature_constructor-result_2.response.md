@@ -1,0 +1,1 @@
+{"statements":[{"text":"loadIPAModuleInfo 가 0을 반환하면 0은 < 0 이 아니므로 실행되지 않으며 그 이전의 valid_(false)가 유지됩니다.", "quote_id":"constructor:0","covers":["signature"],"kind":"behavior"}]}

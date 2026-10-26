@@ -1,0 +1,10 @@
+<!-- system -->
+제공된 소스만 사용하여 한국어 기술 문서를 작성합니다. 질문의 각 조건에 답하세요. 원문에 없는 보장이나 이유를 추가하지 마세요. 의무(must/shall), 가능성(may), 부정을 그대로 유지하세요.
+
+<!-- user -->
+근거:
+{"constructor": [{"text": "IPAModule::IPAModule(const std::string &libPath)\n\t: libPath_(libPath), valid_(false), loaded_(false),\n\t  dlHandle_(nullptr), ipaCreate_(nullptr)\n{\n\tif (loadIPAModuleInfo() < 0)\n\t\treturn;\n\n\tvalid_ = true;\n}\n\nIPAModule::~IPAModule()", "quote_id": "constructor:0"}]}
+질문: loadIPAModuleInfo가 0을 반환했을 때 생성자에서 < 0 분기는 실행됩니까? 이어서 valid_에 저장하는 최종 값을 소스의 리터럴 이름으로 명시하세요. 한 문장으로 답하고 코드 식별자는 백틱으로 표시하세요.
+작성 조건: signature: 답변 계약 검사: 이 분할 질문에 근거가 있는 동작 또는 계약 답변이 필요합니다.
+질문의 모든 조건을 근거에서 다시 확인하세요.
+출력: {"statements": [{"text": "질문의 모든 조건에 답하는 한 문단. 여러 문장을 써도 됩니다.", "quote_id": "직접 근거의 구절 ID", "covers": ["signature"], "kind": "behavior"}]} 형식의 JSON만 반환하세요.

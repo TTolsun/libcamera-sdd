@@ -1,0 +1,1 @@
+{"0": "Source reference: src/libcamera/ipa_module.cpp:268", "1": "Source reference: src/libcamera/ipa_module.cpp:316", "2": "Terminology for this document: IPA, errno"}

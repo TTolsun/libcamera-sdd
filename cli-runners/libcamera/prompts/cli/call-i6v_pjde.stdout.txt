@@ -1,0 +1,1 @@
+{"statements":[{"text":"ipaModuleInfo의 크기가 sizeof(info_)보다 작을 경우 -EINVAL, moduleAPIVersion이 IPA_MODULE_API_VERSION과 다르면 -EINVAL를 반환합니다","quote_id":"info-checks:0","covers":["metadata"],"kind":"behavior"}]}

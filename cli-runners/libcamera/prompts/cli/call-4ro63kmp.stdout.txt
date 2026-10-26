@@ -1,0 +1,1 @@
+{"statements":[{"text":"loadIPAModuleInfo 가 0 을 반환하면 조건부 연산의 분모(false branch)가 실행되어 리턴되며, valid_ 에 저장되는 최종 값은 초기화时被赋予了 false 입니다.", "quote_id":"constructor:0","covers":["signature"],"kind":"behavior"}]}

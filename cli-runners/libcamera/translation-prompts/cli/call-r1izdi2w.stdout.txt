@@ -1,0 +1,3 @@
+```json
+{"0": "Excerpt starting from {{0}}. The end line is 324, and you can compare it with the original text below.", "1": "Implementation details", "2": "Source file: {{1}}", "3": "To detect metadata errors,", "4": "we check the section that detects metadata errors.", "5": "What is returned if module info size and API version checks fail?", "6": "What value does loadIPAModuleInfo return if it cannot open the signature file?", "7": "If the signature file cannot be opened,", "8": "we check the section that handles when the signature file cannot be opened.", "9": "If the signature file does not open, loadIPAModuleInfo returns 0."}
+```
