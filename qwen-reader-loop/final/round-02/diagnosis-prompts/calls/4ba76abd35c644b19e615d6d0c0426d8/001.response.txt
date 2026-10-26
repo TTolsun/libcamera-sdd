@@ -1,0 +1,28 @@
+{
+  "verdict": "repair",
+  "checks": {
+    "subject": "pass",
+    "conditions": "fail",
+    "modality": "pass",
+    "returns": "pass",
+    "ordering": "fail",
+    "coverage": "fail"
+  },
+  "findings": [
+    {
+      "category": "conditions",
+      "candidate": "module-compatible:current",
+      "issue": "The answer text fails to mention the minimum version condition (minVersion) and the maximum version condition (maxVersion), which are required terms in the contract."
+    },
+    {
+      "category": "ordering",
+      "candidate": "module-compatible:current",
+      "issue": "The answer text does not specify the inclusion logic for the version boundaries (>= and <=) as requested by the question ('최소·최대 버전 경계의 포함 여부'). The source code uses >= and <=, but the answer omits this detail."
+    },
+    {
+      "category": "coverage",
+      "candidate": "module-compatible:current",
+      "issue": "The answer only covers the name matching condition. It is incomplete regarding the version range conditions required by the question and contract."
+    }
+  ]
+}

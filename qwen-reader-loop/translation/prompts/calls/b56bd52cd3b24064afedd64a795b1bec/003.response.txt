@@ -1,0 +1,3 @@
+{
+  "text": "The {{0}} function satisfies the condition only when {{2}} is greater than or equal to {{4}} and less than or equal to {{6}}."
+}

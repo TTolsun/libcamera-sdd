@@ -1,0 +1,14 @@
+{
+  "verdict": "acceptable",
+  "checks": {
+    "subject": "pass",
+    "conditions": "pass",
+    "modality": "pass",
+    "returns": "pass",
+    "ordering": "pass",
+    "coverage": "pass"
+  },
+  "findings": [],
+  "clarification": "",
+  "expand": []
+}
