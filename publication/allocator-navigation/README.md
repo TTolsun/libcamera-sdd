@@ -1,0 +1,9 @@
+# Allocator navigation update
+
+FrameBufferAllocator failure and reference lifetime is grouped with tracing and diagnosis in both languages. The URL and all 21 manuscript bytes remain unchanged. Only the frozen sections snapshot, navigation rendering and two previous/next display labels change. Existing facts, historical catalog, original manuscripts and CLI archives remain intact.
+
+Generator: `b4bb1e2832b0f9f1596a3011c68e2251104bafbc` ([PR130](https://github.com/TTolsun/camera-hal-sdd-generator/pull/130)). Source: `2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f`. Previous release: `0d37a93912a7c327fe8745da8e340456ae23ed03`. Use the [prior rendering instructions](../issue97/README.md), replacing sections.yaml and english.json with the copies here and pinning the generator above. Keep the prior frozen visuals.yaml. Refresh public excerpts as described there; offline rendering uses the historical HTTP identity only to validate saved visual provenance and performs no model calls.
+
+The two new navigation labels came from one real Hermes qwen3.5:9b-ctx64k/custom/high call. The CLI exited successfully. The initial local post-processing script then accessed an incorrect CallRecord field. The corrected finalizer verified and adopted that exact successful response without additional inference. The original audit retains overall status failed; its one inference row is completed/exit0. translation-verification.json records this distinction, and the original request/response/receipt/stdout/stderr are in cli/translation-calls.zip. The native audit's original relative profile path maps to cli/hermes-profile.yaml by exact SHA. No manual or substitute model answer was supplied.
+
+Human approval remains pending. Internal HAL/device/Gerrit validation is not performed. Prepared checks are not Pages success; deployment and actual URL verification are recorded in the public PR.
