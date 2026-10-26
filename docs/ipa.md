@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-10-26T14:23:09+00:00
+generated_at: 2026-10-26 14:23:09+00:00
 source_commit: 2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f
 status: ok
 section: ipa
@@ -7,7 +7,928 @@ generation_method: facts-and-llm
 evidence_fingerprint: 84611553aff2de125c4a301d56f8b196027713cb1261cbeea7f5b956cb7d641f
 semantic_review: human-review-required
 agent: ollama/qwen3.5:9b
-generated_design: {"schema": 1, "input_fingerprint": "84611553aff2de125c4a301d56f8b196027713cb1261cbeea7f5b956cb7d641f", "answers": {"selection": [{"text": "`IPAManager::IPAManager()` 함수는 사용자 지정 경로를 먼저 확인하고, libcamera 가 설치되지 않은 경우 빌드 디렉토리를 추가하며, 마지막으로 시스템 설치 경로를 검색합니다.", "evidence": ["modules"], "covers": ["selection"], "kind": "behavior", "quote": "/* User-specified paths take precedence. */\n\tconst auto modulePaths =\n\t\tconfiguration.listOption({ \"ipa\", \"module_paths\" })\n\t\t\t.value_or(utils::defopt);\n\tfor (const auto &dir : modulePaths) {\n\t\tif (dir.empty())\n\t\t\tcontinue;"}, {"text": "사용자가 'ipa.`module_paths`' 옵션으로 경로를 지정하지 않으면 빌드 디렉토리와 시스템 설치 경로만 검색되며, 모듈이 없으면 경고 로그가 출력됩니다.", "evidence": ["modules"], "covers": ["selection"], "kind": "behavior", "quote": "if (!modulePaths.empty() && !ipaCount)\n\t\tLOG(IPAManager, Warning) << \"No IPA found in '\"\n\t\t\t\t\t << utils::join(modulePaths, \":\")\n\t\t\t\t\t << \"'\";"}, {"text": "`IPAModule::match()` 함수는 모듈 이름과 버전 범위를 비교하여 일치하는지 확인하며, false 를 반환하면 해당 모듈은 선택되지 않습니다.", "evidence": ["match"], "covers": ["selection"], "kind": "behavior", "quote": "\\brief Verify if the IPA module matches a given name\n * \\param[in] name The IPA module name\n * \\param[in] minVersion Minimum acceptable version of IPA module\n * \\param[in] maxVersion Maximum acceptable version of IPA module\n *\n * This function checks if this IPA module matches the requested \\a name\n * and the input version range.\n *\n * \\return True if the IPA module matches, or false otherwise\n */\nbool IPAModule::match(const char *name, uint32_t minVersion,\n\t\t      uint32_t maxVersion) const\n{\n\treturn info_.pipelineVersion >= minVersion &&\n\t       info_.pipelineVersion <= maxVersion &&\n\t       !strcmp(info_.name, name);\n}"}, {"text": "createIPA() 함수는 module() 으로 찾은 모듈이 없으면 nullptr 를 반환하고, 프록시 생성 시 서명이 유효하지 않으면 Isolated 실행 방식을 선택합니다.", "evidence": ["selection"], "covers": ["selection"], "kind": "behavior", "quote": "template<typename T>\n\tstd::unique_ptr<T> createIPA(const char *name, uint32_t minVersion,\n\t\t\t\t     uint32_t maxVersion)\n\t{\n\t\tIPAModule *m = module(name, minVersion, maxVersion);\n\t\tif (!m)\n\t\t\treturn nullptr;"}, {"text": "서명 검증이 실패하거나 `forceIsolation_` 가 true 일 경우 isSignatureValid() 는 false 를 반환하고, createIPA() 는 Isolated 실행 방식을 선택합니다.", "evidence": ["signature"], "covers": ["selection"], "kind": "behavior", "quote": "bool IPAManager::isSignatureValid([[maybe_unused]] IPAModule *ipa) const\n{\n#if HAVE_IPA_PUBKEY\n\tif (forceIsolation_) {\n\t\tLOG(IPAManager, Debug)\n\t\t\t<< \"Isolation of IPA module \" << ipa->path()\n\t\t\t<< \" forced through configuration\";\n\t\treturn false;\n\t}"}, {"text": "서명이 유효하지 않으면 createIPA() 는 Isolated 실행 방식을 선택하고, 프록시 생성이 실패하면 nullptr 를 반환합니다.", "evidence": ["selection"], "covers": ["selection"], "kind": "behavior", "quote": "if (!proxy->isValid()) {\n\t\t\tLOG(IPAManager, Error) << \"Failed to load proxy\";\n\t\t\treturn nullptr;\n\t\t}"}], "execution": [{"text": "`init-branch:0`에 포함된 템플릿 코드는 `method.mojom_name`이 `init`일 때 `ipa_`를 호출하여 IPA 메서드를 직접 실행하는 경로를 제공합니다.", "evidence": ["init-branch"], "covers": ["execution"], "kind": "behavior", "quote": "{%- elif method.mojom_name == \"init\" %}\n\t{{ method|method_return_value + \" _ret = \" if method|method_return_value != \"void\" -}}\n\tipa_->{{method.mojom_name}}(\n\t{%- for param in method|method_param_names -%}\n\t\t{{param}}{{- \", \" if not loop.last}}\n\t{%- endfor -%}\n);", "part_id": "init"}, {"text": "`init` 메서드가 호출된 직후 `proxy_.moveToThread(&thread_)`가 실행되며, 이 호출에 전달되는 스레드 객체는 `thread_`라는 변수를 가리킵니다.", "evidence": ["init-branch"], "covers": ["execution"], "kind": "behavior", "quote": "proxy_.moveToThread(&thread_);", "part_id": "init-move"}, {"text": "`start-branch:0` 인용문에 따르면 worker 스레드를 `thread_.start()` 함수로 시작한 뒤 바로 `ThreadProxy::start`를 `ConnectionTypeBlocking` 연결 유형으로 호출합니다.", "evidence": ["start-branch"], "covers": ["execution"], "kind": "behavior", "quote": "{%- elif method.mojom_name == \"start\" %}\n\tstate_ = ProxyRunning;\n\tthread_.start();", "part_id": "start"}, {"text": "`{{proxy_name}}Threaded` 클래스의 일반 동기 메서드 분기에서는 `init`, `start`, `stop` 을 제외한 모든 호출이 `ipa_->{{method.mojom_name}}(...)` 경로를 통해 직접 호출됩니다.", "evidence": ["dispatch"], "covers": ["execution"], "kind": "behavior", "quote": "return proxy_.invokeMethod(&ThreadProxy::start, ConnectionTypeBlocking\n\t{{- \", \" if method|method_param_names}}\n\t{%- for param in method|method_param_names -%}\n\t\t{{param}}{{- \", \" if not loop.last}}\n\t{%- endfor -%}\n);\n{%- elif not method|is_async %}\n\treturn ipa_->{{method.mojom_name}}(\n\t{%- for param in method|method_param_names -%}\n\t\t{{param}}{{- \", \" if not loop.last}}\n\t{%- endfor -%}\n);\n{% elif method|is_async %}\n\tASSERT(state_ == ProxyRunning);\n\tproxy_.invokeMethod(&ThreadProxy::{{method.mojom_name}}, ConnectionTypeQueued\n\t{%- for param in method|method_param_names -%}\n\t\t, {{param}}\n\t{%- endfor -%}\n);\n{%- endif %}\n}\n{% endfor %}", "part_id": "sync"}, {"text": "`async-assert` 파일의 `{% elif method|is_async %}` 조건부 블록 내부에는 `ASSERT(state_ == ProxyRunning);`라는 매크로 호출이 포함되어 있습니다.", "evidence": ["async-assert"], "covers": ["execution"], "kind": "behavior", "quote": "ASSERT(state_ == ProxyRunning);", "part_id": "async"}, {"text": "`Threaded` 비동기 분기의 `invokeMethod` 호출은 `method|is_async` 조건이 참일 때만 실행되며, 이때 전달되는 연결 유형은 `ConnectionTypeQueued` 입니다.", "evidence": ["async-branch"], "covers": ["execution"], "kind": "behavior", "quote": "{% elif method|is_async %}\n\tASSERT(state_ == ProxyRunning);\n\tproxy_.invokeMethod(&ThreadProxy::{{method.mojom_name}}, ConnectionTypeQueued\n\t{%- for param in method|method_param_names -%}\n\t\t, {{param}}\n\t{%- endfor -%}\n);\n{%- endif %}\n}\n{% endfor %}", "part_id": "async-dispatch"}, {"text": "`{{proxy_name}}Threaded` 생성자는 초기화 과정에서 `ipam->load()`를 호출하여 IPA 모듈을 로드합니다.", "evidence": ["threaded"], "covers": ["execution"], "kind": "behavior", "quote": "{{proxy_name}}Threaded::{{proxy_name}}Threaded(IPAModule *ipam, const CameraManager &cm)\n\t: {{proxy_name}}(ipam, cm), thread_(\"{{proxy_name}}\")\n{\n\tLOG(IPAProxy, Debug)\n\t\t<< \"initializing {{module_name}} proxy in thread: loading IPA from \"\n\t\t<< ipam->path();", "part_id": "constructor"}, {"text": "`Threaded` 생성자가 `createInterface`를 호출하여 IPA 인터페이스 객체를 만들지 못하면, 해당 함수는 로그에 오류 메시지를 출력하고 즉시 반환합니다.", "evidence": ["ctor-interface"], "covers": ["execution"], "kind": "behavior", "quote": "IPAInterface *ipai = ipam->createInterface();\n\tif (!ipai) {\n\t\tLOG(IPAProxy, Error)\n\t\t\t<< \"Failed to create IPA context for \" << ipam->path();\n\t\treturn;", "part_id": "constructor-interface"}, {"text": "`{{proxy_name}}Threaded` 클래스의 생성자에서 `ipa_` 객체의 이벤트를 처리하기 위해 `this` 를 수신 객체로, `&{{proxy_name}}Threaded::{{method.mojom_name}}Handler` 를 핸들러 메서드로 하여 `connect` 호출을 수행합니다.", "evidence": ["ctor-events"], "covers": ["execution"], "kind": "behavior", "quote": "ipa_->{{method.mojom_name}}.connect(this, &{{proxy_name}}Threaded::{{method.mojom_name}}Handler);", "part_id": "constructor-events"}, {"text": "`{{proxy_name}}Isolated` 생성자는 `ipam->path()`와 worker 경로인 `proxyWorkerPath`를 사용하여 `std::make_unique<IPCPipeUnixSocket>`로 IPC 연결을 만듭니다.", "evidence": ["isolated"], "covers": ["execution"], "kind": "behavior", "quote": "auto ipc = std::make_unique<IPCPipeUnixSocket>(ipam->path().c_str(),\n\t\t\t\t\t\t       proxyWorkerPath.c_str());\n\tif (!ipc->isConnected()) {\n\t\tLOG(IPAProxy, Error) << \"Failed to create IPCPipe\";\n\t\treturn;\n\t}", "part_id": "isolated"}, {"text": "`{{proxy_name}}Isolated` 클래스의 생성자에서 `ipc->recv.connect(this, &{{proxy_name}}Isolated::recvMessage)` 호출이 수행됩니다.", "evidence": ["isolated-valid"], "covers": ["execution"], "kind": "behavior", "quote": "ipc->recv.connect(this, &{{proxy_name}}Isolated::recvMessage);", "part_id": "isolated-valid"}, {"text": "`isolated-store` 함수의 `scope` 범위 내에서 실행되는 코드에서는 `ipc_` 멤버 변수에 `std::move(ipc)`를 대입합니다.", "evidence": ["isolated-store"], "covers": ["execution"], "kind": "behavior", "quote": "ipc_ = std::move(ipc);\n\tvalid_ = true;", "part_id": "isolated-store"}, {"text": "`Isolated` 클래스의 생성자 함수가 실행될 때 `valid_` 멤버 변수에는 `true` 값이 대입됩니다.", "evidence": ["isolated-ready"], "covers": ["execution"], "kind": "behavior", "quote": "valid_ = true;", "part_id": "isolated-ready"}, {"text": "`IPAProxy::resolvePath` 함수는 주어진 프록시 워커 실행 파일 이름에 대한 유효한 전체 경로를 찾습니다.", "evidence": ["worker-path"], "covers": ["execution"], "kind": "behavior", "quote": "\\brief Find a valid full path for a proxy worker for a given executable name\n * \\param[in] file File name of proxy worker executable\n *\n * A proxy worker's executable could be found in either the global installation\n * directory, or in the paths specified by the environment variable\n * LIBCAMERA_IPA_PROXY_PATH. This function checks the global install directory\n * first, then LIBCAMERA_IPA_PROXY_PATH in order, and returns the full path to\n * the proxy worker executable that is specified by file. The proxy worker\n * executable shall have exec permission.\n *\n * \\return The full path to the proxy worker executable, or an empty string if\n * no valid executable path\n */\nstd::string IPAProxy::resolvePath(const std::string &file) const\n{\n\tstd::string proxyFile = \"/\" + file;", "part_id": "worker"}, {"text": "`IPCPipeUnixSocket::sendSync` 함수는 호출 시 `IPCMessage` 인자와 응답을 저장할 포인터를 받아, 내부적으로 `call` 함수를 호출하여 동기식 통신을 수행합니다.", "evidence": ["ipc"], "covers": ["execution"], "kind": "behavior", "quote": "int IPCPipeUnixSocket::sendSync(const IPCMessage &in, IPCMessage *out)\n{\n\tIPCUnixSocket::Payload response;", "part_id": "ipc"}, {"text": "`IPCPipeUnixSocket::sendAsync` 함수는 `socket_->send(data.payload())` 호출을 통해 소켓으로 데이터를 전송합니다.", "evidence": ["send-async"], "covers": ["execution"], "kind": "behavior", "quote": "int IPCPipeUnixSocket::sendAsync(const IPCMessage &data)\n{\n\tint ret = socket_->send(data.payload());\n\tif (ret) {\n\t\tLOG(IPCPipe, Error) << \"Failed to call async\";\n\t\treturn ret;\n\t}", "part_id": "ipc-async"}], "interface": [{"text": "`IPAIPU3Interface` 와 `IPARkISP1Interface` 는 초기화, 시작, 중지 및 구성을 위한 동기 메서드를 제공합니다. init 은 설정 정보와 센서 정보를 받아 제어 정보를 반환하며, start 와 stop 은 각각 처리를 시작하거나 중지합니다. configure 는 IPU3 의 경우 단일 설정 정보를, RKISP1 의 경우 설정 정보와 스트림 구성 맵을 받아 제어 정보를 반환합니다.", "evidence": ["ipu3-api"], "covers": ["interface"], "kind": "behavior", "quote": "interface IPAIPU3Interface {\n\tinit(libcamera.IPASettings settings,\n\t     libcamera.IPACameraSensorInfo sensorInfo,\n\t     libcamera.ControlInfoMap sensorControls)\n\t\t=> (int32 ret, libcamera.ControlInfoMap ipaControls);\n\tstart() => (int32 ret);\n\tstop();"}, {"text": "두 인터페이스 모두 버퍼 매핑과 해제를 위한 mapBuffers 와 unmapBuffers 메서드를 공유합니다. 이 메서드는 배열 형태의 버퍼를 매핑하거나 ID 를 기반으로 해제를 수행하며, 구체적인 구현 세부사항은 인터페이스 정의에 명시되어 있지 않습니다.", "evidence": ["ipu3-api"], "covers": ["interface"], "kind": "behavior", "quote": "mapBuffers(array<libcamera.IPABuffer> buffers);\n\tunmapBuffers(array<uint32> ids);"}, {"text": "[async] queueRequest 는 프레임 번호와 제어 목록을 받아 비동기적으로 요청을 큐에 넣습니다. 이 메서드는 즉시 처리가 완료된다는 보장을 제공하지 않으며, 실제 처리 순서와 타이밍은 구현에 따라 달라질 수 있습니다.", "evidence": ["ipu3-api"], "covers": ["interface"], "kind": "behavior", "quote": "[async] queueRequest(uint32 frame, libcamera.ControlList controls);\n\t[async] computeParams(uint32 frame, uint32 bufferId);\n\t[async] processStats(uint32 frame, int64 frameTimestamp,\n\t\t\t     uint32 bufferId, libcamera.ControlList sensorControls);\n};"}, {"text": "[async] computeParams 는 프레임과 버퍼 ID 를 받아 파라미터를 계산합니다. 이 메서드는 비동기적으로 호출되며, 완료 시점이나 실패 여부는 반환 값이나 별도의 알림을 통해 확인해야 합니다.", "evidence": ["ipu3-api"], "covers": ["interface"], "kind": "behavior", "quote": "[async] queueRequest(uint32 frame, libcamera.ControlList controls);\n\t[async] computeParams(uint32 frame, uint32 bufferId);\n\t[async] processStats(uint32 frame, int64 frameTimestamp,\n\t\t\t     uint32 bufferId, libcamera.ControlList sensorControls);\n};"}, {"text": "[async] processStats 는 프레임, 타임스탬프, 버퍼 ID 와 센서 제어 목록을 받아 통계를 처리합니다. 이 메서드는 비동기적으로 실행되며, 호출 시점과 완료 시점 사이의 관계는 명시적으로 보장되지 않습니다.", "evidence": ["ipu3-api"], "covers": ["interface"], "kind": "behavior", "quote": "[async] queueRequest(uint32 frame, libcamera.ControlList controls);\n\t[async] computeParams(uint32 frame, uint32 bufferId);\n\t[async] processStats(uint32 frame, int64 frameTimestamp,\n\t\t\t     uint32 bufferId, libcamera.ControlList sensorControls);\n};"}, {"text": "IPAIPU3EventInterface 는 센서 제어 설정, 파라미터 계산 완료 및 메타데이터 준비를 위한 이벤트 인터페이스를 제공합니다. setSensorControls 는 프레임과 센서 및 렌즈 제어 목록을 받아 설정하고, paramsComputed 은 프레임 번호만 받아 파라미터가 계산되었음을 알립니다.", "evidence": ["ipu3-api"], "covers": ["interface"], "kind": "behavior", "quote": "interface IPAIPU3EventInterface {\n\tsetSensorControls(uint32 frame, libcamera.ControlList sensorControls,\n\t\t\t  libcamera.ControlList lensControls);\n\tparamsComputed(uint32 frame);\n\tmetadataReady(uint32 frame, libcamera.ControlList metadata);\n};"}, {"text": "IPARkISP1EventInterface 는 RKISP1 전용 이벤트 인터페이스로, paramsComputed 은 프레임과 사용된 바이트 수를 함께 반환합니다. setSensorControls 와 metadataReady 도 IPU3 와 유사하게 센서 제어 설정 및 메타데이터 준비 상태를 알립니다.", "evidence": ["rkisp1-api"], "covers": ["interface"], "kind": "behavior", "quote": "interface IPARkISP1EventInterface {\n\tparamsComputed(uint32 frame, uint32 bytesused);\n\tsetSensorControls(uint32 frame, libcamera.ControlList sensorControls);\n\tmetadataReady(uint32 frame, libcamera.ControlList metadata);\n};"}, {"text": "EventInterface 의 메서드 호출 시점과 실제 이벤트 발생 시점은 일치하지 않을 수 있습니다. 인터페이스 정의는 실행 타이밍을 보장하지 않으며, 비동기 메서드는 완료 상태를 별도의 알림으로 확인해야 합니다.", "evidence": ["ipu3-api"], "covers": ["interface"], "kind": "limitation", "quote": "interface IPAIPU3EventInterface {\n\tsetSensorControls(uint32 frame, libcamera.ControlList sensorControls,\n\t\t\t  libcamera.ControlList lensControls);\n\tparamsComputed(uint32 frame);\n\tmetadataReady(uint32 frame, libcamera.ControlList metadata);\n};"}], "lifetime": [{"text": "`IPAModule::load()` 함수는 모듈을 로드하거나 이미 로드된 경우에만 성공하며, 유효하지 않은 모듈이나 이미 로드된 상태에서는 `false`를 반환합니다.", "evidence": ["load"], "covers": ["lifetime"], "kind": "behavior", "quote": "\\brief Load the IPA implementation factory from the shared object\n *\n * The IPA module shared object implements an IPAInterface object to be used\n * by pipeline handlers. This function loads the factory function from the\n * shared object. Later, createInterface() can be called to instantiate the\n * IPAInterface.\n *\n * This function only needs to be called successfully once, after which\n * createInterface() can be called as many times as IPAInterface instances are\n * needed.\n *\n * Calling this function on an invalid module (as returned by isValid()) is\n * an error.\n *\n * \\return True if load was successful, or already loaded, and false otherwise\n */\nbool IPAModule::load()\n{\n\tif (!valid_)\n\t\treturn false;"}, {"text": "`IPAModule::createInterface()` 함수는 모듈이 로드되지 않았거나 유효하지 않은 경우 `nullptr`를 반환하며, 성공 시 인터페이스 인스턴스를 생성합니다.", "evidence": ["load"], "covers": ["lifetime"], "kind": "behavior", "quote": "/**\n * \\brief Instantiate an IPA interface\n *\n * After loading the IPA module with load(), this function creates an instance\n * of the IPA module interface.\n *\n * Calling this function on a module that has not yet been loaded, or an\n * invalid module (as returned by load() and isValid(), respectively) is\n * an error.\n *\n * \\return The IPA interface on success, or nullptr on error\n */\nIPAInterface *IPAModule::createInterface()\n{\n\tif (!valid_ || !loaded_)\n\t\treturn nullptr;"}, {"text": "`{{proxy_name}}Threaded` 프록시는 생성 시 `ipam->load()`와 `ipam->createInterface()`를 호출하여 인터페이스를 초기화하고, 실패 시 로그를 기록한 후 초기화를 중단합니다.", "evidence": ["threaded"], "covers": ["lifetime"], "kind": "behavior", "quote": "if (!ipam->load())\n\t\treturn;"}, {"text": "`{{proxy_name}}Threaded` 프록시는 `start()` 호출 시 스레드를 시작하고, `stop()` 호출 시 상태가 `ProxyRunning`이 아닌 경우 중단하며, `ProxyStopping` 상태로 전환 후 스레드 종료와 메시지 처리를 수행합니다.", "evidence": ["threaded"], "covers": ["lifetime"], "kind": "behavior", "quote": "return {{ \"_ret\" if method|method_return_value != \"void\" }};\n{%- elif method.mojom_name == \"start\" %}\n\tstate_ = ProxyRunning;\n\tthread_.start();"}, {"text": "`{{proxy_name}}Isolated` 프록시는 생성 시 IPC 파이프를 설정하고, 종료 시 `Exit` 명령을 통해 비동기 메시지를 전송하여 정리됩니다.", "evidence": ["isolated"], "covers": ["lifetime"], "kind": "behavior", "quote": "{{proxy_name}}Isolated::~{{proxy_name}}Isolated()\n{\n\tif (ipc_) {\n\t\tIPCMessage::Header header =\n\t\t\t{ static_cast<uint32_t>({{cmd_enum_name}}::Exit), seq_++ };\n\t\tIPCMessage msg(header);\n\t\tipc_->sendAsync(msg);\n\t}\n}"}, {"text": "`{{proxy_name}}Isolated` 프록시는 `configure()` 호출 시 `controlSerializer_`를 초기화하며, 비동기 호출 시 `_ipcInputBuf`를 전송하고 결과를 디시리얼라이즈하여 반환합니다.", "evidence": ["isolated"], "covers": ["lifetime"], "kind": "behavior", "quote": "{% for method in interface_main.methods %}\n{{proxy_funcs.func_sig(proxy_name + \"Isolated\", method)}}\n{\n{%- if method.mojom_name == \"configure\" %}\n\tcontrolSerializer_.reset();\n{%- endif %}\n{%- set has_output = true if method|method_param_outputs|length > 0 or method|method_return_value != \"void\" %}\n{%- set cmd = cmd_enum_name + \"::\" + method.mojom_name|cap %}\n\tIPCMessage::Header _header = { static_cast<uint32_t>({{cmd}}), seq_++ };\n\tIPCMessage _ipcInputBuf(_header);\n{%- if has_output %}\n\tIPCMessage _ipcOutputBuf;\n{%- endif %}"}], "errors": [{"text": "`createIPA` 함수는 모듈을 로드할 때 유효하지 않은 모듈이 반환되면 `nullptr`를 반환합니다. 또한 로딩된 후 프록시가 유효하지 않으면 에러 로그를 출력하고 `nullptr`를 반환합니다.", "evidence": ["selection"], "covers": ["errors"], "kind": "behavior", "quote": "if (!proxy->isValid()) {\n\t\t\tLOG(IPAManager, Error) << \"Failed to load proxy\";\n\t\t\treturn nullptr;\n\t\t}"}, {"text": "`IPAModule::load` 함수는 유효하지 않은 모듈이거나 이미 로드된 경우를 처리하여 `false`를 반환하며, 공유 객체를 열지 못하거나 심볼을 찾을 수 없으면 에러 로그를 출력하고 `dlHandle_`를 초기화한 뒤 `false`를 반환합니다.", "evidence": ["load"], "covers": ["errors"], "kind": "behavior", "quote": "dlHandle_ = dlopen(libPath_.c_str(), RTLD_LAZY);\n\tif (!dlHandle_) {\n\t\tLOG(IPAModule, Error)\n\t\t\t<< \"Failed to open IPA module shared object: \"\n\t\t\t<< dlerror();\n\t\treturn false;\n\t}"}, {"text": "`IPAModule::createInterface` 함수는 모듈이 유효하지 않거나 로드되지 않은 경우 `nullptr`를 반환합니다.", "evidence": ["load"], "covers": ["errors"], "kind": "behavior", "quote": "/**\n * \\brief Instantiate an IPA interface\n *\n * After loading the IPA module with load(), this function creates an instance\n * of the IPA module interface.\n *\n * Calling this function on a module that has not yet been loaded, or an\n * invalid module (as returned by load() and isValid(), respectively) is\n * an error.\n *\n * \\return The IPA interface on success, or nullptr on error\n */\nIPAInterface *IPAModule::createInterface()\n{\n\tif (!valid_ || !loaded_)\n\t\treturn nullptr;"}, {"text": "`{{proxy_name}}Isolated` 생성자는 IPC 파이프를 만들지 못하거나 연결에 실패하면 에러 로그를 출력하고 초기화를 중단합니다.", "evidence": ["isolated"], "covers": ["errors"], "kind": "behavior", "quote": "auto ipc = std::make_unique<IPCPipeUnixSocket>(ipam->path().c_str(),\n\t\t\t\t\t\t       proxyWorkerPath.c_str());\n\tif (!ipc->isConnected()) {\n\t\tLOG(IPAProxy, Error) << \"Failed to create IPCPipe\";\n\t\treturn;\n\t}"}, {"text": "`IPCPipeUnixSocket::sendSync` 함수는 호출이 실패하면 에러 로그를 출력하고 음수 반환 값을 반환하며, 타임아웃이 발생하면 `-ETIMEDOUT`을 반환합니다.", "evidence": ["ipc"], "covers": ["errors"], "kind": "behavior", "quote": "int ret = call(in.payload(), &response, in.header().cookie);\n\tif (ret) {\n\t\tLOG(IPCPipe, Error) << \"Failed to call sync\";\n\t\treturn ret;\n\t}"}, {"text": "`IPCPipeUnixSocket::sendAsync` 함수는 소켓을 통해 메시지를 보낼 때 실패하면 에러 로그를 출력하고 음수 반환 값을 반환합니다.", "evidence": ["ipc"], "covers": ["errors"], "kind": "behavior", "quote": "int IPCPipeUnixSocket::sendAsync(const IPCMessage &data)\n{\n\tint ret = socket_->send(data.payload());\n\tif (ret) {\n\t\tLOG(IPCPipe, Error) << \"Failed to call async\";\n\t\treturn ret;\n\t}"}, {"text": "`IPCPipeUnixSocket::readyRead` 함수는 수신된 데이터가 헤더 크기보다 작으면 에러 로그를 출력하고, 예상치 못한 데이터를 받으면 `recv` 신호를 방출합니다.", "evidence": ["ipc"], "covers": ["errors"], "kind": "behavior", "quote": "/* \\todo Use span to avoid the double copy when callData is found. */\n\tif (payload.data.size() < sizeof(IPCMessage::Header)) {\n\t\tLOG(IPCPipe, Error) << \"Not enough data received\";\n\t\treturn;\n\t}"}, {"text": "`IPCPipeUnixSocket::call` 함수는 타임아웃이 발생하면 `-ETIMEDOUT`을 반환하고, 호출 실패 시 음수 값을 반환하며, 성공하면 `0`을 반환합니다.", "evidence": ["ipc"], "covers": ["errors"], "kind": "behavior", "quote": "/* \\todo Make this less dangerous, see IPCPipe::sendSync() */\n\ttimeout.start(2000ms);\n\twhile (!iter->second.done) {\n\t\tif (!timeout.isRunning()) {\n\t\t\tLOG(IPCPipe, Error) << \"Call timeout!\";\n\t\t\tcallData_.erase(iter);\n\t\t\treturn -ETIMEDOUT;\n\t\t}"}], "tuning": [{"text": "RKISP1 또는 Mali-C55 파이프라인에서 센서를 초기화할 때, 해당 센서 모델 이름을 사용하여 `.yaml` 확장자를 가진 튜닝 파일을 찾습니다. 이 과정은 `ipa_->configurationFile()` 함수를 통해 수행되며, 첫 번째 인자로 센서 모델과 `.yaml`을, 두 번째 인자로 `uncalibrated.yaml`을 지정합니다.", "evidence": ["rkisp1-tuning", "mali-c55-tuning"], "covers": ["tuning"], "kind": "behavior", "quote": "/* The IPA tuning file is made from the sensor name. */\n\tstd::string ipaTuningFile =\n\t\tipa_->configurationFile(sensor_->model() + \".yaml\", \"uncalibrated.yaml\");"}, {"text": "요청한 튜닝 파일이 존재하지 않으면, `IPAProxy::configurationFile()` 함수는 두 번째 인자로 전달된 `uncalibrated.yaml` 파일을 대체로 사용합니다. 이 함수는 먼저 주어진 이름으로 파일을 찾은 뒤, 없으면 fallback 이름으로 다시 검색합니다.", "evidence": ["fallback"], "covers": ["tuning"], "kind": "behavior", "quote": "confPath = ipaConfigurationFile(ipaName, fallbackName, configPaths_);\n\tLOG(IPAProxy, Warning)\n\t\t<< \"Configuration file '\" << name\n\t\t<< \"' not found for IPA module '\" << ipaName\n\t\t<< \"', falling back to '\" << confPath << \"'\";"}, {"text": "두 번째 검색에서도 파일을 찾지 못하면, 함수는 빈 문자열을 반환하고 에러 로그를 출력합니다. 이때 `fallbackName`이 비어있으면 추가적인 로깅 후 빈 문자열만 반환됩니다.", "evidence": ["fallback"], "covers": ["tuning"], "kind": "behavior", "quote": "if (fallbackName.empty()) {\n\t\tLOG(IPAProxy, Error)\n\t\t\t<< \"Configuration file '\" << name\n\t\t\t<< \"' not found for IPA module '\" << ipaName << \"'\";\n\t\treturn std::string();\n\t}"}, {"text": "RKISP1의 `uncalibrated.yaml` 파일에는 `Agc`, `Awb`, `BlackLevelCorrection`, `Ccm`, `GammaOutCorrection` 등의 알고리즘이 정의되어 있습니다. 이 목록은 실제 활성화된 알고리즘을 보장하지 않으며, 누락된 항목이 반드시 비활성화된다는 의미는 아닙니다.", "evidence": ["rkisp1-uncalibrated"], "covers": ["tuning"], "kind": "behavior", "quote": "# SPDX-License-Identifier: CC0-1.0\n%YAML 1.1\n---\nversion: 1\nalgorithms:\n  - Agc:\n  - Awb:\n  - BlackLevelCorrection:\n  - Ccm:\n  - GammaOutCorrection:\n..."}, {"text": "Mali-C55의 `uncalibrated.yaml` 파일에도 동일한 알고리즘 목록이 포함되어 있으며, 이는 RKISP1과 유사한 구조를 가집니다. 이 파일들도 센서별 튜닝 정보가 없을 때 대체로 사용됩니다.", "evidence": ["mali-c55-uncalibrated"], "covers": ["tuning"], "kind": "behavior", "quote": "# SPDX-License-Identifier: CC0-1.0\n%YAML 1.1\n---\nversion: 1\nalgorithms:\n  - Agc:\n  - Awb:\n  - BlackLevelCorrection:\n  - Ccm:\n..."}], "dma-import": [{"text": "`createDMABufTexture2D()` 함수는 `eglImage.format_` 값을 확인하여 GL 형식에 따라 DRM 형식을 매핑합니다. `GL_RED` 또는 `GL_LUMINANCE`인 경우 `DRM_FORMAT_R8`, `GL_RG`인 경우 `DRM_FORMAT_GR88`, 그리고 `GL_RGBA`인 경우 `DRM_FORMAT_ARGB8888`를 각각 사용합니다.", "evidence": ["import"], "covers": ["dma-import"], "kind": "behavior", "quote": "switch (eglImage.format_) {\n\tcase GL_RED:\n\tcase GL_LUMINANCE:\n\t\tdrm_format = DRM_FORMAT_R8;\n\t\tbreak;\n\tcase GL_RG:\n\t\tdrm_format = DRM_FORMAT_GR88;\n\t\tbreak;\n\tcase GL_RGBA:\n\t\tdrm_format = DRM_FORMAT_ARGB8888;\n\t\tbreak;\n\tdefault:\n\t\tLOG(eGL, Error) << \"unhandled GL format\";\n\t\treturn -ENODEV;\n\t}", "part_id": "formats"}, {"text": "`createDMABufTexture2D()` 함수의 `switch` 문에서 기본(`default`) 분기가 실행되면, 처리되지 않은 GL 포맷에 대해 오류 로그가 출력됩니다.", "evidence": ["import"], "covers": ["dma-import"], "kind": "behavior", "quote": "switch (eglImage.format_) {\n\tcase GL_RED:\n\tcase GL_LUMINANCE:\n\t\tdrm_format = DRM_FORMAT_R8;\n\t\tbreak;\n\tcase GL_RG:\n\t\tdrm_format = DRM_FORMAT_GR88;\n\t\tbreak;\n\tcase GL_RGBA:\n\t\tdrm_format = DRM_FORMAT_ARGB8888;\n\t\tbreak;\n\tdefault:\n\t\tLOG(eGL, Error) << \"unhandled GL format\";\n\t\treturn -ENODEV;\n\t}", "part_id": "unsupported"}, {"text": "`createDMABufTexture2D()` 함수의 `switch` 문에서 기본(`default`) 분기가 실행되면, `-ENODEV`를 반환합니다.", "evidence": ["import"], "covers": ["dma-import"], "kind": "behavior", "quote": "switch (eglImage.format_) {\n\tcase GL_RED:\n\tcase GL_LUMINANCE:\n\t\tdrm_format = DRM_FORMAT_R8;\n\t\tbreak;\n\tcase GL_RG:\n\t\tdrm_format = DRM_FORMAT_GR88;\n\t\tbreak;\n\tcase GL_RGBA:\n\t\tdrm_format = DRM_FORMAT_ARGB8888;\n\t\tbreak;\n\tdefault:\n\t\tLOG(eGL, Error) << \"unhandled GL format\";\n\t\treturn -ENODEV;\n\t}", "part_id": "unsupported"}, {"text": "`createDMABufTexture2D()` 함수 내부에서 `eglCreateImageKHR()` 호출이 실패하여 `EGL_NO_IMAGE_KHR`를 반환하면, 디버깅 로그에 \"eglCreateImageKHR fail\"라는 메시지를 출력하고 `eglImage.dmabuf_import_failed_` 플래그를 `true`로 설정한 뒤 `-ENODEV`를 반환합니다.", "evidence": ["import"], "covers": ["dma-import"], "kind": "behavior", "quote": "if (image == EGL_NO_IMAGE_KHR) {\n\t\tLOG(eGL, Debug) << \"eglCreateImageKHR fail\";\n\t\teglImage.dmabuf_import_failed_ = true;\n\t\treturn -ENODEV;\n\t}", "part_id": "image-failure"}, {"text": "`createInputDMABufTexture2D()` 함수는 내부적으로 `createDMABufTexture2D()` 함수를 호출할 때 마지막 인자로 `false` 값을 전달합니다.", "evidence": ["import"], "covers": ["dma-import"], "kind": "behavior", "quote": "return createDMABufTexture2D(eglImage, fd, false);\n}", "part_id": "wrappers"}, {"text": "`createOutputDMABufTexture2D()` 함수는 내부적으로 `createDMABufTexture2D()` 함수를 호출할 때 마지막 인자로 `true` 값을 전달합니다.", "evidence": ["import"], "covers": ["dma-import"], "kind": "behavior", "quote": "return createDMABufTexture2D(eglImage, fd, true);\n}", "part_id": "wrappers"}, {"text": "`createDMABufTexture2D()` 함수는 `output` 매개변수가 참일 때만 프레임버퍼 객체 (FBO) 에 텍스처를 연결하는 작업을 수행합니다.", "evidence": ["import"], "covers": ["dma-import"], "kind": "behavior", "quote": "if (output)\n\t\tret = attachTextureToFBO(eglImage);", "part_id": "framebuffer"}, {"text": "`output` 가 참인 경우 `attachTextureToFBO(eglImage)` 함수를 호출하여 연결을 완료하고 그 반환값으로 `ret` 변수에 대입합니다.", "evidence": ["import"], "covers": ["dma-import"], "kind": "behavior", "quote": "if (output)\n\t\tret = attachTextureToFBO(eglImage);", "part_id": "framebuffer"}], "softisp-lsc": [{"text": "두 셰이더 모두에서 블랙 레벨 보정은 가장 먼저 수행되며, `rgb = (rgb - blacklevel) / (1.0 - blacklevel)` 식으로 입력 색상을 센서 범위 내의 부동 소수점 값으로 변환합니다.", "evidence": ["packed-shader", "unpacked-shader"], "covers": ["softisp-lsc"], "kind": "behavior", "quote": "rgb = (rgb - blacklevel) / (1.0 - blacklevel);\n\n#if defined(APPLY_LSC)\n        /* Multiple by 4.0 for UQ<2, 6> -> float conversion:\n         * texture2D(...) = original_float * 2^6 (quantization) * 1/2^8 (texture byte to float)\n         * => original_float = texture2D(...) / 2^6 * 2^8 = texture2D(...) * 2^2\n         */\n        rgb = rgb * (texture2D(lsc_tex, textureOut).rgb * 4.0);\n#endif\n\n\t/* Apply AWB gains, and saturate each channel at sensor range */\n\trgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));\n\n\t/* Colour Correction Matrix */\n\trgb = ccm * rgb;\n\n\t/*\n\t * Contrast\n\t * contrastExp 0..2 contrast to 0..infinity; avoid actual infinity at tan(pi/2)\n\t */\n\trgb = clamp(rgb, 0.0, 1.0);\n\trgb.r = apply_contrast(rgb.r);\n\trgb.g = apply_contrast(rgb.g);\n\trgb.b = apply_contrast(rgb.b);\n\n\t/* Apply gamma after colour correction */\n\trgb = pow(rgb, vec3(gamma));\n\n#if defined (SWAP_BLUE)\n\tgl_FragColor = vec4(rgb.bgr, 1.0);\n#else\n\tgl_FragColor = vec4(rgb, 1.0);\n#endif\n}"}, {"text": "`APPLY_LSC` 조건이 정의된 경우 렌즈 음영 보정은 그 다음 단계에서 적용되며, `rgb = rgb * (texture2D(lsc_tex, textureOut).rgb * 4.0)` 또는 `rgb = rgb * (texture2D(lsc_tex, center.xy).rgb * 4.0)` 식으로 LSC 텍스처 값을 4 배로 곱해 부동 소수점 변환을 수행합니다.", "evidence": ["packed-shader"], "covers": ["softisp-lsc"], "kind": "behavior", "quote": "rgb = (rgb - blacklevel) / (1.0 - blacklevel);\n\n#if defined(APPLY_LSC)\n        /* Multiple by 4.0 for UQ<2, 6> -> float conversion:\n         * texture2D(...) = original_float * 2^6 (quantization) * 1/2^8 (texture byte to float)\n         * => original_float = texture2D(...) / 2^6 * 2^8 = texture2D(...) * 2^2\n         */\n        rgb = rgb * (texture2D(lsc_tex, textureOut).rgb * 4.0);\n#endif\n\n\t/* Apply AWB gains, and saturate each channel at sensor range */\n\trgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));\n\n\t/* Colour Correction Matrix */\n\trgb = ccm * rgb;\n\n\t/*\n\t * Contrast\n\t * contrastExp 0..2 contrast to 0..infinity; avoid actual infinity at tan(pi/2)\n\t */\n\trgb = clamp(rgb, 0.0, 1.0);\n\trgb.r = apply_contrast(rgb.r);\n\trgb.g = apply_contrast(rgb.g);\n\trgb.b = apply_contrast(rgb.b);\n\n\t/* Apply gamma after colour correction */\n\trgb = pow(rgb, vec3(gamma));\n\n#if defined (SWAP_BLUE)\n\tgl_FragColor = vec4(rgb.bgr, 1.0);\n#else\n\tgl_FragColor = vec4(rgb, 1.0);\n#endif\n}"}, {"text": "`unpacked-shader`에서는 렌즈 음영 보정을 적용할 때 `texture2D(lsc_tex, center.xy)`를 사용하여 텍스처의 중심 좌표만 참조합니다.", "evidence": ["unpacked-shader"], "covers": ["softisp-lsc"], "kind": "behavior", "quote": "rgb = (rgb - blacklevel) / (1.0 - blacklevel);\n\n#if defined(APPLY_LSC)\n    /* Multiple by 4.0 for UQ<2, 6> -> float conversion */\n    rgb = rgb * (texture2D(lsc_tex, center.xy).rgb * 4.0);\n#endif\n\n    /* Apply AWB gains, and saturate each channel at sensor range */\n    rgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));\n\n    /* Colour Correction Matrix */\n    rgb = ccm * rgb;\n\n    /*\n     * Contrast\n     */\n    rgb = clamp(rgb, 0.0, 1.0);\n    rgb.r = apply_contrast(rgb.r);\n    rgb.g = apply_contrast(rgb.g);\n    rgb.b = apply_contrast(rgb.b);\n\n    /* Apply gamma after colour correction */\n    rgb = pow(rgb, vec3(gamma));\n\n#if defined (SWAP_BLUE)\n    gl_FragColor = vec4(rgb.bgr, 1.0);\n#else\n    gl_FragColor = vec4(rgb, 1.0);\n#endif\n}"}, {"text": "렌즈 음영 보정 이후에는 AWB 이득을 적용하고 각 채널을 센서 범위 `vec3(0.0)`에서 `vec3(1.0)`로 포화시키며, `rgb = clamp(rgb * awb, vec3(0.0), vec3(1.0))`를 통해 수행합니다.", "evidence": ["packed-shader"], "covers": ["softisp-lsc"], "kind": "behavior", "quote": "rgb = (rgb - blacklevel) / (1.0 - blacklevel);\n\n#if defined(APPLY_LSC)\n        /* Multiple by 4.0 for UQ<2, 6> -> float conversion:\n         * texture2D(...) = original_float * 2^6 (quantization) * 1/2^8 (texture byte to float)\n         * => original_float = texture2D(...) / 2^6 * 2^8 = texture2D(...) * 2^2\n         */\n        rgb = rgb * (texture2D(lsc_tex, textureOut).rgb * 4.0);\n#endif\n\n\t/* Apply AWB gains, and saturate each channel at sensor range */\n\trgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));\n\n\t/* Colour Correction Matrix */\n\trgb = ccm * rgb;\n\n\t/*\n\t * Contrast\n\t * contrastExp 0..2 contrast to 0..infinity; avoid actual infinity at tan(pi/2)\n\t */\n\trgb = clamp(rgb, 0.0, 1.0);\n\trgb.r = apply_contrast(rgb.r);\n\trgb.g = apply_contrast(rgb.g);\n\trgb.b = apply_contrast(rgb.b);\n\n\t/* Apply gamma after colour correction */\n\trgb = pow(rgb, vec3(gamma));\n\n#if defined (SWAP_BLUE)\n\tgl_FragColor = vec4(rgb.bgr, 1.0);\n#else\n\tgl_FragColor = vec4(rgb, 1.0);\n#endif\n}"}, {"text": "AWB 적용 후 색 보정 행렬 `ccm`을 곱하여 색상을 보정하고, `rgb = ccm * rgb`로 표현됩니다.", "evidence": ["packed-shader"], "covers": ["softisp-lsc"], "kind": "behavior", "quote": "rgb = (rgb - blacklevel) / (1.0 - blacklevel);\n\n#if defined(APPLY_LSC)\n        /* Multiple by 4.0 for UQ<2, 6> -> float conversion:\n         * texture2D(...) = original_float * 2^6 (quantization) * 1/2^8 (texture byte to float)\n         * => original_float = texture2D(...) / 2^6 * 2^8 = texture2D(...) * 2^2\n         */\n        rgb = rgb * (texture2D(lsc_tex, textureOut).rgb * 4.0);\n#endif\n\n\t/* Apply AWB gains, and saturate each channel at sensor range */\n\trgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));\n\n\t/* Colour Correction Matrix */\n\trgb = ccm * rgb;\n\n\t/*\n\t * Contrast\n\t * contrastExp 0..2 contrast to 0..infinity; avoid actual infinity at tan(pi/2)\n\t */\n\trgb = clamp(rgb, 0.0, 1.0);\n\trgb.r = apply_contrast(rgb.r);\n\trgb.g = apply_contrast(rgb.g);\n\trgb.b = apply_contrast(rgb.b);\n\n\t/* Apply gamma after colour correction */\n\trgb = pow(rgb, vec3(gamma));\n\n#if defined (SWAP_BLUE)\n\tgl_FragColor = vec4(rgb.bgr, 1.0);\n#else\n\tgl_FragColor = vec4(rgb, 1.0);\n#endif\n}"}, {"text": "색 보정 이후에는 대비를 적용하기 위해 각 채널을 `0.0`에서 `1.0`으로 포화시키고, `apply_contrast` 함수를 호출하여 대비를 조정합니다.", "evidence": ["packed-shader"], "covers": ["softisp-lsc"], "kind": "behavior", "quote": "rgb = (rgb - blacklevel) / (1.0 - blacklevel);\n\n#if defined(APPLY_LSC)\n        /* Multiple by 4.0 for UQ<2, 6> -> float conversion:\n         * texture2D(...) = original_float * 2^6 (quantization) * 1/2^8 (texture byte to float)\n         * => original_float = texture2D(...) / 2^6 * 2^8 = texture2D(...) * 2^2\n         */\n        rgb = rgb * (texture2D(lsc_tex, textureOut).rgb * 4.0);\n#endif\n\n\t/* Apply AWB gains, and saturate each channel at sensor range */\n\trgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));\n\n\t/* Colour Correction Matrix */\n\trgb = ccm * rgb;\n\n\t/*\n\t * Contrast\n\t * contrastExp 0..2 contrast to 0..infinity; avoid actual infinity at tan(pi/2)\n\t */\n\trgb = clamp(rgb, 0.0, 1.0);\n\trgb.r = apply_contrast(rgb.r);\n\trgb.g = apply_contrast(rgb.g);\n\trgb.b = apply_contrast(rgb.b);\n\n\t/* Apply gamma after colour correction */\n\trgb = pow(rgb, vec3(gamma));\n\n#if defined (SWAP_BLUE)\n\tgl_FragColor = vec4(rgb.bgr, 1.0);\n#else\n\tgl_FragColor = vec4(rgb, 1.0);\n#endif\n}"}, {"text": "마지막으로 감마 보정을 적용하여 `rgb = pow(rgb, vec3(gamma))`로 색상을 변환하고, `SWAP_BLUE` 조건에 따라 채널 순서를 변경하거나 그대로 출력합니다.", "evidence": ["packed-shader"], "covers": ["softisp-lsc"], "kind": "behavior", "quote": "rgb = (rgb - blacklevel) / (1.0 - blacklevel);\n\n#if defined(APPLY_LSC)\n        /* Multiple by 4.0 for UQ<2, 6> -> float conversion:\n         * texture2D(...) = original_float * 2^6 (quantization) * 1/2^8 (texture byte to float)\n         * => original_float = texture2D(...) / 2^6 * 2^8 = texture2D(...) * 2^2\n         */\n        rgb = rgb * (texture2D(lsc_tex, textureOut).rgb * 4.0);\n#endif\n\n\t/* Apply AWB gains, and saturate each channel at sensor range */\n\trgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));\n\n\t/* Colour Correction Matrix */\n\trgb = ccm * rgb;\n\n\t/*\n\t * Contrast\n\t * contrastExp 0..2 contrast to 0..infinity; avoid actual infinity at tan(pi/2)\n\t */\n\trgb = clamp(rgb, 0.0, 1.0);\n\trgb.r = apply_contrast(rgb.r);\n\trgb.g = apply_contrast(rgb.g);\n\trgb.b = apply_contrast(rgb.b);\n\n\t/* Apply gamma after colour correction */\n\trgb = pow(rgb, vec3(gamma));\n\n#if defined (SWAP_BLUE)\n\tgl_FragColor = vec4(rgb.bgr, 1.0);\n#else\n\tgl_FragColor = vec4(rgb, 1.0);\n#endif\n}"}, {"text": "`softisp-interface`에서는 `IPASoftIspInterface` 인터페이스가 렌즈 음영 보정 버퍼를 전달하는 메커니즘을 정의하지만, 실제 GPU 실행 단계나 구체적인 적용 시점은 이 문서의 선언 범위에서 설명되지 않습니다.", "evidence": ["softisp-interface"], "covers": ["softisp-lsc"], "kind": "limitation", "quote": "interface IPASoftIspInterface {\n\tinit(libcamera.IPASettings settings,\n\t     libcamera.SharedFD fdStats,\n\t     libcamera.SharedFD fdParams,\n\t     libcamera.IPACameraSensorInfo sensorInfo,\n\t     libcamera.ControlInfoMap sensorControls)\n\t\t=> (int32 ret,\n\t\t    libcamera.ControlInfoMap ipaControls,\n\t\t    bool ccmEnabled, bool lscEnabled);\n\tstart() => (int32 ret);\n\tstop();\n\tconfigure(IPAConfigInfo configInfo)\n\t\t=> (int32 ret, libcamera.ControlInfoMap ipaControls);"}]}, "topic_inputs": {"selection": "f43c3fbfbeb3fe08ca6c7ac2ccf54ac201bd8c7805f4d4323f8acfee280ce49a", "execution": "2695b7ce5caf6d25e81c3f1ef7c09723c859d70a9a36ecd5666c5e05cc6df22c", "interface": "9c00456b24365248095f2940317009063a8dca9ccb6f3035cb6e1c75c0aee3f9", "lifetime": "bff92a7a8e2b6f89c1a51d0d7e597f00e60a905f234038f103b1325a76f03353", "errors": "44546d2770b32861f9de62ea6603f813a595fbb7bac382fe19d5a51a753526b0", "tuning": "621f9e2ee984a852db21a93c68ec98ced7290f3141b1c12a4e9ac41e4b756432", "dma-import": "195b3588bddb0390bec4482474ba5b6ccc74e60841ff4cb23c42c32270ea2289", "softisp-lsc": "48ef95264d20d3065b924d790e848e802929a4454ccfee826de5bfde3ab51176"}, "reused_topics": ["selection", "execution", "interface", "lifetime", "errors", "tuning", "dma-import", "softisp-lsc"], "replayed_units": [], "generated_topics": [], "topic_agents": {"selection": "ollama/qwen3.5:9b", "execution": "ollama/qwen3.5:9b", "interface": "ollama/qwen3.5:9b", "lifetime": "ollama/qwen3.5:9b", "errors": "ollama/qwen3.5:9b", "tuning": "ollama/qwen3.5:9b", "dma-import": "ollama/qwen3.5:9b", "softisp-lsc": "ollama/qwen3.5:9b"}, "grounding_review": "passed", "grounding_policy": "c54006f7c90cb2af955e1ede18b761c7feb22dffa3bc37a885c019508348eba0", "body_sha256": "0f25f1c9edc73877e508ebc2e803b83e6a293f51b6e3ee21768bb59f01346bbf"}
+generated_design:
+  schema: 1
+  input_fingerprint: 84611553aff2de125c4a301d56f8b196027713cb1261cbeea7f5b956cb7d641f
+  answers:
+    selection:
+    - text: '`IPAManager::IPAManager()` 함수는 사용자 지정 경로를 먼저 확인하고, libcamera 가 설치되지 않은
+        경우 빌드 디렉토리를 추가하며, 마지막으로 시스템 설치 경로를 검색합니다.'
+      evidence:
+      - modules
+      covers:
+      - selection
+      kind: behavior
+      quote: "/* User-specified paths take precedence. */\n\tconst auto modulePaths\
+        \ =\n\t\tconfiguration.listOption({ \"ipa\", \"module_paths\" })\n\t\t\t.value_or(utils::defopt);\n\
+        \tfor (const auto &dir : modulePaths) {\n\t\tif (dir.empty())\n\t\t\tcontinue;"
+    - text: 사용자가 'ipa.`module_paths`' 옵션으로 경로를 지정하지 않으면 빌드 디렉토리와 시스템 설치 경로만 검색되며,
+        모듈이 없으면 경고 로그가 출력됩니다.
+      evidence:
+      - modules
+      covers:
+      - selection
+      kind: behavior
+      quote: "if (!modulePaths.empty() && !ipaCount)\n\t\tLOG(IPAManager, Warning)\
+        \ << \"No IPA found in '\"\n\t\t\t\t\t << utils::join(modulePaths, \":\")\n\
+        \t\t\t\t\t << \"'\";"
+    - text: '`IPAModule::match()` 함수는 모듈 이름과 버전 범위를 비교하여 일치하는지 확인하며, false 를 반환하면
+        해당 모듈은 선택되지 않습니다.'
+      evidence:
+      - match
+      covers:
+      - selection
+      kind: behavior
+      quote: "\\brief Verify if the IPA module matches a given name\n * \\param[in]\
+        \ name The IPA module name\n * \\param[in] minVersion Minimum acceptable version\
+        \ of IPA module\n * \\param[in] maxVersion Maximum acceptable version of IPA\
+        \ module\n *\n * This function checks if this IPA module matches the requested\
+        \ \\a name\n * and the input version range.\n *\n * \\return True if the IPA\
+        \ module matches, or false otherwise\n */\nbool IPAModule::match(const char\
+        \ *name, uint32_t minVersion,\n\t\t      uint32_t maxVersion) const\n{\n\t\
+        return info_.pipelineVersion >= minVersion &&\n\t       info_.pipelineVersion\
+        \ <= maxVersion &&\n\t       !strcmp(info_.name, name);\n}"
+    - text: createIPA() 함수는 module() 으로 찾은 모듈이 없으면 nullptr 를 반환하고, 프록시 생성 시 서명이 유효하지
+        않으면 Isolated 실행 방식을 선택합니다.
+      evidence:
+      - selection
+      covers:
+      - selection
+      kind: behavior
+      quote: "template<typename T>\n\tstd::unique_ptr<T> createIPA(const char *name,\
+        \ uint32_t minVersion,\n\t\t\t\t     uint32_t maxVersion)\n\t{\n\t\tIPAModule\
+        \ *m = module(name, minVersion, maxVersion);\n\t\tif (!m)\n\t\t\treturn nullptr;"
+    - text: 서명 검증이 실패하거나 `forceIsolation_` 가 true 일 경우 isSignatureValid() 는 false
+        를 반환하고, createIPA() 는 Isolated 실행 방식을 선택합니다.
+      evidence:
+      - signature
+      covers:
+      - selection
+      kind: behavior
+      quote: "bool IPAManager::isSignatureValid([[maybe_unused]] IPAModule *ipa) const\n\
+        {\n#if HAVE_IPA_PUBKEY\n\tif (forceIsolation_) {\n\t\tLOG(IPAManager, Debug)\n\
+        \t\t\t<< \"Isolation of IPA module \" << ipa->path()\n\t\t\t<< \" forced through\
+        \ configuration\";\n\t\treturn false;\n\t}"
+    - text: 서명이 유효하지 않으면 createIPA() 는 Isolated 실행 방식을 선택하고, 프록시 생성이 실패하면 nullptr
+        를 반환합니다.
+      evidence:
+      - selection
+      covers:
+      - selection
+      kind: behavior
+      quote: "if (!proxy->isValid()) {\n\t\t\tLOG(IPAManager, Error) << \"Failed to\
+        \ load proxy\";\n\t\t\treturn nullptr;\n\t\t}"
+    execution:
+    - text: '`init-branch:0`에 포함된 템플릿 코드는 `method.mojom_name`이 `init`일 때 `ipa_`를 호출하여
+        IPA 메서드를 직접 실행하는 경로를 제공합니다.'
+      evidence:
+      - init-branch
+      covers:
+      - execution
+      kind: behavior
+      quote: "{%- elif method.mojom_name == \"init\" %}\n\t{{ method|method_return_value\
+        \ + \" _ret = \" if method|method_return_value != \"void\" -}}\n\tipa_->{{method.mojom_name}}(\n\
+        \t{%- for param in method|method_param_names -%}\n\t\t{{param}}{{- \", \"\
+        \ if not loop.last}}\n\t{%- endfor -%}\n);"
+      part_id: init
+    - text: '`init` 메서드가 호출된 직후 `proxy_.moveToThread(&thread_)`가 실행되며, 이 호출에 전달되는
+        스레드 객체는 `thread_`라는 변수를 가리킵니다.'
+      evidence:
+      - init-branch
+      covers:
+      - execution
+      kind: behavior
+      quote: proxy_.moveToThread(&thread_);
+      part_id: init-move
+    - text: '`start-branch:0` 인용문에 따르면 worker 스레드를 `thread_.start()` 함수로 시작한 뒤 바로
+        `ThreadProxy::start`를 `ConnectionTypeBlocking` 연결 유형으로 호출합니다.'
+      evidence:
+      - start-branch
+      covers:
+      - execution
+      kind: behavior
+      quote: "{%- elif method.mojom_name == \"start\" %}\n\tstate_ = ProxyRunning;\n\
+        \tthread_.start();"
+      part_id: start
+    - text: '`{{proxy_name}}Threaded` 클래스의 일반 동기 메서드 분기에서는 `init`, `start`, `stop`
+        을 제외한 모든 호출이 `ipa_->{{method.mojom_name}}(...)` 경로를 통해 직접 호출됩니다.'
+      evidence:
+      - dispatch
+      covers:
+      - execution
+      kind: behavior
+      quote: "return proxy_.invokeMethod(&ThreadProxy::start, ConnectionTypeBlocking\n\
+        \t{{- \", \" if method|method_param_names}}\n\t{%- for param in method|method_param_names\
+        \ -%}\n\t\t{{param}}{{- \", \" if not loop.last}}\n\t{%- endfor -%}\n);\n\
+        {%- elif not method|is_async %}\n\treturn ipa_->{{method.mojom_name}}(\n\t\
+        {%- for param in method|method_param_names -%}\n\t\t{{param}}{{- \", \" if\
+        \ not loop.last}}\n\t{%- endfor -%}\n);\n{% elif method|is_async %}\n\tASSERT(state_\
+        \ == ProxyRunning);\n\tproxy_.invokeMethod(&ThreadProxy::{{method.mojom_name}},\
+        \ ConnectionTypeQueued\n\t{%- for param in method|method_param_names -%}\n\
+        \t\t, {{param}}\n\t{%- endfor -%}\n);\n{%- endif %}\n}\n{% endfor %}"
+      part_id: sync
+    - text: '`async-assert` 파일의 `{% elif method|is_async %}` 조건부 블록 내부에는 `ASSERT(state_
+        == ProxyRunning);`라는 매크로 호출이 포함되어 있습니다.'
+      evidence:
+      - async-assert
+      covers:
+      - execution
+      kind: behavior
+      quote: ASSERT(state_ == ProxyRunning);
+      part_id: async
+    - text: '`Threaded` 비동기 분기의 `invokeMethod` 호출은 `method|is_async` 조건이 참일 때만 실행되며,
+        이때 전달되는 연결 유형은 `ConnectionTypeQueued` 입니다.'
+      evidence:
+      - async-branch
+      covers:
+      - execution
+      kind: behavior
+      quote: "{% elif method|is_async %}\n\tASSERT(state_ == ProxyRunning);\n\tproxy_.invokeMethod(&ThreadProxy::{{method.mojom_name}},\
+        \ ConnectionTypeQueued\n\t{%- for param in method|method_param_names -%}\n\
+        \t\t, {{param}}\n\t{%- endfor -%}\n);\n{%- endif %}\n}\n{% endfor %}"
+      part_id: async-dispatch
+    - text: '`{{proxy_name}}Threaded` 생성자는 초기화 과정에서 `ipam->load()`를 호출하여 IPA 모듈을 로드합니다.'
+      evidence:
+      - threaded
+      covers:
+      - execution
+      kind: behavior
+      quote: "{{proxy_name}}Threaded::{{proxy_name}}Threaded(IPAModule *ipam, const\
+        \ CameraManager &cm)\n\t: {{proxy_name}}(ipam, cm), thread_(\"{{proxy_name}}\"\
+        )\n{\n\tLOG(IPAProxy, Debug)\n\t\t<< \"initializing {{module_name}} proxy\
+        \ in thread: loading IPA from \"\n\t\t<< ipam->path();"
+      part_id: constructor
+    - text: '`Threaded` 생성자가 `createInterface`를 호출하여 IPA 인터페이스 객체를 만들지 못하면, 해당 함수는
+        로그에 오류 메시지를 출력하고 즉시 반환합니다.'
+      evidence:
+      - ctor-interface
+      covers:
+      - execution
+      kind: behavior
+      quote: "IPAInterface *ipai = ipam->createInterface();\n\tif (!ipai) {\n\t\t\
+        LOG(IPAProxy, Error)\n\t\t\t<< \"Failed to create IPA context for \" << ipam->path();\n\
+        \t\treturn;"
+      part_id: constructor-interface
+    - text: '`{{proxy_name}}Threaded` 클래스의 생성자에서 `ipa_` 객체의 이벤트를 처리하기 위해 `this` 를
+        수신 객체로, `&{{proxy_name}}Threaded::{{method.mojom_name}}Handler` 를 핸들러 메서드로
+        하여 `connect` 호출을 수행합니다.'
+      evidence:
+      - ctor-events
+      covers:
+      - execution
+      kind: behavior
+      quote: ipa_->{{method.mojom_name}}.connect(this, &{{proxy_name}}Threaded::{{method.mojom_name}}Handler);
+      part_id: constructor-events
+    - text: '`{{proxy_name}}Isolated` 생성자는 `ipam->path()`와 worker 경로인 `proxyWorkerPath`를
+        사용하여 `std::make_unique<IPCPipeUnixSocket>`로 IPC 연결을 만듭니다.'
+      evidence:
+      - isolated
+      covers:
+      - execution
+      kind: behavior
+      quote: "auto ipc = std::make_unique<IPCPipeUnixSocket>(ipam->path().c_str(),\n\
+        \t\t\t\t\t\t       proxyWorkerPath.c_str());\n\tif (!ipc->isConnected()) {\n\
+        \t\tLOG(IPAProxy, Error) << \"Failed to create IPCPipe\";\n\t\treturn;\n\t\
+        }"
+      part_id: isolated
+    - text: '`{{proxy_name}}Isolated` 클래스의 생성자에서 `ipc->recv.connect(this, &{{proxy_name}}Isolated::recvMessage)`
+        호출이 수행됩니다.'
+      evidence:
+      - isolated-valid
+      covers:
+      - execution
+      kind: behavior
+      quote: ipc->recv.connect(this, &{{proxy_name}}Isolated::recvMessage);
+      part_id: isolated-valid
+    - text: '`isolated-store` 함수의 `scope` 범위 내에서 실행되는 코드에서는 `ipc_` 멤버 변수에 `std::move(ipc)`를
+        대입합니다.'
+      evidence:
+      - isolated-store
+      covers:
+      - execution
+      kind: behavior
+      quote: "ipc_ = std::move(ipc);\n\tvalid_ = true;"
+      part_id: isolated-store
+    - text: '`Isolated` 클래스의 생성자 함수가 실행될 때 `valid_` 멤버 변수에는 `true` 값이 대입됩니다.'
+      evidence:
+      - isolated-ready
+      covers:
+      - execution
+      kind: behavior
+      quote: valid_ = true;
+      part_id: isolated-ready
+    - text: '`IPAProxy::resolvePath` 함수는 주어진 프록시 워커 실행 파일 이름에 대한 유효한 전체 경로를 찾습니다.'
+      evidence:
+      - worker-path
+      covers:
+      - execution
+      kind: behavior
+      quote: "\\brief Find a valid full path for a proxy worker for a given executable\
+        \ name\n * \\param[in] file File name of proxy worker executable\n *\n * A\
+        \ proxy worker's executable could be found in either the global installation\n\
+        \ * directory, or in the paths specified by the environment variable\n * LIBCAMERA_IPA_PROXY_PATH.\
+        \ This function checks the global install directory\n * first, then LIBCAMERA_IPA_PROXY_PATH\
+        \ in order, and returns the full path to\n * the proxy worker executable that\
+        \ is specified by file. The proxy worker\n * executable shall have exec permission.\n\
+        \ *\n * \\return The full path to the proxy worker executable, or an empty\
+        \ string if\n * no valid executable path\n */\nstd::string IPAProxy::resolvePath(const\
+        \ std::string &file) const\n{\n\tstd::string proxyFile = \"/\" + file;"
+      part_id: worker
+    - text: '`IPCPipeUnixSocket::sendSync` 함수는 호출 시 `IPCMessage` 인자와 응답을 저장할 포인터를
+        받아, 내부적으로 `call` 함수를 호출하여 동기식 통신을 수행합니다.'
+      evidence:
+      - ipc
+      covers:
+      - execution
+      kind: behavior
+      quote: "int IPCPipeUnixSocket::sendSync(const IPCMessage &in, IPCMessage *out)\n\
+        {\n\tIPCUnixSocket::Payload response;"
+      part_id: ipc
+    - text: '`IPCPipeUnixSocket::sendAsync` 함수는 `socket_->send(data.payload())` 호출을
+        통해 소켓으로 데이터를 전송합니다.'
+      evidence:
+      - send-async
+      covers:
+      - execution
+      kind: behavior
+      quote: "int IPCPipeUnixSocket::sendAsync(const IPCMessage &data)\n{\n\tint ret\
+        \ = socket_->send(data.payload());\n\tif (ret) {\n\t\tLOG(IPCPipe, Error)\
+        \ << \"Failed to call async\";\n\t\treturn ret;\n\t}"
+      part_id: ipc-async
+    interface:
+    - text: '`IPAIPU3Interface` 와 `IPARkISP1Interface` 는 초기화, 시작, 중지 및 구성을 위한 동기 메서드를
+        제공합니다. init 은 설정 정보와 센서 정보를 받아 제어 정보를 반환하며, start 와 stop 은 각각 처리를 시작하거나 중지합니다.
+        configure 는 IPU3 의 경우 단일 설정 정보를, RKISP1 의 경우 설정 정보와 스트림 구성 맵을 받아 제어 정보를 반환합니다.'
+      evidence:
+      - ipu3-api
+      covers:
+      - interface
+      kind: behavior
+      quote: "interface IPAIPU3Interface {\n\tinit(libcamera.IPASettings settings,\n\
+        \t     libcamera.IPACameraSensorInfo sensorInfo,\n\t     libcamera.ControlInfoMap\
+        \ sensorControls)\n\t\t=> (int32 ret, libcamera.ControlInfoMap ipaControls);\n\
+        \tstart() => (int32 ret);\n\tstop();"
+    - text: 두 인터페이스 모두 버퍼 매핑과 해제를 위한 mapBuffers 와 unmapBuffers 메서드를 공유합니다. 이 메서드는
+        배열 형태의 버퍼를 매핑하거나 ID 를 기반으로 해제를 수행하며, 구체적인 구현 세부사항은 인터페이스 정의에 명시되어 있지 않습니다.
+      evidence:
+      - ipu3-api
+      covers:
+      - interface
+      kind: behavior
+      quote: "mapBuffers(array<libcamera.IPABuffer> buffers);\n\tunmapBuffers(array<uint32>\
+        \ ids);"
+    - text: '[async] queueRequest 는 프레임 번호와 제어 목록을 받아 비동기적으로 요청을 큐에 넣습니다. 이 메서드는 즉시
+        처리가 완료된다는 보장을 제공하지 않으며, 실제 처리 순서와 타이밍은 구현에 따라 달라질 수 있습니다.'
+      evidence:
+      - ipu3-api
+      covers:
+      - interface
+      kind: behavior
+      quote: "[async] queueRequest(uint32 frame, libcamera.ControlList controls);\n\
+        \t[async] computeParams(uint32 frame, uint32 bufferId);\n\t[async] processStats(uint32\
+        \ frame, int64 frameTimestamp,\n\t\t\t     uint32 bufferId, libcamera.ControlList\
+        \ sensorControls);\n};"
+    - text: '[async] computeParams 는 프레임과 버퍼 ID 를 받아 파라미터를 계산합니다. 이 메서드는 비동기적으로 호출되며,
+        완료 시점이나 실패 여부는 반환 값이나 별도의 알림을 통해 확인해야 합니다.'
+      evidence:
+      - ipu3-api
+      covers:
+      - interface
+      kind: behavior
+      quote: "[async] queueRequest(uint32 frame, libcamera.ControlList controls);\n\
+        \t[async] computeParams(uint32 frame, uint32 bufferId);\n\t[async] processStats(uint32\
+        \ frame, int64 frameTimestamp,\n\t\t\t     uint32 bufferId, libcamera.ControlList\
+        \ sensorControls);\n};"
+    - text: '[async] processStats 는 프레임, 타임스탬프, 버퍼 ID 와 센서 제어 목록을 받아 통계를 처리합니다. 이
+        메서드는 비동기적으로 실행되며, 호출 시점과 완료 시점 사이의 관계는 명시적으로 보장되지 않습니다.'
+      evidence:
+      - ipu3-api
+      covers:
+      - interface
+      kind: behavior
+      quote: "[async] queueRequest(uint32 frame, libcamera.ControlList controls);\n\
+        \t[async] computeParams(uint32 frame, uint32 bufferId);\n\t[async] processStats(uint32\
+        \ frame, int64 frameTimestamp,\n\t\t\t     uint32 bufferId, libcamera.ControlList\
+        \ sensorControls);\n};"
+    - text: IPAIPU3EventInterface 는 센서 제어 설정, 파라미터 계산 완료 및 메타데이터 준비를 위한 이벤트 인터페이스를
+        제공합니다. setSensorControls 는 프레임과 센서 및 렌즈 제어 목록을 받아 설정하고, paramsComputed 은 프레임
+        번호만 받아 파라미터가 계산되었음을 알립니다.
+      evidence:
+      - ipu3-api
+      covers:
+      - interface
+      kind: behavior
+      quote: "interface IPAIPU3EventInterface {\n\tsetSensorControls(uint32 frame,\
+        \ libcamera.ControlList sensorControls,\n\t\t\t  libcamera.ControlList lensControls);\n\
+        \tparamsComputed(uint32 frame);\n\tmetadataReady(uint32 frame, libcamera.ControlList\
+        \ metadata);\n};"
+    - text: IPARkISP1EventInterface 는 RKISP1 전용 이벤트 인터페이스로, paramsComputed 은 프레임과
+        사용된 바이트 수를 함께 반환합니다. setSensorControls 와 metadataReady 도 IPU3 와 유사하게 센서 제어
+        설정 및 메타데이터 준비 상태를 알립니다.
+      evidence:
+      - rkisp1-api
+      covers:
+      - interface
+      kind: behavior
+      quote: "interface IPARkISP1EventInterface {\n\tparamsComputed(uint32 frame,\
+        \ uint32 bytesused);\n\tsetSensorControls(uint32 frame, libcamera.ControlList\
+        \ sensorControls);\n\tmetadataReady(uint32 frame, libcamera.ControlList metadata);\n\
+        };"
+    - text: EventInterface 의 메서드 호출 시점과 실제 이벤트 발생 시점은 일치하지 않을 수 있습니다. 인터페이스 정의는 실행
+        타이밍을 보장하지 않으며, 비동기 메서드는 완료 상태를 별도의 알림으로 확인해야 합니다.
+      evidence:
+      - ipu3-api
+      covers:
+      - interface
+      kind: limitation
+      quote: "interface IPAIPU3EventInterface {\n\tsetSensorControls(uint32 frame,\
+        \ libcamera.ControlList sensorControls,\n\t\t\t  libcamera.ControlList lensControls);\n\
+        \tparamsComputed(uint32 frame);\n\tmetadataReady(uint32 frame, libcamera.ControlList\
+        \ metadata);\n};"
+    lifetime:
+    - text: '`IPAModule::load()` 함수는 모듈을 로드하거나 이미 로드된 경우에만 성공하며, 유효하지 않은 모듈이나 이미 로드된
+        상태에서는 `false`를 반환합니다.'
+      evidence:
+      - load
+      covers:
+      - lifetime
+      kind: behavior
+      quote: "\\brief Load the IPA implementation factory from the shared object\n\
+        \ *\n * The IPA module shared object implements an IPAInterface object to\
+        \ be used\n * by pipeline handlers. This function loads the factory function\
+        \ from the\n * shared object. Later, createInterface() can be called to instantiate\
+        \ the\n * IPAInterface.\n *\n * This function only needs to be called successfully\
+        \ once, after which\n * createInterface() can be called as many times as IPAInterface\
+        \ instances are\n * needed.\n *\n * Calling this function on an invalid module\
+        \ (as returned by isValid()) is\n * an error.\n *\n * \\return True if load\
+        \ was successful, or already loaded, and false otherwise\n */\nbool IPAModule::load()\n\
+        {\n\tif (!valid_)\n\t\treturn false;"
+    - text: '`IPAModule::createInterface()` 함수는 모듈이 로드되지 않았거나 유효하지 않은 경우 `nullptr`를
+        반환하며, 성공 시 인터페이스 인스턴스를 생성합니다.'
+      evidence:
+      - load
+      covers:
+      - lifetime
+      kind: behavior
+      quote: "/**\n * \\brief Instantiate an IPA interface\n *\n * After loading the\
+        \ IPA module with load(), this function creates an instance\n * of the IPA\
+        \ module interface.\n *\n * Calling this function on a module that has not\
+        \ yet been loaded, or an\n * invalid module (as returned by load() and isValid(),\
+        \ respectively) is\n * an error.\n *\n * \\return The IPA interface on success,\
+        \ or nullptr on error\n */\nIPAInterface *IPAModule::createInterface()\n{\n\
+        \tif (!valid_ || !loaded_)\n\t\treturn nullptr;"
+    - text: '`{{proxy_name}}Threaded` 프록시는 생성 시 `ipam->load()`와 `ipam->createInterface()`를
+        호출하여 인터페이스를 초기화하고, 실패 시 로그를 기록한 후 초기화를 중단합니다.'
+      evidence:
+      - threaded
+      covers:
+      - lifetime
+      kind: behavior
+      quote: "if (!ipam->load())\n\t\treturn;"
+    - text: '`{{proxy_name}}Threaded` 프록시는 `start()` 호출 시 스레드를 시작하고, `stop()` 호출 시
+        상태가 `ProxyRunning`이 아닌 경우 중단하며, `ProxyStopping` 상태로 전환 후 스레드 종료와 메시지 처리를 수행합니다.'
+      evidence:
+      - threaded
+      covers:
+      - lifetime
+      kind: behavior
+      quote: "return {{ \"_ret\" if method|method_return_value != \"void\" }};\n{%-\
+        \ elif method.mojom_name == \"start\" %}\n\tstate_ = ProxyRunning;\n\tthread_.start();"
+    - text: '`{{proxy_name}}Isolated` 프록시는 생성 시 IPC 파이프를 설정하고, 종료 시 `Exit` 명령을 통해
+        비동기 메시지를 전송하여 정리됩니다.'
+      evidence:
+      - isolated
+      covers:
+      - lifetime
+      kind: behavior
+      quote: "{{proxy_name}}Isolated::~{{proxy_name}}Isolated()\n{\n\tif (ipc_) {\n\
+        \t\tIPCMessage::Header header =\n\t\t\t{ static_cast<uint32_t>({{cmd_enum_name}}::Exit),\
+        \ seq_++ };\n\t\tIPCMessage msg(header);\n\t\tipc_->sendAsync(msg);\n\t}\n\
+        }"
+    - text: '`{{proxy_name}}Isolated` 프록시는 `configure()` 호출 시 `controlSerializer_`를
+        초기화하며, 비동기 호출 시 `_ipcInputBuf`를 전송하고 결과를 디시리얼라이즈하여 반환합니다.'
+      evidence:
+      - isolated
+      covers:
+      - lifetime
+      kind: behavior
+      quote: "{% for method in interface_main.methods %}\n{{proxy_funcs.func_sig(proxy_name\
+        \ + \"Isolated\", method)}}\n{\n{%- if method.mojom_name == \"configure\"\
+        \ %}\n\tcontrolSerializer_.reset();\n{%- endif %}\n{%- set has_output = true\
+        \ if method|method_param_outputs|length > 0 or method|method_return_value\
+        \ != \"void\" %}\n{%- set cmd = cmd_enum_name + \"::\" + method.mojom_name|cap\
+        \ %}\n\tIPCMessage::Header _header = { static_cast<uint32_t>({{cmd}}), seq_++\
+        \ };\n\tIPCMessage _ipcInputBuf(_header);\n{%- if has_output %}\n\tIPCMessage\
+        \ _ipcOutputBuf;\n{%- endif %}"
+    errors:
+    - text: '`createIPA` 함수는 모듈을 로드할 때 유효하지 않은 모듈이 반환되면 `nullptr`를 반환합니다. 또한 로딩된 후
+        프록시가 유효하지 않으면 에러 로그를 출력하고 `nullptr`를 반환합니다.'
+      evidence:
+      - selection
+      covers:
+      - errors
+      kind: behavior
+      quote: "if (!proxy->isValid()) {\n\t\t\tLOG(IPAManager, Error) << \"Failed to\
+        \ load proxy\";\n\t\t\treturn nullptr;\n\t\t}"
+    - text: '`IPAModule::load` 함수는 유효하지 않은 모듈이거나 이미 로드된 경우를 처리하여 `false`를 반환하며, 공유
+        객체를 열지 못하거나 심볼을 찾을 수 없으면 에러 로그를 출력하고 `dlHandle_`를 초기화한 뒤 `false`를 반환합니다.'
+      evidence:
+      - load
+      covers:
+      - errors
+      kind: behavior
+      quote: "dlHandle_ = dlopen(libPath_.c_str(), RTLD_LAZY);\n\tif (!dlHandle_)\
+        \ {\n\t\tLOG(IPAModule, Error)\n\t\t\t<< \"Failed to open IPA module shared\
+        \ object: \"\n\t\t\t<< dlerror();\n\t\treturn false;\n\t}"
+    - text: '`{{proxy_name}}Isolated` 생성자는 IPC 파이프를 만들지 못하거나 연결에 실패하면 에러 로그를 출력하고
+        초기화를 중단합니다.'
+      evidence:
+      - isolated
+      covers:
+      - errors
+      kind: behavior
+      quote: "auto ipc = std::make_unique<IPCPipeUnixSocket>(ipam->path().c_str(),\n\
+        \t\t\t\t\t\t       proxyWorkerPath.c_str());\n\tif (!ipc->isConnected()) {\n\
+        \t\tLOG(IPAProxy, Error) << \"Failed to create IPCPipe\";\n\t\treturn;\n\t\
+        }"
+    - text: '`IPCPipeUnixSocket::sendSync` 함수는 호출이 실패하면 에러 로그를 출력하고 음수 반환 값을 반환하며,
+        타임아웃이 발생하면 `-ETIMEDOUT`을 반환합니다.'
+      evidence:
+      - ipc
+      covers:
+      - errors
+      kind: behavior
+      quote: "int ret = call(in.payload(), &response, in.header().cookie);\n\tif (ret)\
+        \ {\n\t\tLOG(IPCPipe, Error) << \"Failed to call sync\";\n\t\treturn ret;\n\
+        \t}"
+    - text: '`IPCPipeUnixSocket::sendAsync` 함수는 소켓을 통해 메시지를 보낼 때 실패하면 에러 로그를 출력하고
+        음수 반환 값을 반환합니다.'
+      evidence:
+      - ipc
+      covers:
+      - errors
+      kind: behavior
+      quote: "int IPCPipeUnixSocket::sendAsync(const IPCMessage &data)\n{\n\tint ret\
+        \ = socket_->send(data.payload());\n\tif (ret) {\n\t\tLOG(IPCPipe, Error)\
+        \ << \"Failed to call async\";\n\t\treturn ret;\n\t}"
+    - text: '`IPCPipeUnixSocket::readyRead` 함수는 수신된 데이터가 헤더 크기보다 작으면 에러 로그를 출력하고,
+        예상치 못한 데이터를 받으면 `recv` 신호를 방출합니다.'
+      evidence:
+      - ipc
+      covers:
+      - errors
+      kind: behavior
+      quote: "/* \\todo Use span to avoid the double copy when callData is found.\
+        \ */\n\tif (payload.data.size() < sizeof(IPCMessage::Header)) {\n\t\tLOG(IPCPipe,\
+        \ Error) << \"Not enough data received\";\n\t\treturn;\n\t}"
+    - text: '`IPCPipeUnixSocket::call` 함수는 타임아웃이 발생하면 `-ETIMEDOUT`을 반환하고, 호출 실패 시
+        음수 값을 반환하며, 성공하면 `0`을 반환합니다.'
+      evidence:
+      - ipc
+      covers:
+      - errors
+      kind: behavior
+      quote: "/* \\todo Make this less dangerous, see IPCPipe::sendSync() */\n\ttimeout.start(2000ms);\n\
+        \twhile (!iter->second.done) {\n\t\tif (!timeout.isRunning()) {\n\t\t\tLOG(IPCPipe,\
+        \ Error) << \"Call timeout!\";\n\t\t\tcallData_.erase(iter);\n\t\t\treturn\
+        \ -ETIMEDOUT;\n\t\t}"
+    tuning:
+    - text: RKISP1 또는 Mali-C55 파이프라인에서 센서를 초기화할 때, 해당 센서 모델 이름을 사용하여 `.yaml` 확장자를
+        가진 튜닝 파일을 찾습니다. 이 과정은 `ipa_->configurationFile()` 함수를 통해 수행되며, 첫 번째 인자로 센서
+        모델과 `.yaml`을, 두 번째 인자로 `uncalibrated.yaml`을 지정합니다.
+      evidence:
+      - rkisp1-tuning
+      - mali-c55-tuning
+      covers:
+      - tuning
+      kind: behavior
+      quote: "/* The IPA tuning file is made from the sensor name. */\n\tstd::string\
+        \ ipaTuningFile =\n\t\tipa_->configurationFile(sensor_->model() + \".yaml\"\
+        , \"uncalibrated.yaml\");"
+    - text: 요청한 튜닝 파일이 존재하지 않으면, `IPAProxy::configurationFile()` 함수는 두 번째 인자로 전달된
+        `uncalibrated.yaml` 파일을 대체로 사용합니다. 이 함수는 먼저 주어진 이름으로 파일을 찾은 뒤, 없으면 fallback
+        이름으로 다시 검색합니다.
+      evidence:
+      - fallback
+      covers:
+      - tuning
+      kind: behavior
+      quote: "confPath = ipaConfigurationFile(ipaName, fallbackName, configPaths_);\n\
+        \tLOG(IPAProxy, Warning)\n\t\t<< \"Configuration file '\" << name\n\t\t<<\
+        \ \"' not found for IPA module '\" << ipaName\n\t\t<< \"', falling back to\
+        \ '\" << confPath << \"'\";"
+    - text: 두 번째 검색에서도 파일을 찾지 못하면, 함수는 빈 문자열을 반환하고 에러 로그를 출력합니다. 이때 `fallbackName`이
+        비어있으면 추가적인 로깅 후 빈 문자열만 반환됩니다.
+      evidence:
+      - fallback
+      covers:
+      - tuning
+      kind: behavior
+      quote: "if (fallbackName.empty()) {\n\t\tLOG(IPAProxy, Error)\n\t\t\t<< \"Configuration\
+        \ file '\" << name\n\t\t\t<< \"' not found for IPA module '\" << ipaName <<\
+        \ \"'\";\n\t\treturn std::string();\n\t}"
+    - text: RKISP1의 `uncalibrated.yaml` 파일에는 `Agc`, `Awb`, `BlackLevelCorrection`,
+        `Ccm`, `GammaOutCorrection` 등의 알고리즘이 정의되어 있습니다. 이 목록은 실제 활성화된 알고리즘을 보장하지 않으며,
+        누락된 항목이 반드시 비활성화된다는 의미는 아닙니다.
+      evidence:
+      - rkisp1-uncalibrated
+      covers:
+      - tuning
+      kind: behavior
+      quote: "# SPDX-License-Identifier: CC0-1.0\n%YAML 1.1\n---\nversion: 1\nalgorithms:\n\
+        \  - Agc:\n  - Awb:\n  - BlackLevelCorrection:\n  - Ccm:\n  - GammaOutCorrection:\n\
+        ..."
+    - text: Mali-C55의 `uncalibrated.yaml` 파일에도 동일한 알고리즘 목록이 포함되어 있으며, 이는 RKISP1과 유사한
+        구조를 가집니다. 이 파일들도 센서별 튜닝 정보가 없을 때 대체로 사용됩니다.
+      evidence:
+      - mali-c55-uncalibrated
+      covers:
+      - tuning
+      kind: behavior
+      quote: "# SPDX-License-Identifier: CC0-1.0\n%YAML 1.1\n---\nversion: 1\nalgorithms:\n\
+        \  - Agc:\n  - Awb:\n  - BlackLevelCorrection:\n  - Ccm:\n..."
+    dma-import:
+    - text: '`createDMABufTexture2D()` 함수는 `eglImage.format_` 값을 확인하여 GL 형식에 따라 DRM
+        형식을 매핑합니다. `GL_RED` 또는 `GL_LUMINANCE`인 경우 `DRM_FORMAT_R8`, `GL_RG`인 경우 `DRM_FORMAT_GR88`,
+        그리고 `GL_RGBA`인 경우 `DRM_FORMAT_ARGB8888`를 각각 사용합니다.'
+      evidence:
+      - import
+      covers:
+      - dma-import
+      kind: behavior
+      quote: "switch (eglImage.format_) {\n\tcase GL_RED:\n\tcase GL_LUMINANCE:\n\t\
+        \tdrm_format = DRM_FORMAT_R8;\n\t\tbreak;\n\tcase GL_RG:\n\t\tdrm_format =\
+        \ DRM_FORMAT_GR88;\n\t\tbreak;\n\tcase GL_RGBA:\n\t\tdrm_format = DRM_FORMAT_ARGB8888;\n\
+        \t\tbreak;\n\tdefault:\n\t\tLOG(eGL, Error) << \"unhandled GL format\";\n\t\
+        \treturn -ENODEV;\n\t}"
+      part_id: formats
+    - text: '`createDMABufTexture2D()` 함수의 `switch` 문에서 기본(`default`) 분기가 실행되면, 처리되지
+        않은 GL 포맷에 대해 오류 로그가 출력됩니다.'
+      evidence:
+      - import
+      covers:
+      - dma-import
+      kind: behavior
+      quote: "switch (eglImage.format_) {\n\tcase GL_RED:\n\tcase GL_LUMINANCE:\n\t\
+        \tdrm_format = DRM_FORMAT_R8;\n\t\tbreak;\n\tcase GL_RG:\n\t\tdrm_format =\
+        \ DRM_FORMAT_GR88;\n\t\tbreak;\n\tcase GL_RGBA:\n\t\tdrm_format = DRM_FORMAT_ARGB8888;\n\
+        \t\tbreak;\n\tdefault:\n\t\tLOG(eGL, Error) << \"unhandled GL format\";\n\t\
+        \treturn -ENODEV;\n\t}"
+      part_id: unsupported
+    - text: '`createDMABufTexture2D()` 함수의 `switch` 문에서 기본(`default`) 분기가 실행되면, `-ENODEV`를
+        반환합니다.'
+      evidence:
+      - import
+      covers:
+      - dma-import
+      kind: behavior
+      quote: "switch (eglImage.format_) {\n\tcase GL_RED:\n\tcase GL_LUMINANCE:\n\t\
+        \tdrm_format = DRM_FORMAT_R8;\n\t\tbreak;\n\tcase GL_RG:\n\t\tdrm_format =\
+        \ DRM_FORMAT_GR88;\n\t\tbreak;\n\tcase GL_RGBA:\n\t\tdrm_format = DRM_FORMAT_ARGB8888;\n\
+        \t\tbreak;\n\tdefault:\n\t\tLOG(eGL, Error) << \"unhandled GL format\";\n\t\
+        \treturn -ENODEV;\n\t}"
+      part_id: unsupported
+    - text: '`createDMABufTexture2D()` 함수 내부에서 `eglCreateImageKHR()` 호출이 실패하여 `EGL_NO_IMAGE_KHR`를
+        반환하면, 디버깅 로그에 "eglCreateImageKHR fail"라는 메시지를 출력하고 `eglImage.dmabuf_import_failed_`
+        플래그를 `true`로 설정한 뒤 `-ENODEV`를 반환합니다.'
+      evidence:
+      - import
+      covers:
+      - dma-import
+      kind: behavior
+      quote: "if (image == EGL_NO_IMAGE_KHR) {\n\t\tLOG(eGL, Debug) << \"eglCreateImageKHR\
+        \ fail\";\n\t\teglImage.dmabuf_import_failed_ = true;\n\t\treturn -ENODEV;\n\
+        \t}"
+      part_id: image-failure
+    - text: '`createInputDMABufTexture2D()` 함수는 내부적으로 `createDMABufTexture2D()` 함수를
+        호출할 때 마지막 인자로 `false` 값을 전달합니다.'
+      evidence:
+      - import
+      covers:
+      - dma-import
+      kind: behavior
+      quote: 'return createDMABufTexture2D(eglImage, fd, false);
+
+        }'
+      part_id: wrappers
+    - text: '`createOutputDMABufTexture2D()` 함수는 내부적으로 `createDMABufTexture2D()` 함수를
+        호출할 때 마지막 인자로 `true` 값을 전달합니다.'
+      evidence:
+      - import
+      covers:
+      - dma-import
+      kind: behavior
+      quote: 'return createDMABufTexture2D(eglImage, fd, true);
+
+        }'
+      part_id: wrappers
+    - text: '`createDMABufTexture2D()` 함수는 `output` 매개변수가 참일 때만 프레임버퍼 객체 (FBO) 에 텍스처를
+        연결하는 작업을 수행합니다.'
+      evidence:
+      - import
+      covers:
+      - dma-import
+      kind: behavior
+      quote: "if (output)\n\t\tret = attachTextureToFBO(eglImage);"
+      part_id: framebuffer
+    - text: '`output` 가 참인 경우 `attachTextureToFBO(eglImage)` 함수를 호출하여 연결을 완료하고 그 반환값으로
+        `ret` 변수에 대입합니다.'
+      evidence:
+      - import
+      covers:
+      - dma-import
+      kind: behavior
+      quote: "if (output)\n\t\tret = attachTextureToFBO(eglImage);"
+      part_id: framebuffer
+    softisp-lsc:
+    - text: 두 셰이더 모두에서 블랙 레벨 보정은 가장 먼저 수행되며, `rgb = (rgb - blacklevel) / (1.0 - blacklevel)`
+        식으로 입력 색상을 센서 범위 내의 부동 소수점 값으로 변환합니다.
+      evidence:
+      - packed-shader
+      - unpacked-shader
+      covers:
+      - softisp-lsc
+      kind: behavior
+      quote: "rgb = (rgb - blacklevel) / (1.0 - blacklevel);\n\n#if defined(APPLY_LSC)\n\
+        \        /* Multiple by 4.0 for UQ<2, 6> -> float conversion:\n         *\
+        \ texture2D(...) = original_float * 2^6 (quantization) * 1/2^8 (texture byte\
+        \ to float)\n         * => original_float = texture2D(...) / 2^6 * 2^8 = texture2D(...)\
+        \ * 2^2\n         */\n        rgb = rgb * (texture2D(lsc_tex, textureOut).rgb\
+        \ * 4.0);\n#endif\n\n\t/* Apply AWB gains, and saturate each channel at sensor\
+        \ range */\n\trgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));\n\n\t/* Colour\
+        \ Correction Matrix */\n\trgb = ccm * rgb;\n\n\t/*\n\t * Contrast\n\t * contrastExp\
+        \ 0..2 contrast to 0..infinity; avoid actual infinity at tan(pi/2)\n\t */\n\
+        \trgb = clamp(rgb, 0.0, 1.0);\n\trgb.r = apply_contrast(rgb.r);\n\trgb.g =\
+        \ apply_contrast(rgb.g);\n\trgb.b = apply_contrast(rgb.b);\n\n\t/* Apply gamma\
+        \ after colour correction */\n\trgb = pow(rgb, vec3(gamma));\n\n#if defined\
+        \ (SWAP_BLUE)\n\tgl_FragColor = vec4(rgb.bgr, 1.0);\n#else\n\tgl_FragColor\
+        \ = vec4(rgb, 1.0);\n#endif\n}"
+    - text: '`APPLY_LSC` 조건이 정의된 경우 렌즈 음영 보정은 그 다음 단계에서 적용되며, `rgb = rgb * (texture2D(lsc_tex,
+        textureOut).rgb * 4.0)` 또는 `rgb = rgb * (texture2D(lsc_tex, center.xy).rgb
+        * 4.0)` 식으로 LSC 텍스처 값을 4 배로 곱해 부동 소수점 변환을 수행합니다.'
+      evidence:
+      - packed-shader
+      covers:
+      - softisp-lsc
+      kind: behavior
+      quote: "rgb = (rgb - blacklevel) / (1.0 - blacklevel);\n\n#if defined(APPLY_LSC)\n\
+        \        /* Multiple by 4.0 for UQ<2, 6> -> float conversion:\n         *\
+        \ texture2D(...) = original_float * 2^6 (quantization) * 1/2^8 (texture byte\
+        \ to float)\n         * => original_float = texture2D(...) / 2^6 * 2^8 = texture2D(...)\
+        \ * 2^2\n         */\n        rgb = rgb * (texture2D(lsc_tex, textureOut).rgb\
+        \ * 4.0);\n#endif\n\n\t/* Apply AWB gains, and saturate each channel at sensor\
+        \ range */\n\trgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));\n\n\t/* Colour\
+        \ Correction Matrix */\n\trgb = ccm * rgb;\n\n\t/*\n\t * Contrast\n\t * contrastExp\
+        \ 0..2 contrast to 0..infinity; avoid actual infinity at tan(pi/2)\n\t */\n\
+        \trgb = clamp(rgb, 0.0, 1.0);\n\trgb.r = apply_contrast(rgb.r);\n\trgb.g =\
+        \ apply_contrast(rgb.g);\n\trgb.b = apply_contrast(rgb.b);\n\n\t/* Apply gamma\
+        \ after colour correction */\n\trgb = pow(rgb, vec3(gamma));\n\n#if defined\
+        \ (SWAP_BLUE)\n\tgl_FragColor = vec4(rgb.bgr, 1.0);\n#else\n\tgl_FragColor\
+        \ = vec4(rgb, 1.0);\n#endif\n}"
+    - text: '`unpacked-shader`에서는 렌즈 음영 보정을 적용할 때 `texture2D(lsc_tex, center.xy)`를
+        사용하여 텍스처의 중심 좌표만 참조합니다.'
+      evidence:
+      - unpacked-shader
+      covers:
+      - softisp-lsc
+      kind: behavior
+      quote: "rgb = (rgb - blacklevel) / (1.0 - blacklevel);\n\n#if defined(APPLY_LSC)\n\
+        \    /* Multiple by 4.0 for UQ<2, 6> -> float conversion */\n    rgb = rgb\
+        \ * (texture2D(lsc_tex, center.xy).rgb * 4.0);\n#endif\n\n    /* Apply AWB\
+        \ gains, and saturate each channel at sensor range */\n    rgb = clamp(rgb\
+        \ * awb, vec3(0.0), vec3(1.0));\n\n    /* Colour Correction Matrix */\n  \
+        \  rgb = ccm * rgb;\n\n    /*\n     * Contrast\n     */\n    rgb = clamp(rgb,\
+        \ 0.0, 1.0);\n    rgb.r = apply_contrast(rgb.r);\n    rgb.g = apply_contrast(rgb.g);\n\
+        \    rgb.b = apply_contrast(rgb.b);\n\n    /* Apply gamma after colour correction\
+        \ */\n    rgb = pow(rgb, vec3(gamma));\n\n#if defined (SWAP_BLUE)\n    gl_FragColor\
+        \ = vec4(rgb.bgr, 1.0);\n#else\n    gl_FragColor = vec4(rgb, 1.0);\n#endif\n\
+        }"
+    - text: 렌즈 음영 보정 이후에는 AWB 이득을 적용하고 각 채널을 센서 범위 `vec3(0.0)`에서 `vec3(1.0)`로 포화시키며,
+        `rgb = clamp(rgb * awb, vec3(0.0), vec3(1.0))`를 통해 수행합니다.
+      evidence:
+      - packed-shader
+      covers:
+      - softisp-lsc
+      kind: behavior
+      quote: "rgb = (rgb - blacklevel) / (1.0 - blacklevel);\n\n#if defined(APPLY_LSC)\n\
+        \        /* Multiple by 4.0 for UQ<2, 6> -> float conversion:\n         *\
+        \ texture2D(...) = original_float * 2^6 (quantization) * 1/2^8 (texture byte\
+        \ to float)\n         * => original_float = texture2D(...) / 2^6 * 2^8 = texture2D(...)\
+        \ * 2^2\n         */\n        rgb = rgb * (texture2D(lsc_tex, textureOut).rgb\
+        \ * 4.0);\n#endif\n\n\t/* Apply AWB gains, and saturate each channel at sensor\
+        \ range */\n\trgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));\n\n\t/* Colour\
+        \ Correction Matrix */\n\trgb = ccm * rgb;\n\n\t/*\n\t * Contrast\n\t * contrastExp\
+        \ 0..2 contrast to 0..infinity; avoid actual infinity at tan(pi/2)\n\t */\n\
+        \trgb = clamp(rgb, 0.0, 1.0);\n\trgb.r = apply_contrast(rgb.r);\n\trgb.g =\
+        \ apply_contrast(rgb.g);\n\trgb.b = apply_contrast(rgb.b);\n\n\t/* Apply gamma\
+        \ after colour correction */\n\trgb = pow(rgb, vec3(gamma));\n\n#if defined\
+        \ (SWAP_BLUE)\n\tgl_FragColor = vec4(rgb.bgr, 1.0);\n#else\n\tgl_FragColor\
+        \ = vec4(rgb, 1.0);\n#endif\n}"
+    - text: AWB 적용 후 색 보정 행렬 `ccm`을 곱하여 색상을 보정하고, `rgb = ccm * rgb`로 표현됩니다.
+      evidence:
+      - packed-shader
+      covers:
+      - softisp-lsc
+      kind: behavior
+      quote: "rgb = (rgb - blacklevel) / (1.0 - blacklevel);\n\n#if defined(APPLY_LSC)\n\
+        \        /* Multiple by 4.0 for UQ<2, 6> -> float conversion:\n         *\
+        \ texture2D(...) = original_float * 2^6 (quantization) * 1/2^8 (texture byte\
+        \ to float)\n         * => original_float = texture2D(...) / 2^6 * 2^8 = texture2D(...)\
+        \ * 2^2\n         */\n        rgb = rgb * (texture2D(lsc_tex, textureOut).rgb\
+        \ * 4.0);\n#endif\n\n\t/* Apply AWB gains, and saturate each channel at sensor\
+        \ range */\n\trgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));\n\n\t/* Colour\
+        \ Correction Matrix */\n\trgb = ccm * rgb;\n\n\t/*\n\t * Contrast\n\t * contrastExp\
+        \ 0..2 contrast to 0..infinity; avoid actual infinity at tan(pi/2)\n\t */\n\
+        \trgb = clamp(rgb, 0.0, 1.0);\n\trgb.r = apply_contrast(rgb.r);\n\trgb.g =\
+        \ apply_contrast(rgb.g);\n\trgb.b = apply_contrast(rgb.b);\n\n\t/* Apply gamma\
+        \ after colour correction */\n\trgb = pow(rgb, vec3(gamma));\n\n#if defined\
+        \ (SWAP_BLUE)\n\tgl_FragColor = vec4(rgb.bgr, 1.0);\n#else\n\tgl_FragColor\
+        \ = vec4(rgb, 1.0);\n#endif\n}"
+    - text: 색 보정 이후에는 대비를 적용하기 위해 각 채널을 `0.0`에서 `1.0`으로 포화시키고, `apply_contrast` 함수를
+        호출하여 대비를 조정합니다.
+      evidence:
+      - packed-shader
+      covers:
+      - softisp-lsc
+      kind: behavior
+      quote: "rgb = (rgb - blacklevel) / (1.0 - blacklevel);\n\n#if defined(APPLY_LSC)\n\
+        \        /* Multiple by 4.0 for UQ<2, 6> -> float conversion:\n         *\
+        \ texture2D(...) = original_float * 2^6 (quantization) * 1/2^8 (texture byte\
+        \ to float)\n         * => original_float = texture2D(...) / 2^6 * 2^8 = texture2D(...)\
+        \ * 2^2\n         */\n        rgb = rgb * (texture2D(lsc_tex, textureOut).rgb\
+        \ * 4.0);\n#endif\n\n\t/* Apply AWB gains, and saturate each channel at sensor\
+        \ range */\n\trgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));\n\n\t/* Colour\
+        \ Correction Matrix */\n\trgb = ccm * rgb;\n\n\t/*\n\t * Contrast\n\t * contrastExp\
+        \ 0..2 contrast to 0..infinity; avoid actual infinity at tan(pi/2)\n\t */\n\
+        \trgb = clamp(rgb, 0.0, 1.0);\n\trgb.r = apply_contrast(rgb.r);\n\trgb.g =\
+        \ apply_contrast(rgb.g);\n\trgb.b = apply_contrast(rgb.b);\n\n\t/* Apply gamma\
+        \ after colour correction */\n\trgb = pow(rgb, vec3(gamma));\n\n#if defined\
+        \ (SWAP_BLUE)\n\tgl_FragColor = vec4(rgb.bgr, 1.0);\n#else\n\tgl_FragColor\
+        \ = vec4(rgb, 1.0);\n#endif\n}"
+    - text: 마지막으로 감마 보정을 적용하여 `rgb = pow(rgb, vec3(gamma))`로 색상을 변환하고, `SWAP_BLUE`
+        조건에 따라 채널 순서를 변경하거나 그대로 출력합니다.
+      evidence:
+      - packed-shader
+      covers:
+      - softisp-lsc
+      kind: behavior
+      quote: "rgb = (rgb - blacklevel) / (1.0 - blacklevel);\n\n#if defined(APPLY_LSC)\n\
+        \        /* Multiple by 4.0 for UQ<2, 6> -> float conversion:\n         *\
+        \ texture2D(...) = original_float * 2^6 (quantization) * 1/2^8 (texture byte\
+        \ to float)\n         * => original_float = texture2D(...) / 2^6 * 2^8 = texture2D(...)\
+        \ * 2^2\n         */\n        rgb = rgb * (texture2D(lsc_tex, textureOut).rgb\
+        \ * 4.0);\n#endif\n\n\t/* Apply AWB gains, and saturate each channel at sensor\
+        \ range */\n\trgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));\n\n\t/* Colour\
+        \ Correction Matrix */\n\trgb = ccm * rgb;\n\n\t/*\n\t * Contrast\n\t * contrastExp\
+        \ 0..2 contrast to 0..infinity; avoid actual infinity at tan(pi/2)\n\t */\n\
+        \trgb = clamp(rgb, 0.0, 1.0);\n\trgb.r = apply_contrast(rgb.r);\n\trgb.g =\
+        \ apply_contrast(rgb.g);\n\trgb.b = apply_contrast(rgb.b);\n\n\t/* Apply gamma\
+        \ after colour correction */\n\trgb = pow(rgb, vec3(gamma));\n\n#if defined\
+        \ (SWAP_BLUE)\n\tgl_FragColor = vec4(rgb.bgr, 1.0);\n#else\n\tgl_FragColor\
+        \ = vec4(rgb, 1.0);\n#endif\n}"
+    - text: '`softisp-interface`에서는 `IPASoftIspInterface` 인터페이스가 렌즈 음영 보정 버퍼를 전달하는
+        메커니즘을 정의하지만, 실제 GPU 실행 단계나 구체적인 적용 시점은 이 문서의 선언 범위에서 설명되지 않습니다.'
+      evidence:
+      - softisp-interface
+      covers:
+      - softisp-lsc
+      kind: limitation
+      quote: "interface IPASoftIspInterface {\n\tinit(libcamera.IPASettings settings,\n\
+        \t     libcamera.SharedFD fdStats,\n\t     libcamera.SharedFD fdParams,\n\t\
+        \     libcamera.IPACameraSensorInfo sensorInfo,\n\t     libcamera.ControlInfoMap\
+        \ sensorControls)\n\t\t=> (int32 ret,\n\t\t    libcamera.ControlInfoMap ipaControls,\n\
+        \t\t    bool ccmEnabled, bool lscEnabled);\n\tstart() => (int32 ret);\n\t\
+        stop();\n\tconfigure(IPAConfigInfo configInfo)\n\t\t=> (int32 ret, libcamera.ControlInfoMap\
+        \ ipaControls);"
+  topic_inputs:
+    selection: f43c3fbfbeb3fe08ca6c7ac2ccf54ac201bd8c7805f4d4323f8acfee280ce49a
+    execution: 2695b7ce5caf6d25e81c3f1ef7c09723c859d70a9a36ecd5666c5e05cc6df22c
+    interface: 9c00456b24365248095f2940317009063a8dca9ccb6f3035cb6e1c75c0aee3f9
+    lifetime: bff92a7a8e2b6f89c1a51d0d7e597f00e60a905f234038f103b1325a76f03353
+    tuning: 621f9e2ee984a852db21a93c68ec98ced7290f3141b1c12a4e9ac41e4b756432
+    dma-import: 195b3588bddb0390bec4482474ba5b6ccc74e60841ff4cb23c42c32270ea2289
+    softisp-lsc: 48ef95264d20d3065b924d790e848e802929a4454ccfee826de5bfde3ab51176
+  reused_topics:
+  - selection
+  - execution
+  - interface
+  - lifetime
+  - errors
+  - tuning
+  - dma-import
+  - softisp-lsc
+  replayed_units: []
+  generated_topics: []
+  topic_agents:
+    selection: ollama/qwen3.5:9b
+    execution: ollama/qwen3.5:9b
+    interface: ollama/qwen3.5:9b
+    lifetime: ollama/qwen3.5:9b
+    errors: ollama/qwen3.5:9b
+    tuning: ollama/qwen3.5:9b
+    dma-import: ollama/qwen3.5:9b
+    softisp-lsc: ollama/qwen3.5:9b
+  grounding_review: passed
+  grounding_policy: c54006f7c90cb2af955e1ede18b761c7feb22dffa3bc37a885c019508348eba0
+  body_sha256: 55cc706bc187ebe9beac0903128ac2d538443830fb2fed5d2bf3210dbf88478f
+  maintenance_mode: recorded-http-answer-selection
+  maintenance_lineage:
+  - mode: recorded-http-answer-selection
+    source_commit: 2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f
+    paragraph_layout: legacy
+    maintained_at: '2026-10-26T16:55:19+00:00'
+    original_page_sha256: 0168aca3d0a5e6960126144450fce443ef5051c411b7e582cddacd1f2dd3f7ee
+    original_body_sha256: 0f25f1c9edc73877e508ebc2e803b83e6a293f51b6e3ee21768bb59f01346bbf
+    before_input_fingerprint: 84611553aff2de125c4a301d56f8b196027713cb1261cbeea7f5b956cb7d641f
+    removed_statements:
+    - topic: errors
+      index: 2
+      sha256: 03c88723da7f082baf536577f8b384b45d9bde2382e8fb60d5b4faa758bf46cb
+    removed_parts: []
+    selected_statements:
+      selection:
+      - dd78a930745f05d99ea01992e22e5477b3156d616d2d53931ae5bc8946bf3d22
+      - fda0a73bb9228df3a416fd79c7bb9c6a4162bc0a8ed254090c5ac56fa7bdf15e
+      - 5b6e75675c8fa88f31491fcf89990a7a920473768b63e96118df9aa390a62ca2
+      - 2bdfc18605398e7dea845a29db2e23eb47f4293a0c3a288cbf846ab110d18448
+      - 7f68a38c340e1198f3a201324d78761a99102b54ad985a390a672a1011990f37
+      - 6148012b6a86b04274b3cf8db33906fa4d5bbd85ee8d6716c62eaf1e5b7b6fed
+      execution:
+      - 01126382108ee7361aa481d3ccae8be391906966255e10fc12169e236bc05921
+      - 92ebae37fd45168145a66790db4d9e04a7f9f962263594d72df62b3613bccf81
+      - a44949af9c70b703a2abc24a5468f4e277af2285681c1c095fff24840863569b
+      - 2e1929c7b434628f469bda5df2e8dd1b3f52827e70cbc53c429260fd8372d626
+      - ee056d79201e16d8f6a182bd8ed3d39ca06cd96e9d6b038a76c39b7888492334
+      - da28db5ad35a51f039c0c54323fe268556699d48937ebc5a94b2c8985d9e5482
+      - 5ca9be368af427b9c371b6717231058be3c73031ced5a4030d3322f9ca57f544
+      - a91a76d7c6bd26806e24ae07d9deee90eb6c4a8bf316f1cc57f8b032418d4ec1
+      - 868f8ed9e8fc096972a883e7fe29ef964e5fc25a9c1d1eea82070cebfe016aec
+      - 732746f9ec990c0c718fd6708b622b37564ea6bb6c0e8b566f4efc00b0b7374d
+      - 2370b5eac5564d810ab5b0d54ee8c8bfd047aadf86d5bd81fdf43d3afc28dcb6
+      - 8a83a298aea1f17b3318d028cc207aed26edd9e61cb505361e635078a935ca0f
+      - 82e950e2eca4db09a3f3abebe7e219cc9d19440f45fc5dfe7abeda11a277a7d0
+      - ab007f35de0a390edd6d68ee9627198dcf737dbe125f9a13cf8a9ed10955957d
+      - 3185e3e241f0b3d2b673c57eeb96eb7104dc86cbf2a7d5654ac3cf015d9473a0
+      - 8382b93cac979543d17085564d57444069cf9207cce9c6215a5710fb40821cd3
+      interface:
+      - 6d5ba7233ded30e250fd337be533feaf007609c67dc811984e1adcc95dcee33e
+      - 12fe3e8cd82dc368c40c5f88b72ba1839c9503cedb12890875aebe27c19d1318
+      - e6557a3a6a68555f29ce89fd553e0280e19fc22a0df9a7a0946992760e385904
+      - 1a30c4a9d299a7c774bcc9298af5266f1e72f4ea6da1cf701a8bb0f605c540be
+      - c5835a03c85afb3c8077846cb1664ab4223c7a7b397076e4cf2fc6ecb661e89e
+      - 6340cb58702773320685342e0130afbbf3f304cc49d43217eb96b1ed10bc98bc
+      - a97af70cd415abfa8b42c4d741aa6d2946c148ea2b32c15e6fa9c4f7fcaddeaf
+      - 7e20fbc042ad30520f0817306ce16344e66ef2f60e56bbf990b168d0e65afc5c
+      lifetime:
+      - 5c32b48dab2fcfc09f8ffdfc24dc3f9c349264b11be1c495c98236e9418f9f34
+      - 659ff88b22783a81f2a0d1809b97f6f35eab7b2443f7c3044a9607770ca6c842
+      - cd7e1090065571257b37a4206f11df51f9095b03dbc95a5364785090f8a8ce04
+      - fc61cfd267e8dc1c9a1b23c72a86969aec637e97d5baf10efec3aecc7495d151
+      - c78c5f89ff1640871099ad5c6ce3943817222256d7b7f18fe827a29738419baf
+      - 082165db2a3c706d6514917936be33dee7a4e557402dd52c9d450e92e7813897
+      errors:
+      - 50fa000a1268cb45fc0b7074e0d76560c50ffbeb8083e1b5d6dcbc87ee8fbf76
+      - 923a74b30486240e43411cfd10e227cc884c67fa27ec124bae1ce8616d6a6890
+      - 2936eb82d4a95fb2ba6c319351ae9dbcf2ee2eeea9463def995915dbab0cd7b4
+      - 60da3e1b3649f1d28b2785c8985de8afb3427e22c36ac3dee2fc6bd2a37bbaee
+      - 15b7c6571e9be1327059eaf478ddd1040ec1b2eac144308a9d31f721bab6011f
+      - 643d2bedbe76d06b741dbf213d161ab2073f157739c9ab02989664295998075e
+      - 65de1f7ed9d8ca7d08f6c2c718e21a58890674781ca5714935b447f1177672d4
+      tuning:
+      - d29c85a8b8325fbdb9a78bef641a2dfb0e5b15765cf99461e898a9b529477bfd
+      - daa11f04604b3a46adade213c4265e983f06252eea3ecfc9a8392a953f4bbfe4
+      - bdeee7aa5c6b4b49a7752ae36f2d6eb6a663afa8c55f94befe409296fd64d9df
+      - b0f76dda69cad8af77a54c0dc5f1de3ed248afae9f612779d10c6d05108e2445
+      - 20cf2b256f4b009cff967893182c2f5cb781bafd92fd7f456dc8a83e5c31d718
+      dma-import:
+      - 20ce0bfdbba75db51286808ee9e62ba825782cdaa001f1e69fae359722bd97be
+      - dd9703871f20e465e91f94b402e9106dbe3aa61f3981a2e9cc38a04dcc15bedd
+      - cde63ee52d53c4440670c1c8ccbd4a478ecaceba5a31f5a718a0ab55db9988a9
+      - 08be87f066f83f797e4d1831145f5b0fe5a71f370230c054a15460d36d6a894a
+      - 808ec6f57883277ef30fb94405586207310495fc290592ab417245a8cc1ace9d
+      - e52a8f53980a8759b77e511e7526d144da00b36d7e7e2155439d0539eef87e7b
+      - 8513b2b8fd8546d072edbd38615b0a3e06aa83fc6f50ce6f5fe10d201577257f
+      - 64b0c5398e9a0f997afae215412b83059aa76818a9c72b9bf0cc9cd9b82e5c36
+      softisp-lsc:
+      - 4f56bee9b24212f7bbdcbb228043a105f4e64c7cfda85cf8c8b2985382fb4e1d
+      - ddc878017e73637e578a7f2e6a259b99b923c448ebea6508e78e439cebd43073
+      - 373cbf2992725da916a100c8eced4f6a4dfff1f071a7399ca08fea95d18bec68
+      - c4e87ba6e9d8904718940bbf1c6f0d91ecda455024524dd8e9c05b0beec3e21d
+      - 146a40a8570d61ea6876c05ba399afecdc18647bf07ec967380624bd0fc7b9f3
+      - 17919044fbbc84f145de87a3ac4b8878c7efebb553fdc94f53cb15fdcfcb0bb4
+      - 93e2acff5ce12cffc3fba99d937daa0bb099c2ba84ffb7954efbd4c1eaa3508a
+      - 754c0893ba34bbe6dfef5ae91da8b1c728bea1e14183520a2f233733f758d71b
+    original_producers:
+      selection: ollama/qwen3.5:9b
+      execution: ollama/qwen3.5:9b
+      interface: ollama/qwen3.5:9b
+      lifetime: ollama/qwen3.5:9b
+      errors: ollama/qwen3.5:9b
+      tuning: ollama/qwen3.5:9b
+      dma-import: ollama/qwen3.5:9b
+      softisp-lsc: ollama/qwen3.5:9b
+    zero_model_calls: true
+    human_review: pending
 ---
 
 # IPA 관리와 구현 진입점
@@ -196,8 +1117,6 @@ IPARkISP1EventInterface 는 RKISP1 전용 이벤트 인터페이스로, paramsCo
 `createIPA` 함수는 모듈을 로드할 때 유효하지 않은 모듈이 반환되면 `nullptr`를 반환합니다. 또한 로딩된 후 프록시가 유효하지 않으면 에러 로그를 출력하고 `nullptr`를 반환합니다. `include/libcamera/internal/ipa_manager.h:35`
 
 `IPAModule::load` 함수는 유효하지 않은 모듈이거나 이미 로드된 경우를 처리하여 `false`를 반환하며, 공유 객체를 열지 못하거나 심볼을 찾을 수 없으면 에러 로그를 출력하고 `dlHandle_`를 초기화한 뒤 `false`를 반환합니다. `src/libcamera/ipa_module.cpp:390`
-
-`IPAModule::createInterface` 함수는 모듈이 유효하지 않거나 로드되지 않은 경우 `nullptr`를 반환합니다. `src/libcamera/ipa_module.cpp:390`
 
 `{{proxy_name}}Isolated` 생성자는 IPC 파이프를 만들지 못하거나 연결에 실패하면 에러 로그를 출력하고 초기화를 중단합니다. `utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130`
 
@@ -1646,6 +2565,6 @@ flowchart LR
     - 근거 파일: `include/libcamera/internal/ipa_manager.h`, `include/libcamera/internal/ipa_module.h`, `include/libcamera/internal/ipa_proxy.h`, `include/libcamera/ipa/ipu3.mojom`, `include/libcamera/ipa/rkisp1.mojom`, `include/libcamera/ipa/softisp.mojom`, `src/ipa/ipu3/ipu3.cpp`, `src/ipa/mali-c55/data/uncalibrated.yaml`, `src/ipa/rkisp1/data/uncalibrated.yaml`, `src/ipa/rkisp1/rkisp1.cpp`, `src/libcamera/egl.cpp`, `src/libcamera/ipa_manager.cpp`, `src/libcamera/ipa_module.cpp`, `src/libcamera/ipa_proxy.cpp`, `src/libcamera/ipc_pipe_unixsocket.cpp`, `src/libcamera/pipeline/mali-c55/mali-c55.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/shaders/bayer_1x_packed.frag`, `src/libcamera/shaders/bayer_unpacked.frag`, `utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl`, `utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl`
     - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `2c4b67c079`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-10-26 · 사람 검토 전
+    - 검토 상태 기록일: 2026-10-27 · 사람 검토 전
 
 다음 단계: [IPU3 LSC와 상태 연결](ipu3-lsc.md)
