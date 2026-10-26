@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-10-26T11:11:41+00:00
+generated_at: 2026-10-26T11:46:58+00:00
 source_commit: 7f28df94ac957df8b4d57561ac7f1bc83782241f
 status: ok
 section: ipa

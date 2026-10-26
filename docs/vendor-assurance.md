@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-10-26T11:11:59+00:00
+generated_at: 2026-10-26T11:47:31+00:00
 source_commit: 2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f
 status: ok
 section: vendor-assurance
