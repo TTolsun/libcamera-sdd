@@ -1,0 +1,1 @@
+{"statements":[{"text":"loadIPAModuleInfo 가 0 을 반환하면 loadIPAModuleInfo 가 -보다 작지 않으므로 if 조건이 거짓이고 초기화 목록에서 true 로 설정된 valid_ 가 보존됩니다.", "quote_id":"constructor:0","covers":["signature"],"kind":"limitation"}]}

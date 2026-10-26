@@ -1,0 +1,1 @@
+{"statements":[{"text":"RequestManager::onFrame에서 factory.runPipes(frame)가 0 이상을 반환하면 sendResult(frame)를 호출하고, onFrameDone(frame)는 if 블록 밖에서 무조건 호출됩니다.","quote_id":"on-frame:0","covers":["completion-rule"],"kind":"behavior"}]}

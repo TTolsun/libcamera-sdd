@@ -1,0 +1,1 @@
+{"statements":[{"text":"runPipes 가 음수인 경우는 sendResult 를 호출하지 않으며, onFrame 은 continue 로 처리된다. runPipes 가 0 이상일 때만 sendResult(frame)가 실행되고 onFrame 은 onFrameDone 이 수행된다.", "quote_id":"on-frame:0","covers":["completion-rule"],"kind":"behavior"}]}
