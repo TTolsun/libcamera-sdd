@@ -1,0 +1,1 @@
+{"text": "Extracted from src/libcamera/ipa_module.cpp:470"}

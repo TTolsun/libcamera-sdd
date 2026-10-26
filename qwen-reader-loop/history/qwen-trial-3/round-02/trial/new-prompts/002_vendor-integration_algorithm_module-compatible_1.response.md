@@ -1,0 +1,12 @@
+{
+  "statements": [
+    {
+      "text": "`IPAModule::match` 함수가 `true` 를 반환하려면 모듈 이름이 정확히 일치해야 하며, 버전은 `minVersion` 이상이고 `maxVersion` 이하이어야 합니다.",
+      "quote_id": "module-compatible:0",
+      "covers": [
+        "algorithm"
+      ],
+      "kind": "behavior"
+    }
+  ]
+}

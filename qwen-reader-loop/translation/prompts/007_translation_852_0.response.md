@@ -1,0 +1,1 @@
+{"text": "Source reference: src/libcamera/ipa_module.cpp:470"}

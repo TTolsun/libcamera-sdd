@@ -1,0 +1,43 @@
+{
+  "verdict": "insufficient_evidence",
+  "checks": {
+    "subject": "fail",
+    "conditions": "fail",
+    "modality": "fail",
+    "returns": "fail",
+    "ordering": "fail",
+    "coverage": "fail"
+  },
+  "findings": [
+    {
+      "category": "subject",
+      "candidate": "module-compatible:current",
+      "issue": "The provided answer text does not explicitly mention the subject 'IPAModule::match' in a way that confirms it is the function being analyzed, though it is implied by context. However, the primary failure lies elsewhere."
+    },
+    {
+      "category": "conditions",
+      "candidate": "module-compatible:current",
+      "issue": "The excerpt 'src/libcamera/ipa_module.cpp' shows code checking `info_.pipelineVersion >= minVersion && info_.pipelineVersion <= maxVersion`. The answer fails to mention the conditions regarding `minVersion` and `maxVersion`."
+    },
+    {
+      "category": "modality",
+      "candidate": "module-compatible:current",
+      "issue": "The excerpt uses operators `>=` and `<=`. The required terms '이상' (>=) and '이하' (<=) are missing from the answer text."
+    },
+    {
+      "category": "returns",
+      "candidate": "module-compatible:current",
+      "issue": "The excerpt shows a boolean expression returning true if conditions are met. The answer mentions returning `true` but fails to link it to the specific version constraints found in the code."
+    },
+    {
+      "category": "ordering",
+      "candidate": "module-compatible:current",
+      "issue": "The excerpt implies an ordering of checks (name match, then version range). The answer only mentions name matching and omits the version ordering logic entirely."
+    },
+    {
+      "category": "coverage",
+      "candidate": "module-compatible:current",
+      "issue": "The excerpt contains evidence for `minVersion`, `maxVersion`, `>=`, `<=`. The answer fails to cover these required terms, resulting in incomplete coverage of the implementation details."
+    }
+  ]
+}

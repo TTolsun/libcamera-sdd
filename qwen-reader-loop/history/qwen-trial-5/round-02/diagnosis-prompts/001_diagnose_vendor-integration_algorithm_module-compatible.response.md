@@ -1,0 +1,28 @@
+{
+  "verdict": "repair",
+  "checks": {
+    "subject": "pass",
+    "conditions": "fail",
+    "modality": "pass",
+    "returns": "fail",
+    "ordering": "pass",
+    "coverage": "fail"
+  },
+  "findings": [
+    {
+      "category": "conditions",
+      "candidate": "module-compatible:current",
+      "issue": "The answer text fails to mention the required terms 'minVersion', 'maxVersion', '이상' (>=), and '이하' (<=) which are explicitly required by the contract. The source code shows these variables are used in the logic, but the textual answer omits them."
+    },
+    {
+      "category": "coverage",
+      "candidate": "module-compatible:current",
+      "issue": "The answer only covers the name matching condition ('이름이 ... 일치해야 합니다') and completely omits the version range conditions found in the source code (`info_.pipelineVersion >= minVersion && info_.pipelineVersion <= maxVersion`)."
+    },
+    {
+      "category": "returns",
+      "candidate": "module-compatible:current",
+      "issue": "The answer does not explicitly state that all conditions must be met simultaneously (logical AND) to return true, as implied by the source code structure and the question's request for 'all conditions'."
+    }
+  ]
+}

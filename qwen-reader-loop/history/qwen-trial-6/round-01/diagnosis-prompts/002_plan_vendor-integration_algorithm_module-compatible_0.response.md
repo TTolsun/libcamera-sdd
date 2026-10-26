@@ -1,0 +1,48 @@
+{
+  "verdict": "repair",
+  "checks": {
+    "subject": "fail",
+    "conditions": "fail",
+    "modality": "fail",
+    "returns": "fail",
+    "ordering": "fail",
+    "coverage": "fail"
+  },
+  "findings": [
+    {
+      "category": "subject",
+      "candidate": "module-compatible:current",
+      "issue": "The answer text mentions 'IPAModule::match' but fails to address the specific conditions regarding 'minVersion' and 'maxVersion' required by the question."
+    },
+    {
+      "category": "conditions",
+      "candidate": "module-compatible:current",
+      "issue": "The excerpt provided ('src/libcamera/ipa_module.cpp') shows code logic involving `info_.pipelineVersion >= minVersion` and `info_.pipelineVersion <= maxVersion`, but the answer text completely omits these version boundary conditions."
+    },
+    {
+      "category": "modality",
+      "candidate": "module-compatible:current",
+      "issue": "The excerpt implies a strict equality check for the name (implied by context not fully shown in snippet but standard for such functions), yet the answer only vaguely states 'provided name must match' without specifying the exact matching logic or confirming the inclusion of boundaries."
+    },
+    {
+      "category": "returns",
+      "candidate": "module-compatible:current",
+      "issue": "The question asks for conditions to return `true`. The answer only lists one condition (name match) and ignores the version checks which are critical for returning `true` based on the provided code snippet."
+    },
+    {
+      "category": "ordering",
+      "candidate": "module-compatible:current",
+      "issue": "The excerpt shows logical AND operators (`&&`) connecting name check (implied) and version checks. The answer fails to reflect this combined requirement, presenting an incomplete list of conditions."
+    },
+    {
+      "category": "coverage",
+      "candidate": "module-compatible:current",
+      "issue": "The excerpt explicitly contains `minVersion` and `maxVersion` variables with `>=` and `<=` operators. The answer fails to cover these required terms (`minVersion`, `maxVersion`, `이상`, `이하`) found in the source code, leaving significant gaps in the explanation."
+    }
+  ],
+  "clarification": "IPAModule::match 가 true 를 반환하기 위해 필요한 모든 조건 (이름 일치 여부, 최소 버전 이상인지, 최대 버전 이하인지) 을 포함하여 설명해 주실 수 있나요?",
+  "subquestions": [],
+  "expand": [
+    "module-compatible:scope0"
+  ]
+}
