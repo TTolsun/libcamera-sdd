@@ -1,13 +1,13 @@
 ---
-generated_at: 2026-10-26T10:07:30+00:00
+generated_at: 2026-10-26T11:46:27+00:00
 source_commit: 2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f
 status: ok
 section: request-lifecycle
 generation_method: facts-and-llm
-evidence_fingerprint: 5709e68db5561b475beb0b8f63dffb844ce1fce130573634546c99c42956b2ed
+evidence_fingerprint: 4c7215d125bf0f1e500db252b0fe6f57e64f736cc19a9e33a24101b379be1df1
 semantic_review: human-review-required
 agent: ollama/qwen3.5:9b
-generated_design: {"schema": 1, "input_fingerprint": "5709e68db5561b475beb0b8f63dffb844ce1fce130573634546c99c42956b2ed", "answers": {"configuration-failure": [{"text": "`Camera::configure` 함수는 설정을 구성하기 전에 `isAccessAllowed` 함수를 호출하여 접근 권한이 허용되었는지 확인합니다.", "covers": ["configuration-failure"], "kind": "behavior", "quote": "int ret = d->isAccessAllowed(Private::CameraAcquired,\n\t\t\t\t     Private::CameraConfigured);\n\tif (ret < 0)\n\t\treturn ret;", "evidence": ["access-entry"], "part_id": "access-entry"}, {"text": "`Camera::Private::isAccessAllowed` 함수는 `allowDisconnected` 가 참이 아닌 상태에서 카메라가 연결 해제 (`disconnected_`) 된 경우 `-ENODEV` 오류를 반환합니다.", "covers": ["configuration-failure"], "kind": "behavior", "quote": "int Camera::Private::isAccessAllowed(State low, State high,\n\t\t\t\t     bool allowDisconnected,\n\t\t\t\t     const char *from) const\n{\n\tif (!allowDisconnected && disconnected_)\n\t\treturn -ENODEV;", "evidence": ["access"], "part_id": "access-disconnected"}, {"text": "현재 상태가 `low`와 `high` 사이에 있으면 함수는 즉시 성공 코드인 `0`을 반환합니다.", "covers": ["configuration-failure"], "kind": "behavior", "quote": "if (currentState >= low && currentState <= high)\n\t\treturn 0;\n\n\tASSERT(static_cast<unsigned int>(low) < std::size(camera_state_names) &&\n\t       static_cast<unsigned int>(high) < std::size(camera_state_names));\n\n\tLOG(Camera, Error) << \"Camera in \" << camera_state_names[currentState]\n\t\t\t   << \" state trying \" << from\n\t\t\t   << \"() requiring state between \"\n\t\t\t   << camera_state_names[low] << \" and \"\n\t\t\t   << camera_state_names[high];\n\n\treturn -EACCES;\n}\n\nvoid Camera::Private::disconnect()", "evidence": ["state-return"], "part_id": "access-state"}, {"text": "현재 상태가 허용된 범위 밖이면 로그에 오류 메시지를 기록한 뒤 `-EACCES`를 반환합니다.", "covers": ["configuration-failure"], "kind": "behavior", "quote": "if (currentState >= low && currentState <= high)\n\t\treturn 0;\n\n\tASSERT(static_cast<unsigned int>(low) < std::size(camera_state_names) &&\n\t       static_cast<unsigned int>(high) < std::size(camera_state_names));\n\n\tLOG(Camera, Error) << \"Camera in \" << camera_state_names[currentState]\n\t\t\t   << \" state trying \" << from\n\t\t\t   << \"() requiring state between \"\n\t\t\t   << camera_state_names[low] << \" and \"\n\t\t\t   << camera_state_names[high];\n\n\treturn -EACCES;\n}\n\nvoid Camera::Private::disconnect()", "evidence": ["state-return"], "part_id": "access-state"}, {"text": "`Camera::configure` 함수는 내부적으로 `config->validate()` 호출 결과를 확인하며, 이 결과가 `Valid`가 아닌 경우 `-EINVAL` 오류 식별자를 반환합니다.", "covers": ["configuration-failure"], "kind": "behavior", "quote": "if (config->validate() != CameraConfiguration::Valid) {\n\t\tLOG(Camera, Error)\n\t\t\t<< \"Can't configure camera with invalid configuration\";\n\t\treturn -EINVAL;\n\t}", "evidence": ["validation-branch"], "part_id": "validation"}, {"text": "`CameraConfiguration::validate()` 함수는 카메라 설정을 가장 가까운 유효한 상태로 조정하고 검증 상태를 반환합니다.", "covers": ["configuration-failure"], "kind": "behavior", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.\n * \\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully.\n * \\retval CameraConfiguration::Valid The configuration was already valid and\n * hasn't been adjusted.\n */", "evidence": ["validate"], "part_id": "validation-status"}, {"text": "함수가 `CameraConfiguration::Invalid`를 반환하면 설정이 조정 불가능한 극단적인 경우, 예를 들어 설정이 비어있는 경우에 발생합니다.", "covers": ["configuration-failure"], "kind": "behavior", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.\n * \\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully.\n * \\retval CameraConfiguration::Valid The configuration was already valid and\n * hasn't been adjusted.\n */", "evidence": ["validate"], "part_id": "validation-status"}, {"text": "`Camera::configure` 함수는 `PipelineHandler::configure` 메서드를 호출하기 위해 invokeMethod를 사용하며, 이때 반환된 값을 ret 변수에 저장합니다.", "covers": ["configuration-failure"], "kind": "behavior", "quote": "ret = d->pipe_->invokeMethod(&PipelineHandler::configure,\n\t\t\t\t     ConnectionTypeBlocking, this, config);\n\tif (ret)\n\t\treturn ret;", "evidence": ["configure"], "part_id": "pipeline"}, {"text": "invokeMethod 호출 직후 ret의 값이 0 이 아닌 경우, 즉 오류가 발생했을 때 `Camera::configure` 함수는 그 값을 그대로 반환합니다.", "covers": ["configuration-failure"], "kind": "behavior", "quote": "ret = d->pipe_->invokeMethod(&PipelineHandler::configure,\n\t\t\t\t     ConnectionTypeBlocking, this, config);\n\tif (ret)\n\t\treturn ret;", "evidence": ["configure"], "part_id": "pipeline"}, {"text": "`Camera::configure` 함수 내부의 `if (!stream)` 조건 블록에서는 먼저 `d->activeStreams_` 컨테이너를 비웁니다.", "covers": ["configuration-failure"], "kind": "behavior", "quote": "Stream *stream = cfg.stream();\n\t\tif (!stream) {\n\t\t\tLOG(Camera, Fatal)\n\t\t\t\t<< \"Pipeline handler failed to update stream configuration\";\n\t\t\td->activeStreams_.clear();\n\t\t\treturn -EINVAL;\n\t\t}", "evidence": ["stream-failure"], "part_id": "stream"}, {"text": "`d->activeStreams_` 컨테이너를 비운 직후에는 `-EINVAL` 오류 코드를 반환합니다.", "covers": ["configuration-failure"], "kind": "behavior", "quote": "Stream *stream = cfg.stream();\n\t\tif (!stream) {\n\t\t\tLOG(Camera, Fatal)\n\t\t\t\t<< \"Pipeline handler failed to update stream configuration\";\n\t\t\td->activeStreams_.clear();\n\t\t\treturn -EINVAL;\n\t\t}", "evidence": ["stream-failure"], "part_id": "stream"}], "journey": [{"text": "요청을 생성하려면 `Camera::createRequest()` 함수를 호출하여 애플리케이션이 버퍼와 파라미터로 채울 빈 요청 객체를 얻어야 합니다. 이 함수는 카메라가 `Configured` 또는 `Running` 상태일 때만 호출할 수 있으며, 반환된 요청의 소유권은 호출자에게 넘어갑니다.", "covers": ["journey"], "kind": "behavior", "quote": "\\brief Create a request object for the camera\n * \\param[in] cookie Opaque cookie for application use\n *\n * This function creates an empty request for the application to fill with\n * buffers and parameters, and queue for capture.\n *\n * The \\a cookie is stored in the request and is accessible through the\n * Request::cookie() function at any time. It is typically used by applications\n * to map the request to an external resource in the request completion\n * handler, and is completely opaque to libcamera.\n *\n * The ownership of the returned request is passed to the caller, which is\n * responsible for deleting it. The request may be deleted in the completion\n * handler, or reused after resetting its state with Request::reuse().\n *\n * \\context This function is \\threadsafe. It may only be called when the camera\n * is in the Configured or Running state as defined in \\ref camera_operation.\n *\n * \\return A pointer to the newly created request, or nullptr on error\n */\nstd::unique_ptr<Request> Camera::createRequest(uint64_t cookie)", "evidence": ["create"]}, {"text": "요청을 카메라에 제출하려면 `Camera::queueRequest()` 함수를 호출해야 하며, 이 요청에는 최소 하나의 캡처 버퍼가 포함되어 있어야 합니다. 버퍼가 없는 요청은 무효로 거부됩니다.", "covers": ["journey"], "kind": "behavior", "quote": "\\brief Queue a request to the camera\n * \\param[in] request The request to queue to the camera\n *\n * This function queues a \\a request to the camera for capture.\n *\n * After allocating the request with createRequest(), the application shall\n * fill it with at least one capture buffer before queuing it. Requests that\n * contain no buffers are invalid and are rejected without being queued.\n *\n * Once the request has been queued, the camera will notify its completion\n * through the \\ref requestCompleted signal.\n *\n * \\context This function is \\threadsafe. It may only be called when the camera\n * is in the Running state as defined in \\ref camera_operation.\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not running so requests can't be queued\n * \\retval -EXDEV The request does not belong to this camera\n * \\retval -EINVAL The request is invalid\n * \\retval -ENOMEM No buffer memory was available to handle the request\n */\nint Camera::queueRequest(Request *request)\n{\n\tPrivate *const d = _d();", "evidence": ["queue"]}, {"text": "`Camera::queueRequest()` 함수는 요청이 카메라에 의해 생성되었는지 확인하고, 요청 상태가 `RequestPending`인지, 버퍼 목록이 유효하며, 모든 스트림의 버퍼가 활성화된 스트림인지 검증합니다.", "covers": ["journey"], "kind": "behavior", "quote": "if (request->buffers().empty()) {\n\t\tLOG(Camera, Error) << \"Request contains no buffers\";\n\t\treturn -EINVAL;\n\t}", "evidence": ["queue"]}, {"text": "요청이 준비되면 `PipelineHandler::registerRequest()` 함수가 연결 신호를 통해 파이프라인 핸들러에 요청이 처리될 준비가 되었음을 알립니다.", "covers": ["journey"], "kind": "behavior", "quote": "\\fn PipelineHandler::registerRequest()\n * \\brief Register a request for use by the pipeline handler\n * \\param[in] request The request to register\n *\n * This function is called when the request is created, and allows the pipeline\n * handler to perform any one-time initialization it requries for the request.\n */\nvoid PipelineHandler::registerRequest(Request *request)\n{\n\t/*\n\t * Connect the request prepared signal to notify the pipeline handler\n\t * when a request is ready to be processed.\n\t */\n\trequest->_d()->prepared.connect(this, [this, request]() {\n\t\tdoQueueRequests(request->_d()->camera());\n\t});\n}", "evidence": ["device-queue"]}, {"text": "`PipelineHandler::queueRequest()` 함수는 요청을 내부 대기 큐에 추가하고, 300ms 동안 준비 상태를 기다립니다.", "covers": ["journey"], "kind": "behavior", "quote": "request->_d()->prepare(300ms);\n}", "evidence": ["device-queue"]}, {"text": "`PipelineHandler::doQueueRequests()` 함수는 대기 큐의 요청을 순차적으로 처리하며, `maxQueuedRequestsDevice_` 제한에 도달하면 더 이상 추가하지 않습니다.", "covers": ["journey"], "kind": "behavior", "quote": "/**\n * \\brief Queue prepared requests to the device\n *\n * Iterate the list of waiting requests and queue them to the device one\n * by one if they have been prepared.\n */\nvoid PipelineHandler::doQueueRequests(Camera *camera)\n{\n\tCamera::Private *data = camera->_d();\n\twhile (!data->waitingRequests_.empty()) {\n\t\tif (data->queuedRequests_.size() == maxQueuedRequestsDevice_)\n\t\t\tbreak;", "evidence": ["device-queue"]}, {"text": "`PipelineHandler::doQueueRequest()` 함수는 요청을 장치에 제출하고, 실패 시 `cancelRequest()` 를 호출하여 요청을 취소합니다.", "covers": ["journey"], "kind": "behavior", "quote": "int ret = queueRequestDevice(camera, request);\n\tif (ret)\n\t\tcancelRequest(request);\n}", "evidence": ["device-queue"]}, {"text": "`PipelineHandler::completeBuffer()` 함수는 버퍼 완료를 신호하고, 모든 버퍼가 완료되었는지 확인합니다.", "covers": ["journey"], "kind": "behavior", "quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)\n{\n\tCamera *camera = request->_d()->camera();\n\tcamera->bufferCompleted.emit(request, buffer);\n\treturn request->_d()->completeBuffer(buffer);\n}", "evidence": ["completion"]}], "resources": [{"text": "요청 객체의 소유권은 `Camera::createRequest()` 함수가 반환한 지점부터 호출자에게 넘어갑니다. 호출자는 이 요청을 삭제할 책임이 있으며, 완료 핸들러에서 삭제하거나 `Request::reuse()` 를 호출하여 상태를 초기화하고 재사용할 수 있습니다.", "covers": ["resources"], "kind": "behavior", "quote": "\\brief Create a request object for the camera\n * \\param[in] cookie Opaque cookie for application use\n *\n * This function creates an empty request for the application to fill with\n * buffers and parameters, and queue for capture.\n *\n * The \\a cookie is stored in the request and is accessible through the\n * Request::cookie() function at any time. It is typically used by applications\n * to map the request to an external resource in the request completion\n * handler, and is completely opaque to libcamera.\n *\n * The ownership of the returned request is passed to the caller, which is\n * responsible for deleting it. The request may be deleted in the completion\n * handler, or reused after resetting its state with Request::reuse().\n *\n * \\context This function is \\threadsafe. It may only be called when the camera\n * is in the Configured or Running state as defined in \\ref camera_operation.\n *\n * \\return A pointer to the newly created request, or nullptr on error\n */\nstd::unique_ptr<Request> Camera::createRequest(uint64_t cookie)", "evidence": ["create"]}, {"text": "`Request::addBuffer()` 함수는 스트림당 하나의 버퍼만 허용하며, 이미 동일한 스트림에 버퍼가 추가되어 있거나 버퍼에 펜스가 남아있으면 `-EEXIST` 오류를 반환합니다.", "covers": ["resources"], "kind": "limitation", "quote": "\\brief Add a FrameBuffer with its associated Stream to the Request\n * \\param[in] stream The stream the buffer belongs to\n * \\param[in] buffer The FrameBuffer to add to the request\n * \\param[in] fence The optional fence\n *\n * A reference to the buffer is stored in the request. The caller is responsible\n * for ensuring that the buffer will remain valid until the request complete\n * callback is called.\n *\n * A request can only contain one buffer per stream. If a buffer has already\n * been added to the request for the same stream, this function returns -EEXIST.\n *\n * A Fence can be optionally associated with the \\a buffer.\n *\n * When a valid Fence is provided to this function, \\a fence is moved to \\a\n * buffer and this Request will only be queued to the device once the\n * fences of all its buffers have been correctly signalled. Ownership of the\n * fence will only be taken in case of success, otherwise the fence will\n * be left unmodified.\n *\n * If the \\a fence associated with \\a buffer isn't signalled, the request will\n * fail after a timeout. The buffer will still contain the fence, which\n * applications must retrieve with FrameBuffer::releaseFence() before the buffer\n * can be reused in another request. Attempting to add a buffer that still\n * contains a fence to a request will result in this function returning -EEXIST.\n *\n * \\sa FrameBuffer::releaseFence()\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -EEXIST The request already contains a buffer for the stream\n *  or the buffer still references a fence\n * \\retval -EINVAL The buffer does not reference a valid Stream\n */\nint Request::addBuffer(const Stream *stream, FrameBuffer *buffer,", "evidence": ["buffer"]}, {"text": "버퍼의 유효 기간은 요청 완료 콜백이 호출될 때까지 유지되어야 하며, 호출자는 이 기간 동안 버퍼가 유효함을 보장해야 합니다.", "covers": ["resources"], "kind": "behavior", "quote": "\\brief Add a FrameBuffer with its associated Stream to the Request\n * \\param[in] stream The stream the buffer belongs to\n * \\param[in] buffer The FrameBuffer to add to the request\n * \\param[in] fence The optional fence\n *\n * A reference to the buffer is stored in the request. The caller is responsible\n * for ensuring that the buffer will remain valid until the request complete\n * callback is called.\n *\n * A request can only contain one buffer per stream. If a buffer has already\n * been added to the request for the same stream, this function returns -EEXIST.\n *\n * A Fence can be optionally associated with the \\a buffer.\n *\n * When a valid Fence is provided to this function, \\a fence is moved to \\a\n * buffer and this Request will only be queued to the device once the\n * fences of all its buffers have been correctly signalled. Ownership of the\n * fence will only be taken in case of success, otherwise the fence will\n * be left unmodified.\n *\n * If the \\a fence associated with \\a buffer isn't signalled, the request will\n * fail after a timeout. The buffer will still contain the fence, which\n * applications must retrieve with FrameBuffer::releaseFence() before the buffer\n * can be reused in another request. Attempting to add a buffer that still\n * contains a fence to a request will result in this function returning -EEXIST.\n *\n * \\sa FrameBuffer::releaseFence()\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -EEXIST The request already contains a buffer for the stream\n *  or the buffer still references a fence\n * \\retval -EINVAL The buffer does not reference a valid Stream\n */\nint Request::addBuffer(const Stream *stream, FrameBuffer *buffer,", "evidence": ["buffer"]}, {"text": "`Request::reuse()` 함수는 요청의 상태와 컨트롤을 초기화하여 재사용과 재큐잉을 가능하게 합니다. 이 함수를 호출하기 전에 반드시 호출해야 하며, 새로운 요청을 생성하는 대신 기존 요청을 재사용할 수 있습니다.", "covers": ["resources"], "kind": "behavior", "quote": "\\brief Reset the request for reuse\n * \\param[in] flags Indicate whether or not to reuse the buffers\n *\n * Reset the status and controls associated with the request, to allow it to\n * be reused and requeued without destruction. This function shall be called\n * prior to queueing the request to the camera, in lieu of constructing a new\n * request. The application can reuse the buffers that were previously added\n * to the request via addBuffer() by setting \\a flags to ReuseBuffers.\n */\nvoid Request::reuse(ReuseFlag flags)\n{\n\tLIBCAMERA_TRACEPOINT(request_reuse, this);", "evidence": ["reuse"]}, {"text": "`ReuseBuffers` 플래그를 설정하면 이전에 `addBuffer()` 로 추가된 버퍼들이 재사용되지만, 펜스는 재사용되지 않습니다. 따라서 펜스를 사용하는 경우 이 플래그는 사용하지 않아야 합니다.", "covers": ["resources"], "kind": "limitation", "quote": "\\enum Request::ReuseFlag\n * Flags to control the behavior of Request::reuse()\n * \\var Request::Default\n * Don't reuse buffers\n * \\var Request::ReuseBuffers\n * Reuse the buffers that were previously added by addBuffer()\n *\n * \\note Fences associated with the buffers are not reused.\n *  This flag should not be used if fences are used.\n */", "evidence": ["reuse-flags"]}, {"text": "`ReuseBuffers` 플래그가 설정되지 않은 경우 `Request::reuse()` 는 버퍼 맵을 비우고 요청 상태를 `RequestPending` 로 변경합니다.", "covers": ["resources"], "kind": "behavior", "quote": "if (flags & ReuseBuffers) {\n\t\tfor (const auto &[stream, buffer] : bufferMap_) {\n\t\t\tbuffer->_d()->setRequest(this);\n\t\t\t_d()->pending_.insert(buffer);\n\t\t}\n\t} else {\n\t\tbufferMap_.clear();\n\t}", "evidence": ["reuse"]}, {"text": "`PipelineHandler::completeBuffer()` 함수는 파이프라인 핸들러가 버퍼 완료를 신호할 때 호출되며, 모든 버퍼가 완료되었는지 확인하지 않습니다.", "covers": ["resources"], "kind": "behavior", "quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)\n{\n\tCamera *camera = request->_d()->camera();\n\tcamera->bufferCompleted.emit(request, buffer);\n\treturn request->_d()->completeBuffer(buffer);\n}", "evidence": ["completion"]}, {"text": "`PipelineHandler::completeRequest()` 함수는 요청이 완료되었음을 카메라에 알리고, 더 이상 파이프라인 핸들러가 이 요청을 관리하지 않게 합니다. 이 함수가 반환된 후에는 핸들러가 요청에 접근해서는 안 됩니다.", "covers": ["resources"], "kind": "behavior", "quote": "/**\n * \\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();", "evidence": ["completion"]}], "diagnosis": [{"text": "요청이 카메라에 제출되지 않는 경우, `Camera::queueRequest()` 함수에서 반환되는 오류 코드를 확인해야 합니다. 이 함수는 요청이 유효하지 않거나 버퍼가 없으면 `-EINVAL`을, 카메라 상태가 실행 중이 아니면 `-EACCES`를, 다른 카메라에서 생성된 요청이면 `-EXDEV`를 반환합니다.", "covers": ["diagnosis"], "kind": "behavior", "quote": "\\brief Queue a request to the camera\n * \\param[in] request The request to queue to the camera\n *\n * This function queues a \\a request to the camera for capture.\n *\n * After allocating the request with createRequest(), the application shall\n * fill it with at least one capture buffer before queuing it. Requests that\n * contain no buffers are invalid and are rejected without being queued.\n *\n * Once the request has been queued, the camera will notify its completion\n * through the \\ref requestCompleted signal.\n *\n * \\context This function is \\threadsafe. It may only be called when the camera\n * is in the Running state as defined in \\ref camera_operation.\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not running so requests can't be queued\n * \\retval -EXDEV The request does not belong to this camera\n * \\retval -EINVAL The request is invalid\n * \\retval -ENOMEM No buffer memory was available to handle the request\n */\nint Camera::queueRequest(Request *request)\n{\n\tPrivate *const d = _d();", "evidence": ["queue"]}, {"text": "`Camera::queueRequest()` 내부에서는 요청의 상태가 `RequestPending`인지 확인하고, 버퍼가 비어있지 않은지 검증하며, 스트림이 활성화되어 있는지 검사합니다. 이 모든 조건을 만족하지 않으면 `-EINVAL` 오류를 반환하여 제출 실패를 즉시 알립니다.", "covers": ["diagnosis"], "kind": "behavior", "quote": "if (request->buffers().empty()) {\n\t\tLOG(Camera, Error) << \"Request contains no buffers\";\n\t\treturn -EINVAL;\n\t}", "evidence": ["queue"]}, {"text": "요청이 성공적으로 `Camera::queueRequest()` 를 통과하면, 요청은 내부 대기열에 추가되고 `PipelineHandler::prepare(300ms)` 가 호출되어 준비가 완료될 때까지 기다립니다.", "covers": ["diagnosis"], "kind": "behavior", "quote": "request->_d()->prepare(300ms);\n}", "evidence": ["device-queue"]}, {"text": "`PipelineHandler::doQueueRequests()` 함수는 대기열에 있는 요청을 순차적으로 처리하며, 각 요청의 `prepared_` 플래그가 설정되지 않았거나 이미 제출된 요청이 최대 개수 `maxQueuedRequestsDevice_` 에 도달하면 더 이상 처리하지 않습니다.", "covers": ["diagnosis"], "kind": "behavior", "quote": "Request *request = data->waitingRequests_.front();\n\t\tif (!request->_d()->prepared_)\n\t\t\tbreak;", "evidence": ["device-queue"]}, {"text": "`PipelineHandler::doQueueRequest()` 함수에서는 요청이 취소되었는지 `cancelled_` 플래그를 먼저 확인하고, 취소된 요청은 즉시 완료 처리 후 반환합니다.", "covers": ["diagnosis"], "kind": "behavior", "quote": "if (request->_d()->cancelled_) {\n\t\tcompleteRequest(request);\n\t\treturn;\n\t}", "evidence": ["device-queue"]}, {"text": "`doQueueRequest()` 함수는 `queueRequestDevice()` 를 호출하여 실제 기기에 요청을 제출하고, 이 호출이 실패하면 요청을 취소합니다.", "covers": ["diagnosis"], "kind": "behavior", "quote": "int ret = queueRequestDevice(camera, request);\n\tif (ret)\n\t\tcancelRequest(request);\n}", "evidence": ["device-queue"]}, {"text": "`completeBuffer()` 함수는 버퍼 완료를 신호하고, 마지막 버퍼가 완료되었더라도 요청이 자동으로 완료되지 않으며, `PipelineHandler` 가 명시적으로 `completeRequest()` 를 호출해야 합니다.", "covers": ["diagnosis"], "kind": "behavior", "quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)\n{\n\tCamera *camera = request->_d()->camera();\n\tcamera->bufferCompleted.emit(request, buffer);\n\treturn request->_d()->completeBuffer(buffer);\n}", "evidence": ["completion"]}, {"text": "`completeRequest()` 함수는 대기열의 선두에 있는 요청이 `RequestPending` 상태인지 확인하며, 완료된 요청만 제거하고 카메라에 완료 신호를 보냅니다.", "covers": ["diagnosis"], "kind": "behavior", "quote": "while (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;", "evidence": ["completion"]}], "stopping": [{"text": "`Camera::stop()` 함수는 카메라가 실행 중이 아닌 상태라면 즉시 0 을 반환하며, 이는 실제 정지 동작을 수행하지 않은 no-op 입니다.", "covers": ["stopping"], "kind": "behavior", "quote": "/*\n\t * \\todo Make calling stop() when not in 'Running' part of the state\n\t * machine rather than take this shortcut\n\t */\n\tif (!d->isRunning())\n\t\treturn 0;", "evidence": ["stop"]}, {"text": "카메라가 실행 중일 경우 `Camera::stop()` 은 내부적으로 `PipelineHandler::stop` 을 Blocking 연결 타입으로 호출하여 정지 요청을 전달합니다.", "covers": ["stopping"], "kind": "behavior", "quote": "d->pipe_->invokeMethod(&PipelineHandler::stop, ConnectionTypeBlocking,\n\t\t\t       this);", "evidence": ["stop"]}, {"text": "`PipelineHandler::stop()` 은 먼저 카메라의 waitingRequests_ 큐를 임시로 분리하여 stopDevice() 호출 시 재큐되지 않도록 보호합니다.", "covers": ["stopping"], "kind": "behavior", "quote": "\\brief Stop capturing from all running streams and cancel pending requests\n * \\param[in] camera The camera to stop\n *\n * This function stops capturing and processing requests immediately. All\n * pending requests are cancelled and complete immediately in an error state.\n *\n * \\context This function is called from the CameraManager thread.\n */\nvoid PipelineHandler::stop(Camera *camera)\n{\n\t/*\n\t * Take all waiting requests so that they are not requeued in response\n\t * to completeRequest() being called inside stopDevice(). Cancel them\n\t * after the device to keep them in order.\n\t */\n\tCamera::Private *data = camera->_d();\n\tstd::queue<Request *> waitingRequests;\n\twaitingRequests.swap(data->waitingRequests_);", "evidence": ["device-stop"]}, {"text": "`PipelineHandler::stop()` 은 stopDevice() 를 호출한 후 분리된 waitingRequests_ 큐에 있는 모든 요청을 취소하고 completeRequest() 로 완료합니다.", "covers": ["stopping"], "kind": "behavior", "quote": "/*\n\t\t * Cancel all requests by marking them as cancelled and calling\n\t\t * doQueueRequest() instead of cancelRequest(). This ensures\n\t\t * that the requests get a sequence number and are temporarily\n\t\t * added to queuedRequests_ so they can be properly completed in\n\t\t * completeRequest().\n\t\t */\n\t\trequest->_d()->cancel();\n\t\tdoQueueRequest(request);\n\t}", "evidence": ["device-stop"]}, {"text": "`PipelineHandler::stopDevice()` 는 모든 스트림의 캡처를 즉시 중지하고 대기 중인 요청을 오류 상태로 완료하지만, 함수가 복귀한 후에도 queuedRequests_ 가 비어있음을 ASSERT 로 보장합니다.", "covers": ["stopping"], "kind": "behavior", "quote": "/* Make sure no requests are pending. */\n\tASSERT(data->queuedRequests_.empty());\n\tASSERT(data->waitingRequests_.empty());", "evidence": ["device-stop"]}, {"text": "`PipelineHandler::stop()` 은 stopDevice() 복귀 후 waitingRequests_ 와 queuedRequests_ 가 모두 비어있음을 ASSERT 로 확인하여 큐에 요청이 남지 않았음을 검증합니다.", "covers": ["stopping"], "kind": "behavior", "quote": "/* Make sure no requests are pending. */\n\tASSERT(data->queuedRequests_.empty());\n\tASSERT(data->waitingRequests_.empty());", "evidence": ["device-stop"]}, {"text": "`PipelineHandler::completeRequest()` 는 요청을 완료할 때 queuedRequests_ 에서 대기 중인 요청을 순서대로 꺼내어 카메라에 반환하며, 상태가 Pending 이 아닌 요청만 처리합니다.", "covers": ["stopping"], "kind": "behavior", "quote": "while (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;", "evidence": ["completion"]}, {"text": "`Camera::disconnect()` 는 하드웨어가 분리되었음을 알리고 disconnected 신호를 발생시키지만, 실행 중일 때의 대기 요청 처리는 TODO 로 남아있어 현재 보장되지 않습니다.", "covers": ["stopping"], "kind": "limitation", "quote": "\\brief Notify camera disconnection\n *\n * This function is used to notify the camera instance that the underlying\n * hardware has been unplugged. In response to the disconnection the camera\n * instance notifies the application by emitting the #disconnected signal, and\n * ensures that all new calls to the application-facing Camera API return an\n * error immediately.\n *\n * \\todo Deal with pending requests if the camera is disconnected in a\n * running state.\n */\nvoid Camera::disconnect()\n{\n\tLOG(Camera, Debug) << \"Disconnecting camera \" << id();", "evidence": ["notification"]}], "review": [{"text": "`queueRequest()` 함수는 카메라가 `Running` 상태여야 하며, 요청에 최소 하나의 캡처 버퍼가 포함되어 있어야 합니다. 버퍼가 없거나 요청이 유효하지 않다면 `-EINVAL` 오류를 반환합니다.", "covers": ["review"], "kind": "behavior", "quote": "\\brief Queue a request to the camera\n * \\param[in] request The request to queue to the camera\n *\n * This function queues a \\a request to the camera for capture.\n *\n * After allocating the request with createRequest(), the application shall\n * fill it with at least one capture buffer before queuing it. Requests that\n * contain no buffers are invalid and are rejected without being queued.\n *\n * Once the request has been queued, the camera will notify its completion\n * through the \\ref requestCompleted signal.\n *\n * \\context This function is \\threadsafe. It may only be called when the camera\n * is in the Running state as defined in \\ref camera_operation.\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not running so requests can't be queued\n * \\retval -EXDEV The request does not belong to this camera\n * \\retval -EINVAL The request is invalid\n * \\retval -ENOMEM No buffer memory was available to handle the request\n */\nint Camera::queueRequest(Request *request)\n{\n\tPrivate *const d = _d();", "evidence": ["queue"]}, {"text": "`completeBuffer()` 함수는 버퍼 완료를 알림하고 내부 추적 정보를 업데이트하지만, 마지막 버퍼가 완료되더라도 요청이 자동으로 완료되지 않습니다.", "covers": ["review"], "kind": "behavior", "quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)\n{\n\tCamera *camera = request->_d()->camera();\n\tcamera->bufferCompleted.emit(request, buffer);\n\treturn request->_d()->completeBuffer(buffer);\n}", "evidence": ["completion"]}, {"text": "`completeRequest()` 함수는 요청 완료를 명시적으로 호출해야 하며, 이는 제출 순서대로 반환되도록 보장합니다.", "covers": ["review"], "kind": "behavior", "quote": "/**\n * \\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();", "evidence": ["completion"]}, {"text": "`stop()` 함수는 모든 대기 중인 요청을 취소하고 즉시 완료 상태로 만듭니다. 이때 `cancel()` 을 호출한 후 `doQueueRequest()` 를 통해 순서 번호를 부여합니다.", "covers": ["review"], "kind": "behavior", "quote": "/*\n\t\t * Cancel all requests by marking them as cancelled and calling\n\t\t * doQueueRequest() instead of cancelRequest(). This ensures\n\t\t * that the requests get a sequence number and are temporarily\n\t\t * added to queuedRequests_ so they can be properly completed in\n\t\t * completeRequest().\n\t\t */\n\t\trequest->_d()->cancel();\n\t\tdoQueueRequest(request);\n\t}", "evidence": ["device-stop"]}, {"text": "`reuse()` 함수는 요청 상태를 초기화하고 버퍼를 재사용할지 여부를 설정하여 다시 제출할 수 있도록 합니다.", "covers": ["review"], "kind": "behavior", "quote": "if (flags & ReuseBuffers) {\n\t\tfor (const auto &[stream, buffer] : bufferMap_) {\n\t\t\tbuffer->_d()->setRequest(this);\n\t\t\t_d()->pending_.insert(buffer);\n\t\t}\n\t} else {\n\t\tbufferMap_.clear();\n\t}", "evidence": ["reuse"]}, {"text": "`queueRequest()` 는 요청이 이 카메라에서 생성되었는지 확인하며, 그렇지 않다면 `-EXDEV` 오류를 반환합니다.", "covers": ["review"], "kind": "behavior", "quote": "/* Requests can only be queued to the camera that created them. */\n\tif (request->_d()->camera() != this) {\n\t\tLOG(Camera, Error) << \"Request was not created by this camera\";\n\t\treturn -EXDEV;\n\t}", "evidence": ["queue"]}, {"text": "`completeRequest()` 는 `queuedRequests_` 큐의 선두에 있는 Pending 상태 요청을 처리하여 순서대로 반환합니다.", "covers": ["review"], "kind": "behavior", "quote": "while (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;", "evidence": ["completion"]}, {"text": "`stop()` 함수는 `waitingRequests_` 큐의 모든 요청을 취소하고 `doQueueRequest()` 를 호출하여 순서대로 처리합니다.", "covers": ["review"], "kind": "behavior", "quote": "/* Cancel and signal as complete all waiting requests. */\n\twhile (!waitingRequests.empty()) {\n\t\tRequest *request = waitingRequests.front();\n\t\twaitingRequests.pop();", "evidence": ["device-stop"]}]}, "topic_inputs": {"configuration-failure": "84e5bba1c3ee1aa12597b35297d0c2a962a75ed752adb30d4696a90b33127d61", "journey": "991cc6d70999b05592e1bdc59d0743b228c1ddd78205b8679360a0f8537eb754", "resources": "ff40eb25c7dbdcbe424a1d1b617dcc840020dbd813aa06da8cb1e8785227c4a3", "diagnosis": "4edd92c11319a8f9832e994f10b4376cf388203cb834e2eb2dbe869637b5e6b4", "stopping": "217155d5752fd9b2603d563def69f6110ce14c2c0f272a6be94a96e367affb5d", "review": "a4f280da074886d1508b747d7816c683d5ab0afc6417eea3b681f90a6cf0ed0d"}, "reused_topics": [], "generated_topics": ["configuration-failure", "journey", "resources", "diagnosis", "stopping", "review"], "topic_agents": {"configuration-failure": "ollama/qwen3.5:9b", "journey": "ollama/qwen3.5:9b", "resources": "ollama/qwen3.5:9b", "diagnosis": "ollama/qwen3.5:9b", "stopping": "ollama/qwen3.5:9b", "review": "ollama/qwen3.5:9b"}, "body_sha256": "adb5a90f85bb45dd373067a845200316c2d0cb1d81d6caa6108fad847344c407"}
+generated_design: {"schema": 1, "input_fingerprint": "4c7215d125bf0f1e500db252b0fe6f57e64f736cc19a9e33a24101b379be1df1", "answers": {"configuration-failure": [{"text": "`Camera::configure` 함수는 설정을 구성하기 전에 `isAccessAllowed` 함수를 호출하여 접근 권한이 허용되었는지 확인합니다.", "covers": ["configuration-failure"], "kind": "behavior", "quote": "int ret = d->isAccessAllowed(Private::CameraAcquired,\n\t\t\t\t     Private::CameraConfigured);\n\tif (ret < 0)\n\t\treturn ret;", "evidence": ["access-entry"], "part_id": "access-entry"}, {"text": "`Camera::Private::isAccessAllowed` 함수는 `allowDisconnected` 가 참이 아닌 상태에서 카메라가 연결 해제 (`disconnected_`) 된 경우 `-ENODEV` 오류를 반환합니다.", "covers": ["configuration-failure"], "kind": "behavior", "quote": "int Camera::Private::isAccessAllowed(State low, State high,\n\t\t\t\t     bool allowDisconnected,\n\t\t\t\t     const char *from) const\n{\n\tif (!allowDisconnected && disconnected_)\n\t\treturn -ENODEV;", "evidence": ["access"], "part_id": "access-disconnected"}, {"text": "현재 상태가 `low`와 `high` 사이에 있으면 함수는 즉시 성공 코드인 `0`을 반환합니다.", "covers": ["configuration-failure"], "kind": "behavior", "quote": "if (currentState >= low && currentState <= high)\n\t\treturn 0;\n\n\tASSERT(static_cast<unsigned int>(low) < std::size(camera_state_names) &&\n\t       static_cast<unsigned int>(high) < std::size(camera_state_names));\n\n\tLOG(Camera, Error) << \"Camera in \" << camera_state_names[currentState]\n\t\t\t   << \" state trying \" << from\n\t\t\t   << \"() requiring state between \"\n\t\t\t   << camera_state_names[low] << \" and \"\n\t\t\t   << camera_state_names[high];\n\n\treturn -EACCES;\n}\n\nvoid Camera::Private::disconnect()", "evidence": ["state-return"], "part_id": "access-state"}, {"text": "현재 상태가 허용된 범위 밖이면 로그에 오류 메시지를 기록한 뒤 `-EACCES`를 반환합니다.", "covers": ["configuration-failure"], "kind": "behavior", "quote": "if (currentState >= low && currentState <= high)\n\t\treturn 0;\n\n\tASSERT(static_cast<unsigned int>(low) < std::size(camera_state_names) &&\n\t       static_cast<unsigned int>(high) < std::size(camera_state_names));\n\n\tLOG(Camera, Error) << \"Camera in \" << camera_state_names[currentState]\n\t\t\t   << \" state trying \" << from\n\t\t\t   << \"() requiring state between \"\n\t\t\t   << camera_state_names[low] << \" and \"\n\t\t\t   << camera_state_names[high];\n\n\treturn -EACCES;\n}\n\nvoid Camera::Private::disconnect()", "evidence": ["state-return"], "part_id": "access-state"}, {"text": "`Camera::configure` 함수는 내부적으로 `config->validate()` 호출 결과를 확인하며, 이 결과가 `Valid`가 아닌 경우 `-EINVAL` 오류 식별자를 반환합니다.", "covers": ["configuration-failure"], "kind": "behavior", "quote": "if (config->validate() != CameraConfiguration::Valid) {\n\t\tLOG(Camera, Error)\n\t\t\t<< \"Can't configure camera with invalid configuration\";\n\t\treturn -EINVAL;\n\t}", "evidence": ["validation-branch"], "part_id": "validation"}, {"text": "`CameraConfiguration::validate()` 함수는 카메라 설정을 가장 가까운 유효한 상태로 조정하고 검증 상태를 반환합니다.", "covers": ["configuration-failure"], "kind": "behavior", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.\n * \\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully.\n * \\retval CameraConfiguration::Valid The configuration was already valid and\n * hasn't been adjusted.\n */", "evidence": ["validate"], "part_id": "validation-status"}, {"text": "함수가 `CameraConfiguration::Invalid`를 반환하면 설정이 조정 불가능한 극단적인 경우, 예를 들어 설정이 비어있는 경우에 발생합니다.", "covers": ["configuration-failure"], "kind": "behavior", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.\n * \\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully.\n * \\retval CameraConfiguration::Valid The configuration was already valid and\n * hasn't been adjusted.\n */", "evidence": ["validate"], "part_id": "validation-status"}, {"text": "`Camera::configure` 함수는 `PipelineHandler::configure` 메서드를 호출하기 위해 invokeMethod를 사용하며, 이때 반환된 값을 ret 변수에 저장합니다.", "covers": ["configuration-failure"], "kind": "behavior", "quote": "ret = d->pipe_->invokeMethod(&PipelineHandler::configure,\n\t\t\t\t     ConnectionTypeBlocking, this, config);\n\tif (ret)\n\t\treturn ret;", "evidence": ["configure"], "part_id": "pipeline"}, {"text": "invokeMethod 호출 직후 ret의 값이 0 이 아닌 경우, 즉 오류가 발생했을 때 `Camera::configure` 함수는 그 값을 그대로 반환합니다.", "covers": ["configuration-failure"], "kind": "behavior", "quote": "ret = d->pipe_->invokeMethod(&PipelineHandler::configure,\n\t\t\t\t     ConnectionTypeBlocking, this, config);\n\tif (ret)\n\t\treturn ret;", "evidence": ["configure"], "part_id": "pipeline"}, {"text": "`Camera::configure` 함수 내부의 `if (!stream)` 조건 블록에서는 먼저 `d->activeStreams_` 컨테이너를 비웁니다.", "covers": ["configuration-failure"], "kind": "behavior", "quote": "Stream *stream = cfg.stream();\n\t\tif (!stream) {\n\t\t\tLOG(Camera, Fatal)\n\t\t\t\t<< \"Pipeline handler failed to update stream configuration\";\n\t\t\td->activeStreams_.clear();\n\t\t\treturn -EINVAL;\n\t\t}", "evidence": ["stream-failure"], "part_id": "stream"}, {"text": "`d->activeStreams_` 컨테이너를 비운 직후에는 `-EINVAL` 오류 코드를 반환합니다.", "covers": ["configuration-failure"], "kind": "behavior", "quote": "Stream *stream = cfg.stream();\n\t\tif (!stream) {\n\t\t\tLOG(Camera, Fatal)\n\t\t\t\t<< \"Pipeline handler failed to update stream configuration\";\n\t\t\td->activeStreams_.clear();\n\t\t\treturn -EINVAL;\n\t\t}", "evidence": ["stream-failure"], "part_id": "stream"}], "journey": [{"text": "createRequest 함수는 카메라가 Configured 또는 Running 상태일 때만 호출할 수 있으며, 이 함수는 새로 생성된 요청의 소유권을 호출자에게 넘기고 해당 요청은 호출자가 삭제할 책임이 있습니다.", "covers": ["journey"], "kind": "behavior", "quote": "\\brief Create a request object for the camera\n * \\param[in] cookie Opaque cookie for application use\n *\n * This function creates an empty request for the application to fill with\n * buffers and parameters, and queue for capture.\n *\n * The \\a cookie is stored in the request and is accessible through the\n * Request::cookie() function at any time. It is typically used by applications\n * to map the request to an external resource in the request completion\n * handler, and is completely opaque to libcamera.\n *\n * The ownership of the returned request is passed to the caller, which is\n * responsible for deleting it. The request may be deleted in the completion\n * handler, or reused after resetting its state with Request::reuse().\n *\n * \\context This function is \\threadsafe. It may only be called when the camera\n * is in the Configured or Running state as defined in \\ref camera_operation.\n *\n * \\return A pointer to the newly created request, or nullptr on error\n */\nstd::unique_ptr<Request> Camera::createRequest(uint64_t cookie)", "evidence": ["create"], "part_id": "create"}, {"text": "addBuffer 함수는 요청에 버퍼 참조를 저장하며, 호출자는 요청 완료 콜백이 호출될 때까지 버퍼가 유효하게 유지되도록 보장해야 할 책임이 있습니다.", "covers": ["journey"], "kind": "behavior", "quote": "\\brief Add a FrameBuffer with its associated Stream to the Request\n * \\param[in] stream The stream the buffer belongs to\n * \\param[in] buffer The FrameBuffer to add to the request\n * \\param[in] fence The optional fence\n *\n * A reference to the buffer is stored in the request. The caller is responsible\n * for ensuring that the buffer will remain valid until the request complete\n * callback is called.\n *\n * A request can only contain one buffer per stream. If a buffer has already\n * been added to the request for the same stream, this function returns -EEXIST.\n *\n * A Fence can be optionally associated with the \\a buffer.\n *\n * When a valid Fence is provided to this function, \\a fence is moved to \\a\n * buffer and this Request will only be queued to the device once the\n * fences of all its buffers have been correctly signalled. Ownership of the\n * fence will only be taken in case of success, otherwise the fence will\n * be left unmodified.\n *\n * If the \\a fence associated with \\a buffer isn't signalled, the request will\n * fail after a timeout. The buffer will still contain the fence, which\n * applications must retrieve with FrameBuffer::releaseFence() before the buffer\n * can be reused in another request. Attempting to add a buffer that still\n * contains a fence to a request will result in this function returning -EEXIST.\n *\n * \\sa FrameBuffer::releaseFence()\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -EEXIST The request already contains a buffer for the stream\n *  or the buffer still references a fence\n * \\retval -EINVAL The buffer does not reference a valid Stream\n */\nint Request::addBuffer(const Stream *stream, FrameBuffer *buffer,", "evidence": ["buffer"], "part_id": "buffer"}, {"text": "invokeMethod로 예약하는 함수는 `PipelineHandler::queueRequest`이며, 연결 타입은 ConnectionTypeQueued이고 인자는 request입니다.", "covers": ["journey"], "kind": "behavior", "quote": "int Camera::queueRequest(Request *request)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\tif (ret < 0)\n\t\treturn ret;\n\n\t/* Requests can only be queued to the camera that created them. */\n\tif (request->_d()->camera() != this) {\n\t\tLOG(Camera, Error) << \"Request was not created by this camera\";\n\t\treturn -EXDEV;\n\t}\n\n\tif (request->status() != Request::RequestPending) {\n\t\tLOG(Camera, Error) << request->toString() << \" is not valid\";\n\t\treturn -EINVAL;\n\t}\n\n\t/* Make sure the Request has a valid control list. */\n\tif (request->controls().infoMap() != &controls()) {\n\t\tLOG(Camera, Error) << \"Overwriting Request::controls() is not allowed\";\n\t\treturn -EINVAL;\n\t}\n\n\t/*\n\t * The camera state may change until the end of the function. No locking\n\t * is however needed as PipelineHandler::queueRequest() will handle\n\t * this.\n\t */\n\n\tif (request->buffers().empty()) {\n\t\tLOG(Camera, Error) << \"Request contains no buffers\";\n\t\treturn -EINVAL;\n\t}\n\n\tfor (const auto &[stream, buffer] : request->buffers()) {\n\t\tif (d->activeStreams_.find(stream) == d->activeStreams_.end()) {\n\t\t\tLOG(Camera, Error) << \"Invalid request\";\n\t\t\treturn -EINVAL;\n\t\t}\n\t}\n\n\t/* Pre-process AeEnable. */\n\tpatchControlList(request->controls());\n\n\td->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t       ConnectionTypeQueued, request);\n\n\treturn 0;\n}", "evidence": ["queue-success"], "part_id": "queue-success"}, {"text": "registerRequest 함수는 request->_d() 의 prepared 신호를 this 와 람다 표현식 연결자를 통해 연결하며, 해당 신호가 발생했을 때 호출되는 함수는 doQueueRequests 이고 인자로 request->_d()->camera() 가 전달됩니다.", "covers": ["journey"], "kind": "behavior", "quote": "void PipelineHandler::registerRequest(Request *request)\n{\n\t/*\n\t * Connect the request prepared signal to notify the pipeline handler\n\t * when a request is ready to be processed.\n\t */\n\trequest->_d()->prepared.connect(this, [this, request]() {\n\t\tdoQueueRequests(request->_d()->camera());\n\t});\n}", "evidence": ["register"], "part_id": "register"}, {"text": "`PipelineHandler::queueRequest` 메서드는 요청을 data->waitingRequests_ 큐에 추가하고, request->_d()->prepare(300ms) 를 호출하여 prepare() 함수에 300ms 라는 현재 인자를 전달합니다.", "covers": ["journey"], "kind": "behavior", "quote": "void PipelineHandler::queueRequest(Request *request)\n{\n\tLIBCAMERA_TRACEPOINT(request_queue, request);\n\n\tCamera *camera = request->_d()->camera();\n\tCamera::Private *data = camera->_d();\n\tdata->waitingRequests_.push(request);\n\n\trequest->_d()->prepare(300ms);\n}", "evidence": ["prepare"], "part_id": "prepare"}, {"text": "doQueueRequests 함수는 while 루프 내에서 두 가지 조건에서 break를 수행하며, 먼저 waitingRequests_가 비어있지 않은 상태에서 queuedRequests_의 크기가 maxQueuedRequestsDevice_에 도달하면 루프를 종료하고, 그 다음으로 요청을 꺼내서 prepared_ 속성이 false라면 루프를 종료합니다.", "covers": ["journey"], "kind": "behavior", "quote": "void PipelineHandler::doQueueRequests(Camera *camera)\n{\n\tCamera::Private *data = camera->_d();\n\twhile (!data->waitingRequests_.empty()) {\n\t\tif (data->queuedRequests_.size() == maxQueuedRequestsDevice_)\n\t\t\tbreak;\n\n\t\tRequest *request = data->waitingRequests_.front();\n\t\tif (!request->_d()->prepared_)\n\t\t\tbreak;\n\n\t\t/*\n\t\t * Pop the request first, in case doQueueRequests() is called\n\t\t * recursively from within doQueueRequest()\n\t\t */\n\t\tdata->waitingRequests_.pop();\n\t\tdoQueueRequest(request);\n\t}\n}", "evidence": ["waiting"], "part_id": "waiting"}, {"text": "doQueueRequest에서 request->_d()->cancelled_가 참일 경우 completeRequest(request) 함수를 호출한 뒤 return을 수행하며, queueRequestDevice(camera, request) 호출 후 if(ret) 조건에서 ret이 0이 아닌 값을 가질 경우 cancelRequest(request) 함수를 호출합니다.", "covers": ["journey"], "kind": "behavior", "quote": "void PipelineHandler::doQueueRequest(Request *request)\n{\n\tLIBCAMERA_TRACEPOINT(request_device_queue, request);\n\n\tCamera *camera = request->_d()->camera();\n\tCamera::Private *data = camera->_d();\n\tdata->queuedRequests_.push_back(request);\n\n\trequest->_d()->sequence_ = data->requestSequence_++;\n\n\tif (request->_d()->cancelled_) {\n\t\tcompleteRequest(request);\n\t\treturn;\n\t}\n\n\tint ret = queueRequestDevice(camera, request);\n\tif (ret)\n\t\tcancelRequest(request);\n}", "evidence": ["dispatch"], "part_id": "dispatch"}, {"text": "`PipelineHandler::completeBuffer` 함수는 파이프라인 핸들러가 요청의 버퍼 부분을 완료 신호로 사용하도록 하며, 애플리케이션에 버퍼 완료 알림을 제공하고 요청의 내부 버퍼 추적을 갱신합니다. 마지막 버퍼가 완료되더라도 요청이 자동으로 완료되지 않아 파이프라인 핸들러가 여전히 필요한 작업을 수행할 기회를 제공하며, 이들은 명시적으로 completeRequest() 를 호출하여 요청을 완료해야 합니다. 또한 이 함수는 `CameraManager` 스레드에서 호출되어야 합니다.", "covers": ["journey"], "kind": "behavior", "quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)", "evidence": ["buffer-completion"], "part_id": "buffer-completion"}, {"text": "`PipelineHandler` 는 요청이 완료되면 카메라에 해당 요청이 완료되었음을 알리기 위해 completeRequest 함수를 호출해야 하며, 이 함수가 반환된 후에는 해당 요청은 더 이상 `PipelineHandler` 에 의해 관리되지 않으므로 접근해서는 안 됩니다. 또한 이 함수는 애플리케이션에 제출 순서대로 요청을 반환하도록 보장하지만, `PipelineHandler` 는 어떤 완전한 요청이든 제한 없이 호출할 수 있어 호출 자체에는 순서 제약이 없습니다.", "covers": ["journey"], "kind": "behavior", "quote": "\\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest(Request *request)", "evidence": ["request-contract"], "part_id": "request-contract"}, {"text": "completeRequest 함수의 while 루프에서 break가 발생하는 조건은 data->queuedRequests_.front()인 요청(req)의 상태가 `Request::RequestPending`일 때입니다.", "covers": ["journey"], "kind": "behavior", "quote": "void PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}", "evidence": ["request-completion"], "part_id": "request-completion"}, {"text": "completeBuffer 함수 본문은 request->_d()->camera() 를 통해 얻은 `Camera` 객체의 bufferCompleted 신호를 emit 하고, 이후 request->_d()->completeBuffer(buffer) 호출의 반환값을 그대로 반환합니다.", "covers": ["journey"], "kind": "behavior", "quote": "bool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)\n{\n\tCamera *camera = request->_d()->camera();\n\tcamera->bufferCompleted.emit(request, buffer);\n\treturn request->_d()->completeBuffer(buffer);\n}", "evidence": ["buffer-implementation"], "part_id": "buffer-implementation"}, {"text": "completeBuffer API 주석의 return 문장에 따르면, 이 함수는 요청(request)에 포함된 모든 버퍼(buffer)가 완료되었을 때 참(true)을 반환하고 그렇지 않은 경우 거짓(false)을 반환합니다.", "covers": ["journey"], "kind": "behavior", "quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)", "evidence": ["buffer-completion"], "part_id": "buffer-result"}], "resources": [{"text": "createRequest 함수는 카메라가 Configured 또는 Running 상태일 때만 호출할 수 있으며, 생성된 요청의 소유권은 호출자에게 전달되어 호출자가 해당 요청을 삭제하는 책임을 집니다.", "covers": ["resources"], "kind": "behavior", "quote": "\\brief Create a request object for the camera\n * \\param[in] cookie Opaque cookie for application use\n *\n * This function creates an empty request for the application to fill with\n * buffers and parameters, and queue for capture.\n *\n * The \\a cookie is stored in the request and is accessible through the\n * Request::cookie() function at any time. It is typically used by applications\n * to map the request to an external resource in the request completion\n * handler, and is completely opaque to libcamera.\n *\n * The ownership of the returned request is passed to the caller, which is\n * responsible for deleting it. The request may be deleted in the completion\n * handler, or reused after resetting its state with Request::reuse().\n *\n * \\context This function is \\threadsafe. It may only be called when the camera\n * is in the Configured or Running state as defined in \\ref camera_operation.\n *\n * \\return A pointer to the newly created request, or nullptr on error\n */\nstd::unique_ptr<Request> Camera::createRequest(uint64_t cookie)", "evidence": ["create"], "part_id": "create"}, {"text": "addBuffer 함수는 요청에 버퍼 참조를 저장하며, 호출자는 요청 완료 콜백이 호출될 때까지 버퍼가 유효하게 유지되도록 보장해야 할 책임이 있습니다.", "covers": ["resources"], "kind": "behavior", "quote": "\\brief Add a FrameBuffer with its associated Stream to the Request\n * \\param[in] stream The stream the buffer belongs to\n * \\param[in] buffer The FrameBuffer to add to the request\n * \\param[in] fence The optional fence\n *\n * A reference to the buffer is stored in the request. The caller is responsible\n * for ensuring that the buffer will remain valid until the request complete\n * callback is called.\n *\n * A request can only contain one buffer per stream. If a buffer has already\n * been added to the request for the same stream, this function returns -EEXIST.\n *\n * A Fence can be optionally associated with the \\a buffer.\n *\n * When a valid Fence is provided to this function, \\a fence is moved to \\a\n * buffer and this Request will only be queued to the device once the\n * fences of all its buffers have been correctly signalled. Ownership of the\n * fence will only be taken in case of success, otherwise the fence will\n * be left unmodified.\n *\n * If the \\a fence associated with \\a buffer isn't signalled, the request will\n * fail after a timeout. The buffer will still contain the fence, which\n * applications must retrieve with FrameBuffer::releaseFence() before the buffer\n * can be reused in another request. Attempting to add a buffer that still\n * contains a fence to a request will result in this function returning -EEXIST.\n *\n * \\sa FrameBuffer::releaseFence()\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -EEXIST The request already contains a buffer for the stream\n *  or the buffer still references a fence\n * \\retval -EINVAL The buffer does not reference a valid Stream\n */\nint Request::addBuffer(const Stream *stream, FrameBuffer *buffer,", "evidence": ["buffer"], "part_id": "buffer"}, {"text": "`Request::reuse` 함수는 요청을 카메라에 큐잉하기 전에 호출해야 합니다.", "covers": ["resources"], "kind": "behavior", "quote": "\\brief Reset the request for reuse\n * \\param[in] flags Indicate whether or not to reuse the buffers\n *\n * Reset the status and controls associated with the request, to allow it to\n * be reused and requeued without destruction. This function shall be called\n * prior to queueing the request to the camera, in lieu of constructing a new\n * request. The application can reuse the buffers that were previously added\n * to the request via addBuffer() by setting \\a flags to ReuseBuffers.\n */\nvoid Request::reuse(ReuseFlag flags)", "evidence": ["reuse-contract"], "part_id": "reuse-contract"}, {"text": "ReuseBuffers 플래그가 설정된 경우 bufferMap_ 내 모든 버퍼에 대해 _d()->setRequest(this) 와 _d()->pending_.insert(buffer) 를 수행한 후 status_ 는 RequestPending 으로, controls_ 와 metadata_ 는 각각 clear() 로 초기화됩니다. ReuseBuffers 플래그가 설정되지 않은 경우 bufferMap_ 를 clear() 하고 status_ 는 RequestPending 으로, controls_ 와 metadata_ 는 각각 clear() 로 초기화됩니다.", "covers": ["resources"], "kind": "behavior", "quote": "void Request::reuse(ReuseFlag flags)\n{\n\tLIBCAMERA_TRACEPOINT(request_reuse, this);\n\n\t_d()->reset();\n\n\tif (flags & ReuseBuffers) {\n\t\tfor (const auto &[stream, buffer] : bufferMap_) {\n\t\t\tbuffer->_d()->setRequest(this);\n\t\t\t_d()->pending_.insert(buffer);\n\t\t}\n\t} else {\n\t\tbufferMap_.clear();\n\t}\n\n\tstatus_ = RequestPending;\n\n\tcontrols_.clear();\n\t_d()->metadata_.clear();\n}", "evidence": ["reuse"], "part_id": "reuse"}, {"text": "ReuseBuffers 플래그는 addBuffer() 를 통해 이전에 추가된 버퍼를 재사용하는 것을 제어하며, 이 플래그와 함께 사용될 경우 버퍼에 연결된 펜스(fences) 는 재사용되지 않으므로 펜스를 사용하는 경우에는 이 플래그를 사용하지 않아야 합니다.", "covers": ["resources"], "kind": "behavior", "quote": "\\enum Request::ReuseFlag\n * Flags to control the behavior of Request::reuse()\n * \\var Request::Default\n * Don't reuse buffers\n * \\var Request::ReuseBuffers\n * Reuse the buffers that were previously added by addBuffer()\n *\n * \\note Fences associated with the buffers are not reused.\n *  This flag should not be used if fences are used.\n */\n\n/**\n * \\typedef Request::BufferMap", "evidence": ["reuse-flags"], "part_id": "reuse-flags"}, {"text": "`PipelineHandler` 는 요청이 완료되면 카메라에 해당 요청이 완료되었음을 알리기 위해 completeRequest 함수를 호출해야 하며, 이 함수가 반환된 후에는 해당 요청은 더 이상 `PipelineHandler` 에 의해 관리되지 않으므로 접근해서는 안 됩니다. 또한 이 함수는 요청이 애플리케이션으로 제출된 순서대로 반환되도록 보장하지만, `PipelineHandler` 가 어떤 완전한 요청에 대해든 이를 호출할 수 있으므로 호출 자체에는 특정 순서 제약이 없습니다.", "covers": ["resources"], "kind": "behavior", "quote": "\\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest(Request *request)", "evidence": ["request-contract"], "part_id": "request-contract"}, {"text": "cancelRequest 함수는 먼저 request->_d()->cancel()를 호출하여 요청을 취소한 후, completeRequest(request)를 호출하여 요청의 완료를 신호로 보냅니다.", "covers": ["resources"], "kind": "behavior", "quote": "\\brief Cancel request and signal its completion\n * \\param[in] request The request to cancel\n *\n * This function cancels and completes the request. The same rules as for\n * completeRequest() apply.\n */\nvoid PipelineHandler::cancelRequest(Request *request)\n{\n\trequest->_d()->cancel();\n\tcompleteRequest(request);\n}", "evidence": ["cancel"], "part_id": "cancel"}, {"text": "fence 소유권은 성공할 경우에만 취해지며, 그렇지 않은 경우에는 fence 가 수정되지 않은 상태로 남아있게 됩니다.", "covers": ["resources"], "kind": "behavior", "quote": "Ownership of the\n * fence will only be taken in case of success, otherwise the fence will\n * be left unmodified.", "evidence": ["fence-ownership"], "part_id": "fence-ownership"}, {"text": "유효한 `Fence` 가 이 함수에 제공되면 해당 fence 는 buffer 로 이동되며, 모든 버퍼의 fences 가 올바르게 신호(signalled) 되었을 때만 이 요청이 장치로 제출됩니다.", "covers": ["resources"], "kind": "behavior", "quote": "When a valid Fence is provided to this function, \\a fence is moved to \\a\n * buffer and this Request will only be queued to the device once the\n * fences of all its buffers have been correctly signalled.", "evidence": ["fence-wait"], "part_id": "fence-wait"}, {"text": "fence 신호가 오지 않아 timeout이 난 뒤 버퍼에는 여전히 fence 가 남아있으며, 이 버퍼를 재사용하기 전에 applications 은 `FrameBuffer::releaseFence()` 함수를 호출하여 남은 fence 를 가져야 합니다.", "covers": ["resources"], "kind": "behavior", "quote": "If the \\a fence associated with \\a buffer isn't signalled, the request will\n * fail after a timeout. The buffer will still contain the fence, which\n * applications must retrieve with FrameBuffer::releaseFence() before the buffer\n * can be reused in another request. Attempting to add a buffer that still\n * contains a fence to a request will result in this function returning -EEXIST.", "evidence": ["fence-timeout"], "part_id": "fence-timeout"}], "diagnosis": [{"text": "doQueueRequests 함수는 while 루프 내에서 두 가지 조건에서 break를 수행합니다. 첫 번째 조건은 queuedRequests_.size()가 maxQueuedRequestsDevice_와 같을 때이며, 이는 큐에 더 이상 요청을 추가할 수 없는 상태임을 의미합니다. 두 번째 조건은 waitingRequests_.front()인 request의 prepared_ 속성이 false일 때입니다. 함수는 루프 시작 시 waitingRequests_에서 가장 앞의 요청을 pop하여 제거한 후 doQueueRequest를 호출하고, 이 순서는 doQueueRequests가 doQueueRequest 내부에서 재귀적으로 호출될 경우에도 올바르게 동작하도록 보장합니다.", "covers": ["diagnosis"], "kind": "behavior", "quote": "void PipelineHandler::doQueueRequests(Camera *camera)\n{\n\tCamera::Private *data = camera->_d();\n\twhile (!data->waitingRequests_.empty()) {\n\t\tif (data->queuedRequests_.size() == maxQueuedRequestsDevice_)\n\t\t\tbreak;\n\n\t\tRequest *request = data->waitingRequests_.front();\n\t\tif (!request->_d()->prepared_)\n\t\t\tbreak;\n\n\t\t/*\n\t\t * Pop the request first, in case doQueueRequests() is called\n\t\t * recursively from within doQueueRequest()\n\t\t */\n\t\tdata->waitingRequests_.pop();\n\t\tdoQueueRequest(request);\n\t}\n}", "evidence": ["waiting"], "part_id": "waiting"}, {"text": "doQueueRequest 함수에서 request->_d()->cancelled_가 참일 경우 completeRequest(request)를 호출하고 return을 수행하며, queueRequestDevice(camera, request)를 호출한 뒤 ret의 값이 0이 아닌 경우 cancelRequest(request)를 호출합니다.", "covers": ["diagnosis"], "kind": "behavior", "quote": "void PipelineHandler::doQueueRequest(Request *request)\n{\n\tLIBCAMERA_TRACEPOINT(request_device_queue, request);\n\n\tCamera *camera = request->_d()->camera();\n\tCamera::Private *data = camera->_d();\n\tdata->queuedRequests_.push_back(request);\n\n\trequest->_d()->sequence_ = data->requestSequence_++;\n\n\tif (request->_d()->cancelled_) {\n\t\tcompleteRequest(request);\n\t\treturn;\n\t}\n\n\tint ret = queueRequestDevice(camera, request);\n\tif (ret)\n\t\tcancelRequest(request);\n}", "evidence": ["dispatch"], "part_id": "dispatch"}, {"text": "cancelRequest 함수는 먼저 request->_d()->cancel()를 호출한 후 completeRequest(request)를 호출합니다.", "covers": ["diagnosis"], "kind": "behavior", "quote": "\\brief Cancel request and signal its completion\n * \\param[in] request The request to cancel\n *\n * This function cancels and completes the request. The same rules as for\n * completeRequest() apply.\n */\nvoid PipelineHandler::cancelRequest(Request *request)\n{\n\trequest->_d()->cancel();\n\tcompleteRequest(request);\n}", "evidence": ["cancel"], "part_id": "cancel"}, {"text": "`PipelineHandler::completeBuffer` 함수는 파이프라인 핸들러가 요청의 버퍼 부분을 완료 신호로 사용하도록 하며, 애플리케이션에 버퍼 완료 알림을 제공하고 요청의 내부 버퍼 추적을 갱신합니다. 마지막 버퍼가 완료되더라도 요청이 자동으로 완료되지 않아 파이프라인 핸들러가 여전히 필요한 작업을 수행할 기회를 제공하며, 이들은 명시적으로 completeRequest() 함수를 호출하여 요청을 완료해야 합니다. 또한 이 함수는 `CameraManager` 스레드에서 호출되어야 합니다.", "covers": ["diagnosis"], "kind": "behavior", "quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)", "evidence": ["buffer-completion"], "part_id": "buffer-completion"}, {"text": "completeRequest 함수의 while 루프에서 break하는 if 조건은 '요청 상태가 `Request::RequestPending`인 경우'입니다.", "covers": ["diagnosis"], "kind": "behavior", "quote": "void PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}", "evidence": ["request-completion"], "part_id": "request-completion"}, {"text": "`PipelineHandler::queueRequest`는 요청을 data->waitingRequests_라는 큐에 넣으며, prepare() 함수에는 300ms라는 현재 인자를 전달합니다.", "covers": ["diagnosis"], "kind": "behavior", "quote": "void PipelineHandler::queueRequest(Request *request)\n{\n\tLIBCAMERA_TRACEPOINT(request_queue, request);\n\n\tCamera *camera = request->_d()->camera();\n\tCamera::Private *data = camera->_d();\n\tdata->waitingRequests_.push(request);\n\n\trequest->_d()->prepare(300ms);\n}", "evidence": ["prepare"], "part_id": "prepare"}, {"text": "completeBuffer 함수는 요청에 포함된 모든 버퍼가 완료되었을 때 참(true) 을 반환하고, 그렇지 않은 경우 거짓(false) 을 반환합니다.", "covers": ["diagnosis"], "kind": "behavior", "quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)", "evidence": ["buffer-completion"], "part_id": "buffer-result"}, {"text": "ASSERT(!req->hasPendingBuffers())는 요청 객체 req 가 대기 중인 버퍼가 없는지 확인하며, 이 조건이 참일 때 data->queuedRequests_의 앞쪽 요소를 제거하는 pop_front() 호출과 camera->requestComplete(req)를 순차적으로 실행합니다.", "covers": ["diagnosis"], "kind": "behavior", "quote": "ASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);", "evidence": ["completion-assert"], "part_id": "completion-assert"}, {"text": "`Camera::queueRequest` 함수는 isAccessAllowed 메서드에 `Private::CameraRunning` 상태를 전달하며, ret 값이 0 보다 작으면 해당 값을 반환합니다.", "covers": ["diagnosis"], "kind": "behavior", "quote": "int Camera::queueRequest(Request *request)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\tif (ret < 0)\n\t\treturn ret;", "evidence": ["queue-access"], "part_id": "queue-access"}, {"text": "요청이 생성된 카메라가 현재 객체와 다르면 요청이 해당 카메라에 의해 생성되지 않았음을 로그에 기록하고 -EXDEV 값을 반환합니다.", "covers": ["diagnosis"], "kind": "behavior", "quote": "if (request->_d()->camera() != this) {\n\t\tLOG(Camera, Error) << \"Request was not created by this camera\";\n\t\treturn -EXDEV;\n\t}", "evidence": ["queue-camera"], "part_id": "queue-camera"}, {"text": "요청 상태를 검사하는 if 조건은 request->status() 가 `Request::RequestPending` 와 다른 경우를 확인하며, 이 조건이 참일 때 LOG(`Camera`, Error) 를 통해 요청이 유효하지 않다고 로그를 출력하고 -EINVAL 값을 반환합니다.", "covers": ["diagnosis"], "kind": "behavior", "quote": "if (request->status() != Request::RequestPending) {\n\t\tLOG(Camera, Error) << request->toString() << \" is not valid\";\n\t\treturn -EINVAL;\n\t}", "evidence": ["queue-status"], "part_id": "queue-status"}, {"text": "요청된 controls 의 infoMap 이 현재 설정된 controls 와 동일한지 검사하는 if 조건에서, 두 값이 다르면 'Overwriting `Request::controls()` is not allowed' 오류 로그를 출력한 후 -EINVAL 값을 반환합니다.", "covers": ["diagnosis"], "kind": "behavior", "quote": "if (request->controls().infoMap() != &controls()) {\n\t\tLOG(Camera, Error) << \"Overwriting Request::controls() is not allowed\";\n\t\treturn -EINVAL;\n\t}", "evidence": ["queue-controls"], "part_id": "queue-controls"}, {"text": "버퍼 목록이 비어 있는지 if (request->buffers().empty()) 조건으로 검사하며, 버퍼가 없으면 '`Request` contains no buffers' 오류 로그를 출력한 후 -EINVAL 값을 반환합니다.", "covers": ["diagnosis"], "kind": "behavior", "quote": "if (request->buffers().empty()) {\n\t\tLOG(Camera, Error) << \"Request contains no buffers\";\n\t\treturn -EINVAL;\n\t}", "evidence": ["queue-buffers"], "part_id": "queue-buffers"}, {"text": "스트림이 activeStreams_ 맵에 존재하지 않는 경우 if 조건에서 Invalid request 로그를 출력하고 -EINVAL 값을 반환합니다.", "covers": ["diagnosis"], "kind": "behavior", "quote": "if (d->activeStreams_.find(stream) == d->activeStreams_.end()) {\n\t\t\tLOG(Camera, Error) << \"Invalid request\";\n\t\t\treturn -EINVAL;\n\t\t}", "evidence": ["queue-stream"], "part_id": "queue-stream"}], "stopping": [{"text": "`Camera::stop()` 함수는 d->isRunning() 이 거짓일 경우 즉시 0 을 반환하며, d->isAccessAllowed(`Private::CameraRunning`) 가 음수인 경우 해당 음수 값을 즉시 반환합니다. 이후 d->setState(`Private::CameraStopping`) 으로 상태를 Stopping 으로 설정한 후 d->pipe_->invokeMethod(&`PipelineHandler::stop`, ConnectionTypeBlocking, this) 를 호출하고, 마지막으로 d->setState(`Private::CameraConfigured`) 로 상태를 Configured 로 복귀하여 0 을 반환합니다.", "covers": ["stopping"], "kind": "behavior", "quote": "int Camera::stop()\n{\n\tPrivate *const d = _d();\n\n\t/*\n\t * \\todo Make calling stop() when not in 'Running' part of the state\n\t * machine rather than take this shortcut\n\t */\n\tif (!d->isRunning())\n\t\treturn 0;\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\tif (ret < 0)\n\t\treturn ret;\n\n\tLOG(Camera, Debug) << \"Stopping capture\";\n\n\td->setState(Private::CameraStopping);\n\n\td->pipe_->invokeMethod(&PipelineHandler::stop, ConnectionTypeBlocking,\n\t\t\t       this);\n\n\tASSERT(!d->pipe_->hasPendingRequests(this));\n\n\td->setState(Private::CameraConfigured);\n\n\treturn 0;\n}", "evidence": ["stop"], "part_id": "stop"}, {"text": "`PipelineHandler::stop` 함수는 모든 대기 중인 요청이 completeRequest() 호출로 인해 재큐되지 않도록 하기 위해 waitingRequests_를 임시 큐인 waitingRequests 로 분리한 후, stopDevice 를 호출하여 파이프라인 핸들러를 중지하고 대기 중인 요청들이 완료되도록 합니다.", "covers": ["stopping"], "kind": "behavior", "quote": "void PipelineHandler::stop(Camera *camera)\n{\n\t/*\n\t * Take all waiting requests so that they are not requeued in response\n\t * to completeRequest() being called inside stopDevice(). Cancel them\n\t * after the device to keep them in order.\n\t */\n\tCamera::Private *data = camera->_d();\n\tstd::queue<Request *> waitingRequests;\n\twaitingRequests.swap(data->waitingRequests_);\n\n\t/* Stop the pipeline handler and let the queued requests complete. */\n\tstopDevice(camera);\n\n\t/* Cancel and signal as complete all waiting requests. */\n\twhile (!waitingRequests.empty()) {\n\t\tRequest *request = waitingRequests.front();\n\t\twaitingRequests.pop();\n\n\t\t/*\n\t\t * Cancel all requests by marking them as cancelled and calling\n\t\t * doQueueRequest() instead of cancelRequest(). This ensures\n\t\t * that the requests get a sequence number and are temporarily\n\t\t * added to queuedRequests_ so they can be properly completed in\n\t\t * completeRequest().\n\t\t */\n\t\trequest->_d()->cancel();\n\t\tdoQueueRequest(request);\n\t}\n\n\t/* Make sure no requests are pending. */\n\tASSERT(data->queuedRequests_.empty());\n\tASSERT(data->waitingRequests_.empty());\n\n\tdata->requestSequence_ = 0;\n}", "evidence": ["device-stop"], "part_id": "device-stop"}, {"text": "stopDevice 함수는 모든 실행 중인 스트림에서 캡처를 즉시 중지하고, 대기 중인 모든 요청을 취소하여 오류 상태로 즉시 완료시킵니다.", "covers": ["stopping"], "kind": "behavior", "quote": "\\fn PipelineHandler::stopDevice()\n * \\brief Stop capturing from all running streams\n * \\param[in] camera The camera to stop\n *\n * This function stops capturing and processing requests immediately. All\n * pending requests are cancelled and complete immediately in an error state.\n */\n\n/**\n * \\brief Determine if the camera has any requests pending", "evidence": ["device-contract"], "part_id": "device-contract"}, {"text": "completeRequest 함수의 while 루프에서 break가 실행되는 조건은 data->queuedRequests_.front()인 요청(req)의 상태(status)가 `Request::RequestPending`일 때입니다.", "covers": ["stopping"], "kind": "behavior", "quote": "void PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}", "evidence": ["request-completion"], "part_id": "request-completion"}, {"text": "`Camera::disconnect()` 함수는 카메라 인스턴스가 하드웨어가 연결 해제되었음을 알리기 위해 disconnect() 메서드를 호출하고 disconnected 신호를 방출하며, 새로운 API 호출이 에러를 반환하도록 보장합니다.", "covers": ["stopping"], "kind": "behavior", "quote": "\\brief Notify camera disconnection\n *\n * This function is used to notify the camera instance that the underlying\n * hardware has been unplugged. In response to the disconnection the camera\n * instance notifies the application by emitting the #disconnected signal, and\n * ensures that all new calls to the application-facing Camera API return an\n * error immediately.\n *\n * \\todo Deal with pending requests if the camera is disconnected in a\n * running state.\n */\nvoid Camera::disconnect()\n{\n\tLOG(Camera, Debug) << \"Disconnecting camera \" << id();\n\n\t_d()->disconnect();\n\tdisconnected.emit();\n}\n\nint Camera::exportFrameBuffers(Stream *stream,", "evidence": ["notification"], "part_id": "notification"}, {"text": "waitingRequests 큐에서 요청을 꺼낸 뒤 먼저 request->_d()->cancel()를 호출하여 요청을 취소 상태로 표시한 후, doQueueRequest(request)를 호출하는 순서로 처리되며 주석에 따르면 이 순서는 요청이 sequence number를 받고 completeRequest()에서 올바르게 완료될 수 있도록 임시로 queuedRequests_에 추가되도록 하기 위함입니다.", "covers": ["stopping"], "kind": "behavior", "quote": "while (!waitingRequests.empty()) {\n\t\tRequest *request = waitingRequests.front();\n\t\twaitingRequests.pop();\n\n\t\t/*\n\t\t * Cancel all requests by marking them as cancelled and calling\n\t\t * doQueueRequest() instead of cancelRequest(). This ensures\n\t\t * that the requests get a sequence number and are temporarily\n\t\t * added to queuedRequests_ so they can be properly completed in\n\t\t * completeRequest().\n\t\t */\n\t\trequest->_d()->cancel();\n\t\tdoQueueRequest(request);\n\t}", "evidence": ["stop-cancel"], "part_id": "stop-cancel"}, {"text": "이 발췌에서는 data->queuedRequests_와 data->waitingRequests_라는 두 큐가 비어 있는지 ASSERT로 확인하며, 확인 후 data->requestSequence_를 0으로 대입합니다.", "covers": ["stopping"], "kind": "behavior", "quote": "/* Make sure no requests are pending. */\n\tASSERT(data->queuedRequests_.empty());\n\tASSERT(data->waitingRequests_.empty());\n\n\tdata->requestSequence_ = 0;", "evidence": ["stop-check"], "part_id": "stop-check"}], "review": [{"text": "invokeMethod로 예약하는 함수는 `PipelineHandler::queueRequest`이며, 연결 타입은 ConnectionTypeQueued이고 인자는 request입니다.", "covers": ["review"], "kind": "behavior", "quote": "int Camera::queueRequest(Request *request)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\tif (ret < 0)\n\t\treturn ret;\n\n\t/* Requests can only be queued to the camera that created them. */\n\tif (request->_d()->camera() != this) {\n\t\tLOG(Camera, Error) << \"Request was not created by this camera\";\n\t\treturn -EXDEV;\n\t}\n\n\tif (request->status() != Request::RequestPending) {\n\t\tLOG(Camera, Error) << request->toString() << \" is not valid\";\n\t\treturn -EINVAL;\n\t}\n\n\t/* Make sure the Request has a valid control list. */\n\tif (request->controls().infoMap() != &controls()) {\n\t\tLOG(Camera, Error) << \"Overwriting Request::controls() is not allowed\";\n\t\treturn -EINVAL;\n\t}\n\n\t/*\n\t * The camera state may change until the end of the function. No locking\n\t * is however needed as PipelineHandler::queueRequest() will handle\n\t * this.\n\t */\n\n\tif (request->buffers().empty()) {\n\t\tLOG(Camera, Error) << \"Request contains no buffers\";\n\t\treturn -EINVAL;\n\t}\n\n\tfor (const auto &[stream, buffer] : request->buffers()) {\n\t\tif (d->activeStreams_.find(stream) == d->activeStreams_.end()) {\n\t\t\tLOG(Camera, Error) << \"Invalid request\";\n\t\t\treturn -EINVAL;\n\t\t}\n\t}\n\n\t/* Pre-process AeEnable. */\n\tpatchControlList(request->controls());\n\n\td->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t       ConnectionTypeQueued, request);\n\n\treturn 0;\n}", "evidence": ["queue-success"], "part_id": "queue-success"}, {"text": "`PipelineHandler::completeBuffer` 함수는 파이프라인 핸들러가 요청의 버퍼 부분을 완료 신호로 보내고 애플리케이션에 버퍼 완료를 알림하며 요청의 내부 버퍼 추적을 갱신해야 하며, 마지막 버퍼가 완료되더라도 요청이 자동으로 완료되지 않아 파이프라인 핸들러가 여전히 필요한 작업을 수행할 기회를 주기 때문에 요청은 명시적으로 completeRequest() 함수를 사용하여 완료되어야 합니다. 또한 이 함수는 `CameraManager` 스레드에서 호출되어야 합니다.", "covers": ["review"], "kind": "behavior", "quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)", "evidence": ["buffer-completion"], "part_id": "buffer-completion"}, {"text": "completeRequest 함수의 while 루프에서 break가 발생하는 조건은 data->queuedRequests_.front()인 요청(req)의 상태(status)가 `Request::RequestPending`일 때입니다.", "covers": ["review"], "kind": "behavior", "quote": "void PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}", "evidence": ["request-completion"], "part_id": "request-completion"}, {"text": "ReuseBuffers 플래그가 설정된 경우 bufferMap_ 내 모든 버퍼에 대해 _d()->setRequest(this) 와 _d()->pending_.insert(buffer) 를 수행한 후 status_ 는 RequestPending 으로, controls_ 와 metadata_ 는 각각 clear() 로 초기화됩니다. ReuseBuffers 플래그가 설정되지 않은 경우 bufferMap_ 를 clear() 하고 status_ 는 RequestPending 으로, controls_ 와 metadata_ 는 각각 clear() 로 초기화됩니다.", "covers": ["review"], "kind": "behavior", "quote": "void Request::reuse(ReuseFlag flags)\n{\n\tLIBCAMERA_TRACEPOINT(request_reuse, this);\n\n\t_d()->reset();\n\n\tif (flags & ReuseBuffers) {\n\t\tfor (const auto &[stream, buffer] : bufferMap_) {\n\t\t\tbuffer->_d()->setRequest(this);\n\t\t\t_d()->pending_.insert(buffer);\n\t\t}\n\t} else {\n\t\tbufferMap_.clear();\n\t}\n\n\tstatus_ = RequestPending;\n\n\tcontrols_.clear();\n\t_d()->metadata_.clear();\n}", "evidence": ["reuse"], "part_id": "reuse"}, {"text": "`PipelineHandler::stop` 함수는 모든 대기 중인 요청이 completeRequest() 호출로 인해 재큐되지 않도록 하기 위해 waitingRequests_를 임시 큐인 waitingRequests 로 분리한 후, stopDevice 를 호출하여 파이프라인 핸들러를 중지하고 큐에 있는 요청들이 완료되도록 합니다.", "covers": ["review"], "kind": "behavior", "quote": "void PipelineHandler::stop(Camera *camera)\n{\n\t/*\n\t * Take all waiting requests so that they are not requeued in response\n\t * to completeRequest() being called inside stopDevice(). Cancel them\n\t * after the device to keep them in order.\n\t */\n\tCamera::Private *data = camera->_d();\n\tstd::queue<Request *> waitingRequests;\n\twaitingRequests.swap(data->waitingRequests_);\n\n\t/* Stop the pipeline handler and let the queued requests complete. */\n\tstopDevice(camera);\n\n\t/* Cancel and signal as complete all waiting requests. */\n\twhile (!waitingRequests.empty()) {\n\t\tRequest *request = waitingRequests.front();\n\t\twaitingRequests.pop();\n\n\t\t/*\n\t\t * Cancel all requests by marking them as cancelled and calling\n\t\t * doQueueRequest() instead of cancelRequest(). This ensures\n\t\t * that the requests get a sequence number and are temporarily\n\t\t * added to queuedRequests_ so they can be properly completed in\n\t\t * completeRequest().\n\t\t */\n\t\trequest->_d()->cancel();\n\t\tdoQueueRequest(request);\n\t}\n\n\t/* Make sure no requests are pending. */\n\tASSERT(data->queuedRequests_.empty());\n\tASSERT(data->waitingRequests_.empty());\n\n\tdata->requestSequence_ = 0;\n}", "evidence": ["device-stop"], "part_id": "device-stop"}, {"text": "completeBuffer API 주석의 return 문장에 따르면, 이 함수는 요청(request)에 포함된 모든 버퍼(buffer)가 완료되었을 때 참(true)을 반환하고 그렇지 않은 경우 거짓(false)을 반환합니다.", "covers": ["review"], "kind": "behavior", "quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)", "evidence": ["buffer-completion"], "part_id": "buffer-result"}, {"text": "이 발췌에서는 data->queuedRequests_와 data->waitingRequests_라는 두 큐가 비어 있는지 ASSERT로 확인하며, 그 후 data->requestSequence_를 0으로 대입합니다.", "covers": ["review"], "kind": "behavior", "quote": "/* Make sure no requests are pending. */\n\tASSERT(data->queuedRequests_.empty());\n\tASSERT(data->waitingRequests_.empty());\n\n\tdata->requestSequence_ = 0;", "evidence": ["stop-check"], "part_id": "stop-check"}]}, "topic_inputs": {"configuration-failure": "84e5bba1c3ee1aa12597b35297d0c2a962a75ed752adb30d4696a90b33127d61", "journey": "2f6d58ecd09d3cd5d04af8835edafa74d3cd58a291f92e98f41aefb887f1cf50", "resources": "1a0bdc1bc5e11a005cde6a1cc8c7ca095e8af5b38dde8586a95c8c4259edc11b", "diagnosis": "737be3495323636d54f6903b7c0fdb4c2ab9eeab40d7d7bfee2483a75a0ebf35", "stopping": "a9e248d60396b94209a83fff16456c3732ff85166c8d832e873c346c1abd69e4", "review": "ba107f945ce6b9f3b35944f6379f92c9b0cd015c1a470ea34931bbbc4cc4a37f"}, "reused_topics": [], "generated_topics": ["configuration-failure", "journey", "resources", "diagnosis", "stopping", "review"], "topic_agents": {"configuration-failure": "ollama/qwen3.5:9b", "journey": "ollama/qwen3.5:9b", "resources": "ollama/qwen3.5:9b", "diagnosis": "ollama/qwen3.5:9b", "stopping": "ollama/qwen3.5:9b", "review": "ollama/qwen3.5:9b"}, "body_sha256": "8cdba941b4168915ca18fc6b4f31e16bfdf0a8c5df807ad17469827a15a3ff00"}
 ---
 
 # 요청 처리와 문제 진단
@@ -91,7 +91,7 @@ invokeMethod 호출 직후 ret의 값이 0 이 아닌 경우, 즉 오류가 발�
 
 ## 제출에서 완료까지
 
-요청을 생성하려면 `Camera::createRequest()` 함수를 호출하여 애플리케이션이 버퍼와 파라미터로 채울 빈 요청 객체를 얻어야 합니다. 이 함수는 카메라가 `Configured` 또는 `Running` 상태일 때만 호출할 수 있으며, 반환된 요청의 소유권은 호출자에게 넘어갑니다. `src/libcamera/camera.cpp:1243`
+createRequest 함수는 카메라가 Configured 또는 Running 상태일 때만 호출할 수 있으며, 이 함수는 새로 생성된 요청의 소유권을 호출자에게 넘기고 해당 요청은 호출자가 삭제할 책임이 있습니다. `src/libcamera/camera.cpp:1243`
 
 <!-- sdd:visual:request-stages -->
 ### 제출·준비·장치 처리·완료의 연결
@@ -123,40 +123,48 @@ flowchart TB
     
     | 요소·전이 | 소스 근거 |
     |---|---|
-    | Camera::queueRequest() | [src/libcamera/camera.cpp:1308](#source-28d007de6ad1a8a5) |
-    | 대기열과 준비 단계 | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | queueRequestDevice() | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | completeBuffer() | [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a) |
-    | 버퍼 추적 상태 갱신 | [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a) |
-    | completeRequest() | [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a) |
-    | 제출 순서로 애플리케이션 반환 | [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a) |
-    | 핸들러 호출을 큐에 예약 | [src/libcamera/camera.cpp:1308](#source-28d007de6ad1a8a5) |
-    | 준비·큐 한도 통과, 취소되지 않은 요청 | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | 장치 구현자가 버퍼 완료 통지 | [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a) |
-    | 버퍼 완료 알림 | [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a) |
-    | 후처리 뒤 구현자가 명시적으로 호출 | [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a) |
-    | 선두 미완료 요청 뒤의 반환은 대기 | [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a) |
+    | Camera::queueRequest() | [src/libcamera/camera.cpp:1330](#source-d31ac0773e28daca) |
+    | 대기열과 준비 단계 | [src/libcamera/pipeline_handler.cpp:469](#source-2bc624f7e6571c0b) |
+    | queueRequestDevice() | [src/libcamera/pipeline_handler.cpp:483](#source-7348e9b4af985eb2) |
+    | completeBuffer() | [src/libcamera/pipeline_handler.cpp:547](#source-ab8710f8a8a7905d) |
+    | 버퍼 추적 상태 갱신 | [src/libcamera/pipeline_handler.cpp:547](#source-ab8710f8a8a7905d) |
+    | completeRequest() | [src/libcamera/pipeline_handler.cpp:571](#source-257e6e7c94862f30) |
+    | 제출 순서로 애플리케이션 반환 | [src/libcamera/pipeline_handler.cpp:571](#source-257e6e7c94862f30) |
+    | 핸들러 호출을 큐에 예약 | [src/libcamera/camera.cpp:1330](#source-d31ac0773e28daca) |
+    | 준비·큐 한도 통과, 취소되지 않은 요청 | [src/libcamera/pipeline_handler.cpp:483](#source-7348e9b4af985eb2) |
+    | 장치 구현자가 버퍼 완료 통지 | [src/libcamera/pipeline_handler.cpp:547](#source-ab8710f8a8a7905d) |
+    | 버퍼 완료 알림 | [src/libcamera/pipeline_handler.cpp:563](#source-e93fc49557947f2a) |
+    | 후처리 뒤 구현자가 명시적으로 호출 | [src/libcamera/pipeline_handler.cpp:547](#source-ab8710f8a8a7905d) |
+    | 선두 미완료 요청 뒤의 반환은 대기 | [src/libcamera/pipeline_handler.cpp:584](#source-695328706c4e6d8e) |
 <!-- /sdd:visual:request-stages -->
 
-요청을 카메라에 제출하려면 `Camera::queueRequest()` 함수를 호출해야 하며, 이 요청에는 최소 하나의 캡처 버퍼가 포함되어 있어야 합니다. 버퍼가 없는 요청은 무효로 거부됩니다. `src/libcamera/camera.cpp:1308`
+addBuffer 함수는 요청에 버퍼 참조를 저장하며, 호출자는 요청 완료 콜백이 호출될 때까지 버퍼가 유효하게 유지되도록 보장해야 할 책임이 있습니다. `src/libcamera/request.cpp:442`
 
-`Camera::queueRequest()` 함수는 요청이 카메라에 의해 생성되었는지 확인하고, 요청 상태가 `RequestPending`인지, 버퍼 목록이 유효하며, 모든 스트림의 버퍼가 활성화된 스트림인지 검증합니다. `src/libcamera/camera.cpp:1308`
+invokeMethod로 예약하는 함수는 `PipelineHandler::queueRequest`이며, 연결 타입은 ConnectionTypeQueued이고 인자는 request입니다. `src/libcamera/camera.cpp:1330`
 
-요청이 준비되면 `PipelineHandler::registerRequest()` 함수가 연결 신호를 통해 파이프라인 핸들러에 요청이 처리될 준비가 되었음을 알립니다. `src/libcamera/pipeline_handler.cpp:428`
+registerRequest 함수는 request->_d() 의 prepared 신호를 this 와 람다 표현식 연결자를 통해 연결하며, 해당 신호가 발생했을 때 호출되는 함수는 doQueueRequests 이고 인자로 request->_d()->camera() 가 전달됩니다. `src/libcamera/pipeline_handler.cpp:435`
 
-`PipelineHandler::queueRequest()` 함수는 요청을 내부 대기 큐에 추가하고, 300ms 동안 준비 상태를 기다립니다. `src/libcamera/pipeline_handler.cpp:428`
+`PipelineHandler::queueRequest` 메서드는 요청을 data->waitingRequests_ 큐에 추가하고, request->_d()->prepare(300ms) 를 호출하여 prepare() 함수에 300ms 라는 현재 인자를 전달합니다. `src/libcamera/pipeline_handler.cpp:469`
 
-`PipelineHandler::doQueueRequests()` 함수는 대기 큐의 요청을 순차적으로 처리하며, `maxQueuedRequestsDevice_` 제한에 도달하면 더 이상 추가하지 않습니다. `src/libcamera/pipeline_handler.cpp:428`
+doQueueRequests 함수는 while 루프 내에서 두 가지 조건에서 break를 수행하며, 먼저 waitingRequests_가 비어있지 않은 상태에서 queuedRequests_의 크기가 maxQueuedRequestsDevice_에 도달하면 루프를 종료하고, 그 다음으로 요청을 꺼내서 prepared_ 속성이 false라면 루프를 종료합니다. `src/libcamera/pipeline_handler.cpp:509`
 
-`PipelineHandler::doQueueRequest()` 함수는 요청을 장치에 제출하고, 실패 시 `cancelRequest()` 를 호출하여 요청을 취소합니다. `src/libcamera/pipeline_handler.cpp:428`
+doQueueRequest에서 request->_d()->cancelled_가 참일 경우 completeRequest(request) 함수를 호출한 뒤 return을 수행하며, queueRequestDevice(camera, request) 호출 후 if(ret) 조건에서 ret이 0이 아닌 값을 가질 경우 cancelRequest(request) 함수를 호출합니다. `src/libcamera/pipeline_handler.cpp:483`
 
-`PipelineHandler::completeBuffer()` 함수는 버퍼 완료를 신호하고, 모든 버퍼가 완료되었는지 확인합니다. `src/libcamera/pipeline_handler.cpp:547`
+`PipelineHandler::completeBuffer` 함수는 파이프라인 핸들러가 요청의 버퍼 부분을 완료 신호로 사용하도록 하며, 애플리케이션에 버퍼 완료 알림을 제공하고 요청의 내부 버퍼 추적을 갱신합니다. 마지막 버퍼가 완료되더라도 요청이 자동으로 완료되지 않아 파이프라인 핸들러가 여전히 필요한 작업을 수행할 기회를 제공하며, 이들은 명시적으로 completeRequest() 를 호출하여 요청을 완료해야 합니다. 또한 이 함수는 `CameraManager` 스레드에서 호출되어야 합니다. `src/libcamera/pipeline_handler.cpp:547`
 
-근거 원문: [src/libcamera/camera.cpp:1243](#source-0ae00d77839f61cb) · [src/libcamera/camera.cpp:1308](#source-28d007de6ad1a8a5) · [src/libcamera/request.cpp:442](#source-95ae69eeb085e3b1) · [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) · [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a)
+`PipelineHandler` 는 요청이 완료되면 카메라에 해당 요청이 완료되었음을 알리기 위해 completeRequest 함수를 호출해야 하며, 이 함수가 반환된 후에는 해당 요청은 더 이상 `PipelineHandler` 에 의해 관리되지 않으므로 접근해서는 안 됩니다. 또한 이 함수는 애플리케이션에 제출 순서대로 요청을 반환하도록 보장하지만, `PipelineHandler` 는 어떤 완전한 요청이든 제한 없이 호출할 수 있어 호출 자체에는 순서 제약이 없습니다. `src/libcamera/pipeline_handler.cpp:571`
+
+completeRequest 함수의 while 루프에서 break가 발생하는 조건은 data->queuedRequests_.front()인 요청(req)의 상태가 `Request::RequestPending`일 때입니다. `src/libcamera/pipeline_handler.cpp:584`
+
+completeBuffer 함수 본문은 request->_d()->camera() 를 통해 얻은 `Camera` 객체의 bufferCompleted 신호를 emit 하고, 이후 request->_d()->completeBuffer(buffer) 호출의 반환값을 그대로 반환합니다. `src/libcamera/pipeline_handler.cpp:563`
+
+completeBuffer API 주석의 return 문장에 따르면, 이 함수는 요청(request)에 포함된 모든 버퍼(buffer)가 완료되었을 때 참(true)을 반환하고 그렇지 않은 경우 거짓(false)을 반환합니다. `src/libcamera/pipeline_handler.cpp:547`
+
+근거 원문: [src/libcamera/camera.cpp:1243](#source-0ae00d77839f61cb) · [src/libcamera/request.cpp:442](#source-95ae69eeb085e3b1) · [src/libcamera/camera.cpp:1330](#source-d31ac0773e28daca) · [src/libcamera/pipeline_handler.cpp:435](#source-2e194e2fc68579c3) · [src/libcamera/pipeline_handler.cpp:469](#source-2bc624f7e6571c0b) · [src/libcamera/pipeline_handler.cpp:509](#source-9bef16708cb3efe3) · [src/libcamera/pipeline_handler.cpp:483](#source-7348e9b4af985eb2) · [src/libcamera/pipeline_handler.cpp:547](#source-ab8710f8a8a7905d) · [src/libcamera/pipeline_handler.cpp:571](#source-257e6e7c94862f30) · [src/libcamera/pipeline_handler.cpp:584](#source-695328706c4e6d8e) · [src/libcamera/pipeline_handler.cpp:563](#source-e93fc49557947f2a)
 
 ## 요청·버퍼·fence의 수명
 
-요청 객체의 소유권은 `Camera::createRequest()` 함수가 반환한 지점부터 호출자에게 넘어갑니다. 호출자는 이 요청을 삭제할 책임이 있으며, 완료 핸들러에서 삭제하거나 `Request::reuse()` 를 호출하여 상태를 초기화하고 재사용할 수 있습니다. `src/libcamera/camera.cpp:1243`
+createRequest 함수는 카메라가 Configured 또는 Running 상태일 때만 호출할 수 있으며, 생성된 요청의 소유권은 호출자에게 전달되어 호출자가 해당 요청을 삭제하는 책임을 집니다. `src/libcamera/camera.cpp:1243`
 
 <!-- sdd:visual:request-ownership -->
 ### 요청과 버퍼를 유지할 기간
@@ -188,32 +196,36 @@ flowchart TB
     | Request가 버퍼를 참조 | [src/libcamera/request.cpp:442](#source-95ae69eeb085e3b1) |
     | 요청 완료 콜백 | [src/libcamera/request.cpp:442](#source-95ae69eeb085e3b1) |
     | 요청 삭제 | [src/libcamera/camera.cpp:1243](#source-0ae00d77839f61cb) |
-    | reuse() 후 다시 제출 | [src/libcamera/request.cpp:376](#source-38494771cb29cc8c) |
+    | reuse() 후 다시 제출 | [src/libcamera/request.cpp:376](#source-b23ce28b1eb9623e) |
     | addBuffer() | [src/libcamera/request.cpp:442](#source-95ae69eeb085e3b1) |
     | 이 시점까지 버퍼를 유효하게 유지 | [src/libcamera/request.cpp:442](#source-95ae69eeb085e3b1) |
     | 완료 핸들러에서 삭제 가능 | [src/libcamera/camera.cpp:1243](#source-0ae00d77839f61cb) |
-    | 재사용 전 상태 초기화 | [src/libcamera/request.cpp:376](#source-38494771cb29cc8c) |
+    | 재사용 전 상태 초기화 | [src/libcamera/request.cpp:376](#source-b23ce28b1eb9623e) |
 <!-- /sdd:visual:request-ownership -->
 
-실행 확인 항목: `Request::addBuffer()` 함수는 스트림당 하나의 버퍼만 허용하며, 이미 동일한 스트림에 버퍼가 추가되어 있거나 버퍼에 펜스가 남아있으면 `-EEXIST` 오류를 반환합니다. `src/libcamera/request.cpp:442`
+addBuffer 함수는 요청에 버퍼 참조를 저장하며, 호출자는 요청 완료 콜백이 호출될 때까지 버퍼가 유효하게 유지되도록 보장해야 할 책임이 있습니다. `src/libcamera/request.cpp:442`
 
-버퍼의 유효 기간은 요청 완료 콜백이 호출될 때까지 유지되어야 하며, 호출자는 이 기간 동안 버퍼가 유효함을 보장해야 합니다. `src/libcamera/request.cpp:442`
+`Request::reuse` 함수는 요청을 카메라에 큐잉하기 전에 호출해야 합니다. `src/libcamera/request.cpp:376`
 
-`Request::reuse()` 함수는 요청의 상태와 컨트롤을 초기화하여 재사용과 재큐잉을 가능하게 합니다. 이 함수를 호출하기 전에 반드시 호출해야 하며, 새로운 요청을 생성하는 대신 기존 요청을 재사용할 수 있습니다. `src/libcamera/request.cpp:376`
+ReuseBuffers 플래그가 설정된 경우 bufferMap_ 내 모든 버퍼에 대해 _d()->setRequest(this) 와 _d()->pending_.insert(buffer) 를 수행한 후 status_ 는 RequestPending 으로, controls_ 와 metadata_ 는 각각 clear() 로 초기화됩니다. ReuseBuffers 플래그가 설정되지 않은 경우 bufferMap_ 를 clear() 하고 status_ 는 RequestPending 으로, controls_ 와 metadata_ 는 각각 clear() 로 초기화됩니다. `src/libcamera/request.cpp:385`
 
-실행 확인 항목: `ReuseBuffers` 플래그를 설정하면 이전에 `addBuffer()` 로 추가된 버퍼들이 재사용되지만, 펜스는 재사용되지 않습니다. 따라서 펜스를 사용하는 경우 이 플래그는 사용하지 않아야 합니다. `src/libcamera/request.cpp:326`
+ReuseBuffers 플래그는 addBuffer() 를 통해 이전에 추가된 버퍼를 재사용하는 것을 제어하며, 이 플래그와 함께 사용될 경우 버퍼에 연결된 펜스(fences) 는 재사용되지 않으므로 펜스를 사용하는 경우에는 이 플래그를 사용하지 않아야 합니다. `src/libcamera/request.cpp:326`
 
-`ReuseBuffers` 플래그가 설정되지 않은 경우 `Request::reuse()` 는 버퍼 맵을 비우고 요청 상태를 `RequestPending` 로 변경합니다. `src/libcamera/request.cpp:376`
+`PipelineHandler` 는 요청이 완료되면 카메라에 해당 요청이 완료되었음을 알리기 위해 completeRequest 함수를 호출해야 하며, 이 함수가 반환된 후에는 해당 요청은 더 이상 `PipelineHandler` 에 의해 관리되지 않으므로 접근해서는 안 됩니다. 또한 이 함수는 요청이 애플리케이션으로 제출된 순서대로 반환되도록 보장하지만, `PipelineHandler` 가 어떤 완전한 요청에 대해든 이를 호출할 수 있으므로 호출 자체에는 특정 순서 제약이 없습니다. `src/libcamera/pipeline_handler.cpp:571`
 
-`PipelineHandler::completeBuffer()` 함수는 파이프라인 핸들러가 버퍼 완료를 신호할 때 호출되며, 모든 버퍼가 완료되었는지 확인하지 않습니다. `src/libcamera/pipeline_handler.cpp:547`
+cancelRequest 함수는 먼저 request->_d()->cancel()를 호출하여 요청을 취소한 후, completeRequest(request)를 호출하여 요청의 완료를 신호로 보냅니다. `src/libcamera/pipeline_handler.cpp:607`
 
-`PipelineHandler::completeRequest()` 함수는 요청이 완료되었음을 카메라에 알리고, 더 이상 파이프라인 핸들러가 이 요청을 관리하지 않게 합니다. 이 함수가 반환된 후에는 핸들러가 요청에 접근해서는 안 됩니다. `src/libcamera/pipeline_handler.cpp:547`
+fence 소유권은 성공할 경우에만 취해지며, 그렇지 않은 경우에는 fence 가 수정되지 않은 상태로 남아있게 됩니다. `src/libcamera/request.cpp:458`
 
-근거 원문: [src/libcamera/camera.cpp:1243](#source-0ae00d77839f61cb) · [src/libcamera/request.cpp:442](#source-95ae69eeb085e3b1) · [src/libcamera/request.cpp:376](#source-38494771cb29cc8c) · [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a) · [src/libcamera/request.cpp:326](#source-447804db33308244)
+유효한 `Fence` 가 이 함수에 제공되면 해당 fence 는 buffer 로 이동되며, 모든 버퍼의 fences 가 올바르게 신호(signalled) 되었을 때만 이 요청이 장치로 제출됩니다. `src/libcamera/request.cpp:456`
+
+fence 신호가 오지 않아 timeout이 난 뒤 버퍼에는 여전히 fence 가 남아있으며, 이 버퍼를 재사용하기 전에 applications 은 `FrameBuffer::releaseFence()` 함수를 호출하여 남은 fence 를 가져야 합니다. `src/libcamera/request.cpp:462`
+
+근거 원문: [src/libcamera/camera.cpp:1243](#source-0ae00d77839f61cb) · [src/libcamera/request.cpp:442](#source-95ae69eeb085e3b1) · [src/libcamera/request.cpp:376](#source-b23ce28b1eb9623e) · [src/libcamera/request.cpp:385](#source-9587543f8c422e7c) · [src/libcamera/request.cpp:326](#source-447804db33308244) · [src/libcamera/pipeline_handler.cpp:571](#source-257e6e7c94862f30) · [src/libcamera/pipeline_handler.cpp:607](#source-b294c03e13c0262d) · [src/libcamera/request.cpp:458](#source-90771942d6e02504) · [src/libcamera/request.cpp:456](#source-00d698c5ffeb6e73) · [src/libcamera/request.cpp:462](#source-1778eeffec821aed)
 
 ## 실패 위치별 확인 순서
 
-요청이 카메라에 제출되지 않는 경우, `Camera::queueRequest()` 함수에서 반환되는 오류 코드를 확인해야 합니다. 이 함수는 요청이 유효하지 않거나 버퍼가 없으면 `-EINVAL`을, 카메라 상태가 실행 중이 아니면 `-EACCES`를, 다른 카메라에서 생성된 요청이면 `-EXDEV`를 반환합니다. `src/libcamera/camera.cpp:1308`
+doQueueRequests 함수는 while 루프 내에서 두 가지 조건에서 break를 수행합니다. 첫 번째 조건은 queuedRequests_.size()가 maxQueuedRequestsDevice_와 같을 때이며, 이는 큐에 더 이상 요청을 추가할 수 없는 상태임을 의미합니다. 두 번째 조건은 waitingRequests_.front()인 request의 prepared_ 속성이 false일 때입니다. 함수는 루프 시작 시 waitingRequests_에서 가장 앞의 요청을 pop하여 제거한 후 doQueueRequest를 호출하고, 이 순서는 doQueueRequests가 doQueueRequest 내부에서 재귀적으로 호출될 경우에도 올바르게 동작하도록 보장합니다. `src/libcamera/pipeline_handler.cpp:509`
 
 <!-- sdd:visual:queue-gates -->
 ### 요청이 대기하거나 장치로 가는 조건
@@ -245,40 +257,52 @@ flowchart TB
     
     | 요소·전이 | 소스 근거 |
     |---|---|
-    | waitingRequests_ | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | 선두 요청이 prepared_인가? | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | 장치 큐 한도에 도달했는가? | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | 대기열에 유지 | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | queueRequestDevice() | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | 취소·완료 경로 | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | doQueueRequests()에서 확인 | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | 예: 새 요청을 전달하지 않음 | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | 아니오: 선두 요청 확인 | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | 아니오: 준비를 기다림 | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | 예: 준비 실패로 취소되지 않은 요청 | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | 장치 제출 실패 | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | 준비 중 취소된 요청은 장치 제출 생략 | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
+    | waitingRequests_ | [src/libcamera/pipeline_handler.cpp:469](#source-2bc624f7e6571c0b) |
+    | 선두 요청이 prepared_인가? | [src/libcamera/pipeline_handler.cpp:509](#source-9bef16708cb3efe3) |
+    | 장치 큐 한도에 도달했는가? | [src/libcamera/pipeline_handler.cpp:509](#source-9bef16708cb3efe3) |
+    | 대기열에 유지 | [src/libcamera/pipeline_handler.cpp:509](#source-9bef16708cb3efe3) |
+    | queueRequestDevice() | [src/libcamera/pipeline_handler.cpp:483](#source-7348e9b4af985eb2) |
+    | 취소·완료 경로 | [src/libcamera/pipeline_handler.cpp:483](#source-7348e9b4af985eb2) |
+    | doQueueRequests()에서 확인 | [src/libcamera/pipeline_handler.cpp:509](#source-9bef16708cb3efe3) |
+    | 예: 새 요청을 전달하지 않음 | [src/libcamera/pipeline_handler.cpp:509](#source-9bef16708cb3efe3) |
+    | 아니오: 선두 요청 확인 | [src/libcamera/pipeline_handler.cpp:509](#source-9bef16708cb3efe3) |
+    | 아니오: 준비를 기다림 | [src/libcamera/pipeline_handler.cpp:509](#source-9bef16708cb3efe3) |
+    | 예: 준비 실패로 취소되지 않은 요청 | [src/libcamera/pipeline_handler.cpp:483](#source-7348e9b4af985eb2) |
+    | 장치 제출 실패 | [src/libcamera/pipeline_handler.cpp:483](#source-7348e9b4af985eb2) |
+    | 준비 중 취소된 요청은 장치 제출 생략 | [src/libcamera/pipeline_handler.cpp:483](#source-7348e9b4af985eb2) |
 <!-- /sdd:visual:queue-gates -->
 
-`Camera::queueRequest()` 내부에서는 요청의 상태가 `RequestPending`인지 확인하고, 버퍼가 비어있지 않은지 검증하며, 스트림이 활성화되어 있는지 검사합니다. 이 모든 조건을 만족하지 않으면 `-EINVAL` 오류를 반환하여 제출 실패를 즉시 알립니다. `src/libcamera/camera.cpp:1308`
+doQueueRequest 함수에서 request->_d()->cancelled_가 참일 경우 completeRequest(request)를 호출하고 return을 수행하며, queueRequestDevice(camera, request)를 호출한 뒤 ret의 값이 0이 아닌 경우 cancelRequest(request)를 호출합니다. `src/libcamera/pipeline_handler.cpp:483`
 
-요청이 성공적으로 `Camera::queueRequest()` 를 통과하면, 요청은 내부 대기열에 추가되고 `PipelineHandler::prepare(300ms)` 가 호출되어 준비가 완료될 때까지 기다립니다. `src/libcamera/pipeline_handler.cpp:428`
+cancelRequest 함수는 먼저 request->_d()->cancel()를 호출한 후 completeRequest(request)를 호출합니다. `src/libcamera/pipeline_handler.cpp:607`
 
-`PipelineHandler::doQueueRequests()` 함수는 대기열에 있는 요청을 순차적으로 처리하며, 각 요청의 `prepared_` 플래그가 설정되지 않았거나 이미 제출된 요청이 최대 개수 `maxQueuedRequestsDevice_` 에 도달하면 더 이상 처리하지 않습니다. `src/libcamera/pipeline_handler.cpp:428`
+`PipelineHandler::completeBuffer` 함수는 파이프라인 핸들러가 요청의 버퍼 부분을 완료 신호로 사용하도록 하며, 애플리케이션에 버퍼 완료 알림을 제공하고 요청의 내부 버퍼 추적을 갱신합니다. 마지막 버퍼가 완료되더라도 요청이 자동으로 완료되지 않아 파이프라인 핸들러가 여전히 필요한 작업을 수행할 기회를 제공하며, 이들은 명시적으로 completeRequest() 함수를 호출하여 요청을 완료해야 합니다. 또한 이 함수는 `CameraManager` 스레드에서 호출되어야 합니다. `src/libcamera/pipeline_handler.cpp:547`
 
-`PipelineHandler::doQueueRequest()` 함수에서는 요청이 취소되었는지 `cancelled_` 플래그를 먼저 확인하고, 취소된 요청은 즉시 완료 처리 후 반환합니다. `src/libcamera/pipeline_handler.cpp:428`
+completeRequest 함수의 while 루프에서 break하는 if 조건은 '요청 상태가 `Request::RequestPending`인 경우'입니다. `src/libcamera/pipeline_handler.cpp:584`
 
-`doQueueRequest()` 함수는 `queueRequestDevice()` 를 호출하여 실제 기기에 요청을 제출하고, 이 호출이 실패하면 요청을 취소합니다. `src/libcamera/pipeline_handler.cpp:428`
+`PipelineHandler::queueRequest`는 요청을 data->waitingRequests_라는 큐에 넣으며, prepare() 함수에는 300ms라는 현재 인자를 전달합니다. `src/libcamera/pipeline_handler.cpp:469`
 
-`completeBuffer()` 함수는 버퍼 완료를 신호하고, 마지막 버퍼가 완료되었더라도 요청이 자동으로 완료되지 않으며, `PipelineHandler` 가 명시적으로 `completeRequest()` 를 호출해야 합니다. `src/libcamera/pipeline_handler.cpp:547`
+completeBuffer 함수는 요청에 포함된 모든 버퍼가 완료되었을 때 참(true) 을 반환하고, 그렇지 않은 경우 거짓(false) 을 반환합니다. `src/libcamera/pipeline_handler.cpp:547`
 
-`completeRequest()` 함수는 대기열의 선두에 있는 요청이 `RequestPending` 상태인지 확인하며, 완료된 요청만 제거하고 카메라에 완료 신호를 보냅니다. `src/libcamera/pipeline_handler.cpp:547`
+ASSERT(!req->hasPendingBuffers())는 요청 객체 req 가 대기 중인 버퍼가 없는지 확인하며, 이 조건이 참일 때 data->queuedRequests_의 앞쪽 요소를 제거하는 pop_front() 호출과 camera->requestComplete(req)를 순차적으로 실행합니다. `src/libcamera/pipeline_handler.cpp:597`
 
-근거 원문: [src/libcamera/camera.cpp:1308](#source-28d007de6ad1a8a5) · [src/libcamera/request.cpp:442](#source-95ae69eeb085e3b1) · [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) · [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a)
+`Camera::queueRequest` 함수는 isAccessAllowed 메서드에 `Private::CameraRunning` 상태를 전달하며, ret 값이 0 보다 작으면 해당 값을 반환합니다. `src/libcamera/camera.cpp:1330`
+
+요청이 생성된 카메라가 현재 객체와 다르면 요청이 해당 카메라에 의해 생성되지 않았음을 로그에 기록하고 -EXDEV 값을 반환합니다. `src/libcamera/camera.cpp:1339`
+
+요청 상태를 검사하는 if 조건은 request->status() 가 `Request::RequestPending` 와 다른 경우를 확인하며, 이 조건이 참일 때 LOG(`Camera`, Error) 를 통해 요청이 유효하지 않다고 로그를 출력하고 -EINVAL 값을 반환합니다. `src/libcamera/camera.cpp:1344`
+
+요청된 controls 의 infoMap 이 현재 설정된 controls 와 동일한지 검사하는 if 조건에서, 두 값이 다르면 'Overwriting `Request::controls()` is not allowed' 오류 로그를 출력한 후 -EINVAL 값을 반환합니다. `src/libcamera/camera.cpp:1350`
+
+버퍼 목록이 비어 있는지 if (request->buffers().empty()) 조건으로 검사하며, 버퍼가 없으면 '`Request` contains no buffers' 오류 로그를 출력한 후 -EINVAL 값을 반환합니다. `src/libcamera/camera.cpp:1361`
+
+스트림이 activeStreams_ 맵에 존재하지 않는 경우 if 조건에서 Invalid request 로그를 출력하고 -EINVAL 값을 반환합니다. `src/libcamera/camera.cpp:1367`
+
+근거 원문: [src/libcamera/pipeline_handler.cpp:509](#source-9bef16708cb3efe3) · [src/libcamera/pipeline_handler.cpp:483](#source-7348e9b4af985eb2) · [src/libcamera/pipeline_handler.cpp:607](#source-b294c03e13c0262d) · [src/libcamera/pipeline_handler.cpp:547](#source-ab8710f8a8a7905d) · [src/libcamera/pipeline_handler.cpp:584](#source-695328706c4e6d8e) · [src/libcamera/pipeline_handler.cpp:469](#source-2bc624f7e6571c0b) · [src/libcamera/camera.cpp:1330](#source-2745b1d62c97f2ca) · [src/libcamera/camera.cpp:1339](#source-2604c3d6c6f3f5a9) · [src/libcamera/camera.cpp:1344](#source-4e441a69ff991bd9) · [src/libcamera/camera.cpp:1350](#source-47c5809e275843b4) · [src/libcamera/camera.cpp:1361](#source-9d15e20d57d8a7a3) · [src/libcamera/camera.cpp:1367](#source-0ab24282296e3cb7) · [src/libcamera/pipeline_handler.cpp:597](#source-98188febb52b36ee)
 
 ## 정지와 연결 해제를 구분하기
 
-`Camera::stop()` 함수는 카메라가 실행 중이 아닌 상태라면 즉시 0 을 반환하며, 이는 실제 정지 동작을 수행하지 않은 no-op 입니다. `src/libcamera/camera.cpp:1431`
+`Camera::stop()` 함수는 d->isRunning() 이 거짓일 경우 즉시 0 을 반환하며, d->isAccessAllowed(`Private::CameraRunning`) 가 음수인 경우 해당 음수 값을 즉시 반환합니다. 이후 d->setState(`Private::CameraStopping`) 으로 상태를 Stopping 으로 설정한 후 d->pipe_->invokeMethod(&`PipelineHandler::stop`, ConnectionTypeBlocking, this) 를 호출하고, 마지막으로 d->setState(`Private::CameraConfigured`) 로 상태를 Configured 로 복귀하여 0 을 반환합니다. `src/libcamera/camera.cpp:1445`
 
 <!-- sdd:visual:stop-order -->
 ### 정지할 때 대기 요청을 처리하는 순서
@@ -304,50 +328,46 @@ flowchart TB
     
     | 요소·전이 | 소스 근거 |
     |---|---|
-    | 대기열을 별도로 분리 | [src/libcamera/pipeline_handler.cpp:359](#source-eefd1bbecb1aad0a) |
-    | stopDevice() | [src/libcamera/pipeline_handler.cpp:359](#source-eefd1bbecb1aad0a) |
-    | 대기 요청 취소·완료 | [src/libcamera/pipeline_handler.cpp:359](#source-eefd1bbecb1aad0a) |
-    | Configured로 복귀 | [src/libcamera/camera.cpp:1431](#source-e09324743def3f09) |
-    | 분리 후 장치 정지 | [src/libcamera/pipeline_handler.cpp:359](#source-eefd1bbecb1aad0a) |
-    | 장치 요청 뒤 대기 요청 취소 | [src/libcamera/pipeline_handler.cpp:359](#source-eefd1bbecb1aad0a) |
-    | 핸들러 정지 호출이 반환한 뒤 | [src/libcamera/camera.cpp:1431](#source-e09324743def3f09) |
+    | 대기열을 별도로 분리 | [src/libcamera/pipeline_handler.cpp:367](#source-1cc522721d2c5142) |
+    | stopDevice() | [src/libcamera/pipeline_handler.cpp:367](#source-1cc522721d2c5142) |
+    | 대기 요청 취소·완료 | [src/libcamera/pipeline_handler.cpp:367](#source-1cc522721d2c5142) |
+    | Configured로 복귀 | [src/libcamera/camera.cpp:1445](#source-96a432196b4d7557) |
+    | 분리 후 장치 정지 | [src/libcamera/pipeline_handler.cpp:367](#source-1cc522721d2c5142) |
+    | 장치 요청 뒤 대기 요청 취소 | [src/libcamera/pipeline_handler.cpp:367](#source-1cc522721d2c5142) |
+    | 핸들러 정지 호출이 반환한 뒤 | [src/libcamera/camera.cpp:1445](#source-96a432196b4d7557) |
 <!-- /sdd:visual:stop-order -->
 
-카메라가 실행 중일 경우 `Camera::stop()` 은 내부적으로 `PipelineHandler::stop` 을 Blocking 연결 타입으로 호출하여 정지 요청을 전달합니다. `src/libcamera/camera.cpp:1431`
+`PipelineHandler::stop` 함수는 모든 대기 중인 요청이 completeRequest() 호출로 인해 재큐되지 않도록 하기 위해 waitingRequests_를 임시 큐인 waitingRequests 로 분리한 후, stopDevice 를 호출하여 파이프라인 핸들러를 중지하고 대기 중인 요청들이 완료되도록 합니다. `src/libcamera/pipeline_handler.cpp:367`
 
-`PipelineHandler::stop()` 은 먼저 카메라의 waitingRequests_ 큐를 임시로 분리하여 stopDevice() 호출 시 재큐되지 않도록 보호합니다. `src/libcamera/pipeline_handler.cpp:359`
+stopDevice 함수는 모든 실행 중인 스트림에서 캡처를 즉시 중지하고, 대기 중인 모든 요청을 취소하여 오류 상태로 즉시 완료시킵니다. `src/libcamera/pipeline_handler.cpp:405`
 
-`PipelineHandler::stop()` 은 stopDevice() 를 호출한 후 분리된 waitingRequests_ 큐에 있는 모든 요청을 취소하고 completeRequest() 로 완료합니다. `src/libcamera/pipeline_handler.cpp:359`
+completeRequest 함수의 while 루프에서 break가 실행되는 조건은 data->queuedRequests_.front()인 요청(req)의 상태(status)가 `Request::RequestPending`일 때입니다. `src/libcamera/pipeline_handler.cpp:584`
 
-`PipelineHandler::stopDevice()` 는 모든 스트림의 캡처를 즉시 중지하고 대기 중인 요청을 오류 상태로 완료하지만, 함수가 복귀한 후에도 queuedRequests_ 가 비어있음을 ASSERT 로 보장합니다. `src/libcamera/pipeline_handler.cpp:359`
+`Camera::disconnect()` 함수는 카메라 인스턴스가 하드웨어가 연결 해제되었음을 알리기 위해 disconnect() 메서드를 호출하고 disconnected 신호를 방출하며, 새로운 API 호출이 에러를 반환하도록 보장합니다. `src/libcamera/camera.cpp:944`
 
-`PipelineHandler::stop()` 은 stopDevice() 복귀 후 waitingRequests_ 와 queuedRequests_ 가 모두 비어있음을 ASSERT 로 확인하여 큐에 요청이 남지 않았음을 검증합니다. `src/libcamera/pipeline_handler.cpp:359`
+waitingRequests 큐에서 요청을 꺼낸 뒤 먼저 request->_d()->cancel()를 호출하여 요청을 취소 상태로 표시한 후, doQueueRequest(request)를 호출하는 순서로 처리되며 주석에 따르면 이 순서는 요청이 sequence number를 받고 completeRequest()에서 올바르게 완료될 수 있도록 임시로 queuedRequests_에 추가되도록 하기 위함입니다. `src/libcamera/pipeline_handler.cpp:382`
 
-`PipelineHandler::completeRequest()` 는 요청을 완료할 때 queuedRequests_ 에서 대기 중인 요청을 순서대로 꺼내어 카메라에 반환하며, 상태가 Pending 이 아닌 요청만 처리합니다. `src/libcamera/pipeline_handler.cpp:547`
+이 발췌에서는 data->queuedRequests_와 data->waitingRequests_라는 두 큐가 비어 있는지 ASSERT로 확인하며, 확인 후 data->requestSequence_를 0으로 대입합니다. `src/libcamera/pipeline_handler.cpp:397`
 
-실행 확인 항목: `Camera::disconnect()` 는 하드웨어가 분리되었음을 알리고 disconnected 신호를 발생시키지만, 실행 중일 때의 대기 요청 처리는 TODO 로 남아있어 현재 보장되지 않습니다. `src/libcamera/camera.cpp:944`
-
-근거 원문: [src/libcamera/camera.cpp:1431](#source-e09324743def3f09) · [src/libcamera/pipeline_handler.cpp:359](#source-eefd1bbecb1aad0a) · [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a) · [src/libcamera/camera.cpp:944](#source-2758e9ddd31ad41d)
+근거 원문: [src/libcamera/camera.cpp:1445](#source-96a432196b4d7557) · [src/libcamera/pipeline_handler.cpp:367](#source-1cc522721d2c5142) · [src/libcamera/pipeline_handler.cpp:405](#source-06f63604b431494c) · [src/libcamera/pipeline_handler.cpp:584](#source-695328706c4e6d8e) · [src/libcamera/camera.cpp:944](#source-2758e9ddd31ad41d) · [src/libcamera/pipeline_handler.cpp:382](#source-c1c04bdcb583cc72) · [src/libcamera/pipeline_handler.cpp:397](#source-9d8596b7b45d5a41)
 
 ## 변경 검토와 실행 확인
 
-`queueRequest()` 함수는 카메라가 `Running` 상태여야 하며, 요청에 최소 하나의 캡처 버퍼가 포함되어 있어야 합니다. 버퍼가 없거나 요청이 유효하지 않다면 `-EINVAL` 오류를 반환합니다. `src/libcamera/camera.cpp:1308`
+invokeMethod로 예약하는 함수는 `PipelineHandler::queueRequest`이며, 연결 타입은 ConnectionTypeQueued이고 인자는 request입니다. `src/libcamera/camera.cpp:1330`
 
-`completeBuffer()` 함수는 버퍼 완료를 알림하고 내부 추적 정보를 업데이트하지만, 마지막 버퍼가 완료되더라도 요청이 자동으로 완료되지 않습니다. `src/libcamera/pipeline_handler.cpp:547`
+`PipelineHandler::completeBuffer` 함수는 파이프라인 핸들러가 요청의 버퍼 부분을 완료 신호로 보내고 애플리케이션에 버퍼 완료를 알림하며 요청의 내부 버퍼 추적을 갱신해야 하며, 마지막 버퍼가 완료되더라도 요청이 자동으로 완료되지 않아 파이프라인 핸들러가 여전히 필요한 작업을 수행할 기회를 주기 때문에 요청은 명시적으로 completeRequest() 함수를 사용하여 완료되어야 합니다. 또한 이 함수는 `CameraManager` 스레드에서 호출되어야 합니다. `src/libcamera/pipeline_handler.cpp:547`
 
-`completeRequest()` 함수는 요청 완료를 명시적으로 호출해야 하며, 이는 제출 순서대로 반환되도록 보장합니다. `src/libcamera/pipeline_handler.cpp:547`
+completeRequest 함수의 while 루프에서 break가 발생하는 조건은 data->queuedRequests_.front()인 요청(req)의 상태(status)가 `Request::RequestPending`일 때입니다. `src/libcamera/pipeline_handler.cpp:584`
 
-`stop()` 함수는 모든 대기 중인 요청을 취소하고 즉시 완료 상태로 만듭니다. 이때 `cancel()` 을 호출한 후 `doQueueRequest()` 를 통해 순서 번호를 부여합니다. `src/libcamera/pipeline_handler.cpp:359`
+ReuseBuffers 플래그가 설정된 경우 bufferMap_ 내 모든 버퍼에 대해 _d()->setRequest(this) 와 _d()->pending_.insert(buffer) 를 수행한 후 status_ 는 RequestPending 으로, controls_ 와 metadata_ 는 각각 clear() 로 초기화됩니다. ReuseBuffers 플래그가 설정되지 않은 경우 bufferMap_ 를 clear() 하고 status_ 는 RequestPending 으로, controls_ 와 metadata_ 는 각각 clear() 로 초기화됩니다. `src/libcamera/request.cpp:385`
 
-`reuse()` 함수는 요청 상태를 초기화하고 버퍼를 재사용할지 여부를 설정하여 다시 제출할 수 있도록 합니다. `src/libcamera/request.cpp:376`
+`PipelineHandler::stop` 함수는 모든 대기 중인 요청이 completeRequest() 호출로 인해 재큐되지 않도록 하기 위해 waitingRequests_를 임시 큐인 waitingRequests 로 분리한 후, stopDevice 를 호출하여 파이프라인 핸들러를 중지하고 큐에 있는 요청들이 완료되도록 합니다. `src/libcamera/pipeline_handler.cpp:367`
 
-`queueRequest()` 는 요청이 이 카메라에서 생성되었는지 확인하며, 그렇지 않다면 `-EXDEV` 오류를 반환합니다. `src/libcamera/camera.cpp:1308`
+completeBuffer API 주석의 return 문장에 따르면, 이 함수는 요청(request)에 포함된 모든 버퍼(buffer)가 완료되었을 때 참(true)을 반환하고 그렇지 않은 경우 거짓(false)을 반환합니다. `src/libcamera/pipeline_handler.cpp:547`
 
-`completeRequest()` 는 `queuedRequests_` 큐의 선두에 있는 Pending 상태 요청을 처리하여 순서대로 반환합니다. `src/libcamera/pipeline_handler.cpp:547`
+이 발췌에서는 data->queuedRequests_와 data->waitingRequests_라는 두 큐가 비어 있는지 ASSERT로 확인하며, 그 후 data->requestSequence_를 0으로 대입합니다. `src/libcamera/pipeline_handler.cpp:397`
 
-`stop()` 함수는 `waitingRequests_` 큐의 모든 요청을 취소하고 `doQueueRequest()` 를 호출하여 순서대로 처리합니다. `src/libcamera/pipeline_handler.cpp:359`
-
-근거 원문: [src/libcamera/camera.cpp:1308](#source-28d007de6ad1a8a5) · [src/libcamera/request.cpp:376](#source-38494771cb29cc8c) · [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a) · [src/libcamera/pipeline_handler.cpp:359](#source-eefd1bbecb1aad0a)
+근거 원문: [src/libcamera/camera.cpp:1330](#source-d31ac0773e28daca) · [src/libcamera/pipeline_handler.cpp:547](#source-ab8710f8a8a7905d) · [src/libcamera/pipeline_handler.cpp:584](#source-695328706c4e6d8e) · [src/libcamera/request.cpp:385](#source-9587543f8c422e7c) · [src/libcamera/pipeline_handler.cpp:367](#source-1cc522721d2c5142) · [src/libcamera/pipeline_handler.cpp:397](#source-9d8596b7b45d5a41)
 
 ??? note "설계 질문과 검증 범위"
     질문별 답변과 근거 연결을 검사했습니다. 의미와 실행 결과는 사람 검토가 필요합니다.
@@ -355,9 +375,9 @@ flowchart TB
     | 설계 질문 | 설명 위치 | 확인 범위 |
     |---|---|---|
     | 제출 성공 이후의 대기 조건과 완료 책임은 무엇입니까? | [제출에서 완료까지](#제출에서-완료까지) | 코드 근거와 설명 연결 |
-    | 어떤 자원을 누가 유지하고 완료 후 무엇을 초기화해야 합니까? | [요청·버퍼·fence의 수명](#요청버퍼fence의-수명) | 코드 근거와 설명 연결 · 실행 확인 항목 별도 |
+    | 어떤 자원을 누가 유지하고 완료 후 무엇을 초기화해야 합니까? | [요청·버퍼·fence의 수명](#요청버퍼fence의-수명) | 코드 근거와 설명 연결 |
     | 제출 실패와 제출 후 완료 지연을 어떻게 구분합니까? | [실패 위치별 확인 순서](#실패-위치별-확인-순서) | 코드 근거와 설명 연결 |
-    | 정지 중 요청 반환과 연결 해제의 보장 범위는 어떻게 다릅니까? | [정지와 연결 해제를 구분하기](#정지와-연결-해제를-구분하기) | 코드 근거와 설명 연결 · 실행 확인 항목 별도 |
+    | 정지 중 요청 반환과 연결 해제의 보장 범위는 어떻게 다릅니까? | [정지와 연결 해제를 구분하기](#정지와-연결-해제를-구분하기) | 코드 근거와 설명 연결 |
     | 문서를 읽고 어떤 질문에 답하고 어떤 실행 증거를 확보해야 합니까? | [변경 검토와 실행 확인](#변경-검토와-실행-확인) | 코드 근거와 설명 연결 |
     | 구성 실패를 상태 검사·구성 검증·장치 구성·스트림 연결 중 어디로 좁히며 어떤 값을 관찰합니까? | [구성 실패를 좁히는 순서](#구성-실패를-좁히는-순서) | 코드 근거와 설명 연결 |
 
@@ -641,36 +661,58 @@ flowchart TB
     std::unique_ptr<Request> Camera::createRequest(uint64_t cookie)
     ```
 
-<a id="source-28d007de6ad1a8a5"></a>
+<a id="source-95ae69eeb085e3b1"></a>
 
-??? note "소스 근거: src/libcamera/camera.cpp:1308"
-    `src/libcamera/camera.cpp:1308`에서 시작하는 발췌입니다. 종료 줄은 1383이며, 아래 원문을 설명과 대조할 수 있습니다.
+??? note "소스 근거: src/libcamera/request.cpp:442"
+    `src/libcamera/request.cpp:442`에서 시작하는 발췌입니다. 종료 줄은 475이며, 아래 원문을 설명과 대조할 수 있습니다.
     
-    SHA-256: `96db61baeb32065c966b20942f97518ddbd3a43b36b64e8083eb29a90ecb7f4b`
+    SHA-256: `65cd8b0501b7f6545dd10eaaec4a4fe46c52a096a3bbd94ea6b4813e4a670876`
     
     ```text
-    \brief Queue a request to the camera
-     * \param[in] request The request to queue to the camera
+    \brief Add a FrameBuffer with its associated Stream to the Request
+     * \param[in] stream The stream the buffer belongs to
+     * \param[in] buffer The FrameBuffer to add to the request
+     * \param[in] fence The optional fence
      *
-     * This function queues a \a request to the camera for capture.
+     * A reference to the buffer is stored in the request. The caller is responsible
+     * for ensuring that the buffer will remain valid until the request complete
+     * callback is called.
      *
-     * After allocating the request with createRequest(), the application shall
-     * fill it with at least one capture buffer before queuing it. Requests that
-     * contain no buffers are invalid and are rejected without being queued.
+     * A request can only contain one buffer per stream. If a buffer has already
+     * been added to the request for the same stream, this function returns -EEXIST.
      *
-     * Once the request has been queued, the camera will notify its completion
-     * through the \ref requestCompleted signal.
+     * A Fence can be optionally associated with the \a buffer.
      *
-     * \context This function is \threadsafe. It may only be called when the camera
-     * is in the Running state as defined in \ref camera_operation.
+     * When a valid Fence is provided to this function, \a fence is moved to \a
+     * buffer and this Request will only be queued to the device once the
+     * fences of all its buffers have been correctly signalled. Ownership of the
+     * fence will only be taken in case of success, otherwise the fence will
+     * be left unmodified.
+     *
+     * If the \a fence associated with \a buffer isn't signalled, the request will
+     * fail after a timeout. The buffer will still contain the fence, which
+     * applications must retrieve with FrameBuffer::releaseFence() before the buffer
+     * can be reused in another request. Attempting to add a buffer that still
+     * contains a fence to a request will result in this function returning -EEXIST.
+     *
+     * \sa FrameBuffer::releaseFence()
      *
      * \return 0 on success or a negative error code otherwise
-     * \retval -ENODEV The camera has been disconnected from the system
-     * \retval -EACCES The camera is not running so requests can't be queued
-     * \retval -EXDEV The request does not belong to this camera
-     * \retval -EINVAL The request is invalid
-     * \retval -ENOMEM No buffer memory was available to handle the request
+     * \retval -EEXIST The request already contains a buffer for the stream
+     *  or the buffer still references a fence
+     * \retval -EINVAL The buffer does not reference a valid Stream
      */
+    int Request::addBuffer(const Stream *stream, FrameBuffer *buffer,
+    ```
+
+<a id="source-d31ac0773e28daca"></a>
+
+??? note "소스 근거: src/libcamera/camera.cpp:1330"
+    `src/libcamera/camera.cpp:1330`에서 시작하는 발췌입니다. 종료 줄은 1380이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `165f055384e52ece575e47f3dd511dfc3a45023e00b08a1fb28594da5cb19534`
+    
+    ```text
     int Camera::queueRequest(Request *request)
     {
     	Private *const d = _d();
@@ -722,70 +764,16 @@ flowchart TB
     
     	return 0;
     }
-    
-    /**
-     * \brief Start capture from camera
     ```
 
-<a id="source-95ae69eeb085e3b1"></a>
+<a id="source-2e194e2fc68579c3"></a>
 
-??? note "소스 근거: src/libcamera/request.cpp:442"
-    `src/libcamera/request.cpp:442`에서 시작하는 발췌입니다. 종료 줄은 475이며, 아래 원문을 설명과 대조할 수 있습니다.
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:435"
+    `src/libcamera/pipeline_handler.cpp:435`에서 시작하는 발췌입니다. 종료 줄은 444이며, 아래 원문을 설명과 대조할 수 있습니다.
     
-    SHA-256: `65cd8b0501b7f6545dd10eaaec4a4fe46c52a096a3bbd94ea6b4813e4a670876`
+    SHA-256: `ceadd0f83ea31d5d8a39a1673cb0e9b9b4f0f9d212cb5161241a6eec94b0c193`
     
     ```text
-    \brief Add a FrameBuffer with its associated Stream to the Request
-     * \param[in] stream The stream the buffer belongs to
-     * \param[in] buffer The FrameBuffer to add to the request
-     * \param[in] fence The optional fence
-     *
-     * A reference to the buffer is stored in the request. The caller is responsible
-     * for ensuring that the buffer will remain valid until the request complete
-     * callback is called.
-     *
-     * A request can only contain one buffer per stream. If a buffer has already
-     * been added to the request for the same stream, this function returns -EEXIST.
-     *
-     * A Fence can be optionally associated with the \a buffer.
-     *
-     * When a valid Fence is provided to this function, \a fence is moved to \a
-     * buffer and this Request will only be queued to the device once the
-     * fences of all its buffers have been correctly signalled. Ownership of the
-     * fence will only be taken in case of success, otherwise the fence will
-     * be left unmodified.
-     *
-     * If the \a fence associated with \a buffer isn't signalled, the request will
-     * fail after a timeout. The buffer will still contain the fence, which
-     * applications must retrieve with FrameBuffer::releaseFence() before the buffer
-     * can be reused in another request. Attempting to add a buffer that still
-     * contains a fence to a request will result in this function returning -EEXIST.
-     *
-     * \sa FrameBuffer::releaseFence()
-     *
-     * \return 0 on success or a negative error code otherwise
-     * \retval -EEXIST The request already contains a buffer for the stream
-     *  or the buffer still references a fence
-     * \retval -EINVAL The buffer does not reference a valid Stream
-     */
-    int Request::addBuffer(const Stream *stream, FrameBuffer *buffer,
-    ```
-
-<a id="source-789eafedfaa7f3c5"></a>
-
-??? note "소스 근거: src/libcamera/pipeline_handler.cpp:428"
-    `src/libcamera/pipeline_handler.cpp:428`에서 시작하는 발췌입니다. 종료 줄은 547이며, 아래 원문을 설명과 대조할 수 있습니다.
-    
-    SHA-256: `5a7a3397a6034a73fe348ae44eb1e2568d2823e95542fe43386e16359d627180`
-    
-    ```text
-    \fn PipelineHandler::registerRequest()
-     * \brief Register a request for use by the pipeline handler
-     * \param[in] request The request to register
-     *
-     * This function is called when the request is created, and allows the pipeline
-     * handler to perform any one-time initialization it requries for the request.
-     */
     void PipelineHandler::registerRequest(Request *request)
     {
     	/*
@@ -796,30 +784,16 @@ flowchart TB
     		doQueueRequests(request->_d()->camera());
     	});
     }
+    ```
+
+<a id="source-2bc624f7e6571c0b"></a>
+
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:469"
+    `src/libcamera/pipeline_handler.cpp:469`에서 시작하는 발췌입니다. 종료 줄은 478이며, 아래 원문을 설명과 대조할 수 있습니다.
     
-    /**
-     * \fn PipelineHandler::queueRequest()
-     * \brief Queue a request
-     * \param[in] request The request to queue
-     *
-     * This function queues a capture request to the pipeline handler for
-     * processing. The request is first added to the internal list of waiting
-     * requests which have to be prepared to make sure they are ready for being
-     * queued to the pipeline handler.
-     *
-     * The queue of waiting requests is iterated and up to \a
-     * maxQueuedRequestsDevice_ prepared requests are passed to the pipeline handler
-     * in the same order they have been queued by calling this function.
-     *
-     * If a Request fails during the preparation phase or if the pipeline handler
-     * fails in queuing the request to the hardware the request is cancelled.
-     *
-     * Keeping track of queued requests ensures automatic completion of all requests
-     * when the pipeline handler is stopped with stop(). Request completion shall be
-     * signalled by the pipeline handler using the completeRequest() function.
-     *
-     * \context This function is called from the CameraManager thread.
-     */
+    SHA-256: `30cf5da13ae3a4f74c8404f767c03dd36002e4d24350b3a33f371ca817514ea0`
+    
+    ```text
     void PipelineHandler::queueRequest(Request *request)
     {
     	LIBCAMERA_TRACEPOINT(request_queue, request);
@@ -830,36 +804,16 @@ flowchart TB
     
     	request->_d()->prepare(300ms);
     }
+    ```
+
+<a id="source-9bef16708cb3efe3"></a>
+
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:509"
+    `src/libcamera/pipeline_handler.cpp:509`에서 시작하는 발췌입니다. 종료 줄은 527이며, 아래 원문을 설명과 대조할 수 있습니다.
     
-    /**
-     * \brief Queue one requests to the device
-     */
-    void PipelineHandler::doQueueRequest(Request *request)
-    {
-    	LIBCAMERA_TRACEPOINT(request_device_queue, request);
+    SHA-256: `2bcae42fd283195880204cc5f4cfa46a3cb50981efd559abfebb1f8c163f920a`
     
-    	Camera *camera = request->_d()->camera();
-    	Camera::Private *data = camera->_d();
-    	data->queuedRequests_.push_back(request);
-    
-    	request->_d()->sequence_ = data->requestSequence_++;
-    
-    	if (request->_d()->cancelled_) {
-    		completeRequest(request);
-    		return;
-    	}
-    
-    	int ret = queueRequestDevice(camera, request);
-    	if (ret)
-    		cancelRequest(request);
-    }
-    
-    /**
-     * \brief Queue prepared requests to the device
-     *
-     * Iterate the list of waiting requests and queue them to the device one
-     * by one if they have been prepared.
-     */
+    ```text
     void PipelineHandler::doQueueRequests(Camera *camera)
     {
     	Camera::Private *data = camera->_d();
@@ -879,34 +833,43 @@ flowchart TB
     		doQueueRequest(request);
     	}
     }
-    
-    /**
-     * \fn PipelineHandler::queueRequestDevice()
-     * \brief Queue a request to the device
-     * \param[in] camera The camera to queue the request to
-     * \param[in] request The request to queue
-     *
-     * This function queues a capture request to the device for processing. The
-     * request contains a set of buffers associated with streams and a set of
-     * parameters. The pipeline handler shall program the device to ensure that the
-     * parameters will be applied to the frames captured in the buffers provided in
-     * the request.
-     *
-     * \context This function is called from the CameraManager thread.
-     *
-     * \return 0 on success or a negative error code otherwise
-     */
-    
-    /**
-     * \brief Complete a buffer for a request
     ```
 
-<a id="source-01ad7c6605c3296a"></a>
+<a id="source-7348e9b4af985eb2"></a>
+
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:483"
+    `src/libcamera/pipeline_handler.cpp:483`에서 시작하는 발췌입니다. 종료 줄은 501이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `fbd3ed6fe295b1cdd82d6ce420a30695986e43199347f92ac2545fe0e7831da8`
+    
+    ```text
+    void PipelineHandler::doQueueRequest(Request *request)
+    {
+    	LIBCAMERA_TRACEPOINT(request_device_queue, request);
+    
+    	Camera *camera = request->_d()->camera();
+    	Camera::Private *data = camera->_d();
+    	data->queuedRequests_.push_back(request);
+    
+    	request->_d()->sequence_ = data->requestSequence_++;
+    
+    	if (request->_d()->cancelled_) {
+    		completeRequest(request);
+    		return;
+    	}
+    
+    	int ret = queueRequestDevice(camera, request);
+    	if (ret)
+    		cancelRequest(request);
+    }
+    ```
+
+<a id="source-ab8710f8a8a7905d"></a>
 
 ??? note "소스 근거: src/libcamera/pipeline_handler.cpp:547"
-    `src/libcamera/pipeline_handler.cpp:547`에서 시작하는 발췌입니다. 종료 줄은 620이며, 아래 원문을 설명과 대조할 수 있습니다.
+    `src/libcamera/pipeline_handler.cpp:547`에서 시작하는 발췌입니다. 종료 줄은 563이며, 아래 원문을 설명과 대조할 수 있습니다.
     
-    SHA-256: `514288cc958de9ff5fd19d46393cec3bb3088f4f08486528d4559071138638c9`
+    SHA-256: `096784b4798b3156e88e3acf84577f60a27f0bf0e2422ae7850e44b081eb9d3a`
     
     ```text
     \brief Complete a buffer for a request
@@ -926,14 +889,17 @@ flowchart TB
      * otherwise
      */
     bool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)
-    {
-    	Camera *camera = request->_d()->camera();
-    	camera->bufferCompleted.emit(request, buffer);
-    	return request->_d()->completeBuffer(buffer);
-    }
+    ```
+
+<a id="source-257e6e7c94862f30"></a>
+
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:571"
+    `src/libcamera/pipeline_handler.cpp:571`에서 시작하는 발췌입니다. 종료 줄은 584이며, 아래 원문을 설명과 대조할 수 있습니다.
     
-    /**
-     * \brief Signal request completion
+    SHA-256: `ee38212c166d6623869b4f2b78c843e9025d173682ecf94f344a987761d47218`
+    
+    ```text
+    \brief Signal request completion
      * \param[in] request The request that has completed
      *
      * The pipeline handler shall call this function to notify the \a camera that
@@ -946,6 +912,17 @@ flowchart TB
      *
      * \context This function shall be called from the CameraManager thread.
      */
+    void PipelineHandler::completeRequest(Request *request)
+    ```
+
+<a id="source-695328706c4e6d8e"></a>
+
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:584"
+    `src/libcamera/pipeline_handler.cpp:584`에서 시작하는 발췌입니다. 종료 줄은 604이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `06aba06c3d636ad21e1409ac329ab9c3853776a2eef8ca443acbb49c8893e90b`
+    
+    ```text
     void PipelineHandler::completeRequest(Request *request)
     {
     	Camera *camera = request->_d()->camera();
@@ -967,30 +944,30 @@ flowchart TB
     	/* Allow any waiting requests to be queued to the pipeline. */
     	doQueueRequests(camera);
     }
-    
-    /**
-     * \brief Cancel request and signal its completion
-     * \param[in] request The request to cancel
-     *
-     * This function cancels and completes the request. The same rules as for
-     * completeRequest() apply.
-     */
-    void PipelineHandler::cancelRequest(Request *request)
-    {
-    	request->_d()->cancel();
-    	completeRequest(request);
-    }
-    
-    /**
-     * \brief Retrieve the absolute path to a platform configuration file
     ```
 
-<a id="source-38494771cb29cc8c"></a>
+<a id="source-e93fc49557947f2a"></a>
+
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:563"
+    `src/libcamera/pipeline_handler.cpp:563`에서 시작하는 발췌입니다. 종료 줄은 568이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `54525292749afc2e145687fa1031d697bb00c018d2e9cb2c5cbcba278dbbf75d`
+    
+    ```text
+    bool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)
+    {
+    	Camera *camera = request->_d()->camera();
+    	camera->bufferCompleted.emit(request, buffer);
+    	return request->_d()->completeBuffer(buffer);
+    }
+    ```
+
+<a id="source-b23ce28b1eb9623e"></a>
 
 ??? note "소스 근거: src/libcamera/request.cpp:376"
-    `src/libcamera/request.cpp:376`에서 시작하는 발췌입니다. 종료 줄은 407이며, 아래 원문을 설명과 대조할 수 있습니다.
+    `src/libcamera/request.cpp:376`에서 시작하는 발췌입니다. 종료 줄은 385이며, 아래 원문을 설명과 대조할 수 있습니다.
     
-    SHA-256: `22294a6809bd4c6655824af9603fb3879603cec256c6845e00d3d2a0e6bf7679`
+    SHA-256: `682e5dd28db68751cb79b570375c7065dc7731dc55359b439c81405136bcebdf`
     
     ```text
     \brief Reset the request for reuse
@@ -1002,6 +979,17 @@ flowchart TB
      * request. The application can reuse the buffers that were previously added
      * to the request via addBuffer() by setting \a flags to ReuseBuffers.
      */
+    void Request::reuse(ReuseFlag flags)
+    ```
+
+<a id="source-9587543f8c422e7c"></a>
+
+??? note "소스 근거: src/libcamera/request.cpp:385"
+    `src/libcamera/request.cpp:385`에서 시작하는 발췌입니다. 종료 줄은 404이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `cfe9f2cfbcee4601ce76b708402b5265cea1e2508825b72eddbe0d2f48beb56b`
+    
+    ```text
     void Request::reuse(ReuseFlag flags)
     {
     	LIBCAMERA_TRACEPOINT(request_reuse, this);
@@ -1022,9 +1010,6 @@ flowchart TB
     	controls_.clear();
     	_d()->metadata_.clear();
     }
-    
-    /**
-     * \fn Request::controls()
     ```
 
 <a id="source-447804db33308244"></a>
@@ -1050,28 +1035,176 @@ flowchart TB
      * \typedef Request::BufferMap
     ```
 
-<a id="source-e09324743def3f09"></a>
+<a id="source-b294c03e13c0262d"></a>
 
-??? note "소스 근거: src/libcamera/camera.cpp:1431"
-    `src/libcamera/camera.cpp:1431`에서 시작하는 발췌입니다. 종료 줄은 1475이며, 아래 원문을 설명과 대조할 수 있습니다.
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:607"
+    `src/libcamera/pipeline_handler.cpp:607`에서 시작하는 발췌입니다. 종료 줄은 617이며, 아래 원문을 설명과 대조할 수 있습니다.
     
-    SHA-256: `0009c665993b995489738e48affc81643a7159d82b5326e5f182e30fe11e4901`
+    SHA-256: `e7877ebff75a9082226de0da4d333d731300429781e6787d8b012afa33df3f4d`
     
     ```text
-    \brief Stop capture from camera
+    \brief Cancel request and signal its completion
+     * \param[in] request The request to cancel
      *
-     * This function stops capturing and processing requests immediately. All
-     * pending requests are cancelled and complete synchronously in an error state.
-     *
-     * \context This function may be called in any camera state as defined in \ref
-     * camera_operation, and shall be synchronized by the caller with other
-     * functions that affect the camera state. If called when the camera isn't
-     * running, it is a no-op.
-     *
-     * \return 0 on success or a negative error code otherwise
-     * \retval -ENODEV The camera has been disconnected from the system
-     * \retval -EACCES The camera is not running so can't be stopped
+     * This function cancels and completes the request. The same rules as for
+     * completeRequest() apply.
      */
+    void PipelineHandler::cancelRequest(Request *request)
+    {
+    	request->_d()->cancel();
+    	completeRequest(request);
+    }
+    ```
+
+<a id="source-90771942d6e02504"></a>
+
+??? note "소스 근거: src/libcamera/request.cpp:458"
+    `src/libcamera/request.cpp:458`에서 시작하는 발췌입니다. 종료 줄은 460이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `edaa688b9d09ce2d2db9584e4ddfc68578fbad4afa16419c0e317d17696ef09b`
+    
+    ```text
+    Ownership of the
+     * fence will only be taken in case of success, otherwise the fence will
+     * be left unmodified.
+    ```
+
+<a id="source-00d698c5ffeb6e73"></a>
+
+??? note "소스 근거: src/libcamera/request.cpp:456"
+    `src/libcamera/request.cpp:456`에서 시작하는 발췌입니다. 종료 줄은 458이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `0849c0d26a834db7f44e8b7c964ff9d5c45d1e64970bb97a4d5791fc55be9d46`
+    
+    ```text
+    When a valid Fence is provided to this function, \a fence is moved to \a
+     * buffer and this Request will only be queued to the device once the
+     * fences of all its buffers have been correctly signalled.
+    ```
+
+<a id="source-1778eeffec821aed"></a>
+
+??? note "소스 근거: src/libcamera/request.cpp:462"
+    `src/libcamera/request.cpp:462`에서 시작하는 발췌입니다. 종료 줄은 466이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `63b183a431782ec21df8ae20627587a127cd058015d6984c5d349c46b3b884aa`
+    
+    ```text
+    If the \a fence associated with \a buffer isn't signalled, the request will
+     * fail after a timeout. The buffer will still contain the fence, which
+     * applications must retrieve with FrameBuffer::releaseFence() before the buffer
+     * can be reused in another request. Attempting to add a buffer that still
+     * contains a fence to a request will result in this function returning -EEXIST.
+    ```
+
+<a id="source-2745b1d62c97f2ca"></a>
+
+??? note "소스 근거: src/libcamera/camera.cpp:1330"
+    `src/libcamera/camera.cpp:1330`에서 시작하는 발췌입니다. 종료 줄은 1336이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `cc0b028a5c7a0d237a0e06da1d8c316f5b02ab44523fdd01309fa9db4005101b`
+    
+    ```text
+    int Camera::queueRequest(Request *request)
+    {
+    	Private *const d = _d();
+    
+    	int ret = d->isAccessAllowed(Private::CameraRunning);
+    	if (ret < 0)
+    		return ret;
+    ```
+
+<a id="source-2604c3d6c6f3f5a9"></a>
+
+??? note "소스 근거: src/libcamera/camera.cpp:1339"
+    `src/libcamera/camera.cpp:1339`에서 시작하는 발췌입니다. 종료 줄은 1342이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `e6d3ce0a7e8ea2fbc51d3e88b8144fe14c48f290e1e2136d138f30c96089a497`
+    
+    ```text
+    if (request->_d()->camera() != this) {
+    		LOG(Camera, Error) << "Request was not created by this camera";
+    		return -EXDEV;
+    	}
+    ```
+
+<a id="source-4e441a69ff991bd9"></a>
+
+??? note "소스 근거: src/libcamera/camera.cpp:1344"
+    `src/libcamera/camera.cpp:1344`에서 시작하는 발췌입니다. 종료 줄은 1347이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `adf06ba7f60190ab6831de4ddbfc44254cfd30aa73804b8653737d30d3410d11`
+    
+    ```text
+    if (request->status() != Request::RequestPending) {
+    		LOG(Camera, Error) << request->toString() << " is not valid";
+    		return -EINVAL;
+    	}
+    ```
+
+<a id="source-47c5809e275843b4"></a>
+
+??? note "소스 근거: src/libcamera/camera.cpp:1350"
+    `src/libcamera/camera.cpp:1350`에서 시작하는 발췌입니다. 종료 줄은 1353이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `1c85b739f2ca2dbc505a51e5f0f7aa6f4d79196e1071d1432746dcc2ed35ea60`
+    
+    ```text
+    if (request->controls().infoMap() != &controls()) {
+    		LOG(Camera, Error) << "Overwriting Request::controls() is not allowed";
+    		return -EINVAL;
+    	}
+    ```
+
+<a id="source-9d15e20d57d8a7a3"></a>
+
+??? note "소스 근거: src/libcamera/camera.cpp:1361"
+    `src/libcamera/camera.cpp:1361`에서 시작하는 발췌입니다. 종료 줄은 1364이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `d5b8bbd0f72dd7ef413d6497f10b03f8828905516818b8b9b1b4836a6a590dab`
+    
+    ```text
+    if (request->buffers().empty()) {
+    		LOG(Camera, Error) << "Request contains no buffers";
+    		return -EINVAL;
+    	}
+    ```
+
+<a id="source-0ab24282296e3cb7"></a>
+
+??? note "소스 근거: src/libcamera/camera.cpp:1367"
+    `src/libcamera/camera.cpp:1367`에서 시작하는 발췌입니다. 종료 줄은 1370이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `53036bd44d0d572453a1dd8d822b04d2d814b7d12b410b63db117c28dccba0eb`
+    
+    ```text
+    if (d->activeStreams_.find(stream) == d->activeStreams_.end()) {
+    			LOG(Camera, Error) << "Invalid request";
+    			return -EINVAL;
+    		}
+    ```
+
+<a id="source-98188febb52b36ee"></a>
+
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:597"
+    `src/libcamera/pipeline_handler.cpp:597`에서 시작하는 발췌입니다. 종료 줄은 599이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `c82c20d516436878eac193d8f720e34d2c76ff88a5acf995e292978cb28a3836`
+    
+    ```text
+    ASSERT(!req->hasPendingBuffers());
+    		data->queuedRequests_.pop_front();
+    		camera->requestComplete(req);
+    ```
+
+<a id="source-96a432196b4d7557"></a>
+
+??? note "소스 근거: src/libcamera/camera.cpp:1445"
+    `src/libcamera/camera.cpp:1445`에서 시작하는 발췌입니다. 종료 줄은 1472이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `8a1acdc0c0263c5453e024b1fc0c119960d8c291dc3ff6dffa38f38ff37af63d`
+    
+    ```text
     int Camera::stop()
     {
     	Private *const d = _d();
@@ -1100,27 +1233,16 @@ flowchart TB
     
     	return 0;
     }
-    
-    /**
-     * \brief Handle request completion and notify application
     ```
 
-<a id="source-eefd1bbecb1aad0a"></a>
+<a id="source-1cc522721d2c5142"></a>
 
-??? note "소스 근거: src/libcamera/pipeline_handler.cpp:359"
-    `src/libcamera/pipeline_handler.cpp:359`에서 시작하는 발췌입니다. 종료 줄은 414이며, 아래 원문을 설명과 대조할 수 있습니다.
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:367"
+    `src/libcamera/pipeline_handler.cpp:367`에서 시작하는 발췌입니다. 종료 줄은 402이며, 아래 원문을 설명과 대조할 수 있습니다.
     
-    SHA-256: `108b1bea5a8314ba57213d15c1e3ba01abe2b3f8a9e0e1e1281864b5492c7304`
+    SHA-256: `43962342db73d223e196b6bae1c49c79db3d3a68de4893cba3ddad50945c23d2`
     
     ```text
-    \brief Stop capturing from all running streams and cancel pending requests
-     * \param[in] camera The camera to stop
-     *
-     * This function stops capturing and processing requests immediately. All
-     * pending requests are cancelled and complete immediately in an error state.
-     *
-     * \context This function is called from the CameraManager thread.
-     */
     void PipelineHandler::stop(Camera *camera)
     {
     	/*
@@ -1157,9 +1279,17 @@ flowchart TB
     
     	data->requestSequence_ = 0;
     }
+    ```
+
+<a id="source-06f63604b431494c"></a>
+
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:405"
+    `src/libcamera/pipeline_handler.cpp:405`에서 시작하는 발췌입니다. 종료 줄은 414이며, 아래 원문을 설명과 대조할 수 있습니다.
     
-    /**
-     * \fn PipelineHandler::stopDevice()
+    SHA-256: `5d722a97c30504ed8c02ef969e101356ac92bfcb70d9d5c5c27bd381be8ec72f`
+    
+    ```text
+    \fn PipelineHandler::stopDevice()
      * \brief Stop capturing from all running streams
      * \param[in] camera The camera to stop
      *
@@ -1199,6 +1329,45 @@ flowchart TB
     }
     
     int Camera::exportFrameBuffers(Stream *stream,
+    ```
+
+<a id="source-c1c04bdcb583cc72"></a>
+
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:382"
+    `src/libcamera/pipeline_handler.cpp:382`에서 시작하는 발췌입니다. 종료 줄은 395이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `1762a77459d09ee281c868e6f5f8d8fdb2c9735b086b0a4f6086b8ba562291cd`
+    
+    ```text
+    while (!waitingRequests.empty()) {
+    		Request *request = waitingRequests.front();
+    		waitingRequests.pop();
+    
+    		/*
+    		 * Cancel all requests by marking them as cancelled and calling
+    		 * doQueueRequest() instead of cancelRequest(). This ensures
+    		 * that the requests get a sequence number and are temporarily
+    		 * added to queuedRequests_ so they can be properly completed in
+    		 * completeRequest().
+    		 */
+    		request->_d()->cancel();
+    		doQueueRequest(request);
+    	}
+    ```
+
+<a id="source-9d8596b7b45d5a41"></a>
+
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:397"
+    `src/libcamera/pipeline_handler.cpp:397`에서 시작하는 발췌입니다. 종료 줄은 401이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `f2bb9becbd786d44e48aafbc122a135b7e6d6ef5fffdd0c8a6445a18c6be5962`
+    
+    ```text
+    /* Make sure no requests are pending. */
+    	ASSERT(data->queuedRequests_.empty());
+    	ASSERT(data->waitingRequests_.empty());
+    
+    	data->requestSequence_ = 0;
     ```
 
 ??? note "근거와 검토 정보"

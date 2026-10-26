@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-10-26T11:12:00+00:00
+generated_at: 2026-10-26T11:47:34+00:00
 source_commit: 960713a8f9b404bb64ce9b05d1ffd5df7e84dd05
 status: ok
 section: vendor-integration
