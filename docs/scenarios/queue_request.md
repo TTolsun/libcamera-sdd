@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-10-24T05:28:37+00:00
+generated_at: 2026-10-26T11:12:04+00:00
 source_commit: 2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f
 status: ok
 section: scenarios
@@ -7,7 +7,7 @@ entry: Camera::queueRequest(Request *)
 scenario_id: queue_request
 scenario_fingerprint: 05ab5d9913827d78f8ee448218c95638a65bfad23ddbcc90a242241855ed66d8
 generation_method: extracted-scenario
-revalidated_from: 7278a59eba64358bbf3d51f557506dd5b0bce5c4
+revalidated_from: 960713a8f9b404bb64ce9b05d1ffd5df7e84dd05
 ---
 
 # 요청 제출 (Camera::queueRequest)
@@ -170,8 +170,8 @@ facts에 기록된 호출은 80개이며, 요약의 hide 규칙에 해당하는 
     - 생성 방식: 추출 호출로 만든 시나리오
     - 검증 범위: 주요 호출과 경계를 facts에서 구성하고 전체 추적 기록을 보존합니다. 실행 순서를 추정하지 않습니다.
     - 근거 파일: `src/libcamera/base/log.cpp`, `src/libcamera/camera.cpp`, `src/libcamera/controls.cpp`, `src/libcamera/request.cpp`
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `2c4b67c079`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `960713a8f9`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-10-24 · 사람 검토 전
+    - 검토 상태 기록일: 2026-10-26 · 사람 검토 전
 
 다음 단계: [요청 완료 통지 (PipelineHandler::completeRequest)](complete_request.md)
