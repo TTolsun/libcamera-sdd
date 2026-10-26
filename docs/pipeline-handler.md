@@ -1,13 +1,14 @@
 ---
-generated_at: 2026-10-25T08:20:41+00:00
+generated_at: 2026-10-26T11:12:01+00:00
 source_commit: 2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f
 status: ok
 section: pipeline-handler
 generation_method: facts-and-llm
-evidence_fingerprint: fc72380511bb850f4b0d10fa19c69948abb6138463adda1b929e5e0f694a7f00
+evidence_fingerprint: 8e3df8ddd75067b5e614d445902788128909a9defc691450696b258cfb604937
 semantic_review: human-review-required
-agent: response-bundle/codex-session
-generated_design: {"schema": 1, "input_fingerprint": "fc72380511bb850f4b0d10fa19c69948abb6138463adda1b929e5e0f694a7f00", "answers": {"responsibility": [{"text": "`PipelineHandler`는 열거된 미디어 장치를 지원 파이프라인과 연결하고 `Camera`를 만듭니다. 인스턴스 수명은 `std::shared_ptr`로 관리하며, 멤버 함수에서 공유 포인터를 만들 수 있도록 `std::enable_shared_from_this`를 구현합니다.", "covers": ["responsibility"], "kind": "behavior", "quote": "\\class PipelineHandler\n * \\brief Create and manage cameras based on a set of media devices\n *\n * The PipelineHandler matches the media devices provided by a DeviceEnumerator\n * with the pipelines it supports and creates corresponding Camera devices.\n *\n * Pipeline handler instances are reference-counted through std::shared_ptr<>.\n * They implement std::enable_shared_from_this<> in order to create new\n * std::shared_ptr<> in code paths originating from member functions of the\n * PipelineHandler class where only the 'this' pointer is available.\n */", "evidence": ["handler"]}, {"text": "`PipelineHandler`는 직접 생성하지 않고 `PipelineHandlerFactoryBase::create()`를 통해 공유 포인터로 생성해야 합니다.", "covers": ["responsibility"], "kind": "behavior", "quote": "/**\n * \\brief Construct a PipelineHandler instance\n * \\param[in] manager The camera manager\n * \\param[in] maxQueuedRequestsDevice The maximum number of requests queued to\n * the device\n *\n * In order to honour the std::enable_shared_from_this<> contract,\n * PipelineHandler instances shall never be constructed manually, but always\n * through the PipelineHandlerFactoryBase::create() function.\n */\nPipelineHandler::PipelineHandler(CameraManager *manager,\n\t\t\t\t unsigned int maxQueuedRequestsDevice)\n\t: manager_(manager), maxQueuedRequestsDevice_(maxQueuedRequestsDevice),\n\t  useCount_(0)\n{\n}", "evidence": ["handler"]}, {"text": "`match()`는 `CameraManager` 스레드에서 파이프라인 하나에 필요한 장치를 확보하고 카메라를 생성·등록합니다. 필요한 장치를 모두 찾았으면 `MediaDevice::acquire()`로 확보하고 카메라를 내부에 저장한 뒤 `true`를 반환해야 합니다. 실패하면 장치를 확보하지 않거나 이미 확보한 장치를 모두 해제하고 `false`를 반환해야 합니다.", "covers": ["responsibility"], "kind": "behavior", "quote": "/**\n * \\fn PipelineHandler::match(DeviceEnumerator *enumerator)\n * \\brief Match media devices and create camera instances\n * \\param[in] enumerator The enumerator providing all media devices found in the\n * system\n *\n * This function is the main entry point of the pipeline handler. It is called\n * by the camera manager with the \\a enumerator passed as an argument. It shall\n * acquire from the \\a enumerator all the media devices it needs for a single\n * pipeline, create one or multiple Camera instances and register them with the\n * camera manager.\n *\n * If all media devices needed by the pipeline handler are found, they must all\n * be acquired by a call to MediaDevice::acquire(). This function shall then\n * create the corresponding Camera instances, store them internally, and return\n * true. Otherwise it shall not acquire any media device (or shall release all\n * the media devices is has acquired by calling MediaDevice::release()) and\n * return false.\n *\n * If multiple instances of a pipeline are available in the system, the\n * PipelineHandler class will be instantiated once per instance, and its match()\n * function called for every instance. Each call shall acquire media devices for\n * one pipeline instance, until all compatible media devices are exhausted.\n *\n * If this function returns true, a new instance of the pipeline handler will\n * be created and its match() function called.\n *\n * \\context This function is called from the CameraManager thread.\n *\n * \\return true if media devices have been acquired and camera instances\n * created, or false otherwise\n */", "evidence": ["handler"]}, {"text": "`acquireMediaDevice()`는 패턴과 일치하는 사용 가능한 장치를 찾아 확보한 뒤 공유 포인터를 반환합니다. 호출자는 장치를 직접 해제하면 안 되며, 확보한 장치는 핸들러가 파괴될 때 해제됩니다.", "covers": ["responsibility"], "kind": "behavior", "quote": "\\brief Search and acquire a MediaDevice matching a device pattern\n * \\param[in] enumerator Enumerator containing all media devices in the system\n * \\param[in] dm Device match pattern\n *\n * Search the device \\a enumerator for an available media device matching the\n * device match pattern \\a dm. Matching media device that have previously been\n * acquired by MediaDevice::acquire() are not considered. If a match is found,\n * the media device is acquired and returned. The caller shall not release the\n * device explicitly, it will be automatically released when the pipeline\n * handler is destroyed.\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return A shared pointer to the matching MediaDevice, or nullptr if no match\n * is found\n */\nstd::shared_ptr<MediaDevice>\nPipelineHandler::acquireMediaDevice(DeviceEnumerator *enumerator,\n\t\t\t\t    const DeviceMatch &dm)\n{\n\tstd::shared_ptr<MediaDevice> media = enumerator->search(dm);\n\tif (!media)\n\t\treturn nullptr;", "evidence": ["acquisition"]}, {"text": "`acquire()`는 같은 프로세스에서 재귀적으로 획득할 수 있지만, 성공한 호출마다 `release()`가 짝을 이뤄야 합니다. 이 접근 관리는 `Camera`가 처리하므로 파이프라인 구현이 두 함수를 직접 호출하지 않습니다.", "covers": ["responsibility"], "kind": "behavior", "quote": "/**\n * \\brief Acquire exclusive access to the pipeline handler for the process\n *\n * This function locks all the media devices used by the pipeline to ensure\n * that no other process can access them concurrently.\n *\n * Access to a pipeline handler may be acquired recursively from within the\n * same process. Every successful acquire() call shall be matched with a\n * release() call. This allows concurrent access to the same pipeline handler\n * from different cameras within the same process.\n *\n * Pipeline handlers shall not call this function directly as the Camera class\n * handles access internally.\n *\n * \\context This function is called from the CameraManager thread.\n *\n * \\return True if the pipeline handler was acquired, false if another process\n * has already acquired it\n * \\sa release()\n */\nbool PipelineHandler::acquire(Camera *camera)\n{\n\tif (useCount_ == 0) {\n\t\tfor (std::shared_ptr<MediaDevice> &media : mediaDevices_) {\n\t\t\tif (!media->lock()) {\n\t\t\t\tunlockMediaDevices();\n\t\t\t\treturn false;\n\t\t\t}\n\t\t}\n\t}", "evidence": ["acquisition"]}, {"text": "`releaseDevice()`는 해제되는 카메라마다 호출됩니다. 여러 카메라가 자원을 공유한다면, 이전에 획득한 모든 카메라의 `releaseDevice()`가 호출되기 전에는 그 자원을 해제하지 않도록 파이프라인 구현이 관리해야 합니다.", "covers": ["responsibility"], "kind": "behavior", "quote": "/**\n * \\brief Release resources associated with this camera\n * \\param[in] camera The camera for which to release resources\n *\n * Pipeline handlers may override this in order to perform cleanup operations\n * when a camera is released, such as freeing memory.\n *\n * This is called once for every camera that is released. If there are resources\n * shared by multiple cameras then the pipeline handler must take care to not\n * release them until releaseDevice() has been called for all previously\n * acquired cameras.\n *\n * \\context This function is called from the CameraManager thread.\n *\n * \\sa acquireDevice()\n */\nvoid PipelineHandler::releaseDevice([[maybe_unused]] Camera *camera)\n{\n}", "evidence": ["acquisition"]}], "configuration": [{"text": "`generateConfiguration()`은 호출자가 요청한 스트림 역할에 맞는 기본 구성을 만듭니다. 역할을 충족할 수 있으면 유효한 `CameraConfiguration`을, 그렇지 않으면 null 포인터를 반환합니다. 어떤 스레드에서도 호출될 수 있으므로 스레드 안전성을 지키고, 핸들러 안의 카메라 상태를 바꾸지 않아야 합니다.", "covers": ["configuration"], "kind": "behavior", "quote": "\\fn PipelineHandler::generateConfiguration()\n * \\brief Generate a camera configuration for a specified camera\n * \\param[in] camera The camera to generate a default configuration for\n * \\param[in] roles A list of stream roles\n *\n * Generate a default configuration for the \\a camera for a specified list of\n * stream roles. The caller shall populate the \\a roles with the use-cases it\n * wishes to fetch the default configuration for. The returned configuration\n * can then be examined by the caller to learn about the selected streams and\n * their default parameters.\n *\n * The intended companion to this is \\a configure() which can be used to change\n * the group of streams parameters.\n *\n * \\context This function may be called from any thread and shall be\n * \\threadsafe. It shall not modify the state of the \\a camera in the pipeline\n * handler.\n *\n * \\return A valid CameraConfiguration if the requested roles can be satisfied,\n * or a null pointer otherwise.\n */", "evidence": ["configuration"]}, {"text": "`configure()`는 `Camera`가 전달한 스트림 구성을 적용하며 `CameraManager` 스레드에서 호출됩니다. 입력은 이미 `CameraConfiguration::validate()`를 통과했으므로 구현은 추가 검증을 수행하지 않아야 하며, 파생 구성 클래스의 사용자 정의 필드에 의존할 수 있습니다.", "covers": ["configuration"], "kind": "behavior", "quote": "/**\n * \\fn PipelineHandler::configure()\n * \\brief Configure a group of streams for capture\n * \\param[in] camera The camera to configure\n * \\param[in] config The camera configurations to setup\n *\n * Configure the specified group of streams for \\a camera according to the\n * configuration specified in \\a config. The intended caller of this interface\n * is the Camera class which will receive configuration to apply from the\n * application.\n *\n * The configuration is guaranteed to have been validated with\n * CameraConfiguration::validate(). The pipeline handler implementation shall\n * not perform further validation and may rely on any custom field stored in its\n * custom CameraConfiguration derived class.\n *\n * When configuring the camera the pipeline handler shall associate a Stream\n * instance to each StreamConfiguration entry in the CameraConfiguration using\n * the StreamConfiguration::setStream() function.\n *\n * \\context This function is called from the CameraManager thread.\n *\n * \\return 0 on success or a negative error code otherwise\n */", "evidence": ["configuration"]}, {"text": "`configure()` 구현은 각 `StreamConfiguration`에 대응하는 `Stream`을 `setStream()`으로 연결해야 합니다. 성공하면 0을, 실패하면 음수 오류 코드를 반환합니다.", "covers": ["configuration"], "kind": "behavior", "quote": "/**\n * \\fn PipelineHandler::configure()\n * \\brief Configure a group of streams for capture\n * \\param[in] camera The camera to configure\n * \\param[in] config The camera configurations to setup\n *\n * Configure the specified group of streams for \\a camera according to the\n * configuration specified in \\a config. The intended caller of this interface\n * is the Camera class which will receive configuration to apply from the\n * application.\n *\n * The configuration is guaranteed to have been validated with\n * CameraConfiguration::validate(). The pipeline handler implementation shall\n * not perform further validation and may rely on any custom field stored in its\n * custom CameraConfiguration derived class.\n *\n * When configuring the camera the pipeline handler shall associate a Stream\n * instance to each StreamConfiguration entry in the CameraConfiguration using\n * the StreamConfiguration::setStream() function.\n *\n * \\context This function is called from the CameraManager thread.\n *\n * \\return 0 on success or a negative error code otherwise\n */", "evidence": ["configuration"]}], "queue": [{"text": "`registerRequest()`는 요청 생성 시 수행할 일회성 초기화 지점입니다. 공통 구현은 요청의 `prepared` 신호를 연결해, 준비가 끝나면 해당 카메라의 `doQueueRequests()`를 호출합니다.", "covers": ["queue"], "kind": "behavior", "quote": "\\fn PipelineHandler::registerRequest()\n * \\brief Register a request for use by the pipeline handler\n * \\param[in] request The request to register\n *\n * This function is called when the request is created, and allows the pipeline\n * handler to perform any one-time initialization it requries for the request.\n */\nvoid PipelineHandler::registerRequest(Request *request)\n{\n\t/*\n\t * Connect the request prepared signal to notify the pipeline handler\n\t * when a request is ready to be processed.\n\t */\n\trequest->_d()->prepared.connect(this, [this, request]() {\n\t\tdoQueueRequests(request->_d()->camera());\n\t});\n}", "evidence": ["queue"]}, {"text": "`queueRequest()`는 요청을 `waitingRequests_`에 넣고 `prepare(300ms)`를 호출합니다.", "covers": ["queue"], "kind": "behavior", "quote": "Camera *camera = request->_d()->camera();\n\tCamera::Private *data = camera->_d();\n\tdata->waitingRequests_.push(request);", "evidence": ["queue"]}, {"text": "`Request::Private::prepare()`는 버퍼의 acquire fence가 신호를 보내기를 기다립니다. 300ms는 준비 완료를 무조건 늦추는 시간이 아니라 선택적인 만료 시간입니다. 기다릴 fence가 없으면 즉시 준비 완료를 알리고, fence가 제대로 신호를 보내지 못하거나 시간이 만료되면 요청을 취소하고 준비 완료 신호를 냅니다.", "covers": ["queue"], "kind": "behavior", "quote": "\\brief Prepare the Request to be queued to the device\n * \\param[in] timeout Optional expiration timeout\n *\n * Prepare a Request to be queued to the hardware device by ensuring it is\n * ready for the incoming memory transfers.\n *\n * This currently means waiting on each frame buffer acquire fence to be\n * signalled. An optional expiration timeout can be specified. If not all the\n * fences have been signalled correctly before the timeout expires the Request\n * is cancelled.\n *\n * The function immediately emits the prepared signal if all the prepare\n * operations have been completed synchronously. If instead the prepare\n * operations require to wait the completion of asynchronous events, such as\n * fences notifications or timer expiration, the prepared signal is emitted upon\n * the asynchronous event completion.\n *\n * As we currently only handle fences, the function emits the prepared signal\n * immediately if there are no fences to wait on. Otherwise the prepared signal\n * is emitted when all fences have been signalled or the optional timeout has\n * expired.\n *\n * If not all the fences have been correctly signalled or the optional timeout\n * has expired the Request will be cancelled and the Request::prepared signal\n * emitted.\n *\n * The intended user of this function is the PipelineHandler base class, which\n * 'prepares' a Request before queuing it to the hardware device.\n */\nvoid Request::Private::prepare(std::chrono::milliseconds timeout)\n{\n\t/* Create and connect one notifier for each synchronization fence. */\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tconst Fence *fence = buffer->_d()->fence();\n\t\tif (!fence)\n\t\t\tcontinue;", "evidence": ["prepare"]}, {"text": "`doQueueRequests()`는 장치 큐 크기가 `maxQueuedRequestsDevice_`와 같거나 맨 앞 요청이 아직 준비되지 않았으면 멈춥니다. 뒤의 요청은 앞 요청을 건너뛰지 않습니다.", "covers": ["queue"], "kind": "behavior", "quote": "/**\n * \\brief Queue prepared requests to the device\n *\n * Iterate the list of waiting requests and queue them to the device one\n * by one if they have been prepared.\n */\nvoid PipelineHandler::doQueueRequests(Camera *camera)\n{\n\tCamera::Private *data = camera->_d();\n\twhile (!data->waitingRequests_.empty()) {\n\t\tif (data->queuedRequests_.size() == maxQueuedRequestsDevice_)\n\t\t\tbreak;", "evidence": ["queue"]}, {"text": "재귀적인 순회에 대비하여 `doQueueRequests()`는 대기 큐에서 요청을 제거한 뒤 `doQueueRequest()`를 호출합니다.", "covers": ["queue"], "kind": "behavior", "quote": "/*\n\t\t * Pop the request first, in case doQueueRequests() is called\n\t\t * recursively from within doQueueRequest()\n\t\t */\n\t\tdata->waitingRequests_.pop();\n\t\tdoQueueRequest(request);\n\t}\n}", "evidence": ["queue"]}, {"text": "`doQueueRequest()`는 요청을 장치 큐에 추가하고 순번을 부여합니다. 이미 취소된 요청이면 `completeRequest()`로 완료 처리한 뒤 반환하며, 하드웨어 제출로 진행하지 않습니다. 그 외에는 `queueRequestDevice()`를 호출하고, 오류 반환 시 `cancelRequest()`를 호출합니다.", "covers": ["queue"], "kind": "behavior", "quote": "if (request->_d()->cancelled_) {\n\t\tcompleteRequest(request);\n\t\treturn;\n\t}", "evidence": ["queue"]}, {"text": "`queueRequestDevice()` 구현은 요청의 파라미터가 요청에 담긴 버퍼의 프레임에 적용되도록 장치를 설정해야 합니다. `CameraManager` 스레드에서 호출되며, 성공은 0, 실패는 음수 오류 코드로 반환합니다.", "covers": ["queue"], "kind": "behavior", "quote": "/**\n * \\fn PipelineHandler::queueRequestDevice()\n * \\brief Queue a request to the device\n * \\param[in] camera The camera to queue the request to\n * \\param[in] request The request to queue\n *\n * This function queues a capture request to the device for processing. The\n * request contains a set of buffers associated with streams and a set of\n * parameters. The pipeline handler shall program the device to ensure that the\n * parameters will be applied to the frames captured in the buffers provided in\n * the request.\n *\n * \\context This function is called from the CameraManager thread.\n *\n * \\return 0 on success or a negative error code otherwise\n */", "evidence": ["queue"]}], "completion": [{"text": "`completeBuffer()`는 `bufferCompleted`로 애플리케이션에 버퍼 완료를 알린 뒤 요청의 버퍼 추적 상태를 갱신합니다. 모든 버퍼가 끝났으면 `true`를 반환하지만 요청 자체를 자동으로 완료하지는 않습니다. 파이프라인 구현은 필요한 후처리를 마치고 `completeRequest()`를 명시적으로 호출해야 합니다.", "covers": ["completion"], "kind": "behavior", "quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)\n{\n\tCamera *camera = request->_d()->camera();\n\tcamera->bufferCompleted.emit(request, buffer);\n\treturn request->_d()->completeBuffer(buffer);\n}", "evidence": ["completion"]}, {"text": "`completeRequest()`는 완료된 요청을 애플리케이션에 제출 순서대로 반환하도록 조정합니다. 핸들러는 완료된 요청에 대해 이 함수를 순서와 무관하게 호출할 수 있습니다. 함수가 반환한 뒤에는 핸들러가 해당 요청에 접근하면 안 됩니다.", "covers": ["completion"], "kind": "behavior", "quote": "/**\n * \\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();", "evidence": ["completion"]}, {"text": "`completeRequest()`는 요청을 완료 상태로 바꾼 뒤 장치 큐의 맨 앞부터 확인합니다. 앞 요청이 `RequestPending`이면 반복을 멈추며, 그 요청을 제거하거나 취소하지 않습니다. 완료된 앞 요청은 큐에서 제거하고 `camera->requestComplete()`로 전달합니다.", "covers": ["completion"], "kind": "behavior", "quote": "while (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;", "evidence": ["completion"]}, {"text": "`completeRequest()`는 완료 요청을 반환한 뒤 `doQueueRequests()`로 대기 요청의 제출을 다시 시도합니다. `completeBuffer()`와 `completeRequest()`는 `CameraManager` 스레드에서 호출됩니다.", "covers": ["completion"], "kind": "behavior", "quote": "/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}", "evidence": ["completion"]}], "shutdown": [{"text": "`PipelineHandler::stop()`은 먼저 `waitingRequests_`를 별도 큐로 옮깁니다. 이렇게 분리하면 `stopDevice()` 안의 완료 통지가 대기 요청을 다시 제출하지 않습니다. 장치 정지 이후에 대기 요청을 취소해 완료 순서를 유지합니다.", "covers": ["shutdown"], "kind": "behavior", "quote": "\\brief Stop capturing from all running streams and cancel pending requests\n * \\param[in] camera The camera to stop\n *\n * This function stops capturing and processing requests immediately. All\n * pending requests are cancelled and complete immediately in an error state.\n *\n * \\context This function is called from the CameraManager thread.\n */\nvoid PipelineHandler::stop(Camera *camera)\n{\n\t/*\n\t * Take all waiting requests so that they are not requeued in response\n\t * to completeRequest() being called inside stopDevice(). Cancel them\n\t * after the device to keep them in order.\n\t */\n\tCamera::Private *data = camera->_d();\n\tstd::queue<Request *> waitingRequests;\n\twaitingRequests.swap(data->waitingRequests_);", "evidence": ["stop"]}, {"text": "`stop()`은 `stopDevice()`가 끝난 뒤 분리한 대기 요청을 하나씩 취소 표시하고 `doQueueRequest()`에 전달합니다. 이 경로는 순번을 부여하고 요청을 잠시 장치 큐에 넣어 `completeRequest()`로 올바르게 완료하기 위한 처리입니다. 이미 취소된 요청을 하드웨어에 다시 제출하는 단계로 해석하면 안 됩니다.", "covers": ["shutdown"], "kind": "behavior", "quote": "/*\n\t\t * Cancel all requests by marking them as cancelled and calling\n\t\t * doQueueRequest() instead of cancelRequest(). This ensures\n\t\t * that the requests get a sequence number and are temporarily\n\t\t * added to queuedRequests_ so they can be properly completed in\n\t\t * completeRequest().\n\t\t */\n\t\trequest->_d()->cancel();\n\t\tdoQueueRequest(request);\n\t}", "evidence": ["stop"]}, {"text": "`stop()`은 마지막에 두 큐가 비었는지 assertion으로 확인하고 요청 순번을 0으로 되돌립니다. 이 검사는 이후 호출을 차단하지 않습니다.", "covers": ["shutdown"], "kind": "behavior", "quote": "/* Make sure no requests are pending. */\n\tASSERT(data->queuedRequests_.empty());\n\tASSERT(data->waitingRequests_.empty());", "evidence": ["stop"]}, {"text": "`stopDevice()`의 계약은 캡처와 요청 처리를 즉시 멈추고 모든 미완료 요청을 취소하여 오류 상태로 완료하는 것입니다. 버퍼 완료만으로 요청 완료가 자동 발생하지 않으므로, 구현은 명시적인 요청 완료 책임까지 지켜야 합니다.", "covers": ["shutdown"], "kind": "behavior", "quote": "/**\n * \\fn PipelineHandler::stopDevice()\n * \\brief Stop capturing from all running streams\n * \\param[in] camera The camera to stop\n *\n * This function stops capturing and processing requests immediately. All\n * pending requests are cancelled and complete immediately in an error state.\n */", "evidence": ["stop"]}]}, "topic_inputs": {"responsibility": "2437765d2392dce2f32f90cd4b1bb924fbe8cad3ba3c9da67d691369a5d8cf5a", "configuration": "288a7f615d19a2b4f77e98a93fb678aa97321e08b326b5b7448af9db62358bf1", "queue": "b8f10f42ba919bbf35a3bba5f2c58f9f3e2beede8bff8d3fce540ee6cdfb6269", "completion": "9658969791a655cf9a9672981dde99fcb72502151c8b7a34556bec0ada87a93c", "shutdown": "9e042d95129965b396729a7e26ba30dcf6e6c9481a9e65c59375ac5baddc5f30"}, "reused_topics": ["responsibility", "configuration", "queue", "completion", "shutdown"], "generated_topics": [], "topic_agents": {"responsibility": "response-bundle/codex-session", "configuration": "response-bundle/codex-session", "queue": "response-bundle/codex-session", "completion": "response-bundle/codex-session", "shutdown": "response-bundle/codex-session"}, "body_sha256": "3ac04ad796bd960b9dae31993ee9e5bd90ec51f1229283d945fd7124d7baaa23"}
+agent: ollama/qwen3.5:9b
+generated_design: {"schema": 1, "input_fingerprint": "8e3df8ddd75067b5e614d445902788128909a9defc691450696b258cfb604937", "answers": {"responsibility": [{"text": "핸들러는 `DeviceEnumerator` 가 제공하는 미디어 장치를 매칭하여 카메라 인스턴스를 생성하고 관리하며, 핸들러 인스턴스는 std::shared_ptr< > 를 통해 참조 카운팅되고 enable_shared_from_this< > 를 구현하여 'this' 포인터만 있는 코드 경로에서 새로운 공유 포인터를 생성할 수 있습니다.", "covers": ["responsibility"], "kind": "behavior", "quote": "\\class PipelineHandler\n * \\brief Create and manage cameras based on a set of media devices\n *\n * The PipelineHandler matches the media devices provided by a DeviceEnumerator\n * with the pipelines it supports and creates corresponding Camera devices.\n *\n * Pipeline handler instances are reference-counted through std::shared_ptr<>.\n * They implement std::enable_shared_from_this<> in order to create new\n * std::shared_ptr<> in code paths originating from member functions of the\n * PipelineHandler class where only the 'this' pointer is available.\n */\n\n/**\n * \\brief Construct a PipelineHandler instance\n * \\param[in] manager The camera manager\n * \\param[in] maxQueuedRequestsDevice The maximum number of requests queued to\n * the device\n *\n * In order to honour the std::enable_shared_from_this<> contract,\n * PipelineHandler instances shall never be constructed manually, but always\n * through the PipelineHandlerFactoryBase::create() function.\n */\nPipelineHandler::PipelineHandler(CameraManager *manager,\n\t\t\t\t unsigned int maxQueuedRequestsDevice)\n\t: manager_(manager), maxQueuedRequestsDevice_(maxQueuedRequestsDevice),\n\t  useCount_(0)\n{\n}\n\nPipelineHandler::~PipelineHandler()\n{\n\tfor (std::shared_ptr<MediaDevice> &media : mediaDevices_)\n\t\tmedia->release();\n}\n\n/**\n * \\fn PipelineHandler::match(DeviceEnumerator *enumerator)\n * \\brief Match media devices and create camera instances\n * \\param[in] enumerator The enumerator providing all media devices found in the\n * system\n *\n * This function is the main entry point of the pipeline handler. It is called\n * by the camera manager with the \\a enumerator passed as an argument. It shall\n * acquire from the \\a enumerator all the media devices it needs for a single\n * pipeline, create one or multiple Camera instances and register them with the\n * camera manager.\n *\n * If all media devices needed by the pipeline handler are found, they must all\n * be acquired by a call to MediaDevice::acquire(). This function shall then\n * create the corresponding Camera instances, store them internally, and return\n * true. Otherwise it shall not acquire any media device (or shall release all\n * the media devices is has acquired by calling MediaDevice::release()) and\n * return false.\n *\n * If multiple instances of a pipeline are available in the system, the\n * PipelineHandler class will be instantiated once per instance, and its match()\n * function called for every instance. Each call shall acquire media devices for\n * one pipeline instance, until all compatible media devices are exhausted.\n *\n * If this function returns true, a new instance of the pipeline handler will\n * be created and its match() function called.\n *\n * \\context This function is called from the CameraManager thread.\n *\n * \\return true if media devices have been acquired and camera instances\n * created, or false otherwise\n */\n\n/**\n * \\brief Search and acquire a MediaDevice", "evidence": ["handler"]}], "configuration": [{"text": "generateConfiguration() 함수는 호출자가 roles 매개변수에 원하는 사용 사례를 채워 넣어야 하며, 요청된 역할이 충족될 경우 유효한 `CameraConfiguration` 를 반환하거나 그렇지 않으면 null 포인터를 반환합니다. 이 함수는 임의 스레드에서 호출될 수 있으며 파이프라인 핸들러의 상태 변경 없이 호출할 수 있어야 합니다. 반면 configure() 함수는 호출 시 이미 `CameraConfiguration::validate()` 로 검증된 구성을 전제로 하며, 파이프라인 핸들러 구현체는 추가 검증을 수행하지 않고 `StreamConfiguration` 의 setStream() 함수를 사용하여 각 `StreamConfiguration` 항목에 `Stream` 인스턴스를 연결해야 합니다. 또한 configure() 는 `CameraManager` 스레드에서 호출되며 성공 시 0 을 반환하거나 오류 발생 시 음수 오류 코드를 반환합니다.", "covers": ["configuration"], "kind": "behavior", "quote": "\\fn PipelineHandler::generateConfiguration()\n * \\brief Generate a camera configuration for a specified camera\n * \\param[in] camera The camera to generate a default configuration for\n * \\param[in] roles A list of stream roles\n *\n * Generate a default configuration for the \\a camera for a specified list of\n * stream roles. The caller shall populate the \\a roles with the use-cases it\n * wishes to fetch the default configuration for. The returned configuration\n * can then be examined by the caller to learn about the selected streams and\n * their default parameters.\n *\n * The intended companion to this is \\a configure() which can be used to change\n * the group of streams parameters.\n *\n * \\context This function may be called from any thread and shall be\n * \\threadsafe. It shall not modify the state of the \\a camera in the pipeline\n * handler.\n *\n * \\return A valid CameraConfiguration if the requested roles can be satisfied,\n * or a null pointer otherwise.\n */\n\n/**\n * \\fn PipelineHandler::configure()\n * \\brief Configure a group of streams for capture\n * \\param[in] camera The camera to configure\n * \\param[in] config The camera configurations to setup\n *\n * Configure the specified group of streams for \\a camera according to the\n * configuration specified in \\a config. The intended caller of this interface\n * is the Camera class which will receive configuration to apply from the\n * application.\n *\n * The configuration is guaranteed to have been validated with\n * CameraConfiguration::validate(). The pipeline handler implementation shall\n * not perform further validation and may rely on any custom field stored in its\n * custom CameraConfiguration derived class.\n *\n * When configuring the camera the pipeline handler shall associate a Stream\n * instance to each StreamConfiguration entry in the CameraConfiguration using\n * the StreamConfiguration::setStream() function.\n *\n * \\context This function is called from the CameraManager thread.\n *\n * \\return 0 on success or a negative error code otherwise\n */\n\n/**\n * \\fn PipelineHandler::exportFrameBuffers()", "evidence": ["configuration"]}], "completion": [{"text": "completeBuffer()는 요청 내부의 버퍼 추적 업데이트 및 애플리케이션에 대한 버퍼 완료 알림을 수행하지만 마지막 버퍼가 완료되더라도 요청이 자동으로 완료되지 않아 파이프라인 핸들러가 추가 작업을 수행할 기회를 제공하며, 명시적인 completeRequest() 호출로 요청을 완료해야 합니다. completeRequest()는 요청이 더 이상 파이프라인 핸들러에 의해 관리되지 않으며 반환 후 접근해서는 안 되며, 이 함수를 통해 요청이 제출 순서대로 애플리케이션에 반환되도록 보장합니다. 또한 파이프라인 핸들러는 어떤 완전한 요청에도 순서 제약 없이 호출할 수 있으며, 장치 큐 앞의 Pending 상태를 가진 요청을 만나면 반복을 중단하고 해당 요청을 처리하며, 대기 중인 요청들을 다시 큐에 추가하기 위해 doQueueRequests(camera)를 호출하여 재개합니다. 이 모든 함수들은 `CameraManager` 스레드에서 호출되어야 합니다.", "covers": ["completion"], "kind": "behavior", "quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)\n{\n\tCamera *camera = request->_d()->camera();\n\tcamera->bufferCompleted.emit(request, buffer);\n\treturn request->_d()->completeBuffer(buffer);\n}\n\n/**\n * \\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}\n\n/**\n * \\brief Cancel request and signal its completion\n * \\param[in] request The request to cancel\n *\n * This function cancels and completes the request. The same rules as for\n * completeRequest() apply.\n */\nvoid PipelineHandler::cancelRequest(Request *request)\n{\n\trequest->_d()->cancel();\n\tcompleteRequest(request);\n}\n\n/**\n * \\brief Retrieve the absolute path to a platform configuration file", "evidence": ["completion"]}], "shutdown": [{"text": "stop() 함수는 먼저 카메라의 private 데이터에서 waitingRequests_ 큐를 분리하여 임시 변수에 저장한 후, stopDevice() 를 호출하여 파이프라인 핸들러를 중지시키고, 그 다음 분리된 요청들을 하나씩 꺼내어 cancel() 로 취소하고 doQueueRequest() 를 호출하여 처리합니다.", "covers": ["shutdown"], "kind": "behavior", "quote": "void PipelineHandler::stop(Camera *camera)\n{\n\t/*\n\t * Take all waiting requests so that they are not requeued in response\n\t * to completeRequest() being called inside stopDevice(). Cancel them\n\t * after the device to keep them in order.\n\t */\n\tCamera::Private *data = camera->_d();\n\tstd::queue<Request *> waitingRequests;\n\twaitingRequests.swap(data->waitingRequests_);\n\n\t/* Stop the pipeline handler and let the queued requests complete. */\n\tstopDevice(camera);\n\n\t/* Cancel and signal as complete all waiting requests. */\n\twhile (!waitingRequests.empty()) {\n\t\tRequest *request = waitingRequests.front();\n\t\twaitingRequests.pop();\n\n\t\t/*\n\t\t * Cancel all requests by marking them as cancelled and calling\n\t\t * doQueueRequest() instead of cancelRequest(). This ensures\n\t\t * that the requests get a sequence number and are temporarily\n\t\t * added to queuedRequests_ so they can be properly completed in\n\t\t * completeRequest().\n\t\t */\n\t\trequest->_d()->cancel();\n\t\tdoQueueRequest(request);\n\t}\n\n\t/* Make sure no requests are pending. */\n\tASSERT(data->queuedRequests_.empty());\n\tASSERT(data->waitingRequests_.empty());\n\n\tdata->requestSequence_ = 0;\n}\n\n/**\n * \\fn PipelineHandler::stopDevice()", "evidence": ["stop"], "part_id": "order"}, {"text": "stop() 함수 내부의 분리된 요청 처리 반복문에서 request->_d()->cancel()를 호출하여 cancelled_ 플래그를 설정한 후 doQueueRequest()로 넘어가는 경로와, doQueueRequest() 함수 내부에서 if (request->_d()->cancelled_) 조건을 만족하는 분기는 모두 completeRequest()로 바로 진입합니다. sequence_는 stop() 함수의 반복문 밖에서 data->requestSequence_ = 0 로 초기화되고, doQueueRequest() 함수 내에서 request->_d()->sequence_ = data->requestSequence_++ 를 통해 부여되지만, cancelled_가 설정된 요청은 해당 sequence_ 할당 전에 completeRequest()로 바로 넘어갑니다.", "covers": ["shutdown"], "kind": "behavior", "quote": "void PipelineHandler::stop(Camera *camera)\n{\n\t/*\n\t * Take all waiting requests so that they are not requeued in response\n\t * to completeRequest() being called inside stopDevice(). Cancel them\n\t * after the device to keep them in order.\n\t */\n\tCamera::Private *data = camera->_d();\n\tstd::queue<Request *> waitingRequests;\n\twaitingRequests.swap(data->waitingRequests_);\n\n\t/* Stop the pipeline handler and let the queued requests complete. */\n\tstopDevice(camera);\n\n\t/* Cancel and signal as complete all waiting requests. */\n\twhile (!waitingRequests.empty()) {\n\t\tRequest *request = waitingRequests.front();\n\t\twaitingRequests.pop();\n\n\t\t/*\n\t\t * Cancel all requests by marking them as cancelled and calling\n\t\t * doQueueRequest() instead of cancelRequest(). This ensures\n\t\t * that the requests get a sequence number and are temporarily\n\t\t * added to queuedRequests_ so they can be properly completed in\n\t\t * completeRequest().\n\t\t */\n\t\trequest->_d()->cancel();\n\t\tdoQueueRequest(request);\n\t}\n\n\t/* Make sure no requests are pending. */\n\tASSERT(data->queuedRequests_.empty());\n\tASSERT(data->waitingRequests_.empty());\n\n\tdata->requestSequence_ = 0;\n}\n\n/**\n * \\fn PipelineHandler::stopDevice()", "evidence": ["stop"], "part_id": "waiting"}, {"text": "`PipelineHandler::stop()` 함수 끝부분에서 ASSERT(data->queuedRequests_.empty())와 ASSERT(data->waitingRequests_.empty())는 두 큐가 비어있음을 확인하며, data->requestSequence_ = 0;은 requestSequence_를 0으로 초기화합니다.", "covers": ["shutdown"], "kind": "behavior", "quote": "ASSERT(data->queuedRequests_.empty());\n\tASSERT(data->waitingRequests_.empty());\n\n\tdata->requestSequence_ = 0;\n}", "evidence": ["final-check"], "part_id": "final-check"}, {"text": "stopDevice() 구현자는 모든 실행 중인 스트림에서 캡처를 중지하고, 즉시 처리 중이던 요청을 취소하며 미완료된 요청은 오류 상태로 즉시 완료시켜야 합니다.", "covers": ["shutdown"], "kind": "behavior", "quote": "\\fn PipelineHandler::stopDevice()\n * \\brief Stop capturing from all running streams\n * \\param[in] camera The camera to stop\n *\n * This function stops capturing and processing requests immediately. All\n * pending requests are cancelled and complete immediately in an error state.\n */", "evidence": ["device-contract"], "part_id": "device-contract"}], "queue": [{"text": "registerRequest() 함수는 prepared 신호를 연결하여 해당 신호가 발생하면 doQueueRequests() 함수를 호출합니다.", "covers": ["queue"], "kind": "behavior", "quote": "\\fn PipelineHandler::registerRequest()\n * \\brief Register a request for use by the pipeline handler\n * \\param[in] request The request to register\n *\n * This function is called when the request is created, and allows the pipeline\n * handler to perform any one-time initialization it requries for the request.\n */\nvoid PipelineHandler::registerRequest(Request *request)\n{\n\t/*\n\t * Connect the request prepared signal to notify the pipeline handler\n\t * when a request is ready to be processed.\n\t */\n\trequest->_d()->prepared.connect(this, [this, request]() {\n\t\tdoQueueRequests(request->_d()->camera());\n\t});\n}\n\n/**\n * \\fn PipelineHandler::queueRequest()", "evidence": ["registration"], "part_id": "registration"}, {"text": "queueRequest() 함수는 request->_d()->prepare(300ms)를 호출하여 `Request::Private::prepare()`에 300ms의 대기 시간 값을 전달하며, 이 인자는 해당 요청이 하드웨어 장치로 큐잉되기 전에 메모리 전송을 위해 준비되도록 하기 위해 각 프레임 버퍼 획득 펜스(acquire fence)가 신호(signalled)되는 것을 기다리는 데 사용됩니다.", "covers": ["queue"], "kind": "behavior", "quote": "void PipelineHandler::queueRequest(Request *request)\n{\n\tLIBCAMERA_TRACEPOINT(request_queue, request);\n\n\tCamera *camera = request->_d()->camera();\n\tCamera::Private *data = camera->_d();\n\tdata->waitingRequests_.push(request);\n\n\trequest->_d()->prepare(300ms);\n}\n\n/**\n * \\brief Queue one requests to the device", "evidence": ["enqueue"], "part_id": "preparation"}, {"text": "if (data->queuedRequests_.size() == maxQueuedRequestsDevice_) break;", "covers": ["queue"], "kind": "behavior", "quote": "void PipelineHandler::doQueueRequests(Camera *camera)\n{\n\tCamera::Private *data = camera->_d();\n\twhile (!data->waitingRequests_.empty()) {\n\t\tif (data->queuedRequests_.size() == maxQueuedRequestsDevice_)\n\t\t\tbreak;\n\n\t\tRequest *request = data->waitingRequests_.front();\n\t\tif (!request->_d()->prepared_)\n\t\t\tbreak;\n\n\t\t/*\n\t\t * Pop the request first, in case doQueueRequests() is called\n\t\t * recursively from within doQueueRequest()\n\t\t */\n\t\tdata->waitingRequests_.pop();\n\t\tdoQueueRequest(request);\n\t}\n}\n\n/**\n * \\fn PipelineHandler::queueRequestDevice()", "evidence": ["drain"], "part_id": "queue-limit"}, {"text": "doQueueRequests() 함수는 prepared_가 false인 선두 요청을 만나면 while 반복문의 조건부 제어문 'if (!request->_d()->prepared_) break;'를 실행하여 반복문을 종료합니다.", "covers": ["queue"], "kind": "behavior", "quote": "void PipelineHandler::doQueueRequests(Camera *camera)\n{\n\tCamera::Private *data = camera->_d();\n\twhile (!data->waitingRequests_.empty()) {\n\t\tif (data->queuedRequests_.size() == maxQueuedRequestsDevice_)\n\t\t\tbreak;\n\n\t\tRequest *request = data->waitingRequests_.front();\n\t\tif (!request->_d()->prepared_)\n\t\t\tbreak;\n\n\t\t/*\n\t\t * Pop the request first, in case doQueueRequests() is called\n\t\t * recursively from within doQueueRequest()\n\t\t */\n\t\tdata->waitingRequests_.pop();\n\t\tdoQueueRequest(request);\n\t}\n}\n\n/**\n * \\fn PipelineHandler::queueRequestDevice()", "evidence": ["drain"], "part_id": "front-ready"}, {"text": "doQueueRequests()에서 두 break 검사를 통과한 요청에 대해서는 먼저 data->waitingRequests_.pop()을 호출한 후 doQueueRequest(request)를 호출합니다.", "covers": ["queue"], "kind": "behavior", "quote": "void PipelineHandler::doQueueRequests(Camera *camera)\n{\n\tCamera::Private *data = camera->_d();\n\twhile (!data->waitingRequests_.empty()) {\n\t\tif (data->queuedRequests_.size() == maxQueuedRequestsDevice_)\n\t\t\tbreak;\n\n\t\tRequest *request = data->waitingRequests_.front();\n\t\tif (!request->_d()->prepared_)\n\t\t\tbreak;\n\n\t\t/*\n\t\t * Pop the request first, in case doQueueRequests() is called\n\t\t * recursively from within doQueueRequest()\n\t\t */\n\t\tdata->waitingRequests_.pop();\n\t\tdoQueueRequest(request);\n\t}\n}\n\n/**\n * \\fn PipelineHandler::queueRequestDevice()", "evidence": ["drain"], "part_id": "pop-order"}, {"text": "doQueueRequest()에서 request->_d()->cancelled_가 참인 경우 completeRequest(request)를 호출하여 요청을 완료하고 함수를 종료하며, queueRequestDevice(camera, request)의 반환값이 0이 아닌 실패한 경우 cancelRequest(request)를 호출하여 요청을 취소합니다.", "covers": ["queue"], "kind": "behavior", "quote": "void PipelineHandler::doQueueRequest(Request *request)\n{\n\tLIBCAMERA_TRACEPOINT(request_device_queue, request);\n\n\tCamera *camera = request->_d()->camera();\n\tCamera::Private *data = camera->_d();\n\tdata->queuedRequests_.push_back(request);\n\n\trequest->_d()->sequence_ = data->requestSequence_++;\n\n\tif (request->_d()->cancelled_) {\n\t\tcompleteRequest(request);\n\t\treturn;\n\t}\n\n\tint ret = queueRequestDevice(camera, request);\n\tif (ret)\n\t\tcancelRequest(request);\n}\n\n/**\n * \\brief Queue prepared requests to the device", "evidence": ["dispatch"], "part_id": "dispatch"}, {"text": "queueRequestDevice() 구현자는 요청에 포함된 스트림과 관련된 버퍼 세트 및 파라미터 세트를 장치에 전달하며, 파이프라인 핸들러는 해당 파라미터가 요청에서 제공된 버퍼에 할당된 프레임에 적용되도록 장치를 프로그래해야 합니다.", "covers": ["queue"], "kind": "behavior", "quote": "\\fn PipelineHandler::queueRequestDevice()\n * \\brief Queue a request to the device\n * \\param[in] camera The camera to queue the request to\n * \\param[in] request The request to queue\n *\n * This function queues a capture request to the device for processing. The\n * request contains a set of buffers associated with streams and a set of\n * parameters. The pipeline handler shall program the device to ensure that the\n * parameters will be applied to the frames captured in the buffers provided in\n * the request.\n *\n * \\context This function is called from the CameraManager thread.\n *\n * \\return 0 on success or a negative error code otherwise\n */\n\n/**\n * \\brief Complete a buffer for a request", "evidence": ["device-contract"], "part_id": "device-contract"}, {"text": "`Request::Private::prepare()` 함수는 각 프레임 버퍼에 연결된 페인스(fence)가 모두 신호(signalled)될 때까지 대기하며, 지정된 타임아웃이 설정된 경우 해당 시간 내에 모든 페인스가 신호되지 않거나 페인스 처리 중 문제가 발생하면 요청(`Request`)이 취소되고 prepared 신호가 방출됩니다.", "covers": ["queue"], "kind": "behavior", "quote": "\\brief Prepare the Request to be queued to the device\n * \\param[in] timeout Optional expiration timeout\n *\n * Prepare a Request to be queued to the hardware device by ensuring it is\n * ready for the incoming memory transfers.\n *\n * This currently means waiting on each frame buffer acquire fence to be\n * signalled. An optional expiration timeout can be specified. If not all the\n * fences have been signalled correctly before the timeout expires the Request\n * is cancelled.\n *\n * The function immediately emits the prepared signal if all the prepare\n * operations have been completed synchronously. If instead the prepare\n * operations require to wait the completion of asynchronous events, such as\n * fences notifications or timer expiration, the prepared signal is emitted upon\n * the asynchronous event completion.\n *\n * As we currently only handle fences, the function emits the prepared signal\n * immediately if there are no fences to wait on. Otherwise the prepared signal\n * is emitted when all fences have been signalled or the optional timeout has\n * expired.\n *\n * If not all the fences have been correctly signalled or the optional timeout\n * has expired the Request will be cancelled and the Request::prepared signal\n * emitted.\n *\n * The intended user of this function is the PipelineHandler base class, which\n * 'prepares' a Request before queuing it to the hardware device.\n */\nvoid Request::Private::prepare(std::chrono::milliseconds timeout)\n{\n\t/* Create and connect one notifier for each synchronization fence. */\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tconst Fence *fence = buffer->_d()->fence();\n\t\tif (!fence)\n\t\t\tcontinue;\n\n\t\tauto [it, inserted] = notifiers_.try_emplace(buffer, fence->fd().get(), EventNotifier::Type::Read);\n\t\tASSERT(inserted);\n\n\t\tit->second.activated.connect(this, [this, buffer] {\n\t\t\tnotifierActivated(buffer);\n\t\t});\n\t}\n\n\tif (notifiers_.empty()) {\n\t\temitPrepareCompleted();\n\t\treturn;\n\t}\n\n\t/*\n\t * In case a timeout is specified, create a timer and set it up.\n\t *\n\t * The timer must be created here instead of in the Request constructor,\n\t * in order to be bound to the pipeline handler thread.\n\t */\n\tif (timeout != 0ms) {\n\t\ttimer_ = std::make_unique<Timer>();\n\t\ttimer_->timeout.connect(this, &Request::Private::timeout);\n\t\ttimer_->start(timeout);\n\t}\n}\n\n/**\n * \\var Request::Private::prepared", "evidence": ["prepare"], "part_id": "fence"}]}, "topic_inputs": {"responsibility": "56f1a7decc6e350c12e6cf65e2e8fbbbf046b97f40fcf6514102c5f0f5df9b52", "configuration": "e24a7d73d18c7abb7ac504fdfe4ac3d19c5decebdb7459d56b0198d0ac80400f", "queue": "dd253cf13ed72d542c805a7efd3d784c3041fba686b355ff982fb3ce78cacee6", "completion": "1ecc120f56bfce167a64fa0a133c1e3950b4061c452fbabbb266119006e43318", "shutdown": "1f8a7e9ad80f991776483553cf9ebe778e4f3737f3988f77fd4e61772d32b0ec"}, "reused_topics": ["responsibility", "configuration", "completion", "shutdown"], "generated_topics": ["queue"], "topic_agents": {"responsibility": "ollama/qwen3.5:9b", "configuration": "ollama/qwen3.5:9b", "completion": "ollama/qwen3.5:9b", "shutdown": "ollama/qwen3.5:9b", "queue": "ollama/qwen3.5:9b"}, "body_sha256": "6e4b37b1a234170d4f8633f79b5869fa7f7f75d5a74c876f0d40182af6edd5ae"}
+revalidated_from: 960713a8f9b404bb64ce9b05d1ffd5df7e84dd05
 ---
 
 # Pipeline Handler
@@ -24,33 +25,19 @@ generated_design: {"schema": 1, "input_fingerprint": "fc72380511bb850f4b0d10fa19
 
 ## 장치 매칭과 객체 수명
 
-`PipelineHandler`는 열거된 미디어 장치를 지원 파이프라인과 연결하고 `Camera`를 만듭니다. 인스턴스 수명은 `std::shared_ptr`로 관리하며, 멤버 함수에서 공유 포인터를 만들 수 있도록 `std::enable_shared_from_this`를 구현합니다. `src/libcamera/pipeline_handler.cpp:50`
-
-`PipelineHandler`는 직접 생성하지 않고 `PipelineHandlerFactoryBase::create()`를 통해 공유 포인터로 생성해야 합니다. `src/libcamera/pipeline_handler.cpp:50`
-
-`match()`는 `CameraManager` 스레드에서 파이프라인 하나에 필요한 장치를 확보하고 카메라를 생성·등록합니다. 필요한 장치를 모두 찾았으면 `MediaDevice::acquire()`로 확보하고 카메라를 내부에 저장한 뒤 `true`를 반환해야 합니다. 실패하면 장치를 확보하지 않거나 이미 확보한 장치를 모두 해제하고 `false`를 반환해야 합니다. `src/libcamera/pipeline_handler.cpp:50`
-
-`acquireMediaDevice()`는 패턴과 일치하는 사용 가능한 장치를 찾아 확보한 뒤 공유 포인터를 반환합니다. 호출자는 장치를 직접 해제하면 안 되며, 확보한 장치는 핸들러가 파괴될 때 해제됩니다. `src/libcamera/pipeline_handler.cpp:119`
-
-`acquire()`는 같은 프로세스에서 재귀적으로 획득할 수 있지만, 성공한 호출마다 `release()`가 짝을 이뤄야 합니다. 이 접근 관리는 `Camera`가 처리하므로 파이프라인 구현이 두 함수를 직접 호출하지 않습니다. `src/libcamera/pipeline_handler.cpp:119`
-
-`releaseDevice()`는 해제되는 카메라마다 호출됩니다. 여러 카메라가 자원을 공유한다면, 이전에 획득한 모든 카메라의 `releaseDevice()`가 호출되기 전에는 그 자원을 해제하지 않도록 파이프라인 구현이 관리해야 합니다. `src/libcamera/pipeline_handler.cpp:119`
+핸들러는 `DeviceEnumerator` 가 제공하는 미디어 장치를 매칭하여 카메라 인스턴스를 생성하고 관리하며, 핸들러 인스턴스는 std::shared_ptr< > 를 통해 참조 카운팅되고 enable_shared_from_this< > 를 구현하여 'this' 포인터만 있는 코드 경로에서 새로운 공유 포인터를 생성할 수 있습니다. `src/libcamera/pipeline_handler.cpp:50`
 
 근거 원문: [src/libcamera/pipeline_handler.cpp:50](#source-69bfa9568cf8b5c5) · [src/libcamera/pipeline_handler.cpp:119](#source-a3caf1625bc18d64)
 
 ## 구성의 입력과 검증 책임
 
-`generateConfiguration()`은 호출자가 요청한 스트림 역할에 맞는 기본 구성을 만듭니다. 역할을 충족할 수 있으면 유효한 `CameraConfiguration`을, 그렇지 않으면 null 포인터를 반환합니다. 어떤 스레드에서도 호출될 수 있으므로 스레드 안전성을 지키고, 핸들러 안의 카메라 상태를 바꾸지 않아야 합니다. `src/libcamera/pipeline_handler.cpp:271`
-
-`configure()`는 `Camera`가 전달한 스트림 구성을 적용하며 `CameraManager` 스레드에서 호출됩니다. 입력은 이미 `CameraConfiguration::validate()`를 통과했으므로 구현은 추가 검증을 수행하지 않아야 하며, 파생 구성 클래스의 사용자 정의 필드에 의존할 수 있습니다. `src/libcamera/pipeline_handler.cpp:271`
-
-`configure()` 구현은 각 `StreamConfiguration`에 대응하는 `Stream`을 `setStream()`으로 연결해야 합니다. 성공하면 0을, 실패하면 음수 오류 코드를 반환합니다. `src/libcamera/pipeline_handler.cpp:271`
+generateConfiguration() 함수는 호출자가 roles 매개변수에 원하는 사용 사례를 채워 넣어야 하며, 요청된 역할이 충족될 경우 유효한 `CameraConfiguration` 를 반환하거나 그렇지 않으면 null 포인터를 반환합니다. 이 함수는 임의 스레드에서 호출될 수 있으며 파이프라인 핸들러의 상태 변경 없이 호출할 수 있어야 합니다. 반면 configure() 함수는 호출 시 이미 `CameraConfiguration::validate()` 로 검증된 구성을 전제로 하며, 파이프라인 핸들러 구현체는 추가 검증을 수행하지 않고 `StreamConfiguration` 의 setStream() 함수를 사용하여 각 `StreamConfiguration` 항목에 `Stream` 인스턴스를 연결해야 합니다. 또한 configure() 는 `CameraManager` 스레드에서 호출되며 성공 시 0 을 반환하거나 오류 발생 시 음수 오류 코드를 반환합니다. `src/libcamera/pipeline_handler.cpp:271`
 
 근거 원문: [src/libcamera/pipeline_handler.cpp:271](#source-c81d81d5cce53ab8)
 
 ## 요청 준비와 장치 큐
 
-`registerRequest()`는 요청 생성 시 수행할 일회성 초기화 지점입니다. 공통 구현은 요청의 `prepared` 신호를 연결해, 준비가 끝나면 해당 카메라의 `doQueueRequests()`를 호출합니다. `src/libcamera/pipeline_handler.cpp:428`
+registerRequest() 함수는 prepared 신호를 연결하여 해당 신호가 발생하면 doQueueRequests() 함수를 호출합니다. `src/libcamera/pipeline_handler.cpp:428`
 
 <!-- sdd:visual:queue-gates -->
 ### 요청이 대기하거나 장치로 가는 조건
@@ -59,7 +46,7 @@ generated_design: {"schema": 1, "input_fingerprint": "fc72380511bb850f4b0d10fa19
 
 ```mermaid
 flowchart TB
-%% sdd:translations {"doQueueRequests()에서 확인": "Check in doQueueRequests()", "queueRequestDevice()": "queueRequestDevice()", "waitingRequests_": "waitingRequests_", "대기열에 유지": "Stay in waiting queue", "선두 요청이 prepared_인가?": "Is the front request prepared?", "아니오: 선두 요청 확인": "No: inspect front request", "아니오: 준비를 기다림": "No: wait for preparation", "예: 새 요청을 전달하지 않음": "Yes: stop forwarding", "예: 준비 실패로 취소되지 않은 요청": "Yes: unless cancelled during preparation", "장치 제출 실패": "Device queue failure", "장치 큐 한도에 도달했는가?": "Device queue at its limit?", "준비 중 취소된 요청은 장치 제출 생략": "Skip device for cancelled request", "취소·완료 경로": "Cancellation and completion"}
+%% sdd:translations {"doQueueRequests()에서 확인": "Check in doQueueRequests()", "queueRequestDevice()": "queueRequestDevice()", "waitingRequests_": "waitingRequests_", "대기열에 유지": "Stay in waiting queue", "선두 요청이 prepared_인가?": "Is the front request <br/>prepared?", "아니오: 선두 요청 확인": "No: inspect front request", "아니오: 준비를 기다림": "No: wait for preparation", "예: 새 요청을 전달하지 않음": "Yes: stop forwarding", "예: 준비 실패로 취소되지 <br/>않은 요청": "Yes: unless cancelled <br/>during preparation", "장치 제출 실패": "Device queue failure", "장치 큐 한도에 도달했는가?": "Device queue at its limit?", "준비 중 취소된 요청은 장치 <br/>제출 생략": "Skip device for cancelled <br/>request", "취소·완료 경로": "Cancellation and completion"}
   v_wait["waitingRequests_"]
   v_ready{"선두 요청이 prepared_인가?"}
   v_limit{"장치 큐 한도에 도달했는가?"}
@@ -70,9 +57,9 @@ flowchart TB
   v_limit -->|"예: 새 요청을 전달하지 않음"| v_hold
   v_limit -->|"아니오: 선두 요청 확인"| v_ready
   v_ready -->|"아니오: 준비를 기다림"| v_hold
-  v_ready -->|"예: 준비 실패로 취소되지 않은 요청"| v_device
+  v_ready -->|"예: 준비 실패로 취소되지 <br/>않은 요청"| v_device
   v_device -->|"장치 제출 실패"| v_cancel
-  v_ready -->|"준비 중 취소된 요청은 장치 제출 생략"| v_cancel
+  v_ready -->|"준비 중 취소된 요청은 장치 <br/>제출 생략"| v_cancel
 ```
 
 [Mermaid 원문](pipeline-handler.queue-gates.mmd)
@@ -82,38 +69,40 @@ flowchart TB
     
     | 요소·전이 | 소스 근거 |
     |---|---|
-    | waitingRequests_ | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | 선두 요청이 prepared_인가? | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | 장치 큐 한도에 도달했는가? | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | 대기열에 유지 | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | queueRequestDevice() | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | 취소·완료 경로 | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | doQueueRequests()에서 확인 | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | 예: 새 요청을 전달하지 않음 | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | 아니오: 선두 요청 확인 | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | 아니오: 준비를 기다림 | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | 예: 준비 실패로 취소되지 않은 요청 | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | 장치 제출 실패 | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
-    | 준비 중 취소된 요청은 장치 제출 생략 | [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) |
+    | waitingRequests_ | [src/libcamera/pipeline_handler.cpp:469](#source-28b02cb32c6a87af) |
+    | 선두 요청이 prepared_인가? | [src/libcamera/pipeline_handler.cpp:509](#source-d63c9e57bcf862b0) |
+    | 장치 큐 한도에 도달했는가? | [src/libcamera/pipeline_handler.cpp:509](#source-d63c9e57bcf862b0) |
+    | 대기열에 유지 | [src/libcamera/pipeline_handler.cpp:509](#source-d63c9e57bcf862b0) |
+    | queueRequestDevice() | [src/libcamera/pipeline_handler.cpp:483](#source-8bf901f3faef18e5) |
+    | 취소·완료 경로 | [src/libcamera/pipeline_handler.cpp:483](#source-8bf901f3faef18e5) |
+    | doQueueRequests()에서 확인 | [src/libcamera/pipeline_handler.cpp:509](#source-d63c9e57bcf862b0) |
+    | 예: 새 요청을 전달하지 않음 | [src/libcamera/pipeline_handler.cpp:509](#source-d63c9e57bcf862b0) |
+    | 아니오: 선두 요청 확인 | [src/libcamera/pipeline_handler.cpp:509](#source-d63c9e57bcf862b0) |
+    | 아니오: 준비를 기다림 | [src/libcamera/pipeline_handler.cpp:509](#source-d63c9e57bcf862b0) |
+    | 예: 준비 실패로 취소되지 않은 요청 | [src/libcamera/pipeline_handler.cpp:483](#source-8bf901f3faef18e5) |
+    | 장치 제출 실패 | [src/libcamera/pipeline_handler.cpp:483](#source-8bf901f3faef18e5) |
+    | 준비 중 취소된 요청은 장치 제출 생략 | [src/libcamera/pipeline_handler.cpp:483](#source-8bf901f3faef18e5) |
 <!-- /sdd:visual:queue-gates -->
 
-`queueRequest()`는 요청을 `waitingRequests_`에 넣고 `prepare(300ms)`를 호출합니다. `src/libcamera/pipeline_handler.cpp:428`
+queueRequest() 함수는 request->_d()->prepare(300ms)를 호출하여 `Request::Private::prepare()`에 300ms의 대기 시간 값을 전달하며, 이 인자는 해당 요청이 하드웨어 장치로 큐잉되기 전에 메모리 전송을 위해 준비되도록 하기 위해 각 프레임 버퍼 획득 펜스(acquire fence)가 신호(signalled)되는 것을 기다리는 데 사용됩니다. `src/libcamera/pipeline_handler.cpp:469`
 
-`Request::Private::prepare()`는 버퍼의 acquire fence가 신호를 보내기를 기다립니다. 300ms는 준비 완료를 무조건 늦추는 시간이 아니라 선택적인 만료 시간입니다. 기다릴 fence가 없으면 즉시 준비 완료를 알리고, fence가 제대로 신호를 보내지 못하거나 시간이 만료되면 요청을 취소하고 준비 완료 신호를 냅니다. `src/libcamera/request.cpp:199`
+if (data->queuedRequests_.size() == maxQueuedRequestsDevice_) break; `src/libcamera/pipeline_handler.cpp:509`
 
-`doQueueRequests()`는 장치 큐 크기가 `maxQueuedRequestsDevice_`와 같거나 맨 앞 요청이 아직 준비되지 않았으면 멈춥니다. 뒤의 요청은 앞 요청을 건너뛰지 않습니다. `src/libcamera/pipeline_handler.cpp:428`
+doQueueRequests() 함수는 prepared_가 false인 선두 요청을 만나면 while 반복문의 조건부 제어문 'if (!request->_d()->prepared_) break;'를 실행하여 반복문을 종료합니다. `src/libcamera/pipeline_handler.cpp:509`
 
-재귀적인 순회에 대비하여 `doQueueRequests()`는 대기 큐에서 요청을 제거한 뒤 `doQueueRequest()`를 호출합니다. `src/libcamera/pipeline_handler.cpp:428`
+doQueueRequests()에서 두 break 검사를 통과한 요청에 대해서는 먼저 data->waitingRequests_.pop()을 호출한 후 doQueueRequest(request)를 호출합니다. `src/libcamera/pipeline_handler.cpp:509`
 
-`doQueueRequest()`는 요청을 장치 큐에 추가하고 순번을 부여합니다. 이미 취소된 요청이면 `completeRequest()`로 완료 처리한 뒤 반환하며, 하드웨어 제출로 진행하지 않습니다. 그 외에는 `queueRequestDevice()`를 호출하고, 오류 반환 시 `cancelRequest()`를 호출합니다. `src/libcamera/pipeline_handler.cpp:428`
+doQueueRequest()에서 request->_d()->cancelled_가 참인 경우 completeRequest(request)를 호출하여 요청을 완료하고 함수를 종료하며, queueRequestDevice(camera, request)의 반환값이 0이 아닌 실패한 경우 cancelRequest(request)를 호출하여 요청을 취소합니다. `src/libcamera/pipeline_handler.cpp:483`
 
-`queueRequestDevice()` 구현은 요청의 파라미터가 요청에 담긴 버퍼의 프레임에 적용되도록 장치를 설정해야 합니다. `CameraManager` 스레드에서 호출되며, 성공은 0, 실패는 음수 오류 코드로 반환합니다. `src/libcamera/pipeline_handler.cpp:428`
+queueRequestDevice() 구현자는 요청에 포함된 스트림과 관련된 버퍼 세트 및 파라미터 세트를 장치에 전달하며, 파이프라인 핸들러는 해당 파라미터가 요청에서 제공된 버퍼에 할당된 프레임에 적용되도록 장치를 프로그래해야 합니다. `src/libcamera/pipeline_handler.cpp:530`
 
-근거 원문: [src/libcamera/pipeline_handler.cpp:428](#source-789eafedfaa7f3c5) · [src/libcamera/request.cpp:199](#source-4f52447929ee8da9)
+`Request::Private::prepare()` 함수는 각 프레임 버퍼에 연결된 페인스(fence)가 모두 신호(signalled)될 때까지 대기하며, 지정된 타임아웃이 설정된 경우 해당 시간 내에 모든 페인스가 신호되지 않거나 페인스 처리 중 문제가 발생하면 요청(`Request`)이 취소되고 prepared 신호가 방출됩니다. `src/libcamera/request.cpp:199`
+
+근거 원문: [src/libcamera/pipeline_handler.cpp:428](#source-9b4cdd02b7a0ff1e) · [src/libcamera/pipeline_handler.cpp:469](#source-28b02cb32c6a87af) · [src/libcamera/pipeline_handler.cpp:483](#source-8bf901f3faef18e5) · [src/libcamera/pipeline_handler.cpp:509](#source-d63c9e57bcf862b0) · [src/libcamera/pipeline_handler.cpp:530](#source-bc9c2a42b4251ab0) · [src/libcamera/request.cpp:199](#source-4f52447929ee8da9)
 
 ## 버퍼 완료와 요청 반환
 
-`completeBuffer()`는 `bufferCompleted`로 애플리케이션에 버퍼 완료를 알린 뒤 요청의 버퍼 추적 상태를 갱신합니다. 모든 버퍼가 끝났으면 `true`를 반환하지만 요청 자체를 자동으로 완료하지는 않습니다. 파이프라인 구현은 필요한 후처리를 마치고 `completeRequest()`를 명시적으로 호출해야 합니다. `src/libcamera/pipeline_handler.cpp:547`
+completeBuffer()는 요청 내부의 버퍼 추적 업데이트 및 애플리케이션에 대한 버퍼 완료 알림을 수행하지만 마지막 버퍼가 완료되더라도 요청이 자동으로 완료되지 않아 파이프라인 핸들러가 추가 작업을 수행할 기회를 제공하며, 명시적인 completeRequest() 호출로 요청을 완료해야 합니다. completeRequest()는 요청이 더 이상 파이프라인 핸들러에 의해 관리되지 않으며 반환 후 접근해서는 안 되며, 이 함수를 통해 요청이 제출 순서대로 애플리케이션에 반환되도록 보장합니다. 또한 파이프라인 핸들러는 어떤 완전한 요청에도 순서 제약 없이 호출할 수 있으며, 장치 큐 앞의 Pending 상태를 가진 요청을 만나면 반복을 중단하고 해당 요청을 처리하며, 대기 중인 요청들을 다시 큐에 추가하기 위해 doQueueRequests(camera)를 호출하여 재개합니다. 이 모든 함수들은 `CameraManager` 스레드에서 호출되어야 합니다. `src/libcamera/pipeline_handler.cpp:547`
 
 <!-- sdd:visual:buffer-request-completion -->
 ### 버퍼 완료에서 요청 반환까지
@@ -122,14 +111,14 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-%% sdd:translations {"completeBuffer()": "completeBuffer()", "completeRequest()": "completeRequest()", "버퍼 완료 알림": "Notify buffer completion", "버퍼 추적 상태 갱신": "Update buffer completion tracking", "선두 미완료 요청 뒤의 반환은 대기": "Wait behind an incomplete head request", "제출 순서로 애플리케이션 반환": "Return to application in submission order", "후처리 뒤 구현자가 명시적으로 호출": "Handler explicitly completes after remaining work"}
+%% sdd:translations {"completeBuffer()": "completeBuffer()", "completeRequest()": "completeRequest()", "버퍼 완료 알림": "Notify buffer completion", "버퍼 추적 상태 갱신": "Update buffer completion <br/>tracking", "선두 미완료 요청 뒤의 <br/>반환은 대기": "Wait behind an incomplete <br/>head request", "제출 순서로 애플리케이션 <br/>반환": "Return to application in <br/>submission order", "후처리 뒤 구현자가 <br/>명시적으로 호출": "Handler explicitly <br/>completes after remaining <br/>work"}
   v_buffer["completeBuffer()"]
   v_remaining["버퍼 추적 상태 갱신"]
   v_request["completeRequest()"]
-  v_application["제출 순서로 애플리케이션 반환"]
+  v_application["제출 순서로 애플리케이션 <br/>반환"]
   v_buffer -->|"버퍼 완료 알림"| v_remaining
-  v_remaining -->|"후처리 뒤 구현자가 명시적으로 호출"| v_request
-  v_request -->|"선두 미완료 요청 뒤의 반환은 대기"| v_application
+  v_remaining -->|"후처리 뒤 구현자가 <br/>명시적으로 호출"| v_request
+  v_request -->|"선두 미완료 요청 뒤의 <br/>반환은 대기"| v_application
 ```
 
 [Mermaid 원문](pipeline-handler.buffer-request-completion.mmd)
@@ -148,25 +137,19 @@ flowchart TB
     | 선두 미완료 요청 뒤의 반환은 대기 | [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a) |
 <!-- /sdd:visual:buffer-request-completion -->
 
-`completeRequest()`는 완료된 요청을 애플리케이션에 제출 순서대로 반환하도록 조정합니다. 핸들러는 완료된 요청에 대해 이 함수를 순서와 무관하게 호출할 수 있습니다. 함수가 반환한 뒤에는 핸들러가 해당 요청에 접근하면 안 됩니다. `src/libcamera/pipeline_handler.cpp:547`
-
-`completeRequest()`는 요청을 완료 상태로 바꾼 뒤 장치 큐의 맨 앞부터 확인합니다. 앞 요청이 `RequestPending`이면 반복을 멈추며, 그 요청을 제거하거나 취소하지 않습니다. 완료된 앞 요청은 큐에서 제거하고 `camera->requestComplete()`로 전달합니다. `src/libcamera/pipeline_handler.cpp:547`
-
-`completeRequest()`는 완료 요청을 반환한 뒤 `doQueueRequests()`로 대기 요청의 제출을 다시 시도합니다. `completeBuffer()`와 `completeRequest()`는 `CameraManager` 스레드에서 호출됩니다. `src/libcamera/pipeline_handler.cpp:547`
-
 근거 원문: [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a)
 
 ## 정지와 미완료 요청
 
-`PipelineHandler::stop()`은 먼저 `waitingRequests_`를 별도 큐로 옮깁니다. 이렇게 분리하면 `stopDevice()` 안의 완료 통지가 대기 요청을 다시 제출하지 않습니다. 장치 정지 이후에 대기 요청을 취소해 완료 순서를 유지합니다. `src/libcamera/pipeline_handler.cpp:359`
+stop() 함수는 먼저 카메라의 private 데이터에서 waitingRequests_ 큐를 분리하여 임시 변수에 저장한 후, stopDevice() 를 호출하여 파이프라인 핸들러를 중지시키고, 그 다음 분리된 요청들을 하나씩 꺼내어 cancel() 로 취소하고 doQueueRequest() 를 호출하여 처리합니다. `src/libcamera/pipeline_handler.cpp:367`
 
-`stop()`은 `stopDevice()`가 끝난 뒤 분리한 대기 요청을 하나씩 취소 표시하고 `doQueueRequest()`에 전달합니다. 이 경로는 순번을 부여하고 요청을 잠시 장치 큐에 넣어 `completeRequest()`로 올바르게 완료하기 위한 처리입니다. 이미 취소된 요청을 하드웨어에 다시 제출하는 단계로 해석하면 안 됩니다. `src/libcamera/pipeline_handler.cpp:359`
+stop() 함수 내부의 분리된 요청 처리 반복문에서 request->_d()->cancel()를 호출하여 cancelled_ 플래그를 설정한 후 doQueueRequest()로 넘어가는 경로와, doQueueRequest() 함수 내부에서 if (request->_d()->cancelled_) 조건을 만족하는 분기는 모두 completeRequest()로 바로 진입합니다. sequence_는 stop() 함수의 반복문 밖에서 data->requestSequence_ = 0 로 초기화되고, doQueueRequest() 함수 내에서 request->_d()->sequence_ = data->requestSequence_++ 를 통해 부여되지만, cancelled_가 설정된 요청은 해당 sequence_ 할당 전에 completeRequest()로 바로 넘어갑니다. `src/libcamera/pipeline_handler.cpp:367`
 
-`stop()`은 마지막에 두 큐가 비었는지 assertion으로 확인하고 요청 순번을 0으로 되돌립니다. 이 검사는 이후 호출을 차단하지 않습니다. `src/libcamera/pipeline_handler.cpp:359`
+`PipelineHandler::stop()` 함수 끝부분에서 ASSERT(data->queuedRequests_.empty())와 ASSERT(data->waitingRequests_.empty())는 두 큐가 비어있음을 확인하며, data->requestSequence_ = 0;은 requestSequence_를 0으로 초기화합니다. `src/libcamera/pipeline_handler.cpp:398`
 
-`stopDevice()`의 계약은 캡처와 요청 처리를 즉시 멈추고 모든 미완료 요청을 취소하여 오류 상태로 완료하는 것입니다. 버퍼 완료만으로 요청 완료가 자동 발생하지 않으므로, 구현은 명시적인 요청 완료 책임까지 지켜야 합니다. `src/libcamera/pipeline_handler.cpp:359`
+stopDevice() 구현자는 모든 실행 중인 스트림에서 캡처를 중지하고, 즉시 처리 중이던 요청을 취소하며 미완료된 요청은 오류 상태로 즉시 완료시켜야 합니다. `src/libcamera/pipeline_handler.cpp:405`
 
-근거 원문: [src/libcamera/pipeline_handler.cpp:359](#source-eefd1bbecb1aad0a) · [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a)
+근거 원문: [src/libcamera/pipeline_handler.cpp:367](#source-cc35019f986c2954) · [src/libcamera/pipeline_handler.cpp:405](#source-a1eeb263fc114d2f) · [src/libcamera/pipeline_handler.cpp:483](#source-8bf901f3faef18e5) · [src/libcamera/pipeline_handler.cpp:398](#source-4b39343dd132712a)
 
 ??? note "설계 질문과 검증 범위"
     질문별 답변과 근거 연결을 검사했습니다. 의미와 실행 결과는 사람 검토가 필요합니다.
@@ -485,12 +468,12 @@ flowchart TB
      * \fn PipelineHandler::exportFrameBuffers()
     ```
 
-<a id="source-789eafedfaa7f3c5"></a>
+<a id="source-9b4cdd02b7a0ff1e"></a>
 
 ??? note "소스 근거: src/libcamera/pipeline_handler.cpp:428"
-    `src/libcamera/pipeline_handler.cpp:428`에서 시작하는 발췌입니다. 종료 줄은 547이며, 아래 원문을 설명과 대조할 수 있습니다.
+    `src/libcamera/pipeline_handler.cpp:428`에서 시작하는 발췌입니다. 종료 줄은 447이며, 아래 원문을 설명과 대조할 수 있습니다.
     
-    SHA-256: `5a7a3397a6034a73fe348ae44eb1e2568d2823e95542fe43386e16359d627180`
+    SHA-256: `3e779cde8ff6add042f7ebb4a27482e0ea5731099a3aa208157b7e56d2f0452a`
     
     ```text
     \fn PipelineHandler::registerRequest()
@@ -513,27 +496,16 @@ flowchart TB
     
     /**
      * \fn PipelineHandler::queueRequest()
-     * \brief Queue a request
-     * \param[in] request The request to queue
-     *
-     * This function queues a capture request to the pipeline handler for
-     * processing. The request is first added to the internal list of waiting
-     * requests which have to be prepared to make sure they are ready for being
-     * queued to the pipeline handler.
-     *
-     * The queue of waiting requests is iterated and up to \a
-     * maxQueuedRequestsDevice_ prepared requests are passed to the pipeline handler
-     * in the same order they have been queued by calling this function.
-     *
-     * If a Request fails during the preparation phase or if the pipeline handler
-     * fails in queuing the request to the hardware the request is cancelled.
-     *
-     * Keeping track of queued requests ensures automatic completion of all requests
-     * when the pipeline handler is stopped with stop(). Request completion shall be
-     * signalled by the pipeline handler using the completeRequest() function.
-     *
-     * \context This function is called from the CameraManager thread.
-     */
+    ```
+
+<a id="source-28b02cb32c6a87af"></a>
+
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:469"
+    `src/libcamera/pipeline_handler.cpp:469`에서 시작하는 발췌입니다. 종료 줄은 481이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `94dc76217ffb6f15b346216b0baaf049ce1939346bb1ec517589f26682f0092f`
+    
+    ```text
     void PipelineHandler::queueRequest(Request *request)
     {
     	LIBCAMERA_TRACEPOINT(request_queue, request);
@@ -547,7 +519,16 @@ flowchart TB
     
     /**
      * \brief Queue one requests to the device
-     */
+    ```
+
+<a id="source-8bf901f3faef18e5"></a>
+
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:483"
+    `src/libcamera/pipeline_handler.cpp:483`에서 시작하는 발췌입니다. 종료 줄은 504이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `6c0fefadbc69b9bb9371953979a07a38024dc18cb648266d81168f15d8e9e4fb`
+    
+    ```text
     void PipelineHandler::doQueueRequest(Request *request)
     {
     	LIBCAMERA_TRACEPOINT(request_device_queue, request);
@@ -570,10 +551,16 @@ flowchart TB
     
     /**
      * \brief Queue prepared requests to the device
-     *
-     * Iterate the list of waiting requests and queue them to the device one
-     * by one if they have been prepared.
-     */
+    ```
+
+<a id="source-d63c9e57bcf862b0"></a>
+
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:509"
+    `src/libcamera/pipeline_handler.cpp:509`에서 시작하는 발췌입니다. 종료 줄은 530이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `b2d2d134eaa639300cae5e7660d8453da545646bcc100bf640a981fa1371899d`
+    
+    ```text
     void PipelineHandler::doQueueRequests(Camera *camera)
     {
     	Camera::Private *data = camera->_d();
@@ -596,6 +583,17 @@ flowchart TB
     
     /**
      * \fn PipelineHandler::queueRequestDevice()
+    ```
+
+<a id="source-bc9c2a42b4251ab0"></a>
+
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:530"
+    `src/libcamera/pipeline_handler.cpp:530`에서 시작하는 발췌입니다. 종료 줄은 547이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `7d7f109ecf4060457991bc81649c0ee7f886ede0a6c0140152f06e70e1d84f00`
+    
+    ```text
+    \fn PipelineHandler::queueRequestDevice()
      * \brief Queue a request to the device
      * \param[in] camera The camera to queue the request to
      * \param[in] request The request to queue
@@ -774,22 +772,14 @@ flowchart TB
      * \brief Retrieve the absolute path to a platform configuration file
     ```
 
-<a id="source-eefd1bbecb1aad0a"></a>
+<a id="source-cc35019f986c2954"></a>
 
-??? note "소스 근거: src/libcamera/pipeline_handler.cpp:359"
-    `src/libcamera/pipeline_handler.cpp:359`에서 시작하는 발췌입니다. 종료 줄은 414이며, 아래 원문을 설명과 대조할 수 있습니다.
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:367"
+    `src/libcamera/pipeline_handler.cpp:367`에서 시작하는 발췌입니다. 종료 줄은 405이며, 아래 원문을 설명과 대조할 수 있습니다.
     
-    SHA-256: `108b1bea5a8314ba57213d15c1e3ba01abe2b3f8a9e0e1e1281864b5492c7304`
+    SHA-256: `53b4437b3a5285dfe344d8732495653fe1d1d6bdcd125b6af96ae60caec61ea3`
     
     ```text
-    \brief Stop capturing from all running streams and cancel pending requests
-     * \param[in] camera The camera to stop
-     *
-     * This function stops capturing and processing requests immediately. All
-     * pending requests are cancelled and complete immediately in an error state.
-     *
-     * \context This function is called from the CameraManager thread.
-     */
     void PipelineHandler::stop(Camera *camera)
     {
     	/*
@@ -829,15 +819,38 @@ flowchart TB
     
     /**
      * \fn PipelineHandler::stopDevice()
+    ```
+
+<a id="source-a1eeb263fc114d2f"></a>
+
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:405"
+    `src/libcamera/pipeline_handler.cpp:405`에서 시작하는 발췌입니다. 종료 줄은 411이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `10e65d81029b39b67e5a3a0b9f6502965f8444fd0cfc459af29fbc511644930b`
+    
+    ```text
+    \fn PipelineHandler::stopDevice()
      * \brief Stop capturing from all running streams
      * \param[in] camera The camera to stop
      *
      * This function stops capturing and processing requests immediately. All
      * pending requests are cancelled and complete immediately in an error state.
      */
+    ```
+
+<a id="source-4b39343dd132712a"></a>
+
+??? note "소스 근거: src/libcamera/pipeline_handler.cpp:398"
+    `src/libcamera/pipeline_handler.cpp:398`에서 시작하는 발췌입니다. 종료 줄은 402이며, 아래 원문을 설명과 대조할 수 있습니다.
     
-    /**
-     * \brief Determine if the camera has any requests pending
+    SHA-256: `524198574af1d14bc08a6e8f7dff55b18e3da68b0257257f8706e486d8194f10`
+    
+    ```text
+    ASSERT(data->queuedRequests_.empty());
+    	ASSERT(data->waitingRequests_.empty());
+    
+    	data->requestSequence_ = 0;
+    }
     ```
 
 
@@ -910,8 +923,8 @@ flowchart LR
     - 생성 방식: 추출 사실과 LLM 설명
     - 검증 범위: 표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.
     - 근거 파일: `include/libcamera/internal/pipeline_handler.h`, `src/libcamera/pipeline/imx8-isi/imx8-isi.cpp`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/pipeline/mali-c55/mali-c55.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/pipeline/rpi/pisp/pisp.cpp`, `src/libcamera/pipeline/rpi/vc4/vc4.cpp`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp`, `src/libcamera/pipeline/vimc/vimc.cpp`, `src/libcamera/pipeline/virtual/virtual.cpp`, `src/libcamera/pipeline_handler.cpp`, `src/libcamera/request.cpp`
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `2c4b67c079`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `960713a8f9`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-10-25 · 사람 검토 전
+    - 검토 상태 기록일: 2026-10-26 · 사람 검토 전
 
 다음 단계: [시스템 개요](overview.md)
