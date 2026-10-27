@@ -1,5 +1,7 @@
 # libcamera design documentation
 
+Current update: [ipa-module-validation, rkisp1-dewarp rewritten with the Claude Code CLI](publication/issue107-claude-part1/README.md) (Haiku 5.5, effort high). The site still mixes pages from several generator runs; see run.json authors.
+
 Current update: [partial regeneration for issue 107](publication/issue107-partial/README.md). Four pages (vendor overview, support and verification, the new team overview and onboarding) were rewritten with the improved generator; the other design pages are the previous manuscripts, so the site mixes two generator versions. 
 
 Current UI update: restrained sidebar highlights and preserved menu scroll position across document navigation. [Interaction checks and screenshots](publication/sidebar-feedback/README.md). The [23-document reader-task classification](publication/sidebar-classification/README.md), including the IPA diagnostic and IPU3 LSC reference placement, is preserved.
