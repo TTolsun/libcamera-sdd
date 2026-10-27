@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What this project does · libcamera design document</title><link rel="stylesheet" href="../assets/reading.css?v=d29f01ebc1"><link rel="alternate" hreflang="ko" href="../team-overview.html"><link rel="alternate" hreflang="en" href="team-overview.html"></head>
+<body><a class="skip" href="#main">Skip to content</a>
+<header class="site-header"><a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera Design Documentation</a>
+<div class="header-actions"><details class="language-selector"><summary aria-label="Choose language">English ▾</summary><nav><a lang="ko" hreflang="ko" href="../team-overview.html">한국어</a><a lang="en" hreflang="en" href="team-overview.html" aria-current="true">English</a></nav></details><button id="search-open" hidden>Find documents <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button></div></header>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Documentation menu"><p class="nav-group">Getting started</p><a href="index.html">Documentation guide</a><a href="glossary.html">Glossary</a><p class="nav-group">For Vendor</p><section class="nav-section" aria-label="Assess adoption"><h2>Assess adoption</h2><a href="vendor-overview.html">libcamera Product Overview</a><a href="vendor-assurance.html">Support Scope and Validation</a></section><section class="nav-section" aria-label="Implement integration"><h2>Implement integration</h2><a href="vendor-integration.html">Integration Guide</a><a href="pipeline-handler.html">Pipeline Handler</a><a href="ipa.html">IPA management and implementation entry points</a></section><section class="nav-section" aria-label="Implement device features"><h2>Implement device features</h2><a href="ipu3-lsc-flow.html">IPU3 LSC configuration and frame processing</a><a href="rkisp1-dewarp.html">RKISP1 per-camera lens dewarping</a></section><p class="nav-group">For Developer</p><section class="nav-section" aria-label="Understand the structure"><h2>Understand the structure</h2><a href="team-overview.html" aria-current="page">What this project does</a><a href="overview.html">System overview</a><a href="onboarding.html">Run it and read the design rationale</a><a href="camera-model.html">Camera and request model</a></section><section class="nav-section" aria-label="Trace behavior and diagnose issues"><h2>Trace behavior and diagnose issues</h2><a href="request-lifecycle.html">Request lifecycle and troubleshooting</a><a href="scenarios/index.html">Core scenarios</a><details class="nav-branch"><summary>6 child documents</summary><a class="nav-sub" href="scenarios/manager_start.html">Camera discovery (CameraManager::start)</a><a class="nav-sub" href="scenarios/configure.html">Stream configuration (Camera::configure)</a><a class="nav-sub" href="scenarios/camera_start.html">Capture start (Camera::start)</a><a class="nav-sub" href="scenarios/queue_request.html">Request submission (Camera::queueRequest)</a><a class="nav-sub" href="scenarios/complete_request.html">Request completion (PipelineHandler::completeRequest)</a><a class="nav-sub" href="scenarios/camera_stop.html">Capture stop request (Camera::stop)</a></details><a href="ipa-module-validation.html">IPA module information inspection and signature file missing</a><a href="framebuffer-allocator.html">FrameBufferAllocator Failures and Reference Lifetime</a></section><section class="nav-section" aria-label="Find code"><h2>Find code</h2><a href="component-index.html">Component index</a><a href="ipu3-lsc.html">IPU3 LSC and state connections</a></section></nav><p class="sidebar-note">Extract structure from code<br>and review it with evidence.</p></aside>
+<main id="main"><p class="breadcrumb">For Developer <span>/</span> What This Project Does</p><h1>What this project does</h1><div class="page-state"><span class="review-state">Human review pending</span><span>Automatic checks passed</span><span class="generation-method">Written from: extracted structure and a model-written draft</span><a class="state-help" href="#page-evidence">What these mean ↓</a></div>
+<details class="mobile-toc"><summary>Contents of this page</summary><div class="toc">
+<ul>
+<li><a href="#하는-일">What it does</a><ul>
+<li><a href="#카메라-스택의-네-계층">The four layers of the camera stack</a></li>
+</ul>
+</li>
+<li><a href="#받는-것">Inputs</a></li>
+<li><a href="#내놓는-것">Outputs</a></li>
+<li><a href="#다른-팀계층과의-경계">Boundaries with other teams and layers</a></li>
+<li><a href="#소스-근거">Source evidence</a></li>
+</ul>
+</div>
+</details><p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p><strong>Briefly check what this project takes in and what it puts out, and which layers and teams it touches.</strong></p>
+<details class="page-terms">
+<summary>Terms in this document: V4L2, HAL, Pipeline Handler, IPA, and 1 more</summary>
+<ul>
+<li><strong>V4L2</strong> (Video4Linux2): the Linux kernel API for cameras and video devices. libcamera controls sensors and ISP devices through it.</li>
+<li><strong>HAL</strong> (Hardware Abstraction Layer): the layer that lets an operating system drive different vendors' hardware through one interface. This project ultimately targets an in-house Android Camera HAL.</li>
+<li><strong>Pipeline Handler</strong>: the libcamera component that finds a hardware platform's media devices (IPU3, RKISP1 and so on), creates cameras, queues requests to the devices and returns completions. There is one per platform.</li>
+<li><strong>IPA</strong> (Image Processing Algorithms): a separate module (.so) holding the image-quality algorithms. It reads the statistics sent by the ISP and computes the ISP settings for the next frame. It is kept apart from libcamera itself so that vendors can ship it without publishing the source.</li>
+<li><strong>3A</strong>: auto exposure (AE, AGC), auto white balance (AWB) and auto focus (AF) together. They are the main algorithms an IPA computes.</li>
+</ul>
+<p>Other terms are in the <a href="glossary.html">Glossary</a>.</p>
+</details>
+<div class="table-scroll reading-routes" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>What to check now</th>
+<th>Section</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Check the section on what it does.</td>
+<td><a href="#하는-일">What it does</a></td>
+</tr>
+<tr>
+<td>The Inputs section is checked.</td>
+<td><a href="#받는-것">Inputs</a></td>
+</tr>
+<tr>
+<td>The Outputs section is checked.</td>
+<td><a href="#내놓는-것">Outputs</a></td>
+</tr>
+<tr>
+<td>The boundaries with other teams and layers section is checked.</td>
+<td><a href="#다른-팀계층과의-경계">Boundaries with other teams and layers</a></td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="하는-일">What it does</h2>
+<p>libcamera is an open-source library for complex camera support, targeting Linux, Android, and ChromeOS. It works with Linux kernel device drivers and provides developers with an intuitive API. In this way, it reduces the complexity of capturing images with complex cameras on Linux systems.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>Documentation/introduction.rst</code><span class="evidence-lines"><a href="#source-34fda84500757231" aria-label="Documentation/introduction.rst:10 excerpt"><code>L10</code> excerpt</a> · <a aria-label="Documentation/introduction.rst:10" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/introduction.rst#L10">Full source <code>L10</code></a></span></li></ul></details>
+<!-- sdd:visual:camera-stack -->
+<h3 id="카메라-스택의-네-계층">The four layers of the camera stack</h3>
+<p>Which layers does a request pass through from the application to the camera hardware? This diagram does not guarantee supported models or performance.</p>
+<pre class="mermaid">flowchart TB
+
+  v_apps["Applications and &lt;br/&gt;upper-level frameworks"]
+  v_adaptation["Adaptation (V4L2 &lt;br/&gt;compatibility, GStreamer, &lt;br/&gt;Android HAL)"]
+  v_framework["libcamera framework"]
+  v_kernel["Kernel drivers (V4L2 family &lt;br/&gt;of APIs)"]
+  v_apps --&gt;|"Use the C++ API directly"| v_framework
+  v_apps --&gt;|"Use through another &lt;br/&gt;framework"| v_adaptation
+  v_adaptation --&gt;|"Connect to libcamera"| v_framework
+  v_framework --&gt;|"Control through the V4L2 &lt;br/&gt;family of APIs"| v_kernel</pre>
+<p><a href="team-overview.camera-stack.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>This is an authored interpretation linked to source evidence. Automated binding checks are neither semantic approval nor device runtime validation.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Element or transition</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Applications and upper-level frameworks</td>
+<td><a href="#source-e3b563f549a8c46d">Documentation/introduction.rst:137</a></td>
+</tr>
+<tr>
+<td>Adaptation (V4L2 compatibility, GStreamer, Android HAL)</td>
+<td><a href="#source-e3b563f549a8c46d">Documentation/introduction.rst:137</a></td>
+</tr>
+<tr>
+<td>libcamera framework</td>
+<td><a href="#source-e3b563f549a8c46d">Documentation/introduction.rst:137</a></td>
+</tr>
+<tr>
+<td>Kernel drivers (V4L2 family of APIs)</td>
+<td><a href="#source-e3b563f549a8c46d">Documentation/introduction.rst:137</a></td>
+</tr>
+<tr>
+<td>Use the C++ API directly</td>
+<td><a href="#source-e3b563f549a8c46d">Documentation/introduction.rst:137</a></td>
+</tr>
+<tr>
+<td>Use through another framework</td>
+<td><a href="#source-e3b563f549a8c46d">Documentation/introduction.rst:137</a></td>
+</tr>
+<tr>
+<td>Connect to libcamera</td>
+<td><a href="#source-e3b563f549a8c46d">Documentation/introduction.rst:137</a></td>
+</tr>
+<tr>
+<td>Control through the V4L2 family of APIs</td>
+<td><a href="#source-e3b563f549a8c46d">Documentation/introduction.rst:137</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:camera-stack -->
+
+<p>Responsibility for implementing a working camera stack with these drivers lies in user space. This work is often implemented separately by each vendor, and there is no common architecture or API for application developers. Because of differences in hardware pipelines and in how those differences are expressed in kernel APIs, custom handling is often needed, which adds considerable complexity to the work.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>Documentation/introduction.rst</code><span class="evidence-lines"><a href="#source-de476c940b030e4a" aria-label="Documentation/introduction.rst:35 excerpt"><code>L35</code> excerpt</a> · <a aria-label="Documentation/introduction.rst:35" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/introduction.rst#L35">Full source <code>L35</code></a></span></li></ul></details>
+<p>libcamera provides a complete camera stack for Linux-based systems. This stack abstracts the hardware configuration and image control algorithms required to obtain the desired results from a camera, and reduces these operations, which otherwise go through kernel APIs, to a single, simple, and consistent method that developers can use.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>Documentation/introduction.rst</code><span class="evidence-lines"><a href="#source-f350cabac0db8343" aria-label="Documentation/introduction.rst:45 excerpt"><code>L45</code> excerpt</a> · <a aria-label="Documentation/introduction.rst:45" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/introduction.rst#L45">Full source <code>L45</code></a></span></li></ul></details>
+<p>The camera stack is divided into four software layers from bottom to top. The lowest layer, the kernel drivers, controls the camera hardware and exposes low-level interfaces to userspace through V4L2-family APIs (Media <code>Controller</code> API, V4L2 Video <code>Device</code> API, V4L2 Subdev API). The libcamera framework above it is the core part of the stack; it is responsible for all control of camera devices and provides a native C++ API to upper layers. The third layer, libcamera adaptation, is a comprehensive term for components that connect to other frameworks; representative examples include the V4L2 compatibility layer, the gstreamer libcamera element, and Android camera HAL implementations based on libcamera. The topmost layer, applications and upper-level frameworks, is built on the libcamera framework or libcamera adaptation and is outside the scope of the libcamera project.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>Documentation/introduction.rst</code><span class="evidence-lines"><a href="#source-e3b563f549a8c46d" aria-label="Documentation/introduction.rst:137 excerpt"><code>L137</code> excerpt</a> · <a aria-label="Documentation/introduction.rst:137" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/introduction.rst#L137">Full source <code>L137</code></a></span></li></ul></details>
+<details class="evidence-links evidence-section"><summary>Section evidence · <span>4</span></summary><ul><li><code>Documentation/introduction.rst</code><span class="evidence-lines"><a aria-label="Documentation/introduction.rst:10" href="#source-34fda84500757231"><code>L10</code></a> · <a aria-label="Documentation/introduction.rst:35" href="#source-de476c940b030e4a"><code>L35</code></a> · <a aria-label="Documentation/introduction.rst:45" href="#source-f350cabac0db8343"><code>L45</code></a> · <a aria-label="Documentation/introduction.rst:137" href="#source-e3b563f549a8c46d"><code>L137</code></a></span></li></ul></details>
+<h2 id="받는-것">Inputs</h2>
+<p>The lower layer, the kernel drivers, controls the camera hardware and exposes low-level interfaces to userspace through the Linux kernel's V4L2-family APIs (Media <code>Controller</code> API, V4L2 Video <code>Device</code> API, V4L2 Subdev API). This passage does not describe how libcamera uses these interfaces, so its contents cannot be determined from this passage alone.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>Documentation/introduction.rst</code><span class="evidence-lines"><a href="#source-e93209ecbe248c51" aria-label="Documentation/introduction.rst:139 excerpt"><code>L139</code> excerpt</a> · <a aria-label="Documentation/introduction.rst:139" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/introduction.rst#L139">Full source <code>L139</code></a></span></li></ul></details>
+<p>Cameras are enumerated by the <code>Camera</code> Manager. The <code>Camera</code> Manager instantiates a pipeline handler to manage each camera that libcamera supports. Only one <code>Camera</code> Manager instance runs per application, which ensures that only a single application can control a camera device at a time.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>Documentation/libcamera_architecture.rst</code><span class="evidence-lines"><a href="#source-64bdc114ca74bd2c" aria-label="Documentation/libcamera_architecture.rst:60 excerpt"><code>L60</code> excerpt</a> · <a aria-label="Documentation/libcamera_architecture.rst:60" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/libcamera_architecture.rst#L60">Full source <code>L60</code></a></span></li></ul></details>
+<details class="evidence-links evidence-section"><summary>Section evidence · <span>2</span></summary><ul><li><code>Documentation/introduction.rst</code><span class="evidence-lines"><a aria-label="Documentation/introduction.rst:139" href="#source-e93209ecbe248c51"><code>L139</code></a></span></li><li><code>Documentation/libcamera_architecture.rst</code><span class="evidence-lines"><a aria-label="Documentation/libcamera_architecture.rst:60" href="#source-64bdc114ca74bd2c"><code>L60</code></a></span></li></ul></details>
+<h2 id="내놓는-것">Outputs</h2>
+<p>The libcamera framework is the core part of the stack. Its core component, libcamera, handles all control of camera devices and provides a native C++ API to upper layers. The highest-level object exposed by libcamera is the <code>Camera</code> class. It represents a single camera hardware entry and provides an API for interacting with the underlying device that can create image streams. On systems where multiple units of the same hardware are connected, each hardware unit has its own <code>Camera</code> class instance, and other API operations, from configuration through capture, interact with this object.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>2</span></summary><ul><li><code>Documentation/introduction.rst</code><span class="evidence-lines"><a href="#source-d47b8630f593cf3c" aria-label="Documentation/introduction.rst:144 excerpt"><code>L144</code> excerpt</a> · <a aria-label="Documentation/introduction.rst:144" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/introduction.rst#L144">Full source <code>L144</code></a></span></li><li><code>Documentation/libcamera_architecture.rst</code><span class="evidence-lines"><a href="#source-611760d3be65ec8c" aria-label="Documentation/libcamera_architecture.rst:72 excerpt"><code>L72</code> excerpt</a> · <a aria-label="Documentation/libcamera_architecture.rst:72" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/libcamera_architecture.rst#L72">Full source <code>L72</code></a></span></li></ul></details>
+<p>libcamera adaptation is a comprehensive term for the components that connect libcamera to other frameworks. Representative examples include the V4L2 compatibility layer, the gstreamer libcamera element, and Android camera HAL implementations based on libcamera. These components may reside in separate repositories within the libcamera project's source code repository, or may be moved into the repositories of their respective projects, as with the gstreamer libcamera element.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>Documentation/introduction.rst</code><span class="evidence-lines"><a href="#source-72dfdf22c79d4609" aria-label="Documentation/introduction.rst:153 excerpt"><code>L153</code> excerpt</a> · <a aria-label="Documentation/introduction.rst:153" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/introduction.rst#L153">Full source <code>L153</code></a></span></li></ul></details>
+<details class="evidence-links evidence-section"><summary>Section evidence · <span>3</span></summary><ul><li><code>Documentation/introduction.rst</code><span class="evidence-lines"><a aria-label="Documentation/introduction.rst:144" href="#source-d47b8630f593cf3c"><code>L144</code></a> · <a aria-label="Documentation/introduction.rst:153" href="#source-72dfdf22c79d4609"><code>L153</code></a></span></li><li><code>Documentation/libcamera_architecture.rst</code><span class="evidence-lines"><a aria-label="Documentation/libcamera_architecture.rst:72" href="#source-611760d3be65ec8c"><code>L72</code></a></span></li></ul></details>
+<h2 id="다른-팀계층과의-경계">Boundaries with other teams and layers</h2>
+<p>Applications and upper-level frameworks are outside the scope of this project. They are built on the libcamera framework or libcamera adaptation, but they are not included in the scope of the libcamera project.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>Documentation/introduction.rst</code><span class="evidence-lines"><a href="#source-9e653b8ff755db78" aria-label="Documentation/introduction.rst:163 excerpt"><code>L163</code> excerpt</a> · <a aria-label="Documentation/introduction.rst:163" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/introduction.rst#L163">Full source <code>L163</code></a></span></li></ul></details>
+<p>One of the parts contributed by device vendors is the device-specific Pipeline Handler. It is part of the libcamera codebase, and device vendors must contribute it upstream. IPA modules are <code>Image</code> Processing Algorithms (IPA) that implement 3A (Auto-Exposure, Auto-White Balance, Auto-Focus) and other functions. They may be included in the libcamera codebase, or the camera vendor may provide them separately. IPA modules included in libcamera follow free software licenses, and external IPA modules may be open source or closed source. Third parties can develop and distribute IPA modules under a proprietary license, provided that they do not include the source code of the libcamera project.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>3</span></summary><ul><li><code>Documentation/libcamera_architecture.rst</code><span class="evidence-lines"><a href="#source-8bd888bd0473995e" aria-label="Documentation/libcamera_architecture.rst:87 excerpt"><code>L87</code> excerpt</a> · <a aria-label="Documentation/libcamera_architecture.rst:87" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/libcamera_architecture.rst#L87">Full source <code>L87</code></a> · <a href="#source-1f130cc8640ef810" aria-label="Documentation/libcamera_architecture.rst:109 excerpt"><code>L109</code> excerpt</a> · <a aria-label="Documentation/libcamera_architecture.rst:109" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/libcamera_architecture.rst#L109">Full source <code>L109</code></a></span></li><li><code>Documentation/introduction.rst</code><span class="evidence-lines"><a href="#source-341442e08591ef50" aria-label="Documentation/introduction.rst:200 excerpt"><code>L200</code> excerpt</a> · <a aria-label="Documentation/introduction.rst:200" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/introduction.rst#L200">Full source <code>L200</code></a></span></li></ul></details>
+<details class="evidence-links evidence-section"><summary>Section evidence · <span>4</span></summary><ul><li><code>Documentation/introduction.rst</code><span class="evidence-lines"><a aria-label="Documentation/introduction.rst:163" href="#source-9e653b8ff755db78"><code>L163</code></a> · <a aria-label="Documentation/introduction.rst:200" href="#source-341442e08591ef50"><code>L200</code></a></span></li><li><code>Documentation/libcamera_architecture.rst</code><span class="evidence-lines"><a aria-label="Documentation/libcamera_architecture.rst:87" href="#source-8bd888bd0473995e"><code>L87</code></a> · <a aria-label="Documentation/libcamera_architecture.rst:109" href="#source-1f130cc8640ef810"><code>L109</code></a></span></li></ul></details>
+<details class="note">
+<summary>Design questions and validation scope</summary>
+<p>Answers and their evidence links have been checked for each question. Meaning and runtime results still require human review.</p>
+<div class="table-scroll stack" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Design question</th>
+<th>Explanation location</th>
+<th>Verification scope</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td data-label="Design question">What does this project do, and whose problems does it solve?</td>
+<td data-label="Explanation location"><a href="#하는-일">What it does</a></td>
+<td data-label="Verification scope">Code evidence linked to explanation</td>
+</tr>
+<tr>
+<td data-label="Design question">What inputs does this project take?</td>
+<td data-label="Explanation location"><a href="#받는-것">Inputs</a></td>
+<td data-label="Verification scope">Code evidence linked to explanation</td>
+</tr>
+<tr>
+<td data-label="Design question">What results does this project produce?</td>
+<td data-label="Explanation location"><a href="#내놓는-것">Outputs</a></td>
+<td data-label="Verification scope">Code evidence linked to explanation</td>
+</tr>
+<tr>
+<td data-label="Design question">Which layers and teams are responsibilities divided between?</td>
+<td data-label="Explanation location"><a href="#다른-팀계층과의-경계">Boundaries with other teams and layers</a></td>
+<td data-label="Verification scope">Code evidence linked to explanation</td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<h2 id="소스-근거">Source evidence</h2>
+<p>Each identical excerpt appears once. Expand the source you need and compare it with the explanation.</p>
+<p><a id="source-34fda84500757231"></a></p>
+<details class="note">
+<summary>Source evidence: Documentation/introduction.rst:10</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/introduction.rst#L10"><code>Documentation/introduction.rst:10</code></a>. The end line is 13, and you can compare the original text below with the explanation.</p>
+<p>SHA-256: <code>84621541899cba7430b844bc03d13fc8e6f3f03e7c30556df0bf1cd11007494c</code></p>
+<div class="highlight"><pre><span></span><code>libcamera is an open source complex camera support library for Linux, Android
+and ChromeOS. The library interfaces with Linux kernel device drivers and
+provides an intuitive API to developers in order to simplify the complexity
+involved in capturing images from complex cameras on Linux systems.
+</code></pre></div>
+</details>
+<p><a id="source-de476c940b030e4a"></a></p>
+<details class="note">
+<summary>Source evidence: Documentation/introduction.rst:35</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/introduction.rst#L35"><code>Documentation/introduction.rst:35</code></a> and ending at line 40. Compare the source below with the explanation.</p>
+<p>SHA-256: <code>0c6b72f4ffe9e608101639096b5597a61f41f776e4f5ac4aaa43229c744db3f0</code></p>
+<div class="highlight"><pre><span></span><code>The usage of these drivers to provide a functioning camera stack is a
+responsibility that lies in userspace, and is commonly implemented separately
+by vendors without a common architecture or API for application developers. This
+adds a lot of complexity to the task, particularly when considering that the
+differences in hardware pipelines and their representation in the kernel's APIs
+often necessitate bespoke handling.
+</code></pre></div>
+</details>
+<p><a id="source-f350cabac0db8343"></a></p>
+<details class="note">
+<summary>Source evidence: Documentation/introduction.rst:45</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/introduction.rst#L45"><code>Documentation/introduction.rst:45</code></a>. The end line is 49, and you can compare the original text below with the explanation.</p>
+<p>SHA-256: <code>56f623776b7eab9511de1f32c1f3080c4eab37239185f5134db6b2644760b1f5</code></p>
+<div class="highlight"><pre><span></span><code>libcamera provides a complete camera stack for Linux-based systems to abstract
+the configuration of hardware and image control algorithms required to obtain
+desirable results from the camera through the kernel's APIs, reducing those
+operations to a simple and consistent method for developers. In short instead of
+having to deal with this:
+</code></pre></div>
+</details>
+<p><a id="source-e3b563f549a8c46d"></a></p>
+<details class="note">
+<summary>Source evidence: Documentation/introduction.rst:137</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/introduction.rst#L137"><code>Documentation/introduction.rst:137</code></a>. The end line is 165, and you can compare the original text below with the explanation.</p>
+<p>SHA-256: <code>750a623b45ad76fbd899b56427ad76ef91bdc922497972317df868fe538c3b03</code></p>
+<div class="highlight"><pre><span></span><code>The camera stack comprises four software layers. From bottom to top:
+
+* The kernel drivers control the camera hardware and expose a
+  low-level interface to userspace through the Linux kernel V4L2
+  family of APIs (Media Controller API, V4L2 Video Device API and
+  V4L2 Subdev API).
+
+* The libcamera framework is the core part of the stack. It
+  handles all control of the camera devices in its core component,
+  libcamera, and exposes a native C++ API to upper layers. Optional
+  language bindings allow interfacing to libcamera from other
+  programming languages.
+
+  Those components live in the same source code repository and
+  all together constitute the libcamera framework.
+
+* The libcamera adaptation is an umbrella term designating the
+  components that interface to libcamera in other frameworks.
+  Notable examples are a V4L2 compatibility layer, a gstreamer
+  libcamera element, and an Android camera HAL implementation based
+  on libcamera.
+
+  Those components can live in the libcamera project source code
+  in separate repositories, or move to their respective project's
+  repository (for instance the gstreamer libcamera element).
+
+* The applications and upper level frameworks are based on the
+  libcamera framework or libcamera adaptation, and are outside of
+  the scope of the libcamera project.
+</code></pre></div>
+</details>
+<p><a id="source-e93209ecbe248c51"></a></p>
+<details class="note">
+<summary>Source evidence: Documentation/introduction.rst:139</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/introduction.rst#L139"><code>Documentation/introduction.rst:139</code></a> and ending at line 142. Compare the source below with the explanation.</p>
+<p>SHA-256: <code>33d991f6b824d355da564d0c328fb633374964b7dfee2b8e68b450cb29a80efa</code></p>
+<div class="highlight"><pre><span></span><code>* The kernel drivers control the camera hardware and expose a
+  low-level interface to userspace through the Linux kernel V4L2
+  family of APIs (Media Controller API, V4L2 Video Device API and
+  V4L2 Subdev API).
+</code></pre></div>
+</details>
+<p><a id="source-64bdc114ca74bd2c"></a></p>
+<details class="note">
+<summary>Source evidence: Documentation/libcamera_architecture.rst:60</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/libcamera_architecture.rst#L60"><code>Documentation/libcamera_architecture.rst:60</code></a>. The end line is 67, and you can compare the original text below with the explanation.</p>
+<p>SHA-256: <code>bd036b31d192ef7504f07202ebcbc475e23b8b4387bf322ddf529accbbb786a7</code></p>
+<div class="highlight"><pre><span></span><code>The Camera Manager enumerates cameras and instantiates Pipeline Handlers to
+  manage each Camera that libcamera supports. The Camera Manager supports
+  hotplug detection and notification events when supported by the underlying
+  kernel devices.
+
+  There is only ever one instance of the Camera Manager running per application.
+  Each application's instance of the Camera Manager ensures that only a single
+  application can take control of a camera device at once.
+</code></pre></div>
+</details>
+<p><a id="source-d47b8630f593cf3c"></a></p>
+<details class="note">
+<summary>Source evidence: Documentation/introduction.rst:144</summary>
+<p>The excerpt begins at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/introduction.rst#L144"><code>Documentation/introduction.rst:144</code></a>. The end line is 151, and the original text below can be compared with the explanation.</p>
+<p>SHA-256: <code>69bc145221729420c980f5fe5887a43497e96b41eb16fa12ed7fdef01ccfdb97</code></p>
+<div class="highlight"><pre><span></span><code>* The libcamera framework is the core part of the stack. It
+  handles all control of the camera devices in its core component,
+  libcamera, and exposes a native C++ API to upper layers. Optional
+  language bindings allow interfacing to libcamera from other
+  programming languages.
+
+  Those components live in the same source code repository and
+  all together constitute the libcamera framework.
+</code></pre></div>
+</details>
+<p><a id="source-611760d3be65ec8c"></a></p>
+<details class="note">
+<summary>Source evidence: Documentation/libcamera_architecture.rst:72</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/libcamera_architecture.rst#L72"><code>Documentation/libcamera_architecture.rst:72</code></a>. The end line is 82, and you can compare the original text below with the explanation.</p>
+<p>SHA-256: <code>d64fa7a71ca69a53433d250a2fd8f59a0beed2578980eee658d8dfb44a7513ee</code></p>
+<div class="highlight"><pre><span></span><code>The Camera class represents a single item of camera hardware that is capable
+  of producing one or more image streams, and provides the API to interact with
+  the underlying device.
+
+  If a system has multiple instances of the same hardware attached, each has its
+  own instance of the camera class.
+
+  The API exposes full control of the device to upper layers of libcamera through
+  the public API, making it the highest level object libcamera exposes, and the
+  object that all other API operations interact with from configuration to
+  capture.
+</code></pre></div>
+</details>
+<p><a id="source-72dfdf22c79d4609"></a></p>
+<details class="note">
+<summary>Source evidence: Documentation/introduction.rst:153</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/introduction.rst#L153"><code>Documentation/introduction.rst:153</code></a>. The end line is 161, and you can compare the original text below with the explanation.</p>
+<p>SHA-256: <code>684ccb39cfc9bebf3125bd79b4b2f847de806a34261a9bcac9216bda52f1f99d</code></p>
+<div class="highlight"><pre><span></span><code>* The libcamera adaptation is an umbrella term designating the
+  components that interface to libcamera in other frameworks.
+  Notable examples are a V4L2 compatibility layer, a gstreamer
+  libcamera element, and an Android camera HAL implementation based
+  on libcamera.
+
+  Those components can live in the libcamera project source code
+  in separate repositories, or move to their respective project's
+  repository (for instance the gstreamer libcamera element).
+</code></pre></div>
+</details>
+<p><a id="source-9e653b8ff755db78"></a></p>
+<details class="note">
+<summary>Source evidence: Documentation/introduction.rst:163</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/introduction.rst#L163"><code>Documentation/introduction.rst:163</code></a>. The end line is 165, and you can compare the original text below with the explanation.</p>
+<p>SHA-256: <code>e8a1fc73a04b4feadbf1c6ca5d820f482b4eaaebfafec27a74612e2189b01c7c</code></p>
+<div class="highlight"><pre><span></span><code>* The applications and upper level frameworks are based on the
+  libcamera framework or libcamera adaptation, and are outside of
+  the scope of the libcamera project.
+</code></pre></div>
+</details>
+<p><a id="source-8bd888bd0473995e"></a></p>
+<details class="note">
+<summary>Source evidence: Documentation/libcamera_architecture.rst:87</summary>
+<p>The excerpt begins at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/libcamera_architecture.rst#L87"><code>Documentation/libcamera_architecture.rst:87</code></a>. The ending line is 102, and the original text below can be compared with this description.</p>
+<p>SHA-256: <code>868d392c7f94391d196168c05db330a1f07da72687d94f7b5a6ffaf1d6dee988</code></p>
+<div class="highlight"><pre><span></span><code>The Pipeline Handler manages the complex pipelines exposed by the kernel
+  drivers through the Media Controller and V4L2 APIs. It abstracts pipeline
+  handling to hide device-specific details from the rest of the library, and
+  implements both pipeline configuration based on stream configuration, and
+  pipeline runtime execution and scheduling when needed by the device.
+
+  The Pipeline Handler lives in the same process as the rest of the library, and
+  has access to all helpers and kernel camera-related devices.
+
+  Hardware abstraction is handled by device specific Pipeline Handlers which are
+  derived from the Pipeline Handler base class allowing commonality to be shared
+  among the implementations.
+
+  Derived pipeline handlers create Camera device instances based on the devices
+  they detect and support on the running system, and are responsible for
+  managing the interactions with a camera device.
+</code></pre></div>
+</details>
+<p><a id="source-1f130cc8640ef810"></a></p>
+<details class="note">
+<summary>Source evidence: Documentation/libcamera_architecture.rst:109</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/libcamera_architecture.rst#L109"><code>Documentation/libcamera_architecture.rst:109</code></a>. The end line is 118, and you can compare the original text below with the explanation.</p>
+<p>SHA-256: <code>f0858f8576140aaf8b57ac5d757e8be0910218fb68d85b4704fe9275e2683a28</code></p>
+<div class="highlight"><pre><span></span><code>Together with the hardware image processing and hardware statistics
+  collection, the Image Processing Algorithms (IPA) implement 3A (Auto-Exposure,
+  Auto-White Balance and Auto-Focus) and other algorithms. They run on the CPU
+  and control hardware image processing based on the parameters supplied by
+  upper layers, closing the control loop of the ISP.
+
+  IPAs are loaded as external plugins named IPA Modules. IPA Modules can be
+  part of the libcamera code base or provided externally by camera vendors.
+  In-tree IPA modules are covered by the same license as the rest of libcamera,
+  external IPA modules can be open-source or closed-source.
+</code></pre></div>
+</details>
+<p><a id="source-341442e08591ef50"></a></p>
+<details class="note">
+<summary>Source evidence: Documentation/introduction.rst:200</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f/Documentation/introduction.rst#L200"><code>Documentation/introduction.rst:200</code></a>. The end line is 204, and you can compare the original text below with the explanation.</p>
+<p>SHA-256: <code>ef0482e955d8c625e622517f8a1bd58e9fcc321770a02c19aa241cdc485bb623</code></p>
+<div class="highlight"><pre><span></span><code>Handlers are a part of the libcamera code base and need to be contributed
+upstream by device vendors. IPA modules included in libcamera are covered by a
+free software license, however third-parties may develop IPA modules outside of
+libcamera and distribute them under a closed-source license, provided they do
+not include source code from the libcamera project.
+</code></pre></div>
+</details>
+<details class="note">
+<summary>Evidence and review information</summary>
+<ul>
+<li>Generation method: extracted facts and LLM explanations</li>
+<li>Validation scope: tables and diagrams come from extracted facts; an LLM writes the explanations. Citation, prose and configured structural checks are applied.</li>
+<li>Evidence files: <code>Documentation/introduction.rst</code>, <code>Documentation/libcamera_architecture.rst</code>, <code>include/libcamera/camera.h</code>, <code>include/libcamera/camera_manager.h</code>, <code>include/libcamera/internal/pipeline_handler.h</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/camera_manager.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code></li>
+<li>Evidence level: code inspection (static analysis, simple_compdb configuration, commit <code>2c4b67c079</code>)</li>
+<li>Automatic checks (citations, prose and configured structure checks): passed</li>
+<li>Review status recorded on 2026-10-27 · pending human review</li>
+</ul>
+</details>
+<p>Next step: <a href="overview.html">System overview</a></p></article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanations</dd><dt>Validation scope</dt><dd>Tables and diagrams come from extracted facts; an LLM writes the explanations. Citation, prose and configured structural checks are applied.</dd><dt>Automatic checks</dt><dd>Passed (<code>ok</code>). The checked items are listed under Validation scope. Whether the explanation is correct still needs a person to confirm.</dd><dt>Analyzed source commit</dt><dd><code>2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f</code></dd><dt>Document generation time</dt><dd><code>2026-10-27 00:53:12+00:00</code></dd><dt>Prose generation model</dt><dd><code>response-bundle/claude-haiku-5-5-subagent-high</code></dd></dl><a href="../team-overview.md">Korean Markdown source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="rkisp1-dewarp.html"><small>Previous</small>RKISP1 per-camera lens dewarping ←</a><a class="next" href="overview.html"><small>Next</small>System overview →</a></nav>
+<footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
+<aside class="page-toc"><nav aria-label="Current page contents"><p>On this page</p><div class="toc">
+<ul>
+<li><a href="#하는-일">What it does</a><ul>
+<li><a href="#카메라-스택의-네-계층">The four layers of the camera stack</a></li>
+</ul>
+</li>
+<li><a href="#받는-것">Inputs</a></li>
+<li><a href="#내놓는-것">Outputs</a></li>
+<li><a href="#다른-팀계층과의-경계">Boundaries with other teams and layers</a></li>
+<li><a href="#소스-근거">Source evidence</a></li>
+</ul>
+</div>
+</nav></aside></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find documents</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search document titles, section titles and terms</label><input id="search-input" type="search" autocomplete="off" placeholder="e.g. Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Class name"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Zoom out">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to view</button><button id="zoom-reset">100%</button></div><div id="diagram-viewport" tabindex="0" role="region" aria-label="Enlarged diagram"><div id="diagram-canvas"></div></div></dialog>
+<script id="site-config" type="application/json">{"root": "./", "mermaid": "https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.esm.min.mjs", "terms": "91d88c583b", "language": "en"}</script><script defer src="../assets/site.js?v=d29f01ebc1"></script></body></html>
