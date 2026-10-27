@@ -1,13 +1,13 @@
 ---
-generated_at: 2026-10-26T13:30:14+00:00
+generated_at: 2026-10-27T12:55:27+00:00
 source_commit: 2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f
 status: ok
 section: ipa-module-validation
 generation_method: facts-and-llm
 evidence_fingerprint: ee9673275e0bd838a4d1d9097cd779a993621b88c714b97f4822b5c6ab5af73d
 semantic_review: human-review-required
-agent: cli/hermes/qwen3.5:9b
-generated_design: {"schema": 1, "input_fingerprint": "ee9673275e0bd838a4d1d9097cd779a993621b88c714b97f4822b5c6ab5af73d", "answers": {"signature": [{"text": "서명 파일이 열리지 않으면 loadIPAModuleInfo 가 0 을 반환합니다.", "covers": ["signature"], "kind": "behavior", "quote": "/* Load the signature. Failures are not fatal. */\n\tFile sign{ libPath_ + \".sign\" };\n\tif (!sign.open(File::OpenModeFlag::ReadOnly)) {\n\t\tLOG(IPAModule, Debug)\n\t\t\t<< \"IPA module \" << libPath_ << \" is not signed\";\n\t\treturn 0;\n\t}\n\n\tdata = sign.map(0, -1, File::MapFlag::Private);", "evidence": ["signature-file"], "part_id": "file-result"}], "metadata": [{"text": "ipaModuleInfo 크기 비교는 size()가 작으면 실패하고, moduleAPIVersion 비교는 다르면 실패하여 -EINVAL를 반환합니다.", "covers": ["metadata"], "kind": "behavior", "quote": "int IPAModule::loadIPAModuleInfo()\n{\n\tFile file{ libPath_ };\n\tif (!file.open(File::OpenModeFlag::ReadOnly)) {\n\t\tLOG(IPAModule, Error) << \"Failed to open IPA library: \"\n\t\t\t\t      << strerror(-file.error());\n\t\treturn file.error();\n\t}\n\n\tstd::span<const uint8_t> data = file.map();\n\tint ret = elfVerifyIdent(data);\n\tif (ret) {\n\t\tLOG(IPAModule, Error) << \"IPA module is not an ELF file\";\n\t\treturn ret;\n\t}\n\n\tstd::span<const uint8_t> info = elfLoadSymbol(data, \"ipaModuleInfo\");\n\tif (info.size() < sizeof(info_)) {\n\t\tLOG(IPAModule, Error) << \"IPA module has no valid info\";\n\t\treturn -EINVAL;\n\t}\n\n\tmemcpy(&info_, info.data(), sizeof(info_));\n\n\tif (info_.moduleAPIVersion != IPA_MODULE_API_VERSION) {\n\t\tLOG(IPAModule, Error) << \"IPA module API version mismatch\";\n\t\treturn -EINVAL;\n\t}\n\n\t/*\n\t * Validate the IPA module name.", "evidence": ["info-checks"], "part_id": "checks"}]}, "topic_inputs": {"metadata": "14ce8c54d5dcca8e6f7ead7cf31781492b339e66255210063670c3a0d3d28d00", "signature": "5cabdb641474bd4b2ac54e2b1d9f264ed117605ad772ef75c6c4bed0800fb806"}, "reused_topics": ["signature"], "generated_topics": ["metadata"], "topic_agents": {"signature": "cli/hermes/qwen3.5:9b", "metadata": "cli/hermes/qwen3.5:9b"}, "body_sha256": "77db254e07d6a828fc2a05d0b0c7701da19013cf3b2d080328fd3a20cb04c5cd"}
+agent: cli/claude/claude-haiku-5-5
+generated_design: {"schema": 1, "input_fingerprint": "ee9673275e0bd838a4d1d9097cd779a993621b88c714b97f4822b5c6ab5af73d", "answers": {"metadata": [{"text": "`IPAModule::loadIPAModuleInfo`에서 ipaModuleInfo의 크기(info.size())가 sizeof(`info_`)보다 작으면 유효한 정보가 없는 것으로 보고 -EINVAL을 반환하고, `info_`.moduleAPIVersion이 `IPA_MODULE_API_VERSION`과 같지 않으면 API 버전 불일치로 보고 -EINVAL을 반환합니다.", "evidence": ["info-checks"], "covers": ["metadata"], "kind": "behavior", "quote": "int IPAModule::loadIPAModuleInfo()\n{\n\tFile file{ libPath_ };\n\tif (!file.open(File::OpenModeFlag::ReadOnly)) {\n\t\tLOG(IPAModule, Error) << \"Failed to open IPA library: \"\n\t\t\t\t      << strerror(-file.error());\n\t\treturn file.error();\n\t}\n\n\tstd::span<const uint8_t> data = file.map();\n\tint ret = elfVerifyIdent(data);\n\tif (ret) {\n\t\tLOG(IPAModule, Error) << \"IPA module is not an ELF file\";\n\t\treturn ret;\n\t}\n\n\tstd::span<const uint8_t> info = elfLoadSymbol(data, \"ipaModuleInfo\");\n\tif (info.size() < sizeof(info_)) {\n\t\tLOG(IPAModule, Error) << \"IPA module has no valid info\";\n\t\treturn -EINVAL;\n\t}\n\n\tmemcpy(&info_, info.data(), sizeof(info_));\n\n\tif (info_.moduleAPIVersion != IPA_MODULE_API_VERSION) {\n\t\tLOG(IPAModule, Error) << \"IPA module API version mismatch\";\n\t\treturn -EINVAL;\n\t}\n\n\t/*\n\t * Validate the IPA module name.", "part_id": "checks"}], "signature": [{"text": "발췌문에는 `loadIPAModuleInfo`의 이름과 반환 타입이 없으므로, 서명 파일 열기에 실패하면 발췌된 코드가 `LOG(IPAModule, Debug)`로 'is not signed' 로그를 남긴 뒤 `return 0;`을 실행해 정수 `0`을 반환한다는 것까지만 근거로 확인됩니다.", "evidence": ["signature-file"], "covers": ["signature"], "kind": "behavior", "quote": "/* Load the signature. Failures are not fatal. */\n\tFile sign{ libPath_ + \".sign\" };\n\tif (!sign.open(File::OpenModeFlag::ReadOnly)) {\n\t\tLOG(IPAModule, Debug)\n\t\t\t<< \"IPA module \" << libPath_ << \" is not signed\";\n\t\treturn 0;\n\t}\n\n\tdata = sign.map(0, -1, File::MapFlag::Private);", "part_id": "file-result"}]}, "topic_inputs": {"metadata": "db011cd0c5bc4c4dacdf253faf5e7c64c1b2c520dd2481aea4e94540334087ba", "signature": "399a2b1877f00f8262d178ac3c5ea6efeb90bc4525d50adb92d3355d6c701d3e"}, "reused_topics": [], "replayed_units": [], "generated_topics": ["metadata", "signature"], "topic_agents": {"metadata": "cli/claude/claude-haiku-5-5", "signature": "cli/claude/claude-haiku-5-5"}, "grounding_review": "passed", "grounding_policy": "3c9673abb403dee9aa554ee5b3c549ebfe95bb18ec0e9cd7bf6e495e060439c2", "body_sha256": "895d864e588433ce875ab4921eec86b13edd1bb606654771ce593af46bcc2c35"}
 ---
 
 # IPA 모듈 정보 검사와 서명 파일 누락
@@ -21,13 +21,13 @@ generated_design: {"schema": 1, "input_fingerprint": "ee9673275e0bd838a4d1d9097c
 
 ## 메타데이터 오류를 구분하기
 
-ipaModuleInfo 크기 비교는 size()가 작으면 실패하고, moduleAPIVersion 비교는 다르면 실패하여 -EINVAL를 반환합니다. `src/libcamera/ipa_module.cpp:268`
+`IPAModule::loadIPAModuleInfo`에서 ipaModuleInfo의 크기(info.size())가 sizeof(`info_`)보다 작으면 유효한 정보가 없는 것으로 보고 -EINVAL을 반환하고, `info_`.moduleAPIVersion이 `IPA_MODULE_API_VERSION`과 같지 않으면 API 버전 불일치로 보고 -EINVAL을 반환합니다. `src/libcamera/ipa_module.cpp:268`
 
 근거 원문: [src/libcamera/ipa_module.cpp:268](#source-c87048bf1f3594a3)
 
 ## 서명 파일을 열지 못한 경우
 
-서명 파일이 열리지 않으면 loadIPAModuleInfo 가 0 을 반환합니다. `src/libcamera/ipa_module.cpp:316`
+발췌문에는 `loadIPAModuleInfo`의 이름과 반환 타입이 없으므로, 서명 파일 열기에 실패하면 발췌된 코드가 `LOG(IPAModule, Debug)`로 'is not signed' 로그를 남긴 뒤 `return 0;`을 실행해 정수 `0`을 반환한다는 것까지만 근거로 확인됩니다. `src/libcamera/ipa_module.cpp:316`
 
 근거 원문: [src/libcamera/ipa_module.cpp:316](#source-c7597f31f03901e3)
 
@@ -109,6 +109,6 @@ ipaModuleInfo 크기 비교는 size()가 작으면 실패하고, moduleAPIVersio
     - 근거 파일: `src/libcamera/ipa_module.cpp`
     - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `2c4b67c079`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-10-26 · 사람 검토 전
+    - 검토 상태 기록일: 2026-10-27 · 사람 검토 전
 
 다음 단계: [IPA 관리와 구현 진입점](ipa.md)
