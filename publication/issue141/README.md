@@ -1,0 +1,25 @@
+# Issue 141: structural refactoring and upstream validation (incomplete)
+
+The generator's typed configuration, generation responsibilities and trial/compatibility boundaries were merged in [PR 142](https://github.com/TTolsun/camera-hal-sdd-generator/pull/142). [PR 144](https://github.com/TTolsun/camera-hal-sdd-generator/pull/144) excludes Meson `build/**` declarations from the public libcamera example so code links point to files in the official source tree. The same five structural criteria score 91/100; this is an engineering assessment, not human approval or internal HAL certification.
+
+This directory contains **draft evidence only**. It does not replace the deployed site. Public main `f57d9ec440254e9b1285c475f9fb7d70c94c259b` and its newly published IPA-module/RKISP1 manuscripts are preserved. Their answer records revalidate unchanged against the new source. Vendor integration and the IPA overview still require generation before the full source update can be published.
+
+## Completed checks
+
+- Before/after fixed-input comparison: all 154 output files are byte-identical, including the deployed baseline. The manifest engine identity changes because the refactored modules are now tracked. This comparison makes no model calls and uses historical manuscript identity only for rendering.
+- Merged generator `350a9d344e6170d37124774f5f290ec13bc04d0b`: all 1,761 tests pass separately on Windows/Ubuntu with Python 3.11/3.14. See `generator-ci.json` for jobs and actual pytest summaries.
+- Official libcamera `182307a772ebebf173ee84911906da707718485f`: 186 translation units, 982 classes, 428 functions and six scenarios; no parsing errors or missing scenario entries. All 5,742 source positions reference actual files in that Git tree. Generated-header classes: zero. `facts.json` is the unchanged extraction output; `source-verification.json` records its hash and file-position checks.
+- Impact against `2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f`: 42 changed files, 12 affected sections and 21 unapproved coverage findings. Three changes are automatically classified; no LLM finding or human approval was recorded. `impact.json` retains schema 1.
+- Thirty Vendor and nine IPA call records from actual native Claude executions pass request/response hash verification. Replaying the same bytes on the original and refactored generator gives identical requests, rejections and preserved prior manuscripts. These replay comparisons are **not new CLI executions**.
+
+## Actual CLI results and remaining gates
+
+The user-selected runtime is `agent.kind: cli`, `runner: claude`, `model: claude-haiku-5-5`, `args: [--effort, high]`. Execution snapshots are retained as `*.execution.yaml`. The explicit command uses `claude_exit_sync.py`: it forwards unchanged stdin/stdout/stderr to the same native `claude.exe`, waits one second after exit for Windows handle closure and returns the native exit code. It performs no retries or response rewriting. Its absolute paths describe the actual test machine, not a portable installation.
+
+Both completed section trials failed the existing validators. Vendor `configuration/configure-fields` uses a derived-class formulation that the existing inheritance check rejects as a claim about the base class. IPA `execution/start` received a rejecting grounding verdict whose explanation calls the answer supported. These rejections remain failures. Their logs, complete receipt/request/response triples and exact before/after comparison are retained. No rejected answer was manually repaired or published. A separate fresh IPA trial remains in progress at the time this evidence was staged.
+
+Fifteen of seventeen sections revalidate on the new source. Vendor integration and the IPA overview remain stale. The site must not combine those old-source manuscripts with the new facts. Required remaining work is successful CLI generation with unchanged validation gates, final catalog preparation/translation, document and site checks, review and merge of the publication, Pages deployment and verification of the live artifacts. No stored response, alternative CLI/API or manual manuscript is a substitute for a failed native CLI run.
+
+The extraction used Ubuntu Python 3.14.4, libclang 18.1.1, GCC 15.2.0, Meson 1.10.1 and Ninja 1.13.2, with generator `dfdebfdf63819b4008b51f382fab38f7f777c954` and the explicit example `build/**` exclusion subsequently merged in PR 144. IPU3, RKISP1, UVC, Virtual and VIMC pipelines and IPU3/RKISP1/VIMC IPAs were built. The normalized GCC compilation database adds `-Wno-c99-designator` for libclang's handling of the GCC-accepted array-designator dialect. The extraction reported no parse errors; no fail-open rule was added. This is a public-source pipeline test, not an exhaustive platform build or device test.
+
+Human review, device validation and internal Camera HAL validation have not been performed. No `sdd accept`, recurring schedule, generated-manuscript edit or generated-HTML edit was used. Generator issue 141 remains open until all applicable publication gates are met. Issues 138–140 and 107 remain outside this implementation scope.
