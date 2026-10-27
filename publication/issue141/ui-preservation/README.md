@@ -1,0 +1,13 @@
+# Fixed-public browser preservation and local asset-load failure
+
+These are read-only tests of the historical public source `2c4b67c0` and f57d9ec publication, **not final new-upstream publication verification**. No manuscript or generated HTML was manually edited. No model was called; historical producer identity is used only by the frozen rendering fixture.
+
+The baseline browser report/screen captures show desktop and mobile layout, actual search results, menu state changes, SVG enlargement and node search, and Escape focus restoration. They do not claim that a new source site was deployed.
+
+For the failure experiment, the actual merged generator `350a9d344e6170d37124774f5f290ec13bc04d0b` was independently archived and run through the `sdd export-site` console entry point. Its site.js bytes exactly equal current main a7d7941: SHA-256 `cedfa5d920686ad13cbec70a7459ce763e880ad65d933b7661f6bc4894afe07a`. The supported `--mermaid http://127.0.0.1:8891/missing-mermaid-141.mjs` option creates a missing-ESM fixture.
+
+The original bilingual configuration correctly rejected the changed page fingerprints with native exit1 and preserved its existing 50-page manifest. A distinct **Korean-only** snapshot was then prepared for the UI load-failure test. It does not weaken the original catalog gate or count as bilingual/new-source success. The first Korean fixture failed because its copied facts directory was absent; that failure log and exit1 execution record remain. Explicit Config output fields were corrected and the actual snapshot was reloaded and checked before a fresh CLI run. The second run exited0 and verified25HTML/0broken links. No failure is reclassified as success.
+
+A temporary loopback-only Python HTTP server served the unchanged generated files. The sandboxed server was unreachable; after that process was specifically identified and stopped, an authorized unsandboxed loopback server returned HTTP200 and the browser opened it. The missing ESM produced three visible loading-failure notices and three visible Mermaid source blocks. SHA-256 of each live DOM source block equals the exact generated HTML source. There are zero SVGs and no false ready flags. The screenshot shows the failure notice and original diagram code. The server and its test tab were stopped/closed after verification; no schedule or production deployment was created.
+
+Execution commands, exit codes and complete raw logs are adjacent. Windows snapshot paths describe this public-input fixture. New source documents, the final catalog, legacy moved-heading URLs, final Pages artifacts and current-site UI still require separate verification.
