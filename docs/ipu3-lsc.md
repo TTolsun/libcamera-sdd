@@ -1,11 +1,12 @@
 ---
-generated_at: 2026-10-26T14:23:11+00:00
-source_commit: 2c4b67c0792f88f69bcdf9cbf73e81b3d8cf4b6f
+generated_at: 2026-10-27T20:47:22+00:00
+source_commit: e117198c015057761bb0bbaa85f963c41ce412d7
 status: ok
 section: ipu3-lsc
 generation_method: extracted-structure
-evidence_fingerprint: 66a7bcaf3c01dcf762b0378043e60b74fd7337e58932d0c599010e5be2bbb91c
+evidence_fingerprint: ea0a1be98289a029e50beb0b5ee846ae82f2435348b23ed6c994ff019ac68dd3
 semantic_review: human-review-required
+revalidated_from: 182307a772ebebf173ee84911906da707718485f
 ---
 
 # IPU3 LSC와 상태 연결
@@ -19,7 +20,7 @@ semantic_review: human-review-required
 
 ## 구조 설명
 
-`libcamera::ipa::LscAlgorithm`의 추출된 직접 기반 클래스는 `libcamera::ipa::LscAlgorithmBase`입니다. `src/ipa/libipa/lsc.h:78`
+`libcamera::ipa::LscAlgorithm`의 추출된 직접 기반 클래스는 `libcamera::ipa::LscAlgorithmBase`입니다. `src/ipa/libipa/lsc.h:79`
 
 `libcamera::ipa::ipu3::IPAActiveState`에는 추출된 직접 기반 클래스가 없습니다. `libcamera::ipa::lsc::ActiveState`에 대한 필드 참조 관계가 추출되었습니다. `src/ipa/ipu3/ipa_context.h:46`
 
@@ -31,9 +32,9 @@ semantic_review: human-review-required
 
 `libcamera::ipa::ipu3::algorithms::Lsc`의 추출된 직접 기반 클래스는 `libcamera::ipa::ipu3::Algorithm`입니다. `libcamera::ipa::LscAlgorithm`에 대한 필드 참조 관계가 추출되었습니다. `src/ipa/ipu3/algorithms/lsc.h:21`
 
-`libcamera::ipa::lsc::ActiveState`에는 추출된 직접 기반 클래스가 없습니다. `src/ipa/libipa/lsc.h:27`
+`libcamera::ipa::lsc::ActiveState`에는 추출된 직접 기반 클래스가 없습니다. `src/ipa/libipa/lsc.h:28`
 
-`libcamera::ipa::lsc::FrameContext`에는 추출된 직접 기반 클래스가 없습니다. `src/ipa/libipa/lsc.h:31`
+`libcamera::ipa::lsc::FrameContext`에는 추출된 직접 기반 클래스가 없습니다. `src/ipa/libipa/lsc.h:32`
 
 
 <!-- sdd:class-diagram -->
@@ -79,21 +80,21 @@ flowchart LR
 
 | 클래스 | 선언 위치 | 상속 | 책임 (주석) |
 |---|---|---|---|
-| `libcamera::ipa::LscAlgorithm` | `src/ipa/libipa/lsc.h:78` | `libcamera::ipa::LscAlgorithmBase` | libIPA LSC algorithm implementation |
+| `libcamera::ipa::LscAlgorithm` | `src/ipa/libipa/lsc.h:79` | `libcamera::ipa::LscAlgorithmBase` | libIPA LSC algorithm implementation |
 | `libcamera::ipa::ipu3::IPAActiveState` | `src/ipa/ipu3/ipa_context.h:46` | – | The active state of the IPA algorithms |
 | `libcamera::ipa::ipu3::IPAContext` | `src/ipa/ipu3/ipa_context.h:73` | – | Global IPA context data shared between all algorithms |
 | `libcamera::ipa::ipu3::IPAFrameContext` | `src/ipa/ipu3/ipa_context.h:60` | `libcamera::ipa::FrameContext` | IPU3-specific FrameContext |
 | `libcamera::ipa::ipu3::IPASessionConfiguration` | `src/ipa/ipu3/ipa_context.h:32` | – | Session configuration for the IPA module |
 | `libcamera::ipa::ipu3::algorithms::Lsc` | `src/ipa/ipu3/algorithms/lsc.h:21` | `libcamera::ipa::ipu3::Algorithm` | IPU3 Lens Shading Correction algorithm |
-| `libcamera::ipa::lsc::ActiveState` | `src/ipa/libipa/lsc.h:27` | – | The LSC active state |
-| `libcamera::ipa::lsc::FrameContext` | `src/ipa/libipa/lsc.h:31` | – | 확인 필요 |
+| `libcamera::ipa::lsc::ActiveState` | `src/ipa/libipa/lsc.h:28` | – | The LSC active state |
+| `libcamera::ipa::lsc::FrameContext` | `src/ipa/libipa/lsc.h:32` | – | 확인 필요 |
 
 ??? note "근거와 검토 정보"
     - 생성 방식: 추출 사실로 만든 구조 설명
     - 검증 범위: 클래스와 관계를 facts에서 구성합니다. 실행 동작을 검증하지 않습니다.
     - 근거 파일: `src/ipa/ipu3/algorithms/lsc.cpp`, `src/ipa/ipu3/algorithms/lsc.h`, `src/ipa/ipu3/ipa_context.h`, `src/ipa/libipa/lsc.h`
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `2c4b67c079`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `182307a772`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-10-26 · 사람 검토 전
+    - 검토 상태 기록일: 2026-10-28 · 사람 검토 전
 
 다음 단계: [IPU3 LSC의 설정과 프레임 처리](ipu3-lsc-flow.md)

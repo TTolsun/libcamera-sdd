@@ -1,0 +1,340 @@
+{
+  "url": "http://127.0.0.1:8876/",
+  "pages": [
+    {
+      "path": "index.html",
+      "status": 200,
+      "title": "libcamera 설계 문서 · libcamera 설계 문서",
+      "article": "기능·강점·연동 조건을 판단하려면 For Vendor에서, 처음 구조를 배우거나 다른 팀의 코드를 수정하려면 For Developer에서 시작하세요.\n\n카메라 스택의 네 계층\n\n애플리케이션에서 카메라 하드웨어까지 어떤 계층을 지납니까? 지원 기종이나 성능을 보장하는 그림은 아닙니다.\n\nC++ API로 직접 사용\n다른 프레임워크를 거쳐 사용\nlibcamera에 연결\nV4L2 계열 API로 제어\n\n애플리케이션·상위 프레임워크\n\n어댑테이션 (V4L2\n호환·GStreamer·Android HAL)\n\nlibcamera 프레임워크\n\n커널 드라이버 (V4L2 계열\nAPI)\n\n그림을 누르면 확대하고 요소를 검색할 수 있습니다.\n\nMermaid 원문\n\n그림 근거와 확인 범위\n이 문서의 용어: HAL, Pipeline Handler, IPA, IPU3 외 5개\n\n왼쪽 메뉴는 독자 → 수행할 작업 → 문서 순서입니다. For Vendor에서는 도입 판단·연동 구현·장치별 기능 구현을, For Developer에서는 구조 이해·동작 추적과 문제 진단·코드 탐색을 선택하세요.\n\nVendor가 먼저 확인할 내용\nlibcamera 제품 개요에서 해결하는 문제, 제공 기능과 공통 설계의 강점을 확인합니다.\n연동 가이드에서 연동 순서와 제공 측·구현자의 책임을 정합니다.\n지원 범위와 검증에서 구성 제약과 성능 근거의 범위를 확인합니다.\n\n이 안내는 공개 libcamera 예제입니다. 사내 HAL의 기능이나 회사 제품의 성능·지원 범위를 나타내지 않습니다.\n\n처음 읽는 개발자의 순서\n시스템 개요에서 src/libcamera/camera_manager.cpp의 CameraManager 진입점과 카메라 탐색을 확인합니다. 근거를 펼치면 읽을 파일과 함수가 나옵니다.\n요청 제출과 완료에서 요청이 어디로 이동하고 어떤 신호로 끝나는지 따라갑니다. 낯선 용어는 용어집에서 확인합니다.\n요청 처리와 문제 진단에서 증상에 맞는 코드로 이동합니다. 수정 전에는 상태와 자원, 동기화 책임을 확인합니다.\n\nFor Developer는 신입·타팀 개발자를 위한 경로입니다. 클래스 전체를 먼저 외울 필요 없이, 한 요청을 따라간 뒤 작업에 필요한 상세 문서로 이동하세요.\n\n지금 필요한 문서\n하려는 일\t시작할 문서\n이 프로젝트가 무엇을 받아 무엇을 내놓는지 이해합니다.\t이 프로젝트가 하는 일\n하드웨어 지원의 구현 범위와 책임을 정합니다.\tlibcamera 제품 개요\n카메라를 직접 실행해 보고 설계 이유를 읽습니다.\t실행해 보고 설계 이유 읽기\n요청을 연동하거나 완료 지연을 진단합니다.\t요청 처리와 문제 진단\n구성 실패의 원인을 좁힙니다.\t구성 실패를 좁히는 순서\n파이프라인의 구성·완료·정지를 구현합니다.\tPipeline Handler\n모듈 선택과 알고리즘 인터페이스를 수정합니다.\tIPA 관리와 구현 진입점\n처음 구조를 배우고 수정할 코드를 찾습니다.\t시스템 개요\n객체 수명과 상태 전이를 확인합니다.\t카메라와 요청 모델\n\n하드웨어 지원을 추가하거나 파이프라인·알고리즘을 수정한다면 libcamera 제품 개요부터 읽으세요. 구현할 경계와 계약을 확인한 뒤 작업별 상세 문서로 이동할 수 있습니다.\n\n기준 설명 찾기\n\n요청·버퍼의 소유권과 재사용 규칙은 카메라와 요청 모델, 장치 큐와 완료 순서의 구현 규칙은 Pipeline Handler에서 관리합니다. 진단 문서는 이 계약을 연결하여 증상별 확인 순서를 안내합니다.\n\n알고리즘을 따라가려면 IPU3 LSC의 설정과 프레임 처리를 여세요. 카메라별 튜닝과 커널 지원 조건은 RKISP1 카메라별 왜곡 보정에서 확인합니다.\n\n약어가 낯설면 각 문서 첫머리의 용어 설명이나 용어집을 확인하세요.\n\n문서를 읽는 방법\n페이지 첫 문장과 이동 안내에서 지금 확인할 항목을 고릅니다.\n문단 근거의 발췌를 누르면 이 문서 안의 원문이 펼쳐집니다. 전체 소스는 해당 커밋의 코드 저장소로 이동합니다.\n실행 확인 항목은 대상 기기의 검증 계획에 옮깁니다.\n\n그림을 누르면 확대와 요소 검색을 사용할 수 있습니다. 관계 그림과 정적 호출 추적은 실제 실행 순서를 보장하지 않습니다. 전체 클래스는 구성 요소 색인, 주요 호출과 추적 경계는 핵심 시나리오에 있습니다.\n\n검증 범위와 문서 상태\n생성과 배포\n문서 목록\n문서\t검사 결과\t검토 상태\nlibcamera 제품 개요\t자동 검사 통과\t사람 검토 전\n지원 범위와 검증\t자동 검사 통과\t사람 검토 전\n연동 가이드\t자동 검사 통과\t사람 검토 전\nPipeline Handler\t자동 검사 통과\t사람 검토 전\nPipeline 요청 제출과 완료\t자동 검사 통과\t사람 검토 전\nIPA 관리와 구현 진입점\t자동 검사 통과\t사람 검토 전\nIPA 튜닝과 소프트웨어 ISP\t자동 검사 통과\t사람 검토 전\nIPU3 LSC의 설정과 프레임 처리\t자동 검사 통과\t사람 검토 전\nIPU3 렌즈 보정 테이블 준비\t자동 검사 통과\t사람 검토 전\nRKISP1 카메라별 왜곡 보정\t자동 검사 통과\t사람 검토 전\n이 프로젝트가 하는 일\t자동 검사 통과\t사람 검토 전\n시스템 개요\t자동 검사 통과\t사람 검토 전\n실행해 보고 설계 이유 읽기\t자동 검사 통과\t사람 검토 전\n카메라와 요청 모델\t자동 검사 통과\t사람 검토 전\n요청 객체와 버퍼 수명\t자동 검사 통과\t사람 검토 전\n요청 처리와 문제 진단\t자동 검사 통과\t사람 검토 전\n구성과 요청 오류 조사\t자동 검사 통과\t사람 검토 전\n핵심 시나리오\t자동 검사 통과\t사람 검토 전\n카메라 탐색 (CameraManager::start)\t자동 검사 통과\t사람 검토 전\n스트림 구성 (Camera::configure)\t자동 검사 통과\t사람 검토 전\n캡처 시작 (Camera::start)\t자동 검사 통과\t사람 검토 전\n요청 제출 (Camera::queueRequest)\t자동 검사 통과\t사람 검토 전\n요청 완료 통지 (PipelineHandler::completeRequest)\t자동 검사 통과\t사람 검토 전\n캡처 종료 요청 (Camera::stop)\t자동 검사 통과\t사람 검토 전\nIPA 모듈 정보 검사와 서명 파일 누락\t자동 검사 통과\t사람 검토 전\nFrameBufferAllocator의 실패와 참조 수명\t자동 검사 통과\t사람 검토 전\n구성 요소 색인\t자동 검사 통과\t사람 검토 전\nIPU3 LSC와 상태 연결\t자동 검사 통과\t사람 검토 전",
+      "screenshot": "index.png",
+      "mermaid_svgs": 1,
+      "overflow": false,
+      "errors": []
+    },
+    {
+      "path": "vendor-overview.html",
+      "status": 200,
+      "title": "libcamera 제품 개요 · libcamera 설계 문서",
+      "article": "제품이 무엇이고 어디까지 지원하는지, 공통 설계가 구현자에게 해 주는 일을 확인하고 도입할 범위를 판단하세요.\n\n이 문서의 용어: Pipeline Handler, HAL, IPU3, RK3399 외 1개\n지금 확인할 내용\t이동할 절\n연동 순서와 구현 책임을 확인하고 설정·요청·정지 계약을 적용하세요.\t연동 가이드\n지원 조건과 구성 제약을 확인하고 제품 도입 전에 검증할 범위를 정하세요.\t지원 범위와 검증\n파이프라인 구현이 지켜야 하는 구성·요청·완료·종료 계약을 확인하세요.\tPipeline Handler\n무엇이며 누구의 어떤 문제를 푸는가\n\nlibcamera는 Linux, Android, ChromeOS를 위한 오픈 소스 복합 카메라 지원 라이브러리입니다. Linux 커널 장치 드라이버와 연결하고 개발자에게 직관적인 API를 제공해 Linux 시스템에서 복합 카메라로 이미지를 캡처하는 복잡한 작업을 단순화합니다. 드라이버를 사용해 동작하는 카메라 스택을 제공하는 일은 사용자 공간의 책임이며, 벤더들이 보통 애플리케이션 개발자를 위한 공통 아키텍처나 API 없이 각자 구현해 왔습니다. 하드웨어 파이프라인과 커널 API에서 이를 표현하는 방식이 서로 달라 맞춤 처리가 필요한 경우가 많아 이 작업은 복잡합니다.\n\n문단 근거 2개\n카메라 스택의 네 계층\n\n애플리케이션에서 카메라 하드웨어까지 어떤 계층을 지납니까? 지원 기종이나 성능을 보장하는 그림은 아닙니다.\n\nC++ API로 직접 사용\n다른 프레임워크를 거쳐 사용\nlibcamera에 연결\nV4L2 계열 API로 제어\n\n애플리케이션·상위 프레임워크\n\n어댑테이션 (V4L2\n호환·GStreamer·Android HAL)\n\nlibcamera 프레임워크\n\n커널 드라이버 (V4L2 계열\nAPI)\n\n그림을 누르면 확대하고 요소를 검색할 수 있습니다.\n\nMermaid 원문\n\n그림 근거와 확인 범위\n\nlibcamera는 Linux 기반 시스템을 위한 완전한 카메라 스택을 제공합니다. 커널의 API를 통해 카메라에서 원하는 결과를 얻는 데 필요한 하드웨어 구성과 이미지 제어 알고리즘을 추상화하여, 개발자가 이 작업을 간단하고 일관된 방법으로 다루게 합니다. 카메라 스택의 맨 아래 계층인 커널 드라이버는 카메라 하드웨어를 제어하고 Linux 커널의 V4L2 API 계열을 통해 사용자 공간에 저수준 인터페이스를 제공합니다. 이 API에는 Media Controller API, V4L2 Video Device API, V4L2 Subdev API가 있습니다.\n\n문단 근거 2개\n\n그 위의 libcamera 프레임워크는 스택의 핵심 계층입니다. 핵심 구성 요소인 libcamera가 카메라 장치의 모든 제어를 처리하고 상위 계층에 네이티브 C++ API를 제공합니다. 선택적인 언어 바인딩을 사용하면 다른 프로그래밍 언어에서도 libcamera와 인터페이스할 수 있습니다.\n\n문단 근거 1개\n\n그 위의 libcamera adaptation은 다른 프레임워크에서 libcamera와 인터페이스하는 구성 요소를 통칭합니다. 예로는 V4L2 호환 계층, gstreamer libcamera 요소, libcamera 기반 Android 카메라 HAL 구현이 있습니다. 맨 위의 애플리케이션과 상위 프레임워크는 libcamera 프레임워크 또는 libcamera adaptation을 기반으로 합니다. 이 계층은 libcamera 프로젝트의 범위 밖에 있습니다.\n\n문단 근거 1개\n절 전체 근거 4개\n지원하는 하드웨어와 빌드 선택\n\n문서는 전용 파이프라인 핸들러로 지원하는 하드웨어 플랫폼으로 Arm Mali-C55, Intel IPU3 (ipu3), NXP i.MX8MP (imx8-isi 및 rkisp1), RaspberryPi 3, 4 및 zero (rpi/vc4), Rockchip RK3399 (rkisp1)를 나열합니다. 문서에 명시된 범용 지원 대상은 USB 비디오 장치 클래스 카메라(uvcvideo), iMX7·IPU6·Allwinner Sun6i(simple), 테스트 용도의 가상 미디어 컨트롤러 드라이버(vimc)입니다.\n\n문단 근거 1개\n\n빌드할 파이프라인 핸들러는 배열 옵션 pipelines에서 선택합니다. 기본값은 auto이며, 대상 아키텍처에 적용되는 모든 파이프라인을 빌드합니다. all을 선택하면 모든 파이프라인을 빌드하며, auto와 all을 함께 선택하면 all이 우선합니다. 개별 선택 값은 imx8-isi, ipu3, mali-c55, rkisp1, rpi/pisp, rpi/vc4, simple, uvcvideo, vimc, virtual입니다.\n\n문단 근거 1개\n절 전체 근거 2개\n제공 기능과 지원 범위\n\nCamera는 하나의 이미지 소스에서 하나 이상의 이미지 스트림을 생성할 수 있는 카메라를 모델링합니다. 장치를 구성하고 제어하며 이미지 스트림을 캡처하는 주요 인터페이스를 제공하는 libcamera의 중심 객체입니다. 파이프라인 핸들러는 필요한 미디어 장치를 시스템에 있는 장치와 일치시키고 필요한 장치를 모두 확보할 수 있게 되면 해당 Camera 인스턴스를 생성해야 하며, 모든 PipelineHandler 하위 클래스는 REGISTER_PIPELINE_HANDLER() 매크로를 사용해 libcamera에 등록해야 합니다.\n\n문단 근거 2개\n공통 Camera와 장치별 구현의 경계\n\n장치 지원은 해당 PipelineHandler 구현과 필요한 미디어 장치 확보에 달려 있습니다. 지원 기종이나 성능을 보장하는 그림은 아닙니다.\n\n필요 장치와 시스템 장치 매칭\n확보 성공 시 Camera 생성\n\n장치별 PipelineHandler 구현\n\n필요한 미디어 장치 확보\n\n공통 Camera 인터페이스\n\n그림을 누르면 확대하고 요소를 검색할 수 있습니다.\n\nMermaid 원문\n\n그림 근거와 확인 범위\n절 전체 근거 2개\n장치 구현자가 공통 계층에서 얻는 것\n\n공통 PipelineHandler::queueRequest는 캡처 요청을 처리하도록 먼저 내부 대기 요청 목록에 추가합니다. 이 요청은 파이프라인 핸들러에 큐잉할 준비가 되었는지 확인하는 준비 과정을 거칩니다. 이 함수는 대기 요청 큐를 순회하며 준비된 요청을 최대 maxQueuedRequestsDevice_개까지 이 함수에 큐잉된 순서대로 파이프라인 핸들러에 전달합니다. 요청이 준비 단계에서 실패하거나 파이프라인 핸들러가 요청을 하드웨어 큐에 등록하는 데 실패하면 해당 요청을 취소합니다.\n\n문단 근거 2개\n\n대기열에 넣은 요청을 추적하면 파이프라인 핸들러를 stop()으로 정지할 때 모든 요청이 자동으로 완료되며, 파이프라인 핸들러는 completeRequest()로 요청 완료를 알려야 합니다. 반면 completeBuffer()에서 마지막 버퍼가 완료되어도 요청은 자동으로 완료되지 않으므로 파이프라인 핸들러가 completeRequest()를 명시적으로 호출해야 합니다.\n\n문단 근거 2개\n절 전체 근거 4개\n장치 요청 한도와 대기 큐\n\nPipelineHandler 생성자 선언에서 maxQueuedRequestsDevice의 기본값은 32입니다. maxQueuedRequestsDevice_는 파이프라인 핸들러가 한 시점에 기반 하드웨어에 대기시켜야 하는 요청 수를 제한하며, 나머지 요청은 내부 대기 큐에서 기다립니다. 애플리케이션이 장치 한도보다 많은 요청을 제출하면 나머지 요청은 나중에 하드웨어에 대기열로 등록될 때까지 내부 대기 큐에서 기다립니다.\n\n문단 근거 2개\n절 전체 근거 2개\n설계 질문과 검증 범위\n소스 근거\n\n같은 발췌는 한 번만 싣습니다. 필요한 원문을 펼쳐 설명과 대조하세요.\n\n소스 근거: Documentation/introduction.rst:10\n\n소스 근거: Documentation/introduction.rst:35\n\n소스 근거: Documentation/introduction.rst:45\n\n소스 근거: Documentation/introduction.rst:137\n\n소스 근거: Documentation/platform_support.rst:6\n\n소스 근거: meson_options.txt:75\n\n소스 근거: src/libcamera/camera.cpp:752\n\n소스 근거: src/libcamera/pipeline_handler.cpp:30\n\n소스 근거: src/libcamera/pipeline_handler.cpp:447\n\n소스 근거: src/libcamera/pipeline_handler.cpp:460\n\n소스 근거: src/libcamera/pipeline_handler.cpp:463\n\n소스 근거: src/libcamera/pipeline_handler.cpp:547\n\n소스 근거: include/libcamera/internal/pipeline_handler.h:38\n\n소스 근거: src/libcamera/pipeline_handler.cpp:805\n클래스 관계\n\n화살표의 글자는 추출한 관계를 나타내며, 점선은 상속입니다. 화살표는 참조 대상 또는 기반 클래스를 향합니다. 호출 순서를 뜻하지 않습니다.\n\n상속\n상속\n필드 참조\n상속\n상속\n필드 참조\n상속\n\nCamera\n\nExtensible\n\nIPAManager\n\nObject\n\nPipelineHandler\n\nPipelineHandlerIPU3\n\nPipelineHandlerRkISP1\n\n그림을 누르면 확대하고 요소를 검색할 수 있습니다.\n\n근거와 검토 정보\n\n다음 단계: 연동 가이드",
+      "screenshot": "vendor-overview.png",
+      "mermaid_svgs": 3,
+      "overflow": false,
+      "errors": []
+    },
+    {
+      "path": "vendor-assurance.html",
+      "status": 200,
+      "title": "지원 범위와 검증 · libcamera 설계 문서",
+      "article": "지원 조건과 구성 제약을 확인하고 제품 도입 전에 검증할 범위를 정하세요.\n\n이 문서의 용어: Pipeline Handler, 디베이어, bayer, ISP\n지금 확인할 내용\t이동할 절\n제품이 무엇이고 어디까지 지원하는지, 공통 설계가 구현자에게 해 주는 일을 확인하고 도입할 범위를 판단하세요.\tlibcamera 제품 개요\n연동 순서와 구현 책임을 확인하고 설정·요청·정지 계약을 적용하세요.\t연동 가이드\n파이프라인 구현이 지켜야 하는 구성·요청·완료·종료 계약을 확인하세요.\tPipeline Handler\n지원 조건과 제약\n\nCameraConfiguration::Invalid는 구성이 유효하지 않고 조정할 수 없음을 뜻하며, 구성이 비어 있는 경우와 같은 극단적인 경우에만 발생할 수 있습니다. CameraConfiguration::Adjusted는 구성이 조정되었으며 조정 후 유효함을 나타냅니다. CameraConfiguration::validate()가 CameraConfiguration::Adjusted를 반환하면 어느 스트림의 파라미터든 바뀌었을 수 있고 일부 스트림의 파라미터만 바뀌었을 수도 있으며, 스트림 구성이 삭제되었을 수도 있습니다. CameraConfiguration::Adjusted일 때 호출자는 구성을 주의 깊게 확인해야 합니다.\n\n문단 근거 4개\nvalidate() 결과별 호출자의 책임\n\nvalidate()의 Invalid·Adjusted·Valid는 무엇을 뜻하며, Adjusted이면 호출자는 무엇을 다시 확인해야 합니까?\n\nLLM 그림 초안 · 사람 검토 전\n\n작성 모델: cli/codex/gpt-6.1-terra\n\nInvalid를 반환할 수있습니다.\nAdjusted를 반환할 수있습니다.\nValid를 반환할 수 있습니다.\n\nCameraConfiguration::validat\ne()는 카메라 구성을 가장\n가까운 유효한 구성으로\n조정할 수 있으며 검증\n상태를 반환합니다.\n\nInvalid는 구성이 유효하지\n않고 조정할 수 없음을\n뜻합니다. 빈 구성과 같은\n극단적인 경우에만 발생할 수\n있습니다.\n\nAdjusted는 구성이 조정되어\n유효해졌음을 뜻합니다. 어떤\n스트림의 파라미터든\n변경되고 스트림 구성이\n삭제되었을 가능성이\n있으므로 호출자는 구성을\n주의 깊게 확인해야 합니다.\n\nValid는 구성이 이미\n유효하여 조정되지 않았음을\n뜻합니다.\n\n그림을 누르면 확대하고 요소를 검색할 수 있습니다.\n\nMermaid 원문\n\n그림 근거와 확인 범위\n\nCameraConfiguration::validate()가 CameraConfiguration::Valid를 반환하면 원래 구성이 이미 유효했으며 조정되지 않은 상태입니다. PipelineHandler::generateConfiguration()은 roles로 요청한 스트림 용도를 충족할 수 있으면 유효한 CameraConfiguration을 반환하고, 그렇지 않으면 null 포인터를 반환합니다. PipelineHandler::configure()에 전달되는 설정은 CameraConfiguration::validate()로 검증되었음이 보장되며, 파이프라인 핸들러 구현자는 추가 검증을 해서는 안 됩니다. PipelineHandler::configure()의 구현자는 구성이 성공하면 0을 반환하고, 실패하면 음수 오류 코드를 반환해야 합니다.\n\n문단 근거 4개\n절 전체 근거 8개\n성능 근거를 읽는 기준\n\nDebayerCpu의 내장 벤치마크는 통계 수집과 디베이어링에 걸린 처리 시간만 측정하며, 프레임 캡처와 출력에 걸린 시간은 포함하지 않습니다. 내장 벤치마크는 항상 실행되므로 Software ISP를 사용하는 파이프라인에서 cam 또는 qcam을 실행하여 사용할 수 있습니다.\n\n문단 근거 1개\n절 전체 근거 1개\n설계 질문과 검증 범위\n소스 근거\n\n같은 발췌는 한 번만 싣습니다. 필요한 원문을 펼쳐 설명과 대조하세요.\n\n소스 근거: src/libcamera/camera.cpp:338\n\n소스 근거: src/libcamera/camera.cpp:343\n\n소스 근거: src/libcamera/camera.cpp:323\n\n소스 근거: src/libcamera/pipeline_handler.cpp:289\n\n소스 근거: src/libcamera/pipeline_handler.cpp:304\n\n소스 근거: src/libcamera/pipeline_handler.cpp:313\n\n소스 근거: src/libcamera/camera.cpp:341\n\n소스 근거: src/libcamera/camera.cpp:342\n\n소스 근거: Documentation/software-isp-benchmarking.rst:15\n클래스 관계\n\n화살표의 글자는 추출한 관계를 나타내며, 점선은 상속입니다. 화살표는 참조 대상 또는 기반 클래스를 향합니다. 호출 순서를 뜻하지 않습니다.\n\n상속\n상속\n필드 참조\n상속\n상속\n필드 참조\n상속\n\nCamera\n\nExtensible\n\nIPAManager\n\nObject\n\nPipelineHandler\n\nPipelineHandlerIPU3\n\nPipelineHandlerRkISP1\n\n그림을 누르면 확대하고 요소를 검색할 수 있습니다.\n\n근거와 검토 정보\n\n다음 단계: 요청 처리와 문제 진단",
+      "screenshot": "vendor-assurance.png",
+      "mermaid_svgs": 2,
+      "overflow": false,
+      "errors": []
+    },
+    {
+      "path": "overview.html",
+      "status": 200,
+      "title": "시스템 개요 · libcamera 설계 문서",
+      "article": "src/libcamera/camera_manager.cpp의 CameraManager에서 시작해 요청 제출과 완료를 따라가세요.\n\n이 문서의 용어: IPA, Pipeline Handler\n지금 확인할 내용\t이동할 절\n처음 읽을 파일과 진입점을 찾습니다.\t탐색과 파이프라인 선택\n요청과 결과가 지나는 경계를 확인합니다.\t요청 제출과 완료\n구성 실패의 원인을 좁힙니다.\t구성과 요청 오류 조사\n요청의 제출 성공과 촬영 완료를 구분하고, 버퍼를 유지할 기간과 오류가 난 위치를 확인하세요.\t요청 처리와 문제 진단\n수정 전에 상태와 종료 순서를 확인합니다.\t캡처 세션의 상태와 자원\n빌드한 모든 파이프라인·IPA·앱의 클래스와 함수를 패키지별로 찾으세요. 표는 추출 사실에서 만들었고 동작은 설명하지 않습니다.\t구성 요소 색인\n탐색과 파이프라인 선택\n\nCameraManager는 libcamera의 진입점으로, 장치를 열거하고 파이프라인과 연결하며 애플리케이션이 시스템의 카메라에 접근할 수 있게 합니다. CameraManager::Private::pipelineFactoryMatch는 팩토리로 PipelineHandler를 만들고 열거자를 사용해 일치를 시도합니다. 일치하면 로그를 남기고 다시 시도하며, 일치하지 않으면 반복을 끝냅니다.\n\n문단 근거 2개\n장치 탐색에서 Camera 접근까지\n\n장치 매칭과 등록의 책임을 따라가세요. 그림은 책임 연결이며 전체 호출 순서나 실행 시간을 나타내지 않습니다.\n\nstart()\n열거자를 전달해 장치를 매칭\n필요한 장치를 확보한 경우\n\nCameraManager 진입점\n\n장치 열거\n\nPipelineHandler::match()\n\nCamera 생성·등록\n\n그림을 누르면 확대하고 요소를 검색할 수 있습니다.\n\nMermaid 원문\n\n그림 근거와 확인 범위\n\nCameraManager 인스턴스는 동시에 하나만 존재해야 합니다. 기존 인스턴스를 먼저 삭제하지 않고 두 번째 인스턴스를 생성하면 정의되지 않은 동작이 발생합니다. 애플리케이션은 CameraManager::start()의 시작이 확인된 뒤 카메라 관리자가 중지되거나 해당 카메라가 시스템에서 분리될 때까지 시스템의 카메라를 나열하고 사용할 수 있습니다. 호출자는 CameraManager::cameras()와 CameraManager::get()을 호출하기 전에 매니저가 실행 중인지 확인해야 합니다.\n\n문단 근거 3개\n\nPipelineHandler::match() 구현자는 하나의 파이프라인에 필요한 미디어 장치를 모두 찾으면 MediaDevice::acquire()를 호출해 모두 획득해야 합니다. 그런 다음 해당하는 하나 이상의 Camera 인스턴스를 생성하고, 내부에 저장하며, 카메라 관리자에 등록해야 합니다.\n\n문단 근거 1개\n절 전체 근거 5개\n컴포넌트별 책임\n\nCamera는 하나의 이미지 소스에서 하나 이상의 이미지 스트림을 생성할 수 있는 카메라를 나타내며, 장치 설정과 제어 및 이미지 스트림 캡처를 위한 주요 인터페이스를 제공합니다. Camera는 libcamera가 공개하는 중심 객체입니다. libcamera는 std::shared_ptr<>로 Camera 인스턴스의 수명을 관리하며, 인스턴스는 공유 포인터를 반환하는 create() 함수로 생성해야 합니다. Camera의 생성자와 소멸자는 수동 생성과 파괴를 막기 위해 비공개입니다.\n\n문단 근거 1개\n절 전체 근거 1개\n요청 생성과 소유권\n\n호출자는 카메라가 Configured 또는 Running 상태일 때만 Camera::createRequest()를 호출할 수 있습니다. Camera::createRequest()가 반환한 요청의 소유권은 호출자에게 넘어가며, 호출자가 요청을 삭제할 책임이 있습니다. Request::reuse()는 요청의 상태와 컨트롤을 초기화하며, 애플리케이션은 새 요청을 만드는 대신 요청을 재사용할 때 카메라에 큐를 넣기 전에 이 함수를 호출해야 합니다.\n\n문단 근거 2개\n절 전체 근거 2개\n캡처 세션의 상태와 자원\n\n애플리케이션은 캡처를 준비하려면 카메라를 획득하고 구성한 뒤 시작해야 합니다. 시작된 카메라는 정지될 때까지 요청을 처리할 수 있으며, 애플리케이션은 카메라 사용을 마치면 카메라를 해제해야 합니다. 애플리케이션은 카메라를 해제하지 않은 동안 여러 번 시작하고 정지할 수 있으며, 카메라를 다시 구성할 수도 있습니다.\n\n문단 근거 1개\n절 전체 근거 1개\n요청 제출과 완료\n\n애플리케이션은 Camera::queueRequest()에 요청을 전달하기 전에 요청에 캡처 버퍼를 하나 이상 채워야 합니다. 카메라는 Camera::queueRequest()로 큐에 넣은 요청의 처리가 끝나면 requestCompleted 신호로 애플리케이션에 완료를 알립니다. Camera::queueRequest()는 카메라가 Running 상태일 때만 호출해야 합니다.\n\n문단 근거 1개\n접수 성공과 촬영 완료는 다른 시점\n\nqueueRequest()의 0 반환은 접수 결과입니다. 요청 완료는 별도의 requestCompleted 신호로 확인합니다.\n\nRunning 상태에서 제출\n접수 결과를 반환\n촬영 완료는 별도로 통지\n\n버퍼를 연결한 Request\n\nqueueRequest()\n\n0 반환: 접수 성공\n\nrequestCompleted 신호\n\n그림을 누르면 확대하고 요소를 검색할 수 있습니다.\n\nMermaid 원문\n\n그림 근거와 확인 범위\n절 전체 근거 1개\n버퍼 완료와 요청 완료\n\nPipelineHandler::completeBuffer()는 요청에 속한 버퍼의 완료를 애플리케이션에 알림으로 전달하고, 요청 내부의 버퍼 추적을 갱신합니다. 파이프라인 핸들러는 마지막 버퍼가 완료된 뒤에도 completeRequest()를 명시적으로 호출해야 합니다.\n\n문단 근거 1개\n절 전체 근거 1개\n스레드 경계와 동기화\n\n호출자는 Camera 상태에 영향을 주는 함수들을 호출할 때 필요한 경우 함수들 사이의 동기화를 보장해야 합니다. 파이프라인 핸들러는 PipelineHandler::completeRequest()를 CameraManager 스레드에서 호출해야 합니다.\n\n문단 근거 2개\n절 전체 근거 2개\n정적 근거의 확인 범위\n\nCamera::start는 isAccessAllowed에 허용 상태 값으로 Private::CameraConfigured를 전달합니다. Camera::start 호출자는 카메라 상태에 영향을 주는 다른 함수와 Camera::start를 동기화해야 합니다. 이 TODO 주석은 카메라 시작 타이밍의 문서화를 요청합니다.\n\n문단 근거 3개\n절 전체 근거 3개\n장치 요청 한도와 대기 큐\n\nPipelineHandler 생성자 선언에서 maxQueuedRequestsDevice의 기본값은 32입니다. maxQueuedRequestsDevice_는 파이프라인 핸들러가 기반 하드웨어에 큐에 넣는 요청의 수를 제한합니다. 한도를 초과해 하드웨어에 아직 전달되지 않은 요청은 내부 대기 큐에 남으며, 이후 단계에서 하드웨어에 전달됩니다.\n\n문단 근거 3개\n절 전체 근거 3개\n설계 질문과 검증 범위\n소스 근거\n\n같은 발췌는 한 번만 싣습니다. 필요한 원문을 펼쳐 설명과 대조하세요.\n\n소스 근거: src/libcamera/camera_manager.cpp:283\n\n소스 근거: src/libcamera/camera_manager.cpp:329\n\n소스 근거: src/libcamera/camera_manager.cpp:368\n\n소스 근거: src/libcamera/pipeline_handler.cpp:86\n\n소스 근거: src/libcamera/camera_manager.cpp:154\n\n소스 근거: src/libcamera/camera.cpp:758\n\n소스 근거: src/libcamera/camera.cpp:1243\n\n소스 근거: src/libcamera/request.cpp:376\n\n소스 근거: src/libcamera/camera.cpp:769\n\n소스 근거: src/libcamera/camera.cpp:1308\n\n소스 근거: src/libcamera/pipeline_handler.cpp:547\n\n소스 근거: src/libcamera/camera.cpp:780\n\n소스 근거: src/libcamera/pipeline_handler.cpp:571\n\n소스 근거: src/libcamera/camera.cpp:755\n\n소스 근거: src/libcamera/camera.cpp:1404\n\n소스 근거: src/libcamera/camera.cpp:1392\n\n소스 근거: include/libcamera/internal/pipeline_handler.h:38\n\n소스 근거: src/libcamera/pipeline_handler.cpp:809\n\n소스 근거: src/libcamera/pipeline_handler.cpp:811\n클래스 관계\n\n화살표의 글자는 추출한 관계를 나타내며, 점선은 상속입니다. 화살표는 참조 대상 또는 기반 클래스를 향합니다. 호출 순서를 뜻하지 않습니다.\n\n상속\n상속\n상속\n상속\n필드 참조\n필드 참조\n필드 참조\n상속\n상속\n\nCamera\n\nCameraManager\n\nExtensible\n\nIPAManager\n\nObject\n\nPipelineHandler\n\nRequest\n\n그림을 누르면 확대하고 요소를 검색할 수 있습니다.\n\n선택한 시나리오의 코드 읽기 순서\n진입점 Camera::queueRequest(Request *)의 입력 검사와 반환 조건을 확인합니다.\n요청 제출 (Camera::queueRequest)에서 주요 호출과 추적 경계를 확인합니다.\n예약된 호출과 완료 통지를 구분하고, 실행 스레드는 연결 코드와 대조합니다.\n근거와 검토 정보\n\n다음 단계: 카메라와 요청 모델",
+      "screenshot": "overview.png",
+      "mermaid_svgs": 3,
+      "overflow": false,
+      "errors": []
+    },
+    {
+      "path": "vendor-integration.html",
+      "status": 200,
+      "title": "연동 가이드 · libcamera 설계 문서",
+      "article": "연동 순서와 구현 책임을 확인하고 설정·요청·정지 계약을 적용하세요.\n\n이 문서의 용어: Pipeline Handler, IPA, 프록시\n지금 확인할 내용\t이동할 절\n제품이 무엇이고 어디까지 지원하는지, 공통 설계가 구현자에게 해 주는 일을 확인하고 도입할 범위를 판단하세요.\tlibcamera 제품 개요\n지원 조건과 구성 제약을 확인하고 제품 도입 전에 검증할 범위를 정하세요.\t지원 범위와 검증\n파이프라인 구현이 지켜야 하는 구성·요청·완료·종료 계약을 확인하세요.\tPipeline Handler\n연동 순서와 책임\n\n애플리케이션은 촬영을 준비하기 위해 카메라를 확보하고 구성한 뒤 시작하고, 카메라가 요청을 처리하다가 정지된 후 사용을 마치면 카메라를 해제해야 합니다. 애플리케이션은 카메라를 해제하지 않은 동안 여러 번 시작하고 정지할 수 있으며, 카메라를 재구성할 수도 있습니다. Camera 클래스는 카메라 상태에 영향을 주는 함수들을 일반적으로 서로 동기화하지 않으므로, 필요한 경우 호출자가 이 함수들을 동기화해야 합니다. PipelineHandler::match() 구현자는 단일 파이프라인에 필요한 미디어 장치를 모두 확보한 경우 하나 이상의 Camera 인스턴스를 생성하고 내부에 저장하며 카메라 관리자에 등록해야 합니다.\n\n문단 근거 4개\n획득부터 해제까지의 연동 순서\n\n애플리케이션의 세션 준비와 종료 순서입니다. 시작·정지는 해제 전까지 반복할 수 있습니다.\n\n촬영 준비\n준비 뒤 시작\n세션 종료\n카메라 사용이 끝난 경우\n해제 전에는 재시작 가능\n\n획득\n\n구성\n\n시작·요청 처리\n\n정지\n\n사용 종료 후 해제\n\n그림을 누르면 확대하고 요소를 검색할 수 있습니다.\n\nMermaid 원문\n\n그림 근거와 확인 범위\n절 전체 근거 5개\n하드웨어와 공통 계층의 경계\n\nPipelineHandler::match() 구현자는 단일 파이프라인에 필요한 미디어 장치를 모두 찾으면 각 장치를 MediaDevice::acquire()로 확보한 다음 해당 Camera 인스턴스를 하나 이상 생성하여 내부에 저장하고 카메라 매니저에 등록한 뒤 true를 반환해야 합니다. PipelineHandler::match() 구현자는 필요한 미디어 장치를 모두 찾지 못했을 때 아직 장치를 확보하지 않았다면 어떤 장치도 확보해서는 안 되며, 이미 일부를 확보했다면 MediaDevice::release()를 호출해 확보한 장치를 모두 해제하고 false를 반환해야 합니다. PipelineHandler::match()는 CameraManager 스레드에서 호출되며, true를 반환하면 새 PipelineHandler 인스턴스를 생성하고 그 인스턴스의 match()를 호출합니다.\n\n문단 근거 3개\n절 전체 근거 3개\n구현할 설정 인터페이스\n\ngenerateConfiguration 호출자는 기본 구성을 가져오려는 사용 사례를 roles에 채워야 합니다. generateConfiguration()이 반환하는 구성에는 선택된 스트림과 해당 스트림의 기본 파라미터에 관한 정보가 포함됩니다. PipelineHandler::generateConfiguration()은 요청된 roles를 충족할 수 있으면 유효한 CameraConfiguration을 반환해야 하며, 그렇지 않으면 null 포인터를 반환해야 합니다. PipelineHandler::generateConfiguration()은 어떤 스레드에서든 호출될 수 있으며, 구현은 스레드에 안전해야 합니다.\n\n문단 근거 3개\n\nPipelineHandler::generateConfiguration() 구현자는 파이프라인 핸들러 내의 camera 상태를 변경해서는 안 됩니다. PipelineHandler::configure()에 전달되는 설정은 CameraConfiguration::validate()로 검증되었음이 보장되며, 파이프라인 핸들러 구현자는 추가 검증을 해서는 안 됩니다. PipelineHandler::configure() 구현자는 추가 검증을 해서는 안 되며, 자체 CameraConfiguration 파생 클래스에 저장된 모든 사용자 정의 필드에 의존할 수 있습니다.\n\n문단 근거 3개\n\nPipelineHandler::configure()의 구현자는 카메라를 구성할 때 StreamConfiguration::setStream()을 사용해 CameraConfiguration의 각 StreamConfiguration 항목에 Stream 인스턴스를 연결해야 합니다. PipelineHandler::configure()는 CameraManager 스레드에서 호출되며, 구현은 성공하면 0을 반환하고 실패하면 음수 오류 코드를 반환해야 합니다.\n\n문단 근거 2개\n절 전체 근거 8개\n요청을 장치에 전달하고 반환하기\n\nqueueRequestDevice 구현자는 스트림과 연결된 버퍼 집합과 파라미터 집합을 담은 요청을 처리할 때, 요청에서 제공한 버퍼에 캡처되는 프레임에 해당 파라미터가 적용되도록 장치를 설정해야 합니다. queueRequestDevice 구현자는 성공하면 0을 반환하고, 실패하면 음수 오류 코드를 반환해야 합니다. PipelineHandler::queueRequestDevice()는 CameraManager 스레드에서 호출됩니다. 파이프라인 핸들러는 요청의 버퍼 완료를 애플리케이션에 알리고 요청의 내부 버퍼 추적을 갱신하려면 CameraManager 스레드에서 completeBuffer()를 호출해야 합니다.\n\n문단 근거 3개\n\ncompleteBuffer에서 마지막 버퍼가 완료되어도 요청은 자동으로 완료되지 않으며, 파이프라인 핸들러가 completeRequest()로 요청을 명시적으로 완료해야 합니다. 파이프라인 핸들러는 요청을 완료하려면 completeRequest()를 명시적으로 호출해야 합니다. 파이프라인 핸들러는 completeBuffer를 CameraManager 스레드에서 호출해야 합니다.\n\n문단 근거 3개\n절 전체 근거 6개\nIPA 모듈 선택과 실패 조건\n\ncreateIPA는 module을 호출할 때 name, minVersion, maxVersion을 순서대로 전달합니다. IPAManager::module은 반복문에서 match가 처음 참이 된 module의 module.get()을 반환하고, 반환문으로 함수를 끝내므로 반복을 계속하지 않습니다.\n\n문단 근거 2개\n\nIPAManager::module은 modules_를 순회하며 이름과 최소·최대 버전에 match하는 첫 번째 모듈의 포인터를 반환합니다. 일치하는 모듈이 없으면 module은 nullptr을 반환합니다. createIPA는 이 검색 결과가 없으면 nullptr을 반환합니다. createIPA 내부 람다는 isSignatureValid(m)이 참이면 T::Threaded 프록시를 생성하고, 거짓이면 T::Isolated 프록시를 생성합니다.\n\n문단 근거 3개\n\ncreateIPA는 생성한 프록시의 isValid() 검사가 실패하면 오류를 기록하고 nullptr을 반환합니다. createIPA는 생성한 프록시가 유효성 검사를 통과하면 해당 프록시를 반환합니다.\n\n문단 근거 1개\n절 전체 근거 5개\n정지와 오류 처리의 책임\n\nPipelineHandler::stop()은 먼저 waitingRequests.swap(data->waitingRequests_)를 실행한 다음 stopDevice(camera)를 호출합니다. PipelineHandler::stop()은 stopDevice() 내부에서 completeRequest()를 호출할 때 대기 요청이 다시 큐에 들어가지 않도록 모든 대기 요청을 따로 옮깁니다. stopDevice()의 장치 구현자는 실행 중인 모든 스트림의 캡처와 요청 처리를 즉시 중단하고, 장치에 남아 있는 모든 미완료 요청을 취소하여 즉시 오류 상태로 완료해야 합니다. 공통 stop()은 waitingRequests_를 따로 옮긴 뒤 stopDevice()를 호출하고, 그 후 옮겨 둔 대기 요청을 순서대로 취소하여 doQueueRequest()로 처리합니다.\n\n문단 근거 3개\n\nPipelineHandler::stop()은 대기 요청을 따로 모은 뒤 stopDevice()를 호출하고, 각 대기 요청을 취소한 후 doQueueRequest()로 전달하여 순번을 부여하고 queuedRequests_에 임시로 추가해 completeRequest()에서 완료되도록 합니다. PipelineHandler::stop()은 대기 요청을 처리한 뒤 두 ASSERT로 queuedRequests_와 waitingRequests_가 비어 있는지 확인하고 requestSequence_에 0을 저장합니다.\n\n문단 근거 1개\n절 전체 근거 4개\n구현 뒤 확인할 계약과 실행 한계\n\n파이프라인 핸들러 구현자는 completeRequest가 반환된 뒤 해당 요청을 더 이상 관리하지 않으며 접근해서는 안 됩니다. 파이프라인 핸들러는 완료된 요청을 순서 제약 없이 completeRequest에 전달할 수 있으며, 이 함수는 요청을 제출 순서대로 애플리케이션에 반환합니다. 호출자는 completeRequest를 CameraManager 스레드에서 호출해야 합니다.\n\n문단 근거 3개\n절 전체 근거 3개\n설계 질문과 검증 범위\n소스 근거\n\n같은 발췌는 한 번만 싣습니다. 필요한 원문을 펼쳐 설명과 대조하세요.\n\n소스 근거: src/libcamera/camera.cpp:771\n\n소스 근거: src/libcamera/pipeline_handler.cpp:91\n\n소스 근거: src/libcamera/camera.cpp:780\n\n소스 근거: src/libcamera/camera.cpp:777\n\n소스 근거: src/libcamera/camera.cpp:1032\n\n소스 근거: src/libcamera/pipeline_handler.cpp:91\n\n소스 근거: src/libcamera/pipeline_handler.cpp:109\n\n소스 근거: src/libcamera/pipeline_handler.cpp:97\n\n소스 근거: src/libcamera/pipeline_handler.cpp:276\n\n소스 근거: src/libcamera/pipeline_handler.cpp:289\n\n소스 근거: src/libcamera/pipeline_handler.cpp:285\n\n소스 근거: src/libcamera/pipeline_handler.cpp:304\n\n소스 근거: src/libcamera/pipeline_handler.cpp:309\n\n소스 근거: src/libcamera/pipeline_handler.cpp:313\n\n소스 근거: src/libcamera/pipeline_handler.cpp:306\n\n소스 근거: src/libcamera/pipeline_handler.cpp:286\n\n소스 근거: src/libcamera/pipeline_handler.cpp:535\n\n소스 근거: src/libcamera/pipeline_handler.cpp:541\n\n소스 근거: src/libcamera/pipeline_handler.cpp:551\n\n소스 근거: src/libcamera/pipeline_handler.cpp:553\n\n소스 근거: src/libcamera/pipeline_handler.cpp:558\n\n소스 근거: src/libcamera/pipeline_handler.cpp:556\n\n소스 근거: include/libcamera/internal/ipa_manager.h:43\n\n소스 근거: include/libcamera/internal/ipa_manager.h:39\n\n소스 근거: include/libcamera/internal/ipa_manager.h:39\n\n소스 근거: include/libcamera/internal/ipa_manager.h:50\n\n소스 근거: src/libcamera/ipa_manager.cpp:249\n\n소스 근거: src/libcamera/pipeline_handler.cpp:367\n\n소스 근거: src/libcamera/pipeline_handler.cpp:405\n\n소스 근거: src/libcamera/pipeline_handler.cpp:367\n\n소스 근거: src/libcamera/pipeline_handler.cpp:370\n\n소스 근거: src/libcamera/pipeline_handler.cpp:571\n\n소스 근거: src/libcamera/pipeline_handler.cpp:578\n\n소스 근거: src/libcamera/pipeline_handler.cpp:582\n클래스 관계\n\n화살표의 글자는 추출한 관계를 나타내며, 점선은 상속입니다. 화살표는 참조 대상 또는 기반 클래스를 향합니다. 호출 순서를 뜻하지 않습니다.\n\n상속\n상속\n필드 참조\n상속\n상속\n필드 참조\n상속\n\nCamera\n\nExtensible\n\nIPAManager\n\nObject\n\nPipelineHandler\n\nPipelineHandlerIPU3\n\nPipelineHandlerRkISP1\n\n그림을 누르면 확대하고 요소를 검색할 수 있습니다.\n\n근거와 검토 정보\n\n다음 단계: 지원 범위와 검증",
+      "screenshot": "vendor-integration.png",
+      "mermaid_svgs": 2,
+      "overflow": false,
+      "errors": []
+    },
+    {
+      "path": "scenarios/queue_request.html",
+      "status": 200,
+      "title": "요청 제출 (Camera::queueRequest) · libcamera 설계 문서",
+      "article": "Camera::queueRequest(Request *) 의 주요 호출과 추적 경계를 확인한 뒤 필요한 상세 기록을 펼쳐 보세요.\n\n지금 확인할 내용\t이동할 절\n이 흐름에서 확인할 것 절을 확인합니다.\t이 흐름에서 확인할 것\n주요 확인 지점 절을 확인합니다.\t주요 확인 지점\n주요 호출 관계 절을 확인합니다.\t주요 호출 관계\n추적 범위와 경계 절을 확인합니다.\t추적 범위와 경계\n전체 추적 기록 절을 확인합니다.\t전체 추적 기록\n이 흐름에서 확인할 것\n\nCamera::queueRequest(Request *)에서 시작한 정적 탐색으로 호출 기록 80개를 수집했습니다. 주요 확인 지점 2개를 아래 표와 관계도에 표시합니다. 선택한 지점의 근거를 먼저 확인하고, 필요한 호출은 전체 추적 기록에서 찾아보세요.\n\n가상 호출 후보·예약 대상 등 확인이 필요한 경계 기록이 1개 있습니다. 추적 범위와 경계 표에서 후보를 구분한 뒤 실제 객체와 연결 방식을 확인해야 합니다.\n\n주요 확인 지점\n\n아래 항목은 추출한 호출에서 고른 코드 탐색 지점입니다. 나열 순서는 실행 순서가 아닙니다.\n\n확인할 내용\t호출 측과 대상\t구분\t근거\n요청 상태 확인\tCamera → Request::status()\t정적 호출 지점입니다.\tsrc/libcamera/camera.cpp:1344\n요청 제출 대상\tCamera → PipelineHandler::queueRequest()\t메서드 전달 대상이며 동기·비동기 여부는 호출부에서 확인해야 합니다.\tsrc/libcamera/camera.cpp:1376\n주요 호출 관계\n\n화살표는 호출 측과 대상을 연결합니다. 시간 순서나 모든 경로의 실행을 뜻하지 않습니다. 점선에는 가상 호출 후보·예약 대상 등 확인이 필요한 관계를 표시합니다.\n\nstatus()\nqueueRequest() · 예약된 호출,실행 순서는 정적으로 확인불가\n\nCamera\n\nPipelineHandler\n\nRequest\n\n그림을 누르면 확대하고 요소를 검색할 수 있습니다.\n\n추적 범위와 경계\n\nfacts에 기록된 호출은 80개이며, 요약의 hide 규칙에 해당하는 호출은 51개입니다. 전체 추적 기록에는 해당 호출도 모두 보존합니다. 기록 번호는 정적 탐색의 식별자이며 실행 순번이 아닙니다.\n\n조건 분기, 반복 횟수와 실제 실행 스레드는 이 호출 목록만으로 확정할 수 없습니다. 가상 호출 후보는 실제 객체에 따라 선택됩니다. 예약 표시는 인자로 전달한 메서드 대상을 뜻하며, 비동기 실행을 보증하지 않습니다. 호출부의 연결 방식과 동기화 계약을 확인해야 합니다.\n\n호출 지점\t후보 또는 예약 대상\t확인할 경계\t근거\nCamera\tPipelineHandler::queueRequest()\t메서드 전달 대상이며 동기·비동기 여부는 호출부에서 확인해야 합니다.\tsrc/libcamera/camera.cpp:1376\n\n추출 통계: 미해결 호출 0개, 예약된 호출 1개입니다.\n\n전체 추적 기록\n\n아래 구간을 펼치면 요약에서 제외된 호출까지 확인할 수 있습니다. 이 목록은 추출 깊이 안에서 수집한 기록이며, 소스의 모든 실행 경로를 포함한다는 뜻은 아닙니다.\n\n추적 기록 1–25 / 80개\n추적 기록 26–50 / 80개\n추적 기록 51–75 / 80개\n추적 기록 76–80 / 80개\n근거와 검토 정보\n\n다음 단계: 요청 완료 통지 (PipelineHandler::completeRequest)",
+      "screenshot": "scenarios-queue_request.png",
+      "mermaid_svgs": 1,
+      "overflow": false,
+      "errors": []
+    }
+  ],
+  "scope": "Isolated headless Chrome with an empty browser context; no existing Windows UI or authentication session",
+  "manifest_status": 200,
+  "build_id": "e1569641fe806423639aec719259b261f025ad17db1a0110fa8e6768680c1fbe",
+  "mobile": [
+    {
+      "path": "index.html",
+      "screenshot": "mobile-index.png",
+      "overflow": false
+    },
+    {
+      "path": "vendor-overview.html",
+      "screenshot": "mobile-vendor-overview.png",
+      "overflow": false
+    },
+    {
+      "path": "overview.html",
+      "screenshot": "mobile-overview.png",
+      "overflow": false
+    }
+  ],
+  "browser_version": "156.0.8078.48",
+  "interactions": {
+    "search_results": 24,
+    "search_escape": true,
+    "evidence_toggle": true,
+    "diagram_search": "2개 일치",
+    "zoom": "125%",
+    "diagram_escape": true
+  },
+  "legacy_anchors": [
+    {
+      "edition": "ko",
+      "previous": "pipeline-handler.html#요청-준비와-장치-큐",
+      "target": "pipeline-requests.html#요청-준비와-장치-큐",
+      "actual_url": "http://127.0.0.1:8876/pipeline-requests.html#%EC%9A%94%EC%B2%AD-%EC%A4%80%EB%B9%84%EC%99%80-%EC%9E%A5%EC%B9%98-%ED%81%90",
+      "passed": true
+    },
+    {
+      "edition": "ko",
+      "previous": "pipeline-handler.html#버퍼-완료와-요청-반환",
+      "target": "pipeline-requests.html#버퍼-완료와-요청-반환",
+      "actual_url": "http://127.0.0.1:8876/pipeline-requests.html#%EB%B2%84%ED%8D%BC-%EC%99%84%EB%A3%8C%EC%99%80-%EC%9A%94%EC%B2%AD-%EB%B0%98%ED%99%98",
+      "passed": true
+    },
+    {
+      "edition": "ko",
+      "previous": "pipeline-handler.html#요청이-대기하거나-장치로-가는-조건",
+      "target": "pipeline-requests.html#요청이-대기하거나-장치로-가는-조건",
+      "actual_url": "http://127.0.0.1:8876/pipeline-requests.html#%EC%9A%94%EC%B2%AD%EC%9D%B4-%EB%8C%80%EA%B8%B0%ED%95%98%EA%B1%B0%EB%82%98-%EC%9E%A5%EC%B9%98%EB%A1%9C-%EA%B0%80%EB%8A%94-%EC%A1%B0%EA%B1%B4",
+      "passed": true
+    },
+    {
+      "edition": "ko",
+      "previous": "pipeline-handler.html#버퍼-완료에서-요청-반환까지",
+      "target": "pipeline-requests.html#버퍼-완료에서-요청-반환까지",
+      "actual_url": "http://127.0.0.1:8876/pipeline-requests.html#%EB%B2%84%ED%8D%BC-%EC%99%84%EB%A3%8C%EC%97%90%EC%84%9C-%EC%9A%94%EC%B2%AD-%EB%B0%98%ED%99%98%EA%B9%8C%EC%A7%80",
+      "passed": true
+    },
+    {
+      "edition": "ko",
+      "previous": "ipa.html#보정-전-튜닝-파일",
+      "target": "ipa-algorithms.html#보정-전-튜닝-파일",
+      "actual_url": "http://127.0.0.1:8876/ipa-algorithms.html#%EB%B3%B4%EC%A0%95-%EC%A0%84-%ED%8A%9C%EB%8B%9D-%ED%8C%8C%EC%9D%BC",
+      "passed": true
+    },
+    {
+      "edition": "ko",
+      "previous": "ipa.html#소프트웨어-isp-입력-버퍼의-텍스처-형식",
+      "target": "ipa-algorithms.html#소프트웨어-isp-입력-버퍼의-텍스처-형식",
+      "actual_url": "http://127.0.0.1:8876/ipa-algorithms.html#%EC%86%8C%ED%94%84%ED%8A%B8%EC%9B%A8%EC%96%B4-isp-%EC%9E%85%EB%A0%A5-%EB%B2%84%ED%8D%BC%EC%9D%98-%ED%85%8D%EC%8A%A4%EC%B2%98-%ED%98%95%EC%8B%9D",
+      "passed": true
+    },
+    {
+      "edition": "ko",
+      "previous": "ipa.html#소프트웨어-isp-셰이더의-렌즈-음영-보정",
+      "target": "ipa-algorithms.html#소프트웨어-isp-셰이더의-렌즈-음영-보정",
+      "actual_url": "http://127.0.0.1:8876/ipa-algorithms.html#%EC%86%8C%ED%94%84%ED%8A%B8%EC%9B%A8%EC%96%B4-isp-%EC%85%B0%EC%9D%B4%EB%8D%94%EC%9D%98-%EB%A0%8C%EC%A6%88-%EC%9D%8C%EC%98%81-%EB%B3%B4%EC%A0%95",
+      "passed": true
+    },
+    {
+      "edition": "ko",
+      "previous": "ipu3-lsc-flow.html#파라미터-갱신-조건",
+      "target": "ipu3-lsc-prepare.html#파라미터-갱신-조건",
+      "actual_url": "http://127.0.0.1:8876/ipu3-lsc-prepare.html#%ED%8C%8C%EB%9D%BC%EB%AF%B8%ED%84%B0-%EA%B0%B1%EC%8B%A0-%EC%A1%B0%EA%B1%B4",
+      "passed": true
+    },
+    {
+      "edition": "ko",
+      "previous": "ipu3-lsc-flow.html#lsc-파라미터를-갱신하는-분기",
+      "target": "ipu3-lsc-prepare.html#lsc-파라미터를-갱신하는-분기",
+      "actual_url": "http://127.0.0.1:8876/ipu3-lsc-prepare.html#lsc-%ED%8C%8C%EB%9D%BC%EB%AF%B8%ED%84%B0%EB%A5%BC-%EA%B0%B1%EC%8B%A0%ED%95%98%EB%8A%94-%EB%B6%84%EA%B8%B0",
+      "passed": true
+    },
+    {
+      "edition": "ko",
+      "previous": "camera-model.html#요청-생성과-완료",
+      "target": "camera-requests.html#요청-생성과-완료",
+      "actual_url": "http://127.0.0.1:8876/camera-requests.html#%EC%9A%94%EC%B2%AD-%EC%83%9D%EC%84%B1%EA%B3%BC-%EC%99%84%EB%A3%8C",
+      "passed": true
+    },
+    {
+      "edition": "ko",
+      "previous": "camera-model.html#소유권과-재사용",
+      "target": "camera-requests.html#소유권과-재사용",
+      "actual_url": "http://127.0.0.1:8876/camera-requests.html#%EC%86%8C%EC%9C%A0%EA%B6%8C%EA%B3%BC-%EC%9E%AC%EC%82%AC%EC%9A%A9",
+      "passed": true
+    },
+    {
+      "edition": "ko",
+      "previous": "camera-model.html#요청과-버퍼를-유지할-기간",
+      "target": "camera-requests.html#요청과-버퍼를-유지할-기간",
+      "actual_url": "http://127.0.0.1:8876/camera-requests.html#%EC%9A%94%EC%B2%AD%EA%B3%BC-%EB%B2%84%ED%8D%BC%EB%A5%BC-%EC%9C%A0%EC%A7%80%ED%95%A0-%EA%B8%B0%EA%B0%84",
+      "passed": true
+    },
+    {
+      "edition": "ko",
+      "previous": "request-lifecycle.html#구성-실패를-좁히는-순서",
+      "target": "request-diagnosis.html#구성-실패를-좁히는-순서",
+      "actual_url": "http://127.0.0.1:8876/request-diagnosis.html#%EA%B5%AC%EC%84%B1-%EC%8B%A4%ED%8C%A8%EB%A5%BC-%EC%A2%81%ED%9E%88%EB%8A%94-%EC%88%9C%EC%84%9C",
+      "passed": true
+    },
+    {
+      "edition": "ko",
+      "previous": "request-lifecycle.html#실패-위치별-확인-순서",
+      "target": "request-diagnosis.html#실패-위치별-확인-순서",
+      "actual_url": "http://127.0.0.1:8876/request-diagnosis.html#%EC%8B%A4%ED%8C%A8-%EC%9C%84%EC%B9%98%EB%B3%84-%ED%99%95%EC%9D%B8-%EC%88%9C%EC%84%9C",
+      "passed": true
+    },
+    {
+      "edition": "ko",
+      "previous": "request-lifecycle.html#요청이-대기하거나-장치로-가는-조건",
+      "target": "request-diagnosis.html#요청이-대기하거나-장치로-가는-조건",
+      "actual_url": "http://127.0.0.1:8876/request-diagnosis.html#%EC%9A%94%EC%B2%AD%EC%9D%B4-%EB%8C%80%EA%B8%B0%ED%95%98%EA%B1%B0%EB%82%98-%EC%9E%A5%EC%B9%98%EB%A1%9C-%EA%B0%80%EB%8A%94-%EC%A1%B0%EA%B1%B4",
+      "passed": true
+    },
+    {
+      "edition": "ko",
+      "previous": "request-lifecycle.html#구성-실패를-좁히는-분기",
+      "target": "request-diagnosis.html#구성-실패를-좁히는-분기",
+      "actual_url": "http://127.0.0.1:8876/request-diagnosis.html#%EA%B5%AC%EC%84%B1-%EC%8B%A4%ED%8C%A8%EB%A5%BC-%EC%A2%81%ED%9E%88%EB%8A%94-%EB%B6%84%EA%B8%B0",
+      "passed": true
+    },
+    {
+      "edition": "en/",
+      "previous": "pipeline-handler.html#요청-준비와-장치-큐",
+      "target": "pipeline-requests.html#요청-준비와-장치-큐",
+      "actual_url": "http://127.0.0.1:8876/en/pipeline-requests.html#%EC%9A%94%EC%B2%AD-%EC%A4%80%EB%B9%84%EC%99%80-%EC%9E%A5%EC%B9%98-%ED%81%90",
+      "passed": true
+    },
+    {
+      "edition": "en/",
+      "previous": "pipeline-handler.html#버퍼-완료와-요청-반환",
+      "target": "pipeline-requests.html#버퍼-완료와-요청-반환",
+      "actual_url": "http://127.0.0.1:8876/en/pipeline-requests.html#%EB%B2%84%ED%8D%BC-%EC%99%84%EB%A3%8C%EC%99%80-%EC%9A%94%EC%B2%AD-%EB%B0%98%ED%99%98",
+      "passed": true
+    },
+    {
+      "edition": "en/",
+      "previous": "pipeline-handler.html#요청이-대기하거나-장치로-가는-조건",
+      "target": "pipeline-requests.html#요청이-대기하거나-장치로-가는-조건",
+      "actual_url": "http://127.0.0.1:8876/en/pipeline-requests.html#%EC%9A%94%EC%B2%AD%EC%9D%B4-%EB%8C%80%EA%B8%B0%ED%95%98%EA%B1%B0%EB%82%98-%EC%9E%A5%EC%B9%98%EB%A1%9C-%EA%B0%80%EB%8A%94-%EC%A1%B0%EA%B1%B4",
+      "passed": true
+    },
+    {
+      "edition": "en/",
+      "previous": "pipeline-handler.html#버퍼-완료에서-요청-반환까지",
+      "target": "pipeline-requests.html#버퍼-완료에서-요청-반환까지",
+      "actual_url": "http://127.0.0.1:8876/en/pipeline-requests.html#%EB%B2%84%ED%8D%BC-%EC%99%84%EB%A3%8C%EC%97%90%EC%84%9C-%EC%9A%94%EC%B2%AD-%EB%B0%98%ED%99%98%EA%B9%8C%EC%A7%80",
+      "passed": true
+    },
+    {
+      "edition": "en/",
+      "previous": "ipa.html#보정-전-튜닝-파일",
+      "target": "ipa-algorithms.html#보정-전-튜닝-파일",
+      "actual_url": "http://127.0.0.1:8876/en/ipa-algorithms.html#%EB%B3%B4%EC%A0%95-%EC%A0%84-%ED%8A%9C%EB%8B%9D-%ED%8C%8C%EC%9D%BC",
+      "passed": true
+    },
+    {
+      "edition": "en/",
+      "previous": "ipa.html#소프트웨어-isp-입력-버퍼의-텍스처-형식",
+      "target": "ipa-algorithms.html#소프트웨어-isp-입력-버퍼의-텍스처-형식",
+      "actual_url": "http://127.0.0.1:8876/en/ipa-algorithms.html#%EC%86%8C%ED%94%84%ED%8A%B8%EC%9B%A8%EC%96%B4-isp-%EC%9E%85%EB%A0%A5-%EB%B2%84%ED%8D%BC%EC%9D%98-%ED%85%8D%EC%8A%A4%EC%B2%98-%ED%98%95%EC%8B%9D",
+      "passed": true
+    },
+    {
+      "edition": "en/",
+      "previous": "ipa.html#소프트웨어-isp-셰이더의-렌즈-음영-보정",
+      "target": "ipa-algorithms.html#소프트웨어-isp-셰이더의-렌즈-음영-보정",
+      "actual_url": "http://127.0.0.1:8876/en/ipa-algorithms.html#%EC%86%8C%ED%94%84%ED%8A%B8%EC%9B%A8%EC%96%B4-isp-%EC%85%B0%EC%9D%B4%EB%8D%94%EC%9D%98-%EB%A0%8C%EC%A6%88-%EC%9D%8C%EC%98%81-%EB%B3%B4%EC%A0%95",
+      "passed": true
+    },
+    {
+      "edition": "en/",
+      "previous": "ipu3-lsc-flow.html#파라미터-갱신-조건",
+      "target": "ipu3-lsc-prepare.html#파라미터-갱신-조건",
+      "actual_url": "http://127.0.0.1:8876/en/ipu3-lsc-prepare.html#%ED%8C%8C%EB%9D%BC%EB%AF%B8%ED%84%B0-%EA%B0%B1%EC%8B%A0-%EC%A1%B0%EA%B1%B4",
+      "passed": true
+    },
+    {
+      "edition": "en/",
+      "previous": "ipu3-lsc-flow.html#lsc-파라미터를-갱신하는-분기",
+      "target": "ipu3-lsc-prepare.html#lsc-파라미터를-갱신하는-분기",
+      "actual_url": "http://127.0.0.1:8876/en/ipu3-lsc-prepare.html#lsc-%ED%8C%8C%EB%9D%BC%EB%AF%B8%ED%84%B0%EB%A5%BC-%EA%B0%B1%EC%8B%A0%ED%95%98%EB%8A%94-%EB%B6%84%EA%B8%B0",
+      "passed": true
+    },
+    {
+      "edition": "en/",
+      "previous": "camera-model.html#요청-생성과-완료",
+      "target": "camera-requests.html#요청-생성과-완료",
+      "actual_url": "http://127.0.0.1:8876/en/camera-requests.html#%EC%9A%94%EC%B2%AD-%EC%83%9D%EC%84%B1%EA%B3%BC-%EC%99%84%EB%A3%8C",
+      "passed": true
+    },
+    {
+      "edition": "en/",
+      "previous": "camera-model.html#소유권과-재사용",
+      "target": "camera-requests.html#소유권과-재사용",
+      "actual_url": "http://127.0.0.1:8876/en/camera-requests.html#%EC%86%8C%EC%9C%A0%EA%B6%8C%EA%B3%BC-%EC%9E%AC%EC%82%AC%EC%9A%A9",
+      "passed": true
+    },
+    {
+      "edition": "en/",
+      "previous": "camera-model.html#요청과-버퍼를-유지할-기간",
+      "target": "camera-requests.html#요청과-버퍼를-유지할-기간",
+      "actual_url": "http://127.0.0.1:8876/en/camera-requests.html#%EC%9A%94%EC%B2%AD%EA%B3%BC-%EB%B2%84%ED%8D%BC%EB%A5%BC-%EC%9C%A0%EC%A7%80%ED%95%A0-%EA%B8%B0%EA%B0%84",
+      "passed": true
+    },
+    {
+      "edition": "en/",
+      "previous": "request-lifecycle.html#구성-실패를-좁히는-순서",
+      "target": "request-diagnosis.html#구성-실패를-좁히는-순서",
+      "actual_url": "http://127.0.0.1:8876/en/request-diagnosis.html#%EA%B5%AC%EC%84%B1-%EC%8B%A4%ED%8C%A8%EB%A5%BC-%EC%A2%81%ED%9E%88%EB%8A%94-%EC%88%9C%EC%84%9C",
+      "passed": true
+    },
+    {
+      "edition": "en/",
+      "previous": "request-lifecycle.html#실패-위치별-확인-순서",
+      "target": "request-diagnosis.html#실패-위치별-확인-순서",
+      "actual_url": "http://127.0.0.1:8876/en/request-diagnosis.html#%EC%8B%A4%ED%8C%A8-%EC%9C%84%EC%B9%98%EB%B3%84-%ED%99%95%EC%9D%B8-%EC%88%9C%EC%84%9C",
+      "passed": true
+    },
+    {
+      "edition": "en/",
+      "previous": "request-lifecycle.html#요청이-대기하거나-장치로-가는-조건",
+      "target": "request-diagnosis.html#요청이-대기하거나-장치로-가는-조건",
+      "actual_url": "http://127.0.0.1:8876/en/request-diagnosis.html#%EC%9A%94%EC%B2%AD%EC%9D%B4-%EB%8C%80%EA%B8%B0%ED%95%98%EA%B1%B0%EB%82%98-%EC%9E%A5%EC%B9%98%EB%A1%9C-%EA%B0%80%EB%8A%94-%EC%A1%B0%EA%B1%B4",
+      "passed": true
+    },
+    {
+      "edition": "en/",
+      "previous": "request-lifecycle.html#구성-실패를-좁히는-분기",
+      "target": "request-diagnosis.html#구성-실패를-좁히는-분기",
+      "actual_url": "http://127.0.0.1:8876/en/request-diagnosis.html#%EA%B5%AC%EC%84%B1-%EC%8B%A4%ED%8C%A8%EB%A5%BC-%EC%A2%81%ED%9E%88%EB%8A%94-%EB%B6%84%EA%B8%B0",
+      "passed": true
+    }
+  ],
+  "index_overview": [
+    {
+      "edition": "ko",
+      "diagram_search": "1개 일치",
+      "download_identical": true,
+      "proof_url": "http://127.0.0.1:8876/vendor-overview.html#source-e3b563f549a8c46d",
+      "proof_visible": true
+    },
+    {
+      "edition": "en/",
+      "diagram_search": "1 matches",
+      "download_identical": true,
+      "proof_url": "http://127.0.0.1:8876/en/vendor-overview.html#source-e3b563f549a8c46d",
+      "proof_visible": true
+    }
+  ],
+  "offline_test": {
+    "enabled": true,
+    "external_requests": []
+  }
+}

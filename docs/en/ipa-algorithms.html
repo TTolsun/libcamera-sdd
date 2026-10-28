@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IPA Tuning and Software ISP · libcamera Design Document</title><link rel="stylesheet" href="../assets/reading.css?v=d29f01ebc1"><link rel="alternate" hreflang="ko" href="../ipa-algorithms.html"><link rel="alternate" hreflang="en" href="ipa-algorithms.html"></head>
+<body><a class="skip" href="#main">Skip to content</a>
+<header class="site-header"><a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera Design Documentation</a>
+<div class="header-actions"><details class="language-selector"><summary aria-label="Choose language">English ▾</summary><nav><a lang="ko" hreflang="ko" href="../ipa-algorithms.html">한국어</a><a lang="en" hreflang="en" href="ipa-algorithms.html" aria-current="true">English</a></nav></details><button id="search-open" hidden>Find documents <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button></div></header>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Documentation menu"><p class="nav-group">Getting started</p><a href="index.html">Documentation guide</a><a href="glossary.html">Glossary</a><p class="nav-group">For Vendor</p><section class="nav-section" aria-label="Assess adoption"><h2>Assess adoption</h2><a href="vendor-overview.html">libcamera Product Overview</a><a href="vendor-assurance.html">Support Scope and Validation</a></section><section class="nav-section" aria-label="Implement integration"><h2>Implement integration</h2><a href="vendor-integration.html">Integration Guide</a><a href="pipeline-handler.html">Pipeline Handler</a><a href="pipeline-requests.html">Pipeline Request Submission and Completion</a><a href="ipa.html">IPA management and implementation entry points</a><a href="ipa-algorithms.html" aria-current="page">IPA Tuning and Software ISP</a></section><section class="nav-section" aria-label="Implement device features"><h2>Implement device features</h2><a href="ipu3-lsc-flow.html">IPU3 LSC configuration and frame processing</a><a href="ipu3-lsc-prepare.html">IPU3 Lens Correction Table Preparation</a><a href="rkisp1-dewarp.html">RKISP1 per-camera lens dewarping</a></section><p class="nav-group">For Developer</p><section class="nav-section" aria-label="Understand the structure"><h2>Understand the structure</h2><a href="team-overview.html">What this project does</a><a href="overview.html">System overview</a><a href="onboarding.html">Run it and read the design rationale</a><a href="camera-model.html">Camera and request model</a><a href="camera-requests.html">Request Object and Buffer Lifetime</a></section><section class="nav-section" aria-label="Trace behavior and diagnose issues"><h2>Trace behavior and diagnose issues</h2><a href="request-lifecycle.html">Request lifecycle and troubleshooting</a><a href="request-diagnosis.html">Investigation of configuration and request errors</a><a href="scenarios/index.html">Core scenarios</a><details class="nav-branch"><summary>6 child documents</summary><a class="nav-sub" href="scenarios/manager_start.html">Camera discovery (CameraManager::start)</a><a class="nav-sub" href="scenarios/configure.html">Stream configuration (Camera::configure)</a><a class="nav-sub" href="scenarios/camera_start.html">Capture start (Camera::start)</a><a class="nav-sub" href="scenarios/queue_request.html">Request submission (Camera::queueRequest)</a><a class="nav-sub" href="scenarios/complete_request.html">Request completion (PipelineHandler::completeRequest)</a><a class="nav-sub" href="scenarios/camera_stop.html">Capture stop request (Camera::stop)</a></details><a href="ipa-module-validation.html">IPA module information inspection and signature file missing</a><a href="framebuffer-allocator.html">FrameBufferAllocator Failures and Reference Lifetime</a></section><section class="nav-section" aria-label="Find code"><h2>Find code</h2><a href="component-index.html">Component index</a><a href="ipu3-lsc.html">IPU3 LSC and state connections</a></section></nav><p class="sidebar-note">Extract structure from code<br>and review it with evidence.</p></aside>
+<main id="main"><p class="breadcrumb">For Vendor <span>/</span> IPA Tuning and Software ISP</p><h1>IPA Tuning and Software ISP</h1><div class="page-state"><span class="review-state">Human review pending</span><span>Automatic checks passed</span><span class="generation-method">Written from: extracted structure and a model-written draft</span><a class="state-help" href="#page-evidence">What these mean ↓</a></div>
+<details class="mobile-toc"><summary>Contents of this page</summary><div class="toc">
+<ul>
+<li><a href="#보정-전-튜닝-파일">Uncalibrated tuning files</a></li>
+<li><a href="#소프트웨어-isp-입력-버퍼의-텍스처-형식">Software ISP input buffer texture format</a></li>
+<li><a href="#소프트웨어-isp-셰이더의-렌즈-음영-보정">Lens shading correction in the software ISP shaders</a></li>
+<li><a href="#소스-근거">Source evidence</a></li>
+<li><a href="#클래스-관계">Class relationships</a></li>
+<li><a href="#관련-클래스">Related classes</a></li>
+</ul>
+</div>
+</details><p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p><strong>Check the tuning file path and the software ISP's lens correction and input buffer connection against the code.</strong></p>
+<details class="page-terms">
+<summary>Terms in this document: IPA, software ISP, ISP, tuning file, and 5 others</summary>
+<ul>
+<li><strong>IPA</strong> (Image Processing Algorithms): a separate module (.so) holding the image-quality algorithms. It reads the statistics sent by the ISP and computes the ISP settings for the next frame. It is kept apart from libcamera itself so that vendors can ship it without publishing the source.</li>
+<li><strong>Software ISP</strong>: the libcamera component that does ISP processing on the CPU or GPU for devices without a hardware ISP. The source calls it software_isp and softisp.</li>
+<li><strong>ISP</strong> (Image Signal Processor): the processing unit that turns the sensor's raw (bayer) data into a usable image. It performs black-level correction, lens shading correction, white balance, debayering and more.</li>
+<li><strong>Tuning file</strong>: a YAML file with per-sensor and per-platform algorithm parameters (correction tables, colour matrices and so on). The IPA reads it at start-up.</li>
+<li><strong>RKISP1</strong> (Rockchip Image Signal Processor 1): the camera ISP in Rockchip SoCs, the NXP i.MX8MP and others. libcamera has a Pipeline Handler and an IPA for it.</li>
+<li><strong>mali-c55</strong>: the Arm Mali-C55 camera ISP. libcamera has a Pipeline Handler and an IPA for it.</li>
+<li><strong>Shader</strong>: a small program that runs on the GPU. The software ISP can perform debayering and colour correction in GPU shaders.</li>
+<li><strong>LSC</strong> (Lens Shading Correction): correction for lens shading, where the image edges are darker or tinted compared with the centre because of the lens. It multiplies the image by a correction table laid out as a grid.</li>
+<li><strong>IPU3</strong> (Intel Image Processing Unit 3): the camera ISP in some Intel laptop processors. libcamera has a Pipeline Handler and an IPA for it.</li>
+</ul>
+<p>Other terms are in the <a href="glossary.html">Glossary</a>.</p>
+</details>
+<div class="table-scroll reading-routes" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>What to check now</th>
+<th>Section</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Check IPA module selection, thread and process boundaries, and request/result interfaces against the implementation.</td>
+<td><a href="ipa.html">IPA management and implementation entry points</a></td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="보정-전-튜닝-파일">Uncalibrated tuning files</h2>
+<p>RKISP1 and Mali-C55 each pass a filename consisting of the sensor model name with <code>.yaml</code> appended, along with the fallback name <code>uncalibrated.yaml</code>, to <code>IPAProxy::configurationFile()</code>. <code>IPAProxy::configurationFile()</code> searches using the IPA module name and the requested filename, and returns the path if it finds one. If it does not find a path and the fallback name is empty, it logs an error and returns an empty string. If the fallback name is not empty, it searches using that name and logs the resulting fallback path as a warning.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>3</span></summary><ul><li><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code><span class="evidence-lines"><a href="#source-a117437c7ec61db3" aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:406 excerpt"><code>L406</code> excerpt</a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:406" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L406">Full source <code>L406</code></a></span></li><li><code>src/libcamera/pipeline/mali-c55/mali-c55.cpp</code><span class="evidence-lines"><a href="#source-efc0c3fc5cf7acef" aria-label="src/libcamera/pipeline/mali-c55/mali-c55.cpp:468 excerpt"><code>L468</code> excerpt</a> · <a aria-label="src/libcamera/pipeline/mali-c55/mali-c55.cpp:468" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/src/libcamera/pipeline/mali-c55/mali-c55.cpp#L468">Full source <code>L468</code></a></span></li><li><code>src/libcamera/ipa_proxy.cpp</code><span class="evidence-lines"><a href="#source-4000376c954f5327" aria-label="src/libcamera/ipa_proxy.cpp:174 excerpt"><code>L174</code> excerpt</a> · <a aria-label="src/libcamera/ipa_proxy.cpp:174" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/src/libcamera/ipa_proxy.cpp#L174">Full source <code>L174</code></a></span></li></ul></details>
+<p>Both <code>uncalibrated.yaml</code> list <code>Agc</code>, <code>Awb</code>, <code>BlackLevelCorrection</code>, and <code>Ccm</code>, and the RKISP1 file also lists <code>GammaOutCorrection</code>.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>2</span></summary><ul><li><code>src/ipa/rkisp1/data/uncalibrated.yaml</code><span class="evidence-lines"><a href="#source-c3d57577d02a4dc3" aria-label="src/ipa/rkisp1/data/uncalibrated.yaml:1 excerpt"><code>L1</code> excerpt</a> · <a aria-label="src/ipa/rkisp1/data/uncalibrated.yaml:1" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/src/ipa/rkisp1/data/uncalibrated.yaml#L1">Full source <code>L1</code></a></span></li><li><code>src/ipa/mali-c55/data/uncalibrated.yaml</code><span class="evidence-lines"><a href="#source-9146c9052851a10f" aria-label="src/ipa/mali-c55/data/uncalibrated.yaml:1 excerpt"><code>L1</code> excerpt</a> · <a aria-label="src/ipa/mali-c55/data/uncalibrated.yaml:1" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/src/ipa/mali-c55/data/uncalibrated.yaml#L1">Full source <code>L1</code></a></span></li></ul></details>
+<details class="evidence-links evidence-section"><summary>Section evidence · <span>5</span></summary><ul><li><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:406" href="#source-a117437c7ec61db3"><code>L406</code></a></span></li><li><code>src/libcamera/pipeline/mali-c55/mali-c55.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/pipeline/mali-c55/mali-c55.cpp:468" href="#source-efc0c3fc5cf7acef"><code>L468</code></a></span></li><li><code>src/libcamera/ipa_proxy.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/ipa_proxy.cpp:174" href="#source-4000376c954f5327"><code>L174</code></a></span></li><li><code>src/ipa/rkisp1/data/uncalibrated.yaml</code><span class="evidence-lines"><a aria-label="src/ipa/rkisp1/data/uncalibrated.yaml:1" href="#source-c3d57577d02a4dc3"><code>L1</code></a></span></li><li><code>src/ipa/mali-c55/data/uncalibrated.yaml</code><span class="evidence-lines"><a aria-label="src/ipa/mali-c55/data/uncalibrated.yaml:1" href="#source-9146c9052851a10f"><code>L1</code></a></span></li></ul></details>
+<h2 id="소프트웨어-isp-입력-버퍼의-텍스처-형식">Software ISP input buffer texture format</h2>
+<p><code>createDMABufTexture2D()</code> maps <code>GL_RED</code> and <code>GL_LUMINANCE</code> each to <code>DRM_FORMAT_R8</code>. <code>GL_RG</code> maps to <code>DRM_FORMAT_GR88</code>, and <code>GL_RGBA</code> maps to <code>DRM_FORMAT_ARGB8888</code>. In <code>switch</code> of <code>eGL::createDMABufTexture2D()</code>, the <code>default</code> branch logs the error <code>unhandled GL format</code> and returns <code>-ENODEV</code>. This branch contains no code that assigns a value to the <code>dmabuf_import_failed_</code> failure flag.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/egl.cpp</code><span class="evidence-lines"><a href="#source-8cc12a6ba8b0dced" aria-label="src/libcamera/egl.cpp:174 excerpt"><code>L174</code> excerpt</a> · <a aria-label="src/libcamera/egl.cpp:174" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/src/libcamera/egl.cpp#L174">Full source <code>L174</code></a></span></li></ul></details>
+<p>In <code>createDMABufTexture2D()</code>, if the result of <code>eglCreateImageKHR()</code> is <code>EGL_NO_IMAGE_KHR</code>, it logs <code>eglCreateImageKHR fail</code> at Debug level. It then assigns <code>true</code> to <code>eglImage.dmabuf_import_failed_</code> and returns <code>-ENODEV</code>. <code>createInputDMABufTexture2D()</code> passes <code>false</code> as the last argument to <code>createDMABufTexture2D()</code>. <code>createOutputDMABufTexture2D()</code> passes <code>true</code> as the last argument.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/egl.cpp</code><span class="evidence-lines"><a href="#source-8cc12a6ba8b0dced" aria-label="src/libcamera/egl.cpp:174 excerpt"><code>L174</code> excerpt</a> · <a aria-label="src/libcamera/egl.cpp:174" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/src/libcamera/egl.cpp#L174">Full source <code>L174</code></a></span></li></ul></details>
+<p><code>createDMABufTexture2D()</code> initializes <code>ret</code> to 0. On a path that did not return in an earlier error branch, if <code>output</code> is true, it calls <code>attachTextureToFBO(eglImage)</code> to attach the texture to the framebuffer and assigns the return value to <code>ret</code>. If <code>output</code> is false, <code>ret</code> retains its initial value of 0, and the function returns <code>ret</code> at the end.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>src/libcamera/egl.cpp</code><span class="evidence-lines"><a href="#source-8cc12a6ba8b0dced" aria-label="src/libcamera/egl.cpp:174 excerpt"><code>L174</code> excerpt</a> · <a aria-label="src/libcamera/egl.cpp:174" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/src/libcamera/egl.cpp#L174">Full source <code>L174</code></a></span></li></ul></details>
+<details class="evidence-links evidence-section"><summary>Section evidence · <span>1</span></summary><ul><li><code>src/libcamera/egl.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/egl.cpp:174" href="#source-8cc12a6ba8b0dced"><code>L174</code></a></span></li></ul></details>
+<h2 id="소프트웨어-isp-셰이더의-렌즈-음영-보정">Lens shading correction in the software ISP shaders</h2>
+<p>The <code>main()</code> in both shaders first normalizes the value by subtracting <code>blacklevel</code> from <code>rgb</code> and dividing by <code>1.0 - blacklevel</code>. If <code>APPLY_LSC</code> is defined, it then multiplies <code>rgb</code> by the RGB values of <code>lsc_tex</code> multiplied by <code>4.0</code>. The packed shader uses <code>textureOut</code> as texture coordinates, while the unpacked shader uses <code>center.xy</code>; the <code>4.0</code> scale factor is used to convert from <code>UQ&lt;2, 6&gt;</code> to floating point. It then applies <code>awb</code> gain and clamps each channel between 0 and 1, followed by <code>ccm</code> color correction, value clamping and per-channel contrast, and application of <code>gamma</code>, in that order.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>2</span></summary><ul><li><code>src/libcamera/shaders/bayer_1x_packed.frag</code><span class="evidence-lines"><a href="#source-68d470282c445049" aria-label="src/libcamera/shaders/bayer_1x_packed.frag:237 excerpt"><code>L237</code> excerpt</a> · <a aria-label="src/libcamera/shaders/bayer_1x_packed.frag:237" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/src/libcamera/shaders/bayer_1x_packed.frag#L237">Full source <code>L237</code></a></span></li><li><code>src/libcamera/shaders/bayer_unpacked.frag</code><span class="evidence-lines"><a href="#source-86d4a7688119bd37" aria-label="src/libcamera/shaders/bayer_unpacked.frag:140 excerpt"><code>L140</code> excerpt</a> · <a aria-label="src/libcamera/shaders/bayer_unpacked.frag:140" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/src/libcamera/shaders/bayer_unpacked.frag#L140">Full source <code>L140</code></a></span></li></ul></details>
+<p>The <code>init()</code> declaration in <code>IPASoftIspInterface</code> takes the shared file descriptor <code>fdStats</code> and <code>fdParams</code> as inputs and includes <code>lscEnabled</code> among its return values. No separate LSC-specific buffer parameter is shown in this declaration.</p><details class="evidence-links evidence-paragraph"><summary>Paragraph evidence · <span>1</span></summary><ul><li><code>include/libcamera/ipa/softisp.mojom</code><span class="evidence-lines"><a href="#source-df8e8976167a0311" aria-label="include/libcamera/ipa/softisp.mojom:1 excerpt"><code>L1</code> excerpt</a> · <a aria-label="include/libcamera/ipa/softisp.mojom:1" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/include/libcamera/ipa/softisp.mojom#L1">Full source <code>L1</code></a></span></li></ul></details>
+<details class="evidence-links evidence-section"><summary>Section evidence · <span>3</span></summary><ul><li><code>src/libcamera/shaders/bayer_1x_packed.frag</code><span class="evidence-lines"><a aria-label="src/libcamera/shaders/bayer_1x_packed.frag:237" href="#source-68d470282c445049"><code>L237</code></a></span></li><li><code>src/libcamera/shaders/bayer_unpacked.frag</code><span class="evidence-lines"><a aria-label="src/libcamera/shaders/bayer_unpacked.frag:140" href="#source-86d4a7688119bd37"><code>L140</code></a></span></li><li><code>include/libcamera/ipa/softisp.mojom</code><span class="evidence-lines"><a aria-label="include/libcamera/ipa/softisp.mojom:1" href="#source-df8e8976167a0311"><code>L1</code></a></span></li></ul></details>
+<details class="note">
+<summary>Design questions and validation scope</summary>
+<p>Answers and their evidence links have been checked for each question. Meaning and runtime results still require human review.</p>
+<div class="table-scroll stack" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Design question</th>
+<th>Explanation location</th>
+<th>Verification scope</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td data-label="Design question">Which file and algorithms are used when there is no sensor-specific tuning file?</td>
+<td data-label="Explanation location"><a href="#보정-전-튜닝-파일">Uncalibrated tuning files</a></td>
+<td data-label="Verification scope">Code evidence linked to explanation</td>
+</tr>
+<tr>
+<td data-label="Design question">At which stage do the software ISP GPU shaders apply lens shading correction?</td>
+<td data-label="Explanation location"><a href="#소프트웨어-isp-셰이더의-렌즈-음영-보정">Lens shading correction in the software ISP shaders</a></td>
+<td data-label="Verification scope">Code evidence linked to explanation</td>
+</tr>
+<tr>
+<td data-label="Design question">When importing the input buffer of a software ISP as a texture, how are format and error handling connected?</td>
+<td data-label="Explanation location"><a href="#소프트웨어-isp-입력-버퍼의-텍스처-형식">Software ISP input buffer texture format</a></td>
+<td data-label="Verification scope">Code evidence linked to explanation</td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<h2 id="소스-근거">Source evidence</h2>
+<p>Each identical excerpt appears once. Expand the source you need and compare it with the explanation.</p>
+<p><a id="source-a117437c7ec61db3"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/pipeline/rkisp1/rkisp1.cpp:406</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L406"><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp:406</code></a> marks the start of this excerpt. It ends at line 408; compare the source below with the explanation.</p>
+<p>SHA-256: <code>5085c39368b264636b7bc7386979e019ea9cd60621335cc42d1e3ad28d810c6c</code></p>
+<div class="highlight"><pre><span></span><code>/* The IPA tuning file is made from the sensor name. */
+    std::string ipaTuningFile =
+        ipa_-&gt;configurationFile(sensor_-&gt;model() + ".yaml", "uncalibrated.yaml");
+</code></pre></div>
+</details>
+<p><a id="source-efc0c3fc5cf7acef"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/pipeline/mali-c55/mali-c55.cpp:468</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/src/libcamera/pipeline/mali-c55/mali-c55.cpp#L468"><code>src/libcamera/pipeline/mali-c55/mali-c55.cpp:468</code></a> marks the start of this excerpt. It ends at line 469; compare the source below with the explanation.</p>
+<p>SHA-256: <code>226c3c21c4b760c25b2a3323369bce67c92f92db80b9fcef19589a44af6eaa2a</code></p>
+<div class="highlight"><pre><span></span><code>std::string ipaTuningFile = ipa_-&gt;configurationFile(sensor()-&gt;model() + ".yaml",
+                                "uncalibrated.yaml");
+</code></pre></div>
+</details>
+<p><a id="source-4000376c954f5327"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/ipa_proxy.cpp:174</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/src/libcamera/ipa_proxy.cpp#L174"><code>src/libcamera/ipa_proxy.cpp:174</code></a> marks the start of this excerpt. It ends at line 199; compare the source below with the explanation.</p>
+<p>SHA-256: <code>6c48d1f3994c22addbc1b338c87cf7b166f9fee0f9223ecf718a254be0aa93a8</code></p>
+<div class="highlight"><pre><span></span><code>std::string IPAProxy::configurationFile(const std::string &amp;name,
+                    const std::string &amp;fallbackName) const
+{
+    /*
+     * The IPA module name can be used as-is to build directory names as it
+     * has been validated when loading the module.
+     */
+    const std::string ipaName = ipam_-&gt;info().name;
+    std::string confPath = ipaConfigurationFile(ipaName, name, configPaths_);
+    if (!confPath.empty()) {
+        LOG(IPAProxy, Info) &lt;&lt; "Using tuning file " &lt;&lt; confPath;
+        return confPath;
+    }
+
+    if (fallbackName.empty()) {
+        LOG(IPAProxy, Error)
+            &lt;&lt; "Configuration file '" &lt;&lt; name
+            &lt;&lt; "' not found for IPA module '" &lt;&lt; ipaName &lt;&lt; "'";
+        return std::string();
+    }
+
+    confPath = ipaConfigurationFile(ipaName, fallbackName, configPaths_);
+    LOG(IPAProxy, Warning)
+        &lt;&lt; "Configuration file '" &lt;&lt; name
+        &lt;&lt; "' not found for IPA module '" &lt;&lt; ipaName
+        &lt;&lt; "', falling back to '" &lt;&lt; confPath &lt;&lt; "'";
+</code></pre></div>
+</details>
+<p><a id="source-c3d57577d02a4dc3"></a></p>
+<details class="note">
+<summary>Source evidence: src/ipa/rkisp1/data/uncalibrated.yaml:1</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/src/ipa/rkisp1/data/uncalibrated.yaml#L1"><code>src/ipa/rkisp1/data/uncalibrated.yaml:1</code></a> and ending at line 11. Compare the source below with the explanation.</p>
+<p>SHA-256: <code>f3e8a3a6257b7fb82f16cf5c8239901d57bcc15023908c8994dcac3714e9e648</code></p>
+<div class="highlight"><pre><span></span><code># SPDX-License-Identifier: CC0-1.0
+%YAML 1.1
+---
+version: 1
+algorithms:
+  - Agc:
+  - Awb:
+  - BlackLevelCorrection:
+  - Ccm:
+  - GammaOutCorrection:
+...
+</code></pre></div>
+</details>
+<p><a id="source-9146c9052851a10f"></a></p>
+<details class="note">
+<summary>Source evidence: src/ipa/mali-c55/data/uncalibrated.yaml:1</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/src/ipa/mali-c55/data/uncalibrated.yaml#L1"><code>src/ipa/mali-c55/data/uncalibrated.yaml:1</code></a> marks the start of this excerpt. It ends at line 10; compare the source below with the explanation.</p>
+<p>SHA-256: <code>532d8234c4d0a6d5429c8a8f8df85d151b0701e965fb7372abc71fe70d2bed82</code></p>
+<div class="highlight"><pre><span></span><code># SPDX-License-Identifier: CC0-1.0
+%YAML 1.1
+---
+version: 1
+algorithms:
+  - Agc:
+  - Awb:
+  - BlackLevelCorrection:
+  - Ccm:
+...
+</code></pre></div>
+</details>
+<p><a id="source-8cc12a6ba8b0dced"></a></p>
+<details class="note">
+<summary>Source reference: src/libcamera/egl.cpp:174</summary>
+<p>Excerpt starting from <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/src/libcamera/egl.cpp#L174"><code>src/libcamera/egl.cpp:174</code></a>. The ending line is 279; the original text below can be compared with this explanation.</p>
+<p>SHA-256: <code>54972e6c423848da387112f756eb3670a3ac895a05f7cc8d3e7bb77f5cb6a570</code></p>
+<div class="highlight"><pre><span></span><code>int eGL::createDMABufTexture2D(eGLImage &amp;eglImage, int fd, bool output)
+{
+    EGLint drm_format;
+    int ret = 0;
+
+    assertThread();
+
+    switch (eglImage.format_) {
+    case GL_RED:
+    case GL_LUMINANCE:
+        drm_format = DRM_FORMAT_R8;
+        break;
+    case GL_RG:
+        drm_format = DRM_FORMAT_GR88;
+        break;
+    case GL_RGBA:
+        drm_format = DRM_FORMAT_ARGB8888;
+        break;
+    default:
+        LOG(eGL, Error) &lt;&lt; "unhandled GL format";
+        return -ENODEV;
+    }
+
+    // clang-format off
+    EGLint image_attrs[] = {
+        EGL_WIDTH, (EGLint)eglImage.width_,
+        EGL_HEIGHT, (EGLint)eglImage.height_,
+        EGL_LINUX_DRM_FOURCC_EXT, drm_format,
+        EGL_DMA_BUF_PLANE0_FD_EXT, fd,
+        EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
+        EGL_DMA_BUF_PLANE0_PITCH_EXT, (EGLint)eglImage.stride_,
+        EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT, 0,
+        EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT, 0,
+        EGL_NONE,
+    };
+    // clang-format on
+
+    EGLImageKHR image = vtable_.eglCreateImageKHR(display_, EGL_NO_CONTEXT,
+                              EGL_LINUX_DMA_BUF_EXT,
+                              NULL, image_attrs);
+
+    if (image == EGL_NO_IMAGE_KHR) {
+        LOG(eGL, Debug) &lt;&lt; "eglCreateImageKHR fail";
+        eglImage.dmabuf_import_failed_ = true;
+        return -ENODEV;
+    }
+
+    activateBindTexture(eglImage);
+
+    // Generate texture with filter semantics
+    vtable_.glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, image);
+    vtable_.eglDestroyImageKHR(display_, image);
+
+    // Nearest filtering
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    // Wrap to edge to avoid edge artifacts
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    if (output)
+        ret = attachTextureToFBO(eglImage);
+
+    return ret;
+}
+
+/**
+ * \brief Create an input DMA-BUF backed texture
+ * \param[in,out] eglImage EGL image to associate with the DMA-BUF
+ * \param[in] fd DMA-BUF file descriptor
+ *
+ * Creates an EGL image from a DMA-BUF file descriptor and binds it to
+ * a 2D texture for use as an input texture in shaders. The texture is
+ * configured with nearest filtering and clamp-to-edge wrapping.
+ *
+ * \return 0 on success, or -ENODEV on failure
+ */
+int eGL::createInputDMABufTexture2D(eGLImage &amp;eglImage, int fd)
+{
+    assertThread();
+
+    return createDMABufTexture2D(eglImage, fd, false);
+}
+
+/**
+ * \brief Create an output DMA-BUF backed texture
+ * \param[in,out] eglImage EGL image to associate with the DMA-BUF
+ * \param[in] fd DMA-BUF file descriptor
+ *
+ * Creates an EGL image from a DMA-BUF file descriptor and binds it to
+ * a 2D texture, then attaches it to a framebuffer object for use as a
+ * render target. This enables zero-copy rendering directly to the
+ * DMA-BUF.
+ *
+ * \return 0 on success, or -ENODEV on failure
+ */
+int eGL::createOutputDMABufTexture2D(eGLImage &amp;eglImage, int fd)
+{
+    assertThread();
+
+    return createDMABufTexture2D(eglImage, fd, true);
+}
+
+/**
+ * \brief Create a 2D texture from a memory buffer
+</code></pre></div>
+</details>
+<p><a id="source-68d470282c445049"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/shaders/bayer_1x_packed.frag:237</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/src/libcamera/shaders/bayer_1x_packed.frag#L237"><code>src/libcamera/shaders/bayer_1x_packed.frag:237</code></a> marks the start of this excerpt. It ends at line 270; compare the source below with the explanation.</p>
+<p>SHA-256: <code>84e5be2b8bbb1a1337af23df059b5d9270e16421c945a530a8c848709f302e6a</code></p>
+<div class="highlight"><pre><span></span><code>rgb = (rgb - blacklevel) / (1.0 - blacklevel);
+
+#if defined(APPLY_LSC)
+        /* Multiple by 4.0 for UQ&lt;2, 6&gt; -&gt; float conversion:
+         * texture2D(...) = original_float * 2^6 (quantization) * 1/2^8 (texture byte to float)
+         * =&gt; original_float = texture2D(...) / 2^6 * 2^8 = texture2D(...) * 2^2
+         */
+        rgb = rgb * (texture2D(lsc_tex, textureOut).rgb * 4.0);
+#endif
+
+    /* Apply AWB gains, and saturate each channel at sensor range */
+    rgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));
+
+    /* Colour Correction Matrix */
+    rgb = ccm * rgb;
+
+    /*
+     * Contrast
+     * contrastExp 0..2 contrast to 0..infinity; avoid actual infinity at tan(pi/2)
+     */
+    rgb = clamp(rgb, 0.0, 1.0);
+    rgb.r = apply_contrast(rgb.r);
+    rgb.g = apply_contrast(rgb.g);
+    rgb.b = apply_contrast(rgb.b);
+
+    /* Apply gamma after colour correction */
+    rgb = pow(rgb, vec3(gamma));
+
+#if defined (SWAP_BLUE)
+    gl_FragColor = vec4(rgb.bgr, 1.0);
+#else
+    gl_FragColor = vec4(rgb, 1.0);
+#endif
+}
+</code></pre></div>
+</details>
+<p><a id="source-86d4a7688119bd37"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/shaders/bayer_unpacked.frag:140</summary>
+<p><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/src/libcamera/shaders/bayer_unpacked.frag#L140"><code>src/libcamera/shaders/bayer_unpacked.frag:140</code></a> marks the start of this excerpt. It ends at line 169; compare the source below with the explanation.</p>
+<p>SHA-256: <code>5567b6548b078d7db847d9b57eefb1799e917214787288683110d5b41510573b</code></p>
+<div class="highlight"><pre><span></span><code>rgb = (rgb - blacklevel) / (1.0 - blacklevel);
+
+#if defined(APPLY_LSC)
+    /* Multiple by 4.0 for UQ&lt;2, 6&gt; -&gt; float conversion */
+    rgb = rgb * (texture2D(lsc_tex, center.xy).rgb * 4.0);
+#endif
+
+    /* Apply AWB gains, and saturate each channel at sensor range */
+    rgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));
+
+    /* Colour Correction Matrix */
+    rgb = ccm * rgb;
+
+    /*
+     * Contrast
+     */
+    rgb = clamp(rgb, 0.0, 1.0);
+    rgb.r = apply_contrast(rgb.r);
+    rgb.g = apply_contrast(rgb.g);
+    rgb.b = apply_contrast(rgb.b);
+
+    /* Apply gamma after colour correction */
+    rgb = pow(rgb, vec3(gamma));
+
+#if defined (SWAP_BLUE)
+    gl_FragColor = vec4(rgb.bgr, 1.0);
+#else
+    gl_FragColor = vec4(rgb, 1.0);
+#endif
+}
+</code></pre></div>
+</details>
+<p><a id="source-df8e8976167a0311"></a></p>
+<details class="note">
+<summary>Source evidence: include/libcamera/ipa/softisp.mojom:1</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/include/libcamera/ipa/softisp.mojom#L1"><code>include/libcamera/ipa/softisp.mojom:1</code></a> and ending at line 40. Compare the source below with the explanation.</p>
+<p>SHA-256: <code>dedbfb928f4f1cdb8e174d8104cb8cbd575fd543e9b620240984c3af4cddecdb</code></p>
+<div class="highlight"><pre><span></span><code>/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+/*
+ * \todo Document the interface and remove the related EXCLUDE_PATTERNS entry.
+ */
+
+module ipa.softisp;
+
+import "include/libcamera/ipa/core.mojom";
+
+struct IPAConfigInfo {
+    libcamera.ControlInfoMap sensorControls;
+};
+
+interface IPASoftIspInterface {
+    init(libcamera.IPASettings settings,
+         libcamera.SharedFD fdStats,
+         libcamera.SharedFD fdParams,
+         libcamera.IPACameraSensorInfo sensorInfo,
+         libcamera.ControlInfoMap sensorControls)
+        =&gt; (int32 ret,
+            libcamera.ControlInfoMap ipaControls,
+            bool ccmEnabled, bool lscEnabled);
+    start() =&gt; (int32 ret);
+    stop();
+    configure(IPAConfigInfo configInfo)
+        =&gt; (int32 ret, libcamera.ControlInfoMap ipaControls);
+
+    [async] queueRequest(uint32 frame, libcamera.ControlList sensorControls);
+    [async] computeParams(uint32 frame);
+    [async] processStats(uint32 frame,
+                 uint32 bufferId,
+                 libcamera.ControlList sensorControls);
+};
+
+interface IPASoftIspEventInterface {
+    setSensorControls(libcamera.ControlList sensorControls);
+    paramsComputed(uint32 frame);
+    metadataReady(uint32 frame, libcamera.ControlList metadata);
+};
+</code></pre></div>
+</details>
+<!-- sdd:class-diagram -->
+<h2 id="클래스-관계">Class relationships</h2>
+<p>Arrow labels show extracted relationships; dashed lines indicate inheritance. Arrows point toward the referenced object or base class. They do not show call order.</p>
+<pre class="mermaid">flowchart LR
+  c0["IPAInterface"]:::context
+  c1["IPAManager"]
+  c2["IPAModule"]
+  c3["IPAProxy"]
+  c4["Loggable"]:::context
+  c5["ipa::ipu3::IPAIPU3"]
+  c6["ipa::ipu3::Module"]:::context
+  c7["ipa::rkisp1::IPARkISP1"]
+  c8["ipa::rkisp1::Module"]:::context
+  c1 --&gt;|field reference| c2
+  c2 -.-&gt;|inheritance| c4
+  c3 -.-&gt;|inheritance| c0
+  c3 --&gt;|field reference| c2
+  c5 -.-&gt;|inheritance| c6
+  c7 -.-&gt;|inheritance| c8
+  classDef context fill:#fafafa,stroke:#aaa,stroke-dasharray:4 3,color:#555</pre>
+<!-- /sdd:class-diagram -->
+
+<h2 id="관련-클래스">Related classes</h2>
+<div class="table-scroll stack" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration location</th>
+<th>Inheritance</th>
+<th>Responsibility (source comment)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td data-label="Class"><code>libcamera::IPAManager</code></td>
+<td data-label="Declaration location"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/include/libcamera/internal/ipa_manager.h#L29"><code>include/libcamera/internal/ipa_manager.h:29</code></a></td>
+<td data-label="Inheritance">–</td>
+<td data-label="Responsibility (source comment)">Manager for IPA modules</td>
+</tr>
+<tr>
+<td data-label="Class"><code>libcamera::IPAModule</code></td>
+<td data-label="Declaration location"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/include/libcamera/internal/ipa_module.h#L21"><code>include/libcamera/internal/ipa_module.h:21</code></a></td>
+<td data-label="Inheritance"><code>libcamera::Loggable</code></td>
+<td data-label="Responsibility (source comment)">Wrapper around IPA module shared object</td>
+</tr>
+<tr>
+<td data-label="Class"><code>libcamera::IPAProxy</code></td>
+<td data-label="Declaration location"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/include/libcamera/internal/ipa_proxy.h#L22"><code>include/libcamera/internal/ipa_proxy.h:22</code></a></td>
+<td data-label="Inheritance"><code>libcamera::IPAInterface</code></td>
+<td data-label="Responsibility (source comment)">IPA Proxy</td>
+</tr>
+<tr>
+<td data-label="Class"><code>libcamera::ipa::ipu3::IPAIPU3</code></td>
+<td data-label="Declaration location"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/src/ipa/ipu3/ipu3.cpp#L139"><code>src/ipa/ipu3/ipu3.cpp:139</code></a></td>
+<td data-label="Inheritance"><code>libcamera::ipa::ipu3::Module</code></td>
+<td data-label="Responsibility (source comment)">The IPU3 IPA implementation</td>
+</tr>
+<tr>
+<td data-label="Class"><code>libcamera::ipa::rkisp1::IPARkISP1</code></td>
+<td data-label="Declaration location"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/e117198c015057761bb0bbaa85f963c41ce412d7/src/ipa/rkisp1/rkisp1.cpp#L46"><code>src/ipa/rkisp1/rkisp1.cpp:46</code></a></td>
+<td data-label="Inheritance"><code>libcamera::ipa::rkisp1::Module</code></td>
+<td data-label="Responsibility (source comment)">Needs verification</td>
+</tr>
+</tbody>
+</table></div>
+<details class="note">
+<summary>Evidence and review information</summary>
+<ul>
+<li>Generation method: extracted facts and LLM explanations</li>
+<li>Validation scope: tables and diagrams come from extracted facts; an LLM writes the explanations. Citation, prose and configured structural checks are applied.</li>
+<li>Evidence files: <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/ipa_module.h</code>, <code>include/libcamera/internal/ipa_proxy.h</code>, <code>include/libcamera/ipa/softisp.mojom</code>, <code>src/ipa/ipu3/ipu3.cpp</code>, <code>src/ipa/mali-c55/data/uncalibrated.yaml</code>, <code>src/ipa/rkisp1/data/uncalibrated.yaml</code>, <code>src/ipa/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/egl.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/ipa_module.cpp</code>, <code>src/libcamera/ipa_proxy.cpp</code>, <code>src/libcamera/pipeline/mali-c55/mali-c55.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/shaders/bayer_1x_packed.frag</code>, <code>src/libcamera/shaders/bayer_unpacked.frag</code></li>
+<li>Evidence level: code inspection (static analysis, simple_compdb configuration, commit <code>e117198c01</code>)</li>
+<li>Automatic checks (citations, prose and configured structure checks): passed</li>
+<li>Review status recorded: 2026-10-29 · Before human review</li>
+</ul>
+</details>
+<p>Next step: <a href="ipu3-lsc.html">IPU3 LSC and state connections</a></p></article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanations</dd><dt>Validation scope</dt><dd>Tables and diagrams come from extracted facts; an LLM writes the explanations. Citation, prose and configured structural checks are applied.</dd><dt>Automatic checks</dt><dd>Passed (<code>ok</code>). The checked items are listed under Validation scope. Whether the explanation is correct still needs a person to confirm.</dd><dt>Analyzed source commit</dt><dd><code>e117198c015057761bb0bbaa85f963c41ce412d7</code></dd><dt>Document generation time</dt><dd><code>2026-10-28 23:09:45+00:00</code></dd><dt>Prose generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Cross-document contract</dt><dd><a href="../contract-consistency.json">Automated Comparison Report</a> · Before human review</dd></dl><a href="../ipa-algorithms.md">Korean Markdown source ↗</a> <a href="ipa-algorithms.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="ipa.html"><small>Previous</small>IPA management and implementation entry points ←</a><a class="next" href="ipu3-lsc.html"><small>Next</small>IPU3 LSC and state connections →</a></nav>
+<footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
+<aside class="page-toc"><nav aria-label="Current page contents"><p>On this page</p><div class="toc">
+<ul>
+<li><a href="#보정-전-튜닝-파일">Uncalibrated tuning files</a></li>
+<li><a href="#소프트웨어-isp-입력-버퍼의-텍스처-형식">Software ISP input buffer texture format</a></li>
+<li><a href="#소프트웨어-isp-셰이더의-렌즈-음영-보정">Lens shading correction in the software ISP shaders</a></li>
+<li><a href="#소스-근거">Source evidence</a></li>
+<li><a href="#클래스-관계">Class relationships</a></li>
+<li><a href="#관련-클래스">Related classes</a></li>
+</ul>
+</div>
+</nav></aside></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find documents</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search document titles, section titles and terms</label><input id="search-input" type="search" autocomplete="off" placeholder="e.g. Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Class name"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Zoom out">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to view</button><button id="zoom-reset">100%</button></div><div id="diagram-viewport" tabindex="0" role="region" aria-label="Enlarged diagram"><div id="diagram-canvas"></div></div></dialog>
+<script id="site-config" type="application/json">{"root": "./", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "22d2e2a9fb", "language": "en"}</script><script defer src="../assets/site.js?v=d29f01ebc1"></script></body></html>
