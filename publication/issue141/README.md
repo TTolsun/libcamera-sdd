@@ -77,3 +77,6 @@ Separately, `current-html-source-links.json` audits the existing old-source publ
 ## Preserve the later public PR51 input
 
 `fixed-public-pr51/` records another actual frozen render before/after comparison:all154outputs match each other and actual public8f93666,including its3new manuscripts;50HTML/0brokenlinks;0modelcalls. This is old-source2c preservation,not current-source or Terra publication.
+
+
+A later #141 structural-boundary review used one actual native Terra High Codex call and is preserved under reviews/terra-checkpoint-boundary. The full archive now has 413 file hashes and86 completed call triples:84 older major calls,1 historical limited evidence review and1 new limited Terra code review. These counts are not successful manuscript counts or final-publication proof. The checkpoint-boundary reports retain unchanged validation/grounding policies and70 isolated protocol-import negative controls.

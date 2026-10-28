@@ -1,0 +1,5 @@
+# Limited native Terra High code review
+
+This public-source review used the actual merged Codex runner from generator PR153, model gpt-6.1-terra and model_reasoning_effort="high", with the real loaded sdd.yaml profile. The 14,713-character input stayed within the configured18,000-character limit. There was one actual CLI call and no HTTP or fallback call. The original input, native stdout/stderr, request/response/receipt, selected profile and reviewed source hashes are preserved. Receipt verification passed.
+
+The supplied scope is the #141 checkpoint invocation-identity move, the dependency guard changes, selected context and the frozen execution-identity regression. The review established no actionable defect in that supplied scope. It explicitly did not establish whole-repository dependency correctness. Actual AST cycle/boundary tests address that separate requirement. This review is not a human approval or final libcamera generation, translation, site audit or Pages deployment.
