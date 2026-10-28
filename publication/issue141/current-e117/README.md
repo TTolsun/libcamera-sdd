@@ -1,0 +1,13 @@
+# Independent current-upstream extraction for #141
+
+Official HEAD at this resumed run is e117198c015057761bb0bbaa85f963c41ce412d7, one new commit after the earlier182307a7 frozen input. Its3changed files implement virtual-pipeline frame-rate handling. Manual mirror job40741406788 succeeded and the official/local/public trees all equal8ad47ebe8c6ad6f956f82a5312c8e07005cb5125. No recurring public job was installed.
+
+Separate own Windows and native source worktrees use codex/issue141-upstream-e117; no other session worktree,unmerged code,manuscript or checkpoint was copied. Actual merged generator5474ac75c282517a4d10666d8f5b887911bdc029 ran from an isolated native checkout. Setup and all392Ninja actions passed with all10pipelines,all7IPAs,cam,lc-compliance,GStreamer,V4L2; qcam,Android and device tests remain excluded as before.
+
+The initial bootstrap interpreter lacked libclang and failed before any build/extraction command. The raw failed package probe is retained. The existing generator dependency environment has libclang18.1.1 and the dependency lock did not change between87ae42f and5474ac7. The previously empty run directory was explicitly checked before retrying with that proper environment; the completed build/extract logs are separate. No execution was restarted solely because observation timed out.
+
+The actual300-TU extraction has1412classes,569functions,6scenarios,0parse errors and0missing scenario entries. Facts SHA-256 is8965e5862cc2c1175703f9380f7b4f0ab69d8f91237c961e25f3fb16eeef63fd. The immutable Git check verifies8600positions in538blobs,289excerpts and121contexts. Every old real-source class/function name remains; only the same101old generated classes and20generated functions are excluded. All9flag names remain.
+
+The raw snapshots preserve the Claude profile selected when this **extraction-only** run was prepared; there were zero model calls. The user has since explicitly selected gpt-6.1-terra with high effort for all new document,translation and LLM review work. These snapshot fields are historical run inputs,not evidence of a new Claude inference or a completed Terra publication. Model settings,source excerpts,facts and generated output were not manually rewritten.
+
+This is independent extraction/scope evidence. Shared final manuscript generation,translation,review,site build,publication and Pages verification are still pending and owned by their existing publication session. The prior public8f93666 input remains2c4b67c0; its immutable metadata comparison is adjacent and does not claim a new-source deployment.

@@ -69,3 +69,11 @@ Separately, `current-html-source-links.json` audits the existing old-source publ
 ## Fixed-public browser and load-failure preservation
 
 `ui-preservation/` archives the old deployed baseline and a separate Korean-only actual CLI/browser missing-ESM experiment. Original bilingual fingerprint rejection and an initial fixture-path error are retained as failures. The successful local failure-display test preserves all three source blocks exactly and does not prove new-source or bilingual publication. The temporary loopback server was stopped.
+
+## Current official upstream e117198c
+
+`current-e117/` preserves independent300-TU build/extraction,full old-source scope and immutable-Git checks for the new official commit. All model-call counts are0; the raw extraction snapshot predates the user's Terra selection and is not new Claude generation. Final shared current-source publication remains pending. `public-pr51-metadata.json` records an immutable existing-public run/manifest build_id mismatch without modifying that publication.
+
+## Preserve the later public PR51 input
+
+`fixed-public-pr51/` records another actual frozen render before/after comparison:all154outputs match each other and actual public8f93666,including its3new manuscripts;50HTML/0brokenlinks;0modelcalls. This is old-source2c preservation,not current-source or Terra publication.
