@@ -5,3 +5,7 @@ Current release: [Goal #107/#138/#139/#140 evidence](publication/goal-138-140/RE
 All earlier publication and CLI archives remain preserved under publication/, cli-runners/ and the historical Qwen directories. Their original model identities, exceptions and incomplete results are historical records, not new CLI generation claims. The immediately previous root run and receipt records are preserved in the current release package.
 
 Presentation update: [collapsed source excerpts](publication/source-excerpts/README.md). Existing narration and analyzed source are preserved; the collection is now one collapsed row per page.
+
+Reader update: [navigation and reader controls](publication/reader-ux/README.md). Redundant reading-route tables are removed; original narration and analyzed source remain preserved.
+
+Whole-site cleanup: [redundant guidance and tables](publication/reader-cleanup/README.md). The 60 bilingual pages retain original source evidence and reference/trace records.
