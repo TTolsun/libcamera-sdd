@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "source_commit": "212c689fcf2450bbfbaab25c7472895ac277b5d6",
+  "base_public_commit": "7b8cf980283e47975b497ca084f62cd57ddd029e",
+  "base_archive": "publication/goal-164-166/execution-evidence.zip",
+  "base_member": "workspace/facts/facts.json",
+  "base_sha256": "35c733405a89fb60ef391d3db27626c2f1ebe4e7c9b8cce5c5eadeaeb84a187e",
+  "derived_sha256": "3078ad03dc8ed5de0dbd46c2fea7b221825266a95243940ed17e06c3af50bd26",
+  "remove_evidence": [
+    "request-lifecycle/resources/reuse-buffers",
+    "request-lifecycle/resources/reuse-controls",
+    "request-lifecycle/resources/reuse-link-call",
+    "request-lifecycle/resources/reuse-metadata",
+    "request-lifecycle/resources/reuse-status",
+    "request-lifecycle/review/record-device",
+    "request-lifecycle/review/record-queued",
+    "request-lifecycle/review/record-waiting",
+    "vendor-integration/integration/handler"
+  ],
+  "replace_evidence": {
+    "pipeline-handler/input-search-boundary/search": {
+      "commit": "212c689fcf2450bbfbaab25c7472895ac277b5d6",
+      "selector": {
+        "id": "search",
+        "file": "src/libcamera/pipeline/ipu3/imgu.cpp",
+        "start": "float bdsSF = static_cast<float>(in.width) / gdc.width;",
+        "end": "if (pipeConfigs.size() == 0) {",
+        "scope": {
+          "start": "ImgUDevice::PipeConfig ImgUDevice::calculatePipeConfig(Pipe *pipe)",
+          "end": "\n}\n"
+        }
+      },
+      "status": "available",
+      "file": "src/libcamera/pipeline/ipu3/imgu.cpp",
+      "line": 407,
+      "end_line": 449,
+      "text": "float bdsSF = static_cast<float>(in.width) / gdc.width;\n\tfloat sf = findScaleFactor(bdsSF, bdsScalingFactors, true);\n\n\t/*\n\t * Populate the configurations vector by scaling width and height.\n\t *\n\t * calculateBDSHeight() crops up to kIFMaxCropHeight lines from the IF\n\t * height, so don't go below that, or its minimum IF height wraps.\n\t */\n\tunsigned int ifWidth = utils::alignUp(in.width, ImgUDevice::kIFAlignWidth);\n\tunsigned int ifHeight = utils::alignUp(in.height, ImgUDevice::kIFAlignHeight);\n\tunsigned int minIfWidth = std::max(in.width - ImgUDevice::kIFMaxCropWidth,\n\t\t\t\t\t   ImgUDevice::kIFMaxCropWidth);\n\tunsigned int minIfHeight = std::max(in.height - ImgUDevice::kIFMaxCropHeight,\n\t\t\t\t\t    ImgUDevice::kIFMaxCropHeight);\n\twhile (ifWidth >= minIfWidth) {\n\t\twhile (ifHeight >= minIfHeight) {\n\t\t\tSize iif{ ifWidth, ifHeight };\n\t\t\tcalculateBDS(pipe, iif, gdc, sf);\n\t\t\tifHeight -= ImgUDevice::kIFAlignHeight;\n\t\t}\n\n\t\tifWidth -= ImgUDevice::kIFAlignWidth;\n\t}\n\n\t/* Repeat search by scaling width first. */\n\tifWidth = utils::alignUp(in.width, ImgUDevice::kIFAlignWidth);\n\tifHeight = utils::alignUp(in.height, ImgUDevice::kIFAlignHeight);\n\twhile (ifHeight >= minIfHeight) {\n\t\t/*\n\t\t * \\todo This procedure is probably broken:\n\t\t * https://github.com/intel/intel-ipu3-pipecfg/issues/2\n\t\t */\n\t\twhile (ifWidth >= minIfWidth) {\n\t\t\tSize iif{ ifWidth, ifHeight };\n\t\t\tcalculateBDS(pipe, iif, gdc, sf);\n\t\t\tifWidth -= ImgUDevice::kIFAlignWidth;\n\t\t}\n\n\t\tifHeight -= ImgUDevice::kIFAlignHeight;\n\t}\n\n\tif (pipeConfigs.size() == 0) {",
+      "sha256": "dff1dd0c4b791141aa7e60ba45e759e6cb4c6e69877280a629dc9250cf9b42dd",
+      "whole_file": false,
+      "context": {
+        "text": "ImgUDevice::PipeConfig ImgUDevice::calculatePipeConfig(Pipe *pipe)\n{\n\tpipeConfigs.clear();\n\n\tLOG(IPU3, Debug) << \"Calculating pipe configuration for: \";\n\tLOG(IPU3, Debug) << \"input: \" << pipe->input;\n\tLOG(IPU3, Debug) << \"main: \" << pipe->main;\n\tLOG(IPU3, Debug) << \"vf: \" << pipe->viewfinder;\n\n\tconst Size &in = pipe->input;\n\n\t/*\n\t * \\todo Filter out all resolutions < IF_CROP_MAX.\n\t * See https://bugs.libcamera.org/show_bug.cgi?id=32\n\t */\n\tif (in.width < ImgUDevice::kIFMaxCropWidth || in.height < ImgUDevice::kIFMaxCropHeight) {\n\t\tLOG(IPU3, Error) << \"Input resolution \" << in << \" not supported\";\n\t\treturn {};\n\t}\n\n\tSize gdc = calculateGDC(pipe);\n\n\tfloat bdsSF = static_cast<float>(in.width) / gdc.width;\n\tfloat sf = findScaleFactor(bdsSF, bdsScalingFactors, true);\n\n\t/*\n\t * Populate the configurations vector by scaling width and height.\n\t *\n\t * calculateBDSHeight() crops up to kIFMaxCropHeight lines from the IF\n\t * height, so don't go below that, or its minimum IF height wraps.\n\t */\n\tunsigned int ifWidth = utils::alignUp(in.width, ImgUDevice::kIFAlignWidth);\n\tunsigned int ifHeight = utils::alignUp(in.height, ImgUDevice::kIFAlignHeight);\n\tunsigned int minIfWidth = std::max(in.width - ImgUDevice::kIFMaxCropWidth,\n\t\t\t\t\t   ImgUDevice::kIFMaxCropWidth);\n\tunsigned int minIfHeight = std::max(in.height - ImgUDevice::kIFMaxCropHeight,\n\t\t\t\t\t    ImgUDevice::kIFMaxCropHeight);\n\twhile (ifWidth >= minIfWidth) {\n\t\twhile (ifHeight >= minIfHeight) {\n\t\t\tSize iif{ ifWidth, ifHeight };\n\t\t\tcalculateBDS(pipe, iif, gdc, sf);\n\t\t\tifHeight -= ImgUDevice::kIFAlignHeight;\n\t\t}\n\n\t\tifWidth -= ImgUDevice::kIFAlignWidth;\n\t}\n\n\t/* Repeat search by scaling width first. */\n\tifWidth = utils::alignUp(in.width, ImgUDevice::kIFAlignWidth);\n\tifHeight = utils::alignUp(in.height, ImgUDevice::kIFAlignHeight);\n\twhile (ifHeight >= minIfHeight) {\n\t\t/*\n\t\t * \\todo This procedure is probably broken:\n\t\t * https://github.com/intel/intel-ipu3-pipecfg/issues/2\n\t\t */\n\t\twhile (ifWidth >= minIfWidth) {\n\t\t\tSize iif{ ifWidth, ifHeight };\n\t\t\tcalculateBDS(pipe, iif, gdc, sf);\n\t\t\tifWidth -= ImgUDevice::kIFAlignWidth;\n\t\t}\n\n\t\tifHeight -= ImgUDevice::kIFAlignHeight;\n\t}\n\n\tif (pipeConfigs.size() == 0) {\n\t\tLOG(IPU3, Error) << \"Failed to calculate pipe configuration\";\n\t\treturn {};\n\t}\n\n\tFOV bestFov = calcFOV(pipe->input, pipeConfigs[0]);\n\tunsigned int bestIndex = 0;\n\tunsigned int p = 0;\n\tfor (auto pipeConfig : pipeConfigs) {\n\t\tFOV fov = calcFOV(pipe->input, pipeConfig);\n\t\tif (fov.isLarger(bestFov)) {\n\t\t\tbestFov = fov;\n\t\t\tbestIndex = p;\n\t\t}\n\n\t\t++p;\n\t}\n\n\tLOG(IPU3, Debug) << \"Computed pipe configuration: \";\n\tLOG(IPU3, Debug) << \"IF: \" << pipeConfigs[bestIndex].iif;\n\tLOG(IPU3, Debug) << \"BDS: \" << pipeConfigs[bestIndex].bds;\n\tLOG(IPU3, Debug) << \"GDC: \" << pipeConfigs[bestIndex].gdc;\n\n\treturn pipeConfigs[bestIndex];\n}\n",
+        "sha256": "857dbc19fe2babf0e03a8ed1d5da2629de7c88eb1af97adf980d920ba4518980",
+        "line": 385,
+        "end_line": 474
+      }
+    }
+  }
+}

@@ -32,7 +32,18 @@ published facts and recollected source excerpts; it does not claim a new complet
 latest-upstream deployment. Scripts are archived as text for inspection and describe the local checks;
 they do not substitute saved responses for actual CLI execution or promise identical new model outputs.
 
-The public `docs/` output will be updated after integrating these changes with the latest public-source
-release. Deployment, live manifest/file hashes, bilingual checks and reader screenshots are recorded separately.
+The `source212/` follow-through records the whole-site Korean/English prose cleanup on upstream
+`212c689fcf2450bbfbaab25c7472895ac277b5d6`, preserving the integrated LSC LUT and CT owner conditions.
+Detailed reuse implementation has one home in the request API document; lifecycle coverage retains
+ownership, buffer lifetime, fence recovery and handler access obligations.
+
+Final sections, visual and contract configurations, the English catalog and published manuscripts are
+restorable reader inputs. `source212/facts-overlay.json` derives current facts from the hash-pinned,
+already-public PR #60 archive without republishing its host metadata. The restore script verifies both
+base and derived hashes. New native CLI originals remain local with a public hash index. Historical
+receipts and checkpoint reuse remain distinct from new calls and independent fresh trials. Automatic
+review results retain unresolved findings; human approval remains pending.
+
+Deployment, live manifest/file hashes, bilingual checks and reader screenshots are recorded separately.
 This is public libcamera test evidence, not internal Camera HAL or device verification, human approval,
 or a recurring public generation schedule.
