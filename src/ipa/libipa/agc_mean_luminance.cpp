@@ -237,11 +237,36 @@ int AgcMeanLuminance::parseConstraint(const ValueNode &modeDict, int32_t id)
 
 int AgcMeanLuminance::parseConstraintModes(const ValueNode &tuningData)
 {
+	static constexpr std::tuple<std::string_view, std::string_view, controls::AeConstraintModeEnum> compat[] = {
+		{ "ConstraintNormal", "Normal", controls::AeConstraintModeNormal },
+		{ "ConstraintHighlight", "Highlight", controls::AeConstraintModeHighlight },
+		{ "ConstraintShadows", "Shadows", controls::AeConstraintModeShadows },
+		{ "ConstraintCustom", "Custom", controls::AeConstraintModeCustom },
+	};
+
 	const ValueNode &constraintModes = tuningData[controls::AeConstraintMode.name()];
 	if (constraintModes.isDictionary()) {
 		for (const auto &[modeName, modeDict] : constraintModes.asDict()) {
+			std::optional<controls::AeConstraintModeEnum> modeValue;
+
 			auto it = AeConstraintModeNameValueMap.find(modeName);
 			if (it == AeConstraintModeNameValueMap.end()) {
+				for (const auto &[oldName, newName, v] : compat) {
+					if (modeName != oldName)
+						continue;
+
+					modeValue = v;
+
+					LOG(AgcMeanLuminance, Warning)
+						<< "Constraint mode '" << oldName << "' has been renamed to '"
+						<< newName << "', please fix the tuning file";
+					break;
+				}
+			} else {
+				modeValue = static_cast<controls::AeConstraintModeEnum>(it->second);
+			}
+
+			if (!modeValue) {
 				LOG(AgcMeanLuminance, Warning)
 					<< "Skipping unknown constraint mode '" << modeName << "'";
 				continue;
@@ -253,7 +278,7 @@ int AgcMeanLuminance::parseConstraintModes(const ValueNode &tuningData)
 				return -EINVAL;
 			}
 
-			int ret = parseConstraint(modeDict, it->second);
+			int ret = parseConstraint(modeDict, *modeValue);
 			if (ret)
 				return ret;
 		}
@@ -281,11 +306,36 @@ int AgcMeanLuminance::parseConstraintModes(const ValueNode &tuningData)
 
 int AgcMeanLuminance::parseExposureModes(const ValueNode &tuningData)
 {
+	static constexpr std::tuple<std::string_view, std::string_view, controls::AeExposureModeEnum> compat[] = {
+		{ "ExposureNormal", "Normal", controls::AeExposureModeNormal },
+		{ "ExposureShort", "Short", controls::AeExposureModeShort },
+		{ "ExposureLong", "Long", controls::AeExposureModeLong },
+		{ "ExposureCustom", "Custom", controls::AeExposureModeCustom },
+	};
+
 	const ValueNode &exposureModes = tuningData[controls::AeExposureMode.name()];
 	if (exposureModes.isDictionary()) {
 		for (const auto &[modeName, modeValues] : exposureModes.asDict()) {
+			std::optional<controls::AeExposureModeEnum> modeValue;
+
 			auto it = AeExposureModeNameValueMap.find(modeName);
 			if (it == AeExposureModeNameValueMap.end()) {
+				for (const auto &[oldName, newName, v] : compat) {
+					if (modeName != oldName)
+						continue;
+
+					modeValue = v;
+
+					LOG(AgcMeanLuminance, Warning)
+						<< "Exposure mode '" << oldName << "' has been renamed to '"
+						<< newName << "', please fix the tuning file";
+					break;
+				}
+			} else {
+				modeValue = static_cast<controls::AeExposureModeEnum>(it->second);
+			}
+
+			if (!modeValue) {
 				LOG(AgcMeanLuminance, Warning)
 					<< "Skipping unknown exposure mode '" << modeName << "'";
 				continue;
@@ -322,7 +372,7 @@ int AgcMeanLuminance::parseExposureModes(const ValueNode &tuningData)
 				});
 			}
 
-			exposureModeHelpers_.try_emplace(it->second, stages);
+			exposureModeHelpers_.try_emplace(*modeValue, stages);
 		}
 	}
 
