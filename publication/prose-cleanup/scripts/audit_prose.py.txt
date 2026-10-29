@@ -1,0 +1,39 @@
+from pathlib import Path
+from collections import Counter
+from difflib import SequenceMatcher
+import hashlib,json,re,sys
+from inventory_reader_clutter import DOM,Node
+
+root=Path.cwd();work=root/'build/prose-cleanup';work.mkdir(exist_ok=True)
+site=root/'build/publication/libcamera-sdd/docs'
+manifest=json.loads((site/'site-manifest.json').read_bytes());pages=[]
+for name in manifest['outputs']:
+    if not name.endswith('.html'):continue
+    doc=DOM((site/name).read_text(encoding='utf-8')).root
+    article=doc.find('article');units=[];heading=''
+    for node in article.all():
+        ancestors=list(node.ancestors())
+        if any(p.tag in ('details','table','pre','figure') or p.attrs.get('class') in ('coverage-links','related-symbols','diagram-panel') for p in ancestors):continue
+        if node.tag in ('h2','h3'):heading=node.text()
+        if node.tag not in ('p','li'):continue
+        if node.tag=='li' and node.find('p'):continue
+        text=node.text()
+        if not text or text.startswith(('선언·상속·주석은','Follow each class link','다음 단계:','Next step:')):continue
+        units.append(dict(id='p'+str(len(units)+1).zfill(3),heading=heading,text=text,chars=len(text),
+                          code=[n.text() for n in node.all('code')],links=[n.attrs.get('href') for n in node.all('a')]))
+    pages.append(dict(page=name,title=doc.find('h1').text(),units=units,chars=sum(u['chars'] for u in units)))
+pairs=[]
+ko=[p for p in pages if not p['page'].startswith('en/')]
+units=[(p['page'],u) for p in ko for u in p['units'] if u['chars']>70]
+for i,(page,a) in enumerate(units):
+    for other,b in units[i+1:]:
+        if min(a['chars'],b['chars'])/max(a['chars'],b['chars'])<.65:continue
+        score=SequenceMatcher(None,a['text'],b['text'],autojunk=False).ratio()
+        if score>=.70:pairs.append(dict(page=page,unit=a['id'],other_page=other,other_unit=b['id'],score=round(score,3)))
+report=dict(baseline_public_commit='e9322a2e2fc3061e57257dc8ec705fc40abad680',build_id=manifest['build_id'],
+            scope='All reader prose in 60 published HTML pages; tables, code blocks, figures and folded audit records excluded.',
+            pages=pages,similarity_candidates=pairs)
+(work/'inventory-before.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+for p in ko:print(p['page'],len(p['units']),p['chars'],'long',sum(u['chars']>480 for u in p['units']))
+print('Total',len(pages),'pages',sum(len(p['units']) for p in pages),'units',sum(p['chars'] for p in pages),'characters;',len(pairs),'similarity candidates')
+(work/'korean-body.txt').write_text('\n\n'.join(p['page']+' '+p['title']+'\n'+'\n'.join(u['id']+' ['+u['heading']+'] '+u['text'] for u in p['units']) for p in ko),encoding='utf-8')
