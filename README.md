@@ -7,3 +7,5 @@ All earlier publication and CLI archives remain preserved under publication/, cl
 Presentation update: [collapsed source excerpts](publication/source-excerpts/README.md). Existing narration and analyzed source are preserved; the collection is now one collapsed row per page.
 
 Reader update: [navigation and reader controls](publication/reader-ux/README.md). Redundant reading-route tables are removed; original narration and analyzed source remain preserved.
+
+Whole-site cleanup: [redundant guidance and tables](publication/reader-cleanup/README.md). The 60 bilingual pages retain original source evidence and reference/trace records.
