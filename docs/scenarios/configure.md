@@ -1,13 +1,12 @@
 ---
-generated_at: 2026-10-27T20:47:21+00:00
-source_commit: e117198c015057761bb0bbaa85f963c41ce412d7
+generated_at: 2026-10-29T20:32:17+00:00
+source_commit: 212c689fcf2450bbfbaab25c7472895ac277b5d6
 status: ok
 section: scenarios
 entry: Camera::configure(CameraConfiguration *)
 scenario_id: configure
 scenario_fingerprint: 21f504ad71c0e7b7511a416e36dc6034307a09f911ce68318dc5d469aec58365
 generation_method: extracted-scenario
-revalidated_from: 182307a772ebebf173ee84911906da707718485f
 ---
 
 # 스트림 구성 (Camera::configure)
@@ -16,11 +15,11 @@ revalidated_from: 182307a772ebebf173ee84911906da707718485f
 
 | 지금 확인할 내용 | 이동할 절 |
 |---|---|
-| 이 흐름에서 확인할 것 절을 확인합니다. | [이 흐름에서 확인할 것](#이-흐름에서-확인할-것) |
-| 주요 확인 지점 절을 확인합니다. | [주요 확인 지점](#주요-확인-지점) |
-| 주요 호출 관계 절을 확인합니다. | [주요 호출 관계](#주요-호출-관계) |
-| 추적 범위와 경계 절을 확인합니다. | [추적 범위와 경계](#추적-범위와-경계) |
-| 전체 추적 기록 절을 확인합니다. | [전체 추적 기록](#전체-추적-기록) |
+| `Camera::configure(CameraConfiguration *)`에서 시작한 정적 탐색으로 호출 기록 185개를 수집했습니다. | [이 흐름에서 확인할 것](#이-흐름에서-확인할-것) |
+| 아래 항목은 추출한 호출에서 고른 코드 탐색 지점입니다. | [주요 확인 지점](#주요-확인-지점) |
+| 화살표는 호출 측과 대상을 연결합니다. | [주요 호출 관계](#주요-호출-관계) |
+| facts에 기록된 호출은 185개이며, 요약의 hide 규칙에 해당하는 호출은 107개입니다. | [추적 범위와 경계](#추적-범위와-경계) |
+| 아래 구간을 펼치면 요약에서 제외된 호출까지 확인할 수 있습니다. | [전체 추적 기록](#전체-추적-기록) |
 
 ## 이 흐름에서 확인할 것
 
@@ -316,8 +315,8 @@ facts에 기록된 호출은 185개이며, 요약의 hide 규칙에 해당하는
     - 생성 방식: 추출 호출로 만든 시나리오
     - 검증 범위: 주요 호출과 경계를 facts에서 구성하고 전체 추적 기록을 보존합니다. 실행 순서를 추정하지 않습니다.
     - 근거 파일: `include/libcamera/geometry.h`, `include/libcamera/pixel_format.h`, `src/libcamera/base/log.cpp`, `src/libcamera/camera.cpp`, `src/libcamera/formats.cpp`, `src/libcamera/pipeline/imx8-isi/imx8-isi.cpp`, `src/libcamera/pixel_format.cpp`, `src/libcamera/sensor/camera_sensor_legacy.cpp`, `src/libcamera/sensor/camera_sensor_raw.cpp`, `src/libcamera/stream.cpp`
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `182307a772`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `212c689fcf`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-10-28 · 사람 검토 전
+    - 검토 상태 기록일: 2026-10-30 · 사람 검토 전
 
 다음 단계: [캡처 시작 (Camera::start)](camera_start.md)
