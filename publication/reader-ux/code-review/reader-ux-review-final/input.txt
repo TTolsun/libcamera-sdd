@@ -1,0 +1,894 @@
+diff --git a/DESIGN.md b/DESIGN.md
+index d36e95e..aa1ed1c 100644
+--- a/DESIGN.md
++++ b/DESIGN.md
+@@ -11,7 +11,7 @@
+ 1. 구조는 `facts.json`에서만 가져옵니다. `src/sdd/diagrams.py`가 클래스·정적 호출 관계를 만듭니다. 질문별 상태 전이·요청 흐름·소유권·실패 분기는 `src/sdd/visuals.py`가 현재 facts의 소스 발췌·해시·고유 구절에 연결된 선언에서 만듭니다. 노드와 화살표마다 근거를 검사하고, 누락·변경·노드 한도 초과 시 원고 교체와 배포 전에 실패합니다. 이 연결 검사는 작성한 해석의 의미 승인이나 실행 검증이 아닙니다. LLM 자동화 모드에서는 질문과 발췌에서 근거 구절 ID가 있는 노드·관계·조건 초안만 제안합니다. 생성기가 구절·심볼·조건을 검사하고 해시·Mermaid 문법·배치를 만듭니다. 자동 검사를 의미 승인으로 취급하지 않습니다.
+ 2. 프로젝트 차이는 `sdd.yaml`의 `diagrams`와 `site`, `sections.yaml`의 클래스 선택·절별 `diagram` 설정으로 표현합니다. libcamera 네임스페이스를 공통 코드에 하드코딩하지 않습니다.
+ 3. 질문별 그림은 해당 설명 절의 첫 문단 바로 뒤에 배치합니다. 번호 절차는 목록 앞에 그림을 두어 번호가 끊기지 않게 합니다. 클래스 관계도는 상세 구조를 찾는 보조 자료로 유지합니다. `sdd:visual:ID`와 `sdd:class-diagram` 주석 사이의 블록은 생성기가 관리하며, 사이트를 다시 만들 때 교체하고 삭제된 선언은 제거합니다. 그림의 근거는 바로 아래에서 펼쳐 원문으로 이동할 수 있어야 합니다. 디자인 변경으로 인용 검사 상태나 사람 검토 상태를 승격하지 않습니다. 페이지 상단의 상태 표시는 처음 읽는 사람이 이해할 수 있는 짧은 말로 쓰고, 상태 코드와 정확한 기록 문구는 페이지 아래 생성 근거에 둡니다.
+-4. 좌측 탐색·중앙 720px 본문·우측 목차, 한국어 16px/1.8, 흰 배경과 제한된 녹색 강조를 유지합니다. 좁은 화면에서는 메뉴와 목차를 접을 수 있어야 합니다. 독자 이동 안내 표의 링크는 가로 스크롤 없이 보여야 합니다. 휴대폰에서는 세 열 이상인 표를 행마다 열 이름이 붙은 묶음으로 쌓아 가로로 밀지 않고 읽게 하며, 넓은 화면에서는 표 모양을 유지합니다. 데스크톱 메뉴는 스크롤바 자리를 미리 확보하여 하위 문서를 펼치거나 접어도 다른 제목의 너비와 줄바꿈이 달라지지 않아야 합니다.
++4. 좌측 탐색·중앙 720px 본문·우측 목차, 한국어 16px/1.8, 흰 배경과 제한된 녹색 강조를 유지합니다. 좁은 화면에서는 메뉴와 목차를 접을 수 있어야 합니다. 문서 메뉴·페이지 목차와 중복되는 `지금 확인할 내용 / 이동할 절` 표는 사이트 본문에 표시하지 않습니다. 예전 표 행의 주소로 진입하면 목적지 링크만 표시하여 이전 링크를 유지합니다. 휴대폰에서는 세 열 이상인 표를 행마다 열 이름이 붙은 묶음으로 쌓아 가로로 밀지 않고 읽게 하며, 넓은 화면에서는 표 모양을 유지합니다. 데스크톱 메뉴는 스크롤바 자리를 미리 확보하여 하위 문서를 펼치거나 접어도 다른 제목의 너비와 줄바꿈이 달라지지 않아야 합니다.
+ 5. 그림 클릭/Enter 확대, 요소 이름 검색, 실제 SVG 크기 변경, Escape 닫기와 초점 복원을 유지합니다. 목차 페이지에 딸린 하위 문서는 왼쪽 메뉴에서 접었다 펼 수 있게 하고, 읽고 있는 가지만 펴 둡니다. 접기는 `details`/`summary` 로 만들어 스크립트가 없어도 동작해야 합니다. 외부 Mermaid 로딩에 실패하면 원문과 실패 이유를 표시합니다.
+ 6. 노드 한도 초과나 서로 다른 커밋의 facts·원고를 조용히 통과시키지 않습니다. 작업을 실패시키고 설정을 나누거나 다시 생성할 이유를 알립니다.
+ 7. 빌드는 임시 디렉터리에서 검증한 뒤 배포 디렉터리에 반영합니다. 직전 manifest가 소유한 오래된 파일만 정리하고, `CNAME` 등 별도 운영 파일을 보존합니다. 수동 수정된 생성 파일은 덮어쓰지 않습니다.
+@@ -31,6 +31,12 @@
+ 기준은 libcamera 공식 문서의 탐색 방식과 OMM `DESIGN.md`의 reading 규칙입니다. OMM 기준 커밋은 `12a704c603136308b87b26c4081bd6102d42395e`이며, OMM 실행기가 없어도 이 저장소만으로 같은 규칙을 적용할 수 있어야 합니다.
+ ## 문서 분리와 이전 주소
+ 
++모바일 메뉴는 현재 본문 위치를 바꾸지 않는 화면 내 패널로 엽니다. 닫기·배경 클릭·Escape와 키보드 초점 순환을 지원하고 닫으면 호출 버튼으로 초점을 돌립니다. 스크립트가 없으면 전체 메뉴를 문서 안에서 읽을 수 있어야 합니다.
++
++발췌로 이동한 뒤 뒤로 가기나 `설명으로 돌아가기`를 사용하면 원래 인용 링크와 스크롤 위치를 복원합니다. 색인은 원고를 바꾸지 않고 클래스·함수 행의 고유 주소와 검색 항목을 만들며, 페이지 내 이름·경로·패키지·종류 필터를 제공합니다. 필터를 지우거나 검색 결과로 진입하면 해당 행을 볼 수 있어야 합니다. 스크립트 없이도 전체 표와 원본 코드 링크를 보존합니다.
++
++모바일 그림 확대는 읽을 수 있는 초기 배율과 이동 안내를 제공하고, 전체 모양은 `화면에 맞춤`으로 확인합니다. 확대·축소 버튼의 터치 영역은 44px 이상으로 유지하며 검색 안내는 흐름도의 함수와 조건에도 맞게 씁니다. 검색 창은 배경 클릭으로도 닫고 호출 위치로 초점을 복원합니다. 검색 결과의 문서명 반복을 줄이고 항목 유형을 표시합니다.
++
+ `소스 근거` 절의 발췌 목록 전체는 `소스 발췌 N개` 한 줄로 접습니다. 펼친 목록에서 개별 발췌를 다시 열 수 있으며, 본문의 발췌 링크로 이동하면 바깥 목록과 해당 발췌를 모두 펼치고 해당 요약에 초점을 옮깁니다. 기존 절·발췌 주소와 원문·해시는 보존하며 스크립트 없이도 두 단계 접기를 조작할 수 있어야 합니다.
+ 
+ 긴 문서의 질문·근거를 다른 페이지로 옮기면 기존 절 주소도 유지합니다.
+diff --git a/docs/concepts/site.md b/docs/concepts/site.md
+index dcd12b9..a645fd8 100644
+--- a/docs/concepts/site.md
++++ b/docs/concepts/site.md
+@@ -183,6 +183,12 @@ site:
+ 
+ ## 근거 링크 표시 검증
+ 
++모바일 메뉴는 본문 위의 화면 내 패널로 열립니다. 문서 아래에서 열어도 메뉴가 보이는지, 닫기·배경 클릭·Escape 후 본문 위치가 유지되는지 확인합니다. 키보드 초점은 패널 안에서 순환하고 닫으면 메뉴 버튼으로 돌아갑니다. 스크립트가 없으면 기존 문서 내 메뉴를 사용합니다.
++
++발췌를 연 뒤 브라우저의 뒤로 가기 또는 `설명으로 돌아가기`를 사용하면 원래 인용 링크로 초점과 스크롤을 돌립니다. 복귀 후 Tab으로 본문 읽기를 이어 갈 수 있는지 검사합니다. 직접 발췌 주소로 진입한 경우에는 없는 복귀 위치를 만들어내지 않습니다.
++
++`kind: per-package` 페이지에는 클래스·함수 행마다 고유 주소를 붙이고 전역 검색에 코드 요소로 등록합니다. 페이지 내 검색은 이름·경로·설명을 대상으로 하며 패키지·종류 필터와 초기화를 지원합니다. 행과 코드 인용을 삭제하지 않으며 스크립트가 없으면 전체 표를 읽을 수 있습니다. 코드 식별자는 영어판에서도 번역하지 않습니다. 필터로 숨긴 행을 검색 결과로 다시 열면 필터를 초기화하여 해당 행에 초점을 둡니다.
++
+ 사이트는 검증된 문단 끝 인용을 `문단 근거 N개`, 절의 발췌 목록을 `절 전체 근거 N개`로 접습니다. 펼치면 파일 이름은 한 번만 표시하고 각 줄 번호를 연결합니다. 전체 파일·줄 위치는 링크의 접근성 이름에도 남습니다. 원고, 발췌 본문, 해시와 검토 상태는 바꾸지 않습니다. 본문 중간의 인용, 확인되지 않은 위치와 일반 링크는 접지 않습니다.
+ 
+ 설계 질문의 답변은 근거 구절마다 한 문장씩 만들어지므로, 그대로 두면 한 문단이 한 문장으로 끊기고 `문단 근거 1개`가 문장마다 붙습니다. 생성기는 같은 주제에서 이어지는 설명을 한 문단에 최대 4문장·480자까지 묶고, 인용은 문단 끝에 중복 없이 모읍니다(`evidence.py`의 `_paragraphs`). 문장별 근거와 원문 구절은 원고의 답변 기록(`generated_design`)에 그대로 남아 `export-site`가 다시 검사합니다. 실행 확인 항목은 사실 서술과 섞지 않고 따로 둡니다. 근거를 문단 대신 절 끝에서만 보여 주는 표시 옵션은 만들지 않았습니다. 문단과 근거의 대응을 읽는 사람이 잃기 때문이며, 문단이 묶이면 접기 개수가 줄어 같은 효과를 얻습니다.
+diff --git a/examples/libcamera/english.json b/examples/libcamera/english.json
+index b240b61..9df019b 100644
+--- a/examples/libcamera/english.json
++++ b/examples/libcamera/english.json
+@@ -1894,6 +1894,10 @@
+   "획득": "Acquire",
+   "획득부터 해제까지의 연동 순서": "Integration sequence from acquisition to release",
+   "후보 또는 예약 대상": "Candidate or dispatch target",
+-  "후처리 뒤 구현자가 명시적으로 호출": "Handler explicitly completes after remaining work"
++  "후처리 뒤 구현자가 명시적으로 호출": "Handler explicitly completes after remaining work",
++  "문서·절·용어·코드 요소 검색": "Search documents, sections, terms and symbols",
++  "그림 요소·함수 이름": "Diagram element or function name",
++  "그림이 화면보다 크면 가로·세로로 밀어 보세요. 전체 모양은 화면에 맞춤으로 확인합니다.": "Scroll horizontally or vertically when the diagram is larger than the screen. Use Fit to see the whole diagram.",
++  "이전 링크의 목적지": "Destination of the previous link"
+  }
+ }
+diff --git a/src/sdd/export_site.py b/src/sdd/export_site.py
+index 6892843..e9a2950 100644
+--- a/src/sdd/export_site.py
++++ b/src/sdd/export_site.py
+@@ -345,6 +345,10 @@ def _render_pages(cfg, entries, sections, texts, terms, model, source_url, link_
+                 visual_sources[str(PurePosixPath(rel).with_suffix('')) + '.' + visual['id'] + '.mmd'] = source
+         content, toc, tokens = _render(body, rel, known, model, source_url, str(meta.get("source_commit", "")),
+                                        link_template)
++        if sections.get(rel, {}).get('kind') == 'per-package':
++            from .index_navigation import index_navigation
++            content, symbols = index_navigation(content, _html_path(rel), page_title)
++            search.extend(symbols)
+         rendered_pages[rel] = (page_title, meta, content, toc)
+         search.append({"title": page_title, "page": page_title, "url": _html_path(rel)})
+ 
+@@ -481,6 +485,8 @@ def _write_pages(cfg, out, entries, sections, rendered_pages, approval_states, l
+             status += (f'<span class="generation-method">작성: {html.escape(reader_label(str(meta.get("generation_method", ""))))}</span>'
+                        '<a class="state-help" href="#page-evidence">상태 설명 ↓</a>')
+         page_config = {"root": root, "mermaid": mermaid_src}
++        if sections.get(rel, {}).get('kind') == 'per-package':
++            page_config['index'] = True
+         if glossary.PAGE in rendered_pages and rel != glossary.PAGE:
+             page_config["terms"] = terms_version  # 본문의 첫 용어에 밑줄과 뜻 상자를 붙인다(site.js)
+         config_json = json.dumps(page_config, ensure_ascii=False).replace("<", "\\u003c")
+@@ -495,9 +501,9 @@ def _write_pages(cfg, out, entries, sections, rendered_pages, approval_states, l
+ <details class="mobile-toc"><summary>이 페이지의 목차</summary>{toc}</details><article>{content}</article>{evidence}<nav class="pagination" aria-label="이전과 다음 문서">{''.join(previous_next)}</nav>
+ <footer>Generated by camera-hal-sdd-generator · 인용 검사와 사람의 내용 검토는 별도입니다.</footer></main>
+ <aside class="page-toc"><nav aria-label="현재 페이지 목차"><p>이 페이지에서</p>{toc}</nav></aside></div>
+-<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">문서 찾기</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><label for="search-input">문서 제목, 절 제목과 용어 검색</label><input id="search-input" type="search" autocomplete="off" placeholder="예: Pipeline, IPA, 클래스 관계"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+-<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">클래스 관계</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">요소 찾기</label><input id="node-search" type="search" placeholder="클래스 이름"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="축소">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="확대">+</button><button id="zoom-fit">화면에 맞춤</button><button id="zoom-reset">100%</button></div><div id="diagram-viewport" tabindex="0" role="region" aria-label="확대된 다이어그램"><div id="diagram-canvas"></div></div></dialog>
+-<script id="site-config" type="application/json">{config_json}</script><script defer src="{root}assets/site.js?v={asset_version}"></script></body></html>'''
++<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">문서 찾기</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><label for="search-input">문서·절·용어·코드 요소 검색</label><input id="search-input" type="search" autocomplete="off" placeholder="예: Pipeline, IPA, 클래스 관계"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
++<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">클래스 관계</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">요소 찾기</label><input id="node-search" type="search" placeholder="그림 요소·함수 이름"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="축소">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="확대">+</button><button id="zoom-fit">화면에 맞춤</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">그림이 화면보다 크면 가로·세로로 밀어 보세요. 전체 모양은 화면에 맞춤으로 확인합니다.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="확대된 다이어그램"><div id="diagram-canvas"></div></div></dialog>
++<script id="site-config" type="application/json">{config_json}</script><script defer src="{root}assets/site.js?v={asset_version}"></script><script defer src="{root}assets/reader-tools.js?v={asset_version}"></script></body></html>'''
+         target = out / current
+         target.parent.mkdir(parents=True, exist_ok=True)
+         target.write_text(doc, encoding="utf-8", newline="\n")
+diff --git a/src/sdd/index_navigation.py b/src/sdd/index_navigation.py
+new file mode 100644
+index 0000000..d4746bc
+--- /dev/null
++++ b/src/sdd/index_navigation.py
+@@ -0,0 +1,45 @@
++"""Stable links to rendered index rows, without changing extracted manuscripts."""
++from __future__ import annotations
++
++import hashlib
++import html
++import re
++
++
++def _text(value: str) -> str:
++    return html.unescape(re.sub(r'<[^>]*>', '', value)).strip()
++
++
++def index_navigation(document: str, page: str, title: str) -> tuple[str, list[dict]]:
++    """Only generated class/function tables become searchable symbol entries."""
++    entries = []
++    seen = {}
++    package = ''
++    parts = re.split(r'(<h2\b[^>]*>.*?</h2>|<table>.*?</table>)', document, flags=re.S)
++    for index, part in enumerate(parts):
++        if part.startswith('<h2'):
++            package = _text(part)
++            continue
++        if not part.startswith('<table>'):
++            continue
++        headers = re.findall(r'<th\b[^>]*>(.*?)</th>', part, re.S)
++        if not headers or _text(headers[0]) not in ('클래스', '함수'):
++            continue
++        kind = 'class' if _text(headers[0]) == '클래스' else 'function'
++
++        def row(match):
++            cells = re.findall(r'<td\b[^>]*>(.*?)</td>', match[1], re.S)
++            if len(cells) < 2:
++                return match[0]
++            name, location = _text(cells[0]), _text(cells[1])
++            location = re.sub(r':\d+(?:-\d+)?(?=\s|$)', '', location)
++            key = '\0'.join((package, name, location))
++            seen[key] = seen.get(key, 0) + 1
++            suffix = '' if seen[key] == 1 else f'-{seen[key]}'
++            anchor = 'symbol-' + hashlib.sha256(key.encode()).hexdigest()[:16] + suffix
++            entries.append(dict(title=name, page=title, url=page + '#' + anchor, kind='symbol'))
++            return (f'<tr id="{anchor}" tabindex="-1" data-symbol-kind="{kind}">'
++                    + match[1] + '</tr>')
++
++        parts[index] = re.sub(r'<tr>(.*?)</tr>', row, part, flags=re.S)
++    return ''.join(parts), entries
+diff --git a/src/sdd/localization_cli.py b/src/sdd/localization_cli.py
+index 69dd726..571aaf1 100644
+--- a/src/sdd/localization_cli.py
++++ b/src/sdd/localization_cli.py
+@@ -44,7 +44,8 @@ def prepare_catalog(config, destination: Path, *, translate: bool = False, repla
+             pages[path.relative_to(out).as_posix()] = source_hash(document)
+             units.update(display_strings(document))
+         for entry in json.loads((out / 'assets/search.json').read_text(encoding='utf-8')):
+-            units.update(entry[k].strip() for k in ('title', 'page') if KOREAN.search(entry[k]))
++            fields = ('page',) if entry.get('kind') == 'symbol' else ('title', 'page')
++            units.update(entry[k].strip() for k in fields if KOREAN.search(entry[k]))
+         if (out / 'assets/glossary.json').exists():
+             # The in-page term popover reads these names and definitions, so they need translations too.
+             for item in json.loads((out / 'assets/glossary.json').read_text(encoding='utf-8')):
+diff --git a/src/sdd/site_assets/reader-tools.js b/src/sdd/site_assets/reader-tools.js
+new file mode 100644
+index 0000000..fcff8f4
+--- /dev/null
++++ b/src/sdd/site_assets/reader-tools.js
+@@ -0,0 +1,259 @@
++/* Progressive reader controls. Manuscripts, source pins and review states stay intact. */
++(() => {
++  'use strict';
++  const config = JSON.parse(document.querySelector('#site-config').textContent);
++  const english = config.language === 'en';
++  const t = (ko, en) => english ? en : ko;
++  const header = document.querySelector('.site-header');
++  const updateHeader = () => document.documentElement.style.setProperty('--site-header-height', `${header.getBoundingClientRect().height}px`);
++  updateHeader();
++  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(updateHeader).observe(header);
++  window.addEventListener('resize', updateHeader);
++
++  const menu = document.querySelector('#menu-toggle');
++  const sidebar = document.querySelector('#sidebar');
++  const mobile = window.matchMedia('(max-width: 760px)');
++  const backdrop = document.createElement('button');
++  backdrop.className = 'menu-backdrop';
++  backdrop.type = 'button';
++  backdrop.tabIndex = -1;
++  backdrop.setAttribute('aria-label', t('메뉴 닫기', 'Close menu'));
++  backdrop.hidden = true;
++  sidebar.before(backdrop);
++  const closeMenu = document.createElement('button');
++  closeMenu.className = 'sidebar-close';
++  closeMenu.type = 'button';
++  closeMenu.textContent = t('메뉴 닫기', 'Close menu');
++  closeMenu.hidden = true;
++  sidebar.prepend(closeMenu);
++  const backgrounds = [document.querySelector('main'), document.querySelector('.page-toc'),
++    document.querySelector('.brand'), document.querySelector('#search-open'), document.querySelector('.language-selector')].filter(Boolean);
++  let inertBefore = [];
++  let menuOpen = false;
++  function setMenu(open, restore = true) {
++    open = open && mobile.matches;
++    if (open === menuOpen) return;
++    menuOpen = open;
++    sidebar.classList.toggle('is-open', open);
++    document.documentElement.classList.toggle('menu-open', open);
++    menu.setAttribute('aria-expanded', String(open));
++    backdrop.hidden = closeMenu.hidden = !open;
++    if (open) {
++      inertBefore = backgrounds.map(node => node.inert);
++      backgrounds.forEach(node => { node.inert = true; });
++      const language = document.querySelector('.language-selector');
++      if (language) language.open = false;
++      sidebar.setAttribute('role', 'dialog');
++      sidebar.setAttribute('aria-modal', 'true');
++      sidebar.setAttribute('aria-label', t('문서 메뉴', 'Documentation menu'));
++      (sidebar.querySelector('a[aria-current="page"]') || closeMenu).focus({preventScroll: true});
++      sidebar.querySelector('a[aria-current="page"]')?.scrollIntoView({block: 'nearest', behavior: 'instant'});
++    } else {
++      backgrounds.forEach((node, i) => { node.inert = inertBefore[i]; });
++      sidebar.removeAttribute('role');
++      sidebar.removeAttribute('aria-modal');
++      sidebar.removeAttribute('aria-label');
++      if (restore) menu.focus({preventScroll: true});
++    }
++  }
++  menu.hidden = false;
++  document.body.classList.add('js');
++  menu.addEventListener('click', () => setMenu(!menuOpen));
++  closeMenu.addEventListener('click', () => setMenu(false));
++  backdrop.addEventListener('click', () => setMenu(false));
++  sidebar.addEventListener('click', event => {
++    if (event.target.closest('a[href]')) setMenu(false, false);
++  });
++  mobile.addEventListener('change', () => { if (!mobile.matches) setMenu(false); });
++  document.addEventListener('keydown', event => {
++    if (!menuOpen) return;
++    if (event.key === 'Escape') {
++      event.preventDefault();
++      setMenu(false);
++    } else if (event.key === 'Tab') {
++      const focusable = [...sidebar.querySelectorAll('a[href],button,summary,[tabindex="0"]')]
++        .filter(node => node.getClientRects().length && !node.disabled);
++      const first = focusable[0], last = focusable.at(-1);
++      if (!sidebar.contains(document.activeElement) || (event.shiftKey && document.activeElement === first)) {
++        event.preventDefault();
++        (event.shiftKey ? last : first)?.focus();
++      } else if (!event.shiftKey && document.activeElement === last) {
++        event.preventDefault();
++        first?.focus();
++      }
++    }
++  });
++
++  let origin = null;
++  let returnFrame = null;
++  let originNumber = 0;
++  function restoreExplanation() {
++    if (!origin || !origin.link.isConnected) return;
++    history.scrollRestoration = origin.restoration;
++    cancelAnimationFrame(returnFrame);
++    const returning = origin;
++    returnFrame = requestAnimationFrame(() => {
++      if (origin !== returning) return;
++      returning.link.focus({preventScroll: true});
++      window.scrollTo({left: returning.x, top: returning.y, behavior: 'instant'});
++    });
++  }
++  function revealEvidence() {
++    const id = location.hash.slice(1);
++    if (!/^source-[0-9a-f]{16}$/.test(id)) return;
++    const target = document.getElementById(id);
++    const anchor = target?.parentElement?.tagName === 'P' ? target.parentElement : target;
++    const panel = anchor?.nextElementSibling;
++    if (panel?.tagName !== 'DETAILS') return;
++    for (let parent = panel.parentElement; parent; parent = parent.parentElement) {
++      if (parent.tagName === 'DETAILS') parent.open = true;
++    }
++    panel.open = true;
++    if (origin) {
++      history.scrollRestoration = 'manual';
++      if (location.href !== origin.url) {
++        const state = {...history.state};
++        delete state.sddEvidenceReturn;
++        history.replaceState(state, '', location.href);
++      }
++      let button = panel.querySelector(':scope > .evidence-return');
++      if (!button) {
++        button = document.createElement('button');
++        button.type = 'button';
++        button.className = 'evidence-return';
++        button.textContent = t('설명으로 돌아가기', 'Back to explanation');
++        panel.querySelector('summary').after(button);
++        button.addEventListener('click', () => {
++          if (!origin) return;
++          history.replaceState({...history.state, sddEvidenceReturn: origin.token}, '', origin.url);
++          restoreExplanation();
++        });
++      }
++    }
++    panel.querySelector('summary')?.focus({preventScroll: true});
++    panel.scrollIntoView({block: 'start'});
++  }
++  function evidenceLocation() {
++    if (origin && location.href === origin.url && history.state?.sddEvidenceReturn === origin.token) {
++      restoreExplanation();
++    } else {
++      revealEvidence();
++      if (origin && !/^#source-[0-9a-f]{16}$/.test(location.hash)) history.scrollRestoration = origin.restoration;
++    }
++  }
++  document.addEventListener('click', event => {
++    const link = event.target.closest('a[href^="#source-"]');
++    if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
++    if (!link) {
++      if (origin && event.target.closest('a[href]')) history.scrollRestoration = origin.restoration;
++      return;
++    }
++    origin = {link, url: location.href, x: scrollX, y: scrollY,
++      token: ++originNumber, restoration: origin?.restoration ?? history.scrollRestoration};
++    history.replaceState({...history.state, sddEvidenceReturn: origin.token}, '', location.href);
++    history.scrollRestoration = 'manual';
++    if (link.hash === location.hash) {
++      event.preventDefault();
++      revealEvidence();
++    }
++  });
++  for (const event of ['hashchange', 'popstate', 'pageshow']) window.addEventListener(event, evidenceLocation);
++  window.addEventListener('pagehide', () => { if (origin) history.scrollRestoration = origin.restoration; });
++  evidenceLocation();
++
++  if (!config.index) return;
++  const article = document.querySelector('article');
++  const packages = [];
++  let group = null;
++  let heading = null;
++  for (const child of article.children) {
++    if (child.tagName === 'H2') {
++      group = {name: child.textContent.trim(), heading: child, tables: []};
++      packages.push(group);
++      heading = child;
++    } else if (child.tagName === 'H3') heading = child;
++    else if (group && child.matches('.table-scroll') && child.querySelector('tr[data-symbol-kind]')) {
++      group.tables.push({element: child, heading, rows: [...child.querySelectorAll('tr[data-symbol-kind]')]});
++    }
++  }
++  const groups = packages.filter(item => item.tables.length);
++  const rows = groups.flatMap(item => item.tables.flatMap(table => table.rows));
++  if (!rows.length) return;
++  const form = document.createElement('form');
++  form.className = 'index-tools';
++  form.setAttribute('role', 'search');
++  form.setAttribute('aria-label', t('코드 색인 검색', 'Search the code index'));
++  function field(label, node, id) {
++    const wrapper = document.createElement('label');
++    wrapper.htmlFor = node.id = id;
++    const text = document.createElement('span');
++    text.textContent = label;
++    wrapper.append(text, node);
++    form.append(wrapper);
++  }
++  const query = document.createElement('input');
++  query.type = 'search';
++  query.placeholder = t('클래스·함수·경로', 'Class, function or path');
++  field(t('색인에서 찾기', 'Search this index'), query, 'index-query');
++  const packageSelect = document.createElement('select');
++  packageSelect.add(new Option(t('모든 패키지', 'All packages'), ''));
++  groups.forEach(item => packageSelect.add(new Option(item.name, item.name)));
++  field(t('패키지', 'Package'), packageSelect, 'index-package');
++  const typeSelect = document.createElement('select');
++  for (const [value, name] of [['', t('모든 종류', 'All kinds')], ['class', t('클래스', 'Class')], ['function', t('함수', 'Function')]]) {
++    typeSelect.add(new Option(name, value));
++  }
++  field(t('종류', 'Kind'), typeSelect, 'index-kind');
++  const clear = document.createElement('button');
++  clear.type = 'button';
++  clear.textContent = t('필터 지우기', 'Clear filters');
++  const status = document.createElement('p');
++  status.id = 'index-count';
++  status.setAttribute('role', 'status');
++  form.append(clear, status);
++  (article.querySelector(':scope > p') || article.firstElementChild).after(form);
++  const texts = new Map(rows.map(row => [row, row.textContent.normalize('NFC').toLocaleLowerCase()]));
++  function filter() {
++    const term = query.value.trim().normalize('NFC').toLocaleLowerCase();
++    let total = 0;
++    groups.forEach(item => {
++      let packageTotal = 0;
++      const headingCounts = new Map();
++      item.tables.forEach(table => {
++        let count = 0;
++        table.rows.forEach(row => {
++          row.hidden = !!((packageSelect.value && packageSelect.value !== item.name)
++            || (typeSelect.value && typeSelect.value !== row.dataset.symbolKind) || !texts.get(row).includes(term));
++          if (!row.hidden) count++;
++        });
++        table.element.hidden = count === 0;
++        if (table.heading !== item.heading) headingCounts.set(table.heading, (headingCounts.get(table.heading) || 0) + count);
++        packageTotal += count;
++      });
++      headingCounts.forEach((count, heading) => { heading.hidden = count === 0; });
++      item.heading.hidden = packageTotal === 0;
++      total += packageTotal;
++    });
++    status.textContent = t(`${total} / ${rows.length}개 항목`, `${total} of ${rows.length} entries`);
++  }
++  function reset() { query.value = packageSelect.value = typeSelect.value = ''; filter(); }
++  form.addEventListener('submit', event => event.preventDefault());
++  query.addEventListener('input', filter);
++  packageSelect.addEventListener('change', filter);
++  typeSelect.addEventListener('change', filter);
++  clear.addEventListener('click', () => { reset(); query.focus(); });
++  function revealSymbol() {
++    if (!/^#symbol-[0-9a-f]{16}(?:-\d+)?$/.test(location.hash)) return;
++    const row = document.getElementById(location.hash.slice(1));
++    if (!row) return;
++    reset();
++    requestAnimationFrame(() => { row.focus({preventScroll: true}); row.scrollIntoView({block: 'center'}); });
++  }
++  window.addEventListener('hashchange', revealSymbol);
++  document.addEventListener('click', event => {
++    const link = event.target.closest('a[href]');
++    if (link && link.pathname === location.pathname && link.hash === location.hash) revealSymbol();
++  });
++  filter();
++  revealSymbol();
++})();
+diff --git a/src/sdd/site_assets/reading.css b/src/sdd/site_assets/reading.css
+index 0210825..eee26f4 100644
+--- a/src/sdd/site_assets/reading.css
++++ b/src/sdd/site_assets/reading.css
+@@ -78,3 +78,22 @@ details.evidence-links{border:0;border-left:2px solid var(--line);border-radius:
+ .evidence-links li>code{background:none;padding:0;color:var(--ink)}.evidence-lines{display:block;line-height:2.1}
+ .evidence-lines a{display:inline-block;margin-right:4px}.evidence-lines a:focus-visible{outline:2px solid var(--accent)}
+ details.evidence-section{border-top:1px solid var(--line);border-left:0;margin:8px 0 24px;padding:5px 0 0}
++
++/* Mobile navigation is a viewport drawer; static navigation remains available without scripts. */
++.menu-backdrop,.sidebar-close{display:none}
++.previous-route:not(:target){display:none}.previous-route{scroll-margin-top:calc(var(--site-header-height,68px) + 16px);padding:12px;border:1px solid var(--line);margin:12px 0}.previous-route p{margin:0 0 4px;font-size:12px;color:var(--muted)}
++html.menu-open,html.menu-open body{overflow:hidden}
++.evidence-return{position:sticky;top:calc(var(--site-header-height,68px) + 8px);z-index:2;margin:10px 0;background:#fff}
++.index-tools{display:grid;grid-template-columns:minmax(160px,2fr) minmax(130px,1fr) minmax(100px,1fr) auto;gap:12px;align-items:end;padding:16px;margin:20px 0;background:var(--soft);border:1px solid var(--line);border-radius:6px}
++.index-tools label{display:grid;gap:4px;min-width:0;font-size:12px}.index-tools :is(input,select){width:100%;min-width:0;font:inherit;font-size:14px;padding:8px;border:1px solid #cbd5cf;border-radius:4px;background:#fff;color:var(--ink)}
++.index-tools button{font-size:13px;min-height:40px}.index-tools p{grid-column:1/-1;margin:0;font-size:12px;color:var(--muted)}
++tr[id^="symbol-"]:target{background:#edf5f1}tr[id^="symbol-"]{scroll-margin-top:calc(var(--site-header-height,68px) + 16px)}
++.diagram-pan-hint{font-size:12px;color:var(--muted);margin:0 0 10px}
++@media(max-width:760px){
++  body.js #sidebar{position:fixed;top:var(--site-header-height,104px);bottom:0;left:0;width:min(360px,calc(100vw - 36px));height:auto;max-height:calc(100dvh - var(--site-header-height,104px));overflow:auto;overscroll-behavior:contain;z-index:60;background:#fff;border-right:1px solid var(--line);box-shadow:6px 0 24px #17201e26}
++  .menu-backdrop{display:block;position:fixed;inset:var(--site-header-height,104px) 0 0;z-index:50;border:0;border-radius:0;background:#17201e70;padding:0}.menu-backdrop:hover{background:#17201e70}
++  .sidebar-close{display:block;margin:0 0 18px auto;min-height:44px}
++  .index-tools{grid-template-columns:1fr 1fr;padding:12px;gap:10px}.index-tools label:first-child{grid-column:1/-1}.index-tools :is(input,select,button){min-height:44px}
++  #diagram-dialog .dialog-head button,.diagram-tools button{min-width:44px;min-height:44px}.diagram-tools input{min-height:44px;flex:1;max-width:100%}.diagram-tools{gap:8px}.diagram-pan-hint{line-height:1.5}
++}
++@media print{.menu-backdrop,.sidebar-close,.index-tools,.evidence-return{display:none!important}}
+diff --git a/src/sdd/site_assets/site.js b/src/sdd/site_assets/site.js
+index e5572fd..d9ec8dc 100644
+--- a/src/sdd/site_assets/site.js
++++ b/src/sdd/site_assets/site.js
+@@ -2,34 +2,6 @@
+ 
+ (() => {
+   'use strict';
+-  // Evidence links resolve to deduplicated excerpts. Open the target on arrival;
+-  // without JavaScript, the same anchor and native summary remain usable.
+-  function revealEvidence() {
+-    const id = location.hash.slice(1);
+-    if (!/^source-[0-9a-f]{16}$/.test(id)) return;
+-    const target = document.getElementById(id);
+-    const anchor = target?.parentElement?.tagName === 'P' ? target.parentElement : target;
+-    const panel = anchor?.nextElementSibling;
+-    if (panel?.tagName === 'DETAILS') {
+-      for (let parent = panel.parentElement; parent; parent = parent.parentElement) {
+-        if (parent.tagName === 'DETAILS') parent.open = true;
+-      }
+-      panel.open = true;
+-      panel.querySelector('summary')?.focus({preventScroll: true});
+-      panel.scrollIntoView({block: 'start'});
+-    }
+-  }
+-  window.addEventListener('hashchange', revealEvidence);
+-  document.addEventListener('click', event => {
+-    const link = event.target.closest('a[href^="#source-"]');
+-    if (link && link.hash === location.hash) {
+-      event.preventDefault();
+-      revealEvidence();
+-      document.getElementById(location.hash.slice(1))?.scrollIntoView({block: 'start'});
+-    }
+-  });
+-  window.addEventListener('pageshow', revealEvidence);
+-
+   const config = JSON.parse(document.querySelector('#site-config').textContent);
+   const english = config.language === 'en';
+   const t = (ko, en) => english ? en : ko;
+@@ -54,13 +26,6 @@
+       link.href = target.href;
+     }));
+   }
+-  document.body.classList.add('js');
+-  const menu = document.querySelector('#menu-toggle');
+-  menu.hidden = false;
+-  menu.addEventListener('click', () => {
+-    const open = document.querySelector('#sidebar').classList.toggle('is-open');
+-    menu.setAttribute('aria-expanded', String(open));
+-  });
+   // Share the preference across pages and editions, but not across hosted sites.
+   const sidebar = document.querySelector('#sidebar');
+   const layout = sidebar.parentElement;
+@@ -175,6 +140,21 @@
+   document.querySelectorAll('dialog [data-close]').forEach(button => {
+     button.addEventListener('click', () => button.closest('dialog').close());
+   });
++  document.querySelectorAll('dialog').forEach(dialog => {
++    const outside = event => {
++      const box = dialog.getBoundingClientRect();
++      return event.clientX < box.left || event.clientX > box.right
++        || event.clientY < box.top || event.clientY > box.bottom;
++    };
++    let backdropDown = false;
++    dialog.addEventListener('pointerdown', event => {
++      backdropDown = event.target === dialog && outside(event);
++    });
++    dialog.addEventListener('click', event => {
++      if (backdropDown && event.target === dialog && outside(event)) dialog.close();
++      backdropDown = false;
++    });
++  });
+ 
+   const searchDialog = document.querySelector('#search-dialog');
+   const searchOpen = document.querySelector('#search-open');
+@@ -196,23 +176,28 @@
+     // Glossary terms match on their own names only; otherwise "용어" would list every term
+     // because they all belong to the glossary page.
+     const text = item => item.url.includes('#term-') ? item.title : `${item.title} ${item.page}`;
+-    const matches = index.filter(item => text(item).toLocaleLowerCase().includes(query))
++    const matches = index.filter(item => (query || item.kind !== 'symbol')
++        && text(item).toLocaleLowerCase().includes(query))
+       .map((item, order) => ({item, order, rank: query ? rank(item) : 2}))
+       .sort((a, b) => a.rank - b.rank || a.order - b.order).map(({item}) => item);
+     results.replaceChildren();
+-    matches.forEach(item => {
++    matches.slice(0, 100).forEach(item => {
+       const li = document.createElement('li');
+       const a = document.createElement('a');
+       a.href = new URL(item.url, root).href;
+       a.textContent = item.title;
+       const small = document.createElement('small');
+-      small.textContent = item.page;
++      const kind = item.kind === 'symbol' ? t('코드 요소', 'Symbol')
++        : item.url.includes('#term-') ? t('용어', 'Term')
++        : item.url.includes('#') ? t('절', 'Section') : t('문서', 'Document');
++      small.textContent = kind + (item.page === item.title ? '' : ` · ${item.page}`);
+       a.append(small);
+       a.addEventListener('click', () => searchDialog.close());
+       li.append(a);
+       results.append(li);
+     });
+-    count.textContent = t(`${matches.length}개 결과 · 문서 제목, 절 제목과 용어를 검색합니다.`, `${matches.length} results · Searching document titles, section titles and terms.`);
++    count.textContent = t(`${matches.length}개 결과 · 문서·절·용어·코드 요소`, `${matches.length} results · Documents, sections, terms and symbols`)
++      + (matches.length > 100 ? t(' · 상위 100개 표시 · 검색어를 더 입력하세요.', ' · First 100 shown · Refine your search.') : '');
+   }
+   async function openSearch() {
+     if (document.querySelector('dialog[open]')) return;
+@@ -302,6 +287,10 @@
+     document.querySelector('#diagram-title').textContent = trigger.getAttribute('data-title') || t('다이어그램', 'Diagram');
+     diagramDialog.showModal();
+     fit();
++    if (window.matchMedia('(max-width: 760px)').matches && active.scale < .85) {
++      scale(.85, false);
++      viewport.scrollTo(0, 0);
++    }
+     nodeInput.focus();
+   }
+   diagramDialog.addEventListener('close', () => {
+diff --git a/src/sdd/site_build.py b/src/sdd/site_build.py
+index 9a8fd1c..caa5fed 100644
+--- a/src/sdd/site_build.py
++++ b/src/sdd/site_build.py
+@@ -114,6 +114,7 @@ def build_site(cfg: Config, out: Path, render, mermaid_src: str | None) -> Path:
+         engine = {p.name: digest(p) for p in [code_root / "diagrams.py", code_root / "visuals.py", code_root / "export_site.py",
+                                             code_root / "document_health.py", code_root / "evidence_navigation.py",
+                                             code_root / "site_localization.py", code_root / "site_markdown.py",
++                                            code_root / "index_navigation.py",
+                                             code_root / "document_metadata.py", code_root / "scenario_document.py",
+                                             code_root / "design_contracts.py", code_root / "evidence.py",
+                                             code_root / "contract_schema.py", code_root / "reader_profiles.py",
+diff --git a/src/sdd/site_localization.py b/src/sdd/site_localization.py
+index 8a03ad9..5f255bf 100644
+--- a/src/sdd/site_localization.py
++++ b/src/sdd/site_localization.py
+@@ -238,7 +238,8 @@ def localize_site(cfg, out: Path) -> None:
+         path.write_text(selector(original, rel, False), encoding='utf-8', newline='\n')
+     search = json.loads((out / 'assets/search.json').read_text(encoding='utf-8'))
+     for entry in search:
+-        entry['title'] = translate(entry['title'])
++        if entry.get('kind') != 'symbol':
++            entry['title'] = translate(entry['title'])
+         entry['page'] = translate(entry['page'])
+     dest = out / 'en/assets/search.json'
+     dest.parent.mkdir(parents=True, exist_ok=True)
+diff --git a/src/sdd/site_markdown.py b/src/sdd/site_markdown.py
+index 30615ed..5bc85bf 100644
+--- a/src/sdd/site_markdown.py
++++ b/src/sdd/site_markdown.py
+@@ -14,6 +14,34 @@ SOURCE_LINK_TEMPLATES = {
+     "gitiles": "{url}/+/{commit}/{file}#{line}",
+ }
+ 
++def _remove_route_tables(document: str) -> str:
++    """Drop redundant reading choices; keep old row fragments usable without JS."""
++    def table(match):
++        source = match[0]
++        head = re.search(r'<thead>(.*?)</thead>', source, re.S)
++        labels = [html.unescape(re.sub(r'<[^>]+>', '', cell)).strip()
++                  for cell in re.findall(r'<th\b[^>]*>(.*?)</th>', head[1], re.S)] if head else []
++        if labels != ['지금 확인할 내용', '이동할 절']:
++            return source
++        aliases = []
++        for row in re.findall(r'<tr>(.*?)</tr>', source, re.S):
++            cells = re.findall(r'<td\b[^>]*>(.*?)</td>', row, re.S)
++            if len(cells) != 2:
++                continue
++            destinations = re.findall(r'<a\b[^>]*href="[^"]+"[^>]*>.*?</a>', cells[1], re.S)
++            if not destinations:
++                continue
++            links = ' · '.join(re.sub(r'\s+id="[^"]+"', '', link) for link in destinations)
++            for anchor in re.findall(r'\bid="([^"]+)"', row):
++                aliases.append(f'<div class="previous-route" id="{anchor}"><p>이전 링크의 목적지</p>'
++                               + links + '</div>')
++        return '\n'.join(aliases)
++
++    chunks = re.split(r'(<pre\b[^>]*>.*?</pre>)', document, flags=re.S)
++    return ''.join(chunk if i % 2 else re.sub(r'<table>.*?</table>', table, chunk, flags=re.S)
++                   for i, chunk in enumerate(chunks))
++
++
+ def _href(rel: str, current: str) -> str:
+     return quote(posixpath.relpath(rel, posixpath.dirname(current) or "."), safe="/.-")
+ 
+@@ -65,6 +93,7 @@ def _render(body: str, rel: str, known: set[str], model: KnowledgeModel | None,
+     valid = model.citations() if model and commit == model.meta.get("source_commit") else set()
+     rendered = compact_evidence(rendered, valid)
+     rendered = fold_source_details(rendered)
++    rendered = _remove_route_tables(rendered)
+ 
+     def table_wrapper(match: re.Match) -> str:
+         table = match[0]
+diff --git a/tests/test_evidence_navigation.py b/tests/test_evidence_navigation.py
+index 04c5fc7..1a0b1fc 100644
+--- a/tests/test_evidence_navigation.py
++++ b/tests/test_evidence_navigation.py
+@@ -7,6 +7,25 @@ from sdd.export_site import _render
+ from sdd.site_localization import DisplayText, display_strings
+ 
+ 
++def test_removed_route_table_preserves_old_fragments_and_unrelated_content():
++    body = ('| **지금 확인할 내용** | **이동할 절** |\n|---|---|\n'
++            '| <a id="old-route"></a>중복 안내입니다. | [요청 문서](request.md#lifetime) |\n\n'
++            '## 본문\n\n본문을 유지합니다.\n\n'
++            '| 상태 | 의미 |\n|---|---|\n| 완료 | 재사용 가능 |\n\n'
++            '| 시작할 문서 | 이유 |\n|---|---|\n| [개요](overview.md) | 처음 읽습니다. |')
++    rendered, _, _ = _render(body, 'test.md', {'test.md', 'request.md', 'overview.md'}, None, '', '')
++    assert '지금 확인할 내용' not in rendered and '중복 안내입니다.' not in rendered
++    assert '<div class="previous-route" id="old-route">' in rendered
++    assert '<a href="request.html#lifetime">요청 문서</a>' in rendered
++    assert '<h2 id="본문">본문</h2>' in rendered and '본문을 유지합니다.' in rendered
++    assert '재사용 가능' in rendered and '시작할 문서' in rendered
++
++
++def test_empty_route_table_is_not_published():
++    rendered, _, _ = _render('| 지금 확인할 내용 | 이동할 절 |\n|---|---|', 'a.md', set(), None, '', '')
++    assert '<table' not in rendered and '지금 확인할 내용' not in rendered
++
++
+ def test_grouped_disclosures_preserve_all_destinations_and_claim_association():
+     source = ('<p>Keep this claim and <code>identifier</code>. '
+               '<a class="citation" href="https://example/commit/a#L1"><code>src/a.cpp:1</code></a>, '
+diff --git a/tests/test_export_site.py b/tests/test_export_site.py
+index 467337c..cfcc548 100644
+--- a/tests/test_export_site.py
++++ b/tests/test_export_site.py
+@@ -492,7 +492,7 @@ def test_configured_next_overrides_menu_order_and_preserves_anchor(tmp_cfg, samp
+     assert '<a class="next" href="device.html#evidence">' in page
+ 
+ 
+-def test_navigation_table_has_mobile_layout_without_changing_data_tables(tmp_cfg, sample_model):
++def test_redundant_navigation_table_is_removed_without_changing_data_tables(tmp_cfg, sample_model):
+     prepare(tmp_cfg, sample_model)
+     path = tmp_cfg.sdd_dir / 'device.md'
+     with path.open('a', encoding='utf-8') as f:
+@@ -500,7 +500,8 @@ def test_navigation_table_has_mobile_layout_without_changing_data_tables(tmp_cfg
+         f.write('\n| 데이터 | 값 |\n|---|---|\n| 상태 | 정상 |\n')
+     out = export_site(tmp_cfg)
+     page = (out / 'device.html').read_text(encoding='utf-8')
+-    assert page.count('class="table-scroll reading-routes"') == 1
++    assert '지금 확인할 내용' not in page
++    assert '<td>확인합니다.</td>' not in page
+     assert page.count('class="table-scroll"') == 1
+ 
+ 
+diff --git a/tests/test_index_navigation.py b/tests/test_index_navigation.py
+new file mode 100644
+index 0000000..6e50120
+--- /dev/null
++++ b/tests/test_index_navigation.py
+@@ -0,0 +1,87 @@
++import re
++
++from sdd.index_navigation import index_navigation
++
++
++def table(kind, name, line):
++    return (f'<table><thead><tr><th>{kind}</th><th>선언 위치</th></tr></thead>'
++            f'<tbody><tr><td><code>{name}</code></td><td><a href="https://code/src#L{line}">'
++            f'<code>src/device.h:{line}</code></a></td></tr></tbody></table>')
++
++
++def test_index_rows_preserve_code_citations_and_get_unique_stable_destinations():
++    source = ('<h2 id="api">api</h2>' + table('클래스', 'Device&lt;T&gt;', 4)
++              + table('함수', 'start()', 10) + table('함수', 'start()', 11)
++              + '<h2 id="driver">driver</h2>' + table('클래스', 'Device&lt;T&gt;', 4))
++    rendered, entries = index_navigation(source, 'nested/index.html', 'Components')
++    anchors = re.findall(r'<tr id="([^"]+)" tabindex="-1" data-symbol-kind="([^"]+)">', rendered)
++    assert len(anchors) == len(entries) == 4
++    assert len({anchor for anchor, _ in anchors}) == 4
++    assert [kind for _, kind in anchors] == ['class', 'function', 'function', 'class']
++    assert [row['title'] for row in entries] == ['Device<T>', 'start()', 'start()', 'Device<T>']
++    assert all(row['kind'] == 'symbol' and row['page'] == 'Components' for row in entries)
++    assert [row['url'] for row in entries] == ['nested/index.html#' + anchor for anchor, _ in anchors]
++    assert re.findall(r'href="([^"]+)"', rendered) == re.findall(r'href="([^"]+)"', source)
++    assert '<code>Device&lt;T&gt;</code>' in rendered
++    assert index_navigation(source, 'nested/index.html', 'Components') == (rendered, entries)
++    added, added_entries = index_navigation('<h2>other</h2>' + table('클래스', 'Unrelated', 1) + source,
++                                             'nested/index.html', 'Components')
++    assert [row['url'] for row in added_entries[1:]] == [row['url'] for row in entries]
++
++
++def test_navigation_tables_and_code_examples_do_not_become_symbols():
++    source = '<h2>Guide</h2>' + table('시작할 문서', 'Guide', 1) + '<pre>&lt;table&gt;클래스&lt;/table&gt;</pre>'
++    assert index_navigation(source, 'index.html', 'Guide') == (source, [])
++
++
++def test_duplicate_rows_and_unicode_identifiers_keep_inspectable_unique_links():
++    source = '<h2>src/한글</h2>' + table('클래스', '카메라', 1) * 2
++    rendered, entries = index_navigation(source, 'index.html', '색인')
++    assert entries[0]['title'] == entries[1]['title'] == '카메라'
++    assert entries[1]['url'] == entries[0]['url'] + '-2'
++    assert rendered.count('<code>카메라</code>') == 2
++
++
++def test_export_indexes_symbols_without_rewriting_manuscripts(tmp_cfg, sample_model):
++    import json
++    from sdd.generate import Generator
++    from sdd.llm import Agent
++    from sdd.export_site import export_site
++    from sdd.site_build import verify_site
++
++    sample_model.meta['source_commit'] = 'a' * 40
++    sample_model.save(tmp_cfg.facts_path)
++    tmp_cfg.sections_file.write_text('sections:\n  - id: components\n    title: Components\n    kind: per-package\n    narration: facts\n    facts: {classes: ["*"]}\n    output: components.md\n    next: {title: Components, link: components.md}\n', encoding='utf-8')
++    Generator(tmp_cfg, sample_model, Agent(tmp_cfg.agent)).run()
++    manuscript = (tmp_cfg.sdd_dir/'components.md').read_bytes()
++    out = export_site(tmp_cfg)
++    document = (out/'components.html').read_text(encoding='utf-8')
++    search = json.loads((out/'assets/search.json').read_text(encoding='utf-8'))
++    symbols = [row for row in search if row.get('kind') == 'symbol']
++    assert symbols and all('components.html#symbol-' in row['url'] for row in symbols)
++    assert '"index": true' in document
++    assert 'assets/reader-tools.js?v=' in document
++    assert (tmp_cfg.sdd_dir/'components.md').read_bytes() == manuscript
++    assert 'index_navigation.py' in json.loads((out/'site-manifest.json').read_text(encoding='utf-8'))['engine']
++    assert verify_site(out)['broken_links'] == 0
++
++
++def test_english_search_keeps_unicode_symbol_identifiers(tmp_cfg):
++    import json
++    from sdd.site_localization import localize_site, source_hash
++
++    out = tmp_cfg.root/'site'
++    (out/'assets').mkdir(parents=True)
++    document = ('<html lang="ko"><head></head><body><div class="header-actions"></div>'
++                '<article><h1>색인</h1><code>카메라</code></article></body></html>')
++    (out/'index.html').write_text(document, encoding='utf-8')
++    (out/'assets/search.json').write_text(json.dumps([dict(title='카메라', page='색인',
++        url='index.html#symbol-1111111111111111', kind='symbol')]), encoding='utf-8')
++    catalog = tmp_cfg.root/'english.json'
++    catalog.write_text(json.dumps(dict(schema=1,pages={'index.html': source_hash(document)},
++        strings={'색인':'Index','카메라':'Wrong symbol translation'})), encoding='utf-8')
++    tmp_cfg.raw['site'] = {'english_catalog': str(catalog)}
++    localize_site(tmp_cfg,out)
++    symbol = json.loads((out/'en/assets/search.json').read_text(encoding='utf-8'))[0]
++    assert symbol['title'] == '카메라' and symbol['page'] == 'Index'
++    assert '<code>카메라</code>' in (out/'en/index.html').read_text(encoding='utf-8')
+
+Existing CSS context (already applied globally):
+/* Reading rules: omm-doc-workflow/DESIGN.md; navigation inspired by libcamera docs. */
+:root{color-scheme:light;--ink:#17201e;--muted:#626d68;--line:#e4e9e6;--accent:#08745a;--soft:#f3f7f5}
+*{box-sizing:border-box}[hidden]{display:none!important}
+html{scroll-padding-top:88px;scroll-behavior:smooth}
+body{margin:0;background:#fff;color:var(--ink);font:16px/1.8 Geist,"Noto Sans KR","Malgun Gothic",system-ui,sans-serif;word-break:keep-all;overflow-wrap:anywhere}
+a{color:var(--accent);text-underline-offset:4px}button,input{font:inherit}button{cursor:pointer;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:6px 12px}button:hover{background:var(--soft)}
+:is(a,button,input,summary,[tabindex]):focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+.skip{position:fixed;top:-80px;left:20px;background:#fff;z-index:100;padding:10px}.skip:focus{top:10px}
+.site-header{height:68px;position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid var(--line);padding:0 max(24px,calc((100vw - 1380px)/2));display:flex;align-items:center;justify-content:space-between;gap:16px}
+.brand{text-decoration:none;color:var(--ink);font-size:18px;font-weight:700;display:flex;align-items:center;gap:12px}.brand-mark{color:var(--accent);font-size:27px}.header-actions{display:flex;gap:8px}#search-open{width:245px;display:flex;justify-content:space-between;color:var(--muted);font-size:13px;background:#fafcfb}
+kbd{border:1px solid var(--line);border-radius:3px;padding:0 5px;font:11px/1.8 "Geist Mono",Consolas,monospace;color:var(--muted)}
+.layout{--sidebar-width:clamp(180px,var(--preferred-sidebar-width,240px),min(420px,45%));display:grid;grid-template-columns:var(--sidebar-width) minmax(0,1fr) 205px;max-width:1380px;margin:auto;min-height:calc(100vh - 68px)}
+#sidebar{position:sticky;top:68px;align-self:start;min-width:0;height:calc(100vh - 68px);overflow:auto;border-right:1px solid var(--line);padding:35px 22px 32px 24px;font-size:14px}
+.sidebar-resizer{display:none}
+body.resizing-sidebar,body.resizing-sidebar *{cursor:col-resize!important;user-select:none!important}
+/* Keep title wrapping stable when expanding branches introduces a scrollbar. */
+@media(min-width:761px){#sidebar{scrollbar-gutter:stable;grid-area:1/1}.layout>main{grid-area:1/2}.layout>.page-toc{grid-area:1/3}
+.sidebar-resizer{display:flex;grid-area:1/1;justify-self:end;align-self:start;position:sticky;top:68px;z-index:5;width:12px;height:calc(100vh - 68px);margin-right:-6px;cursor:col-resize;touch-action:none;align-items:center;justify-content:center}
+/* Keep the large grab area invisible; feedback belongs to the small grip. */
+.sidebar-resizer:focus-visible{outline:none}
+.sidebar-resizer::after{content:'';width:3px;height:32px;border-radius:999px;background:#b5c5bd}
+.sidebar-resizer:hover::after,body.resizing-sidebar .sidebar-resizer::after{background:var(--accent);box-shadow:0 0 0 4px var(--soft)}
+.sidebar-resizer:focus-visible::after{background:var(--accent);outline:2px solid var(--accent);outline-offset:4px}}
+.edition{font-size:10px;font-weight:600;letter-spacing:.11em;color:var(--muted);margin:0 0 28px}.nav-group{font-size:16px;font-weight:750;line-height:1.4;color:var(--ink);margin:28px 0 12px;padding:18px 0 0;border-top:1px solid var(--line)}.edition+.nav-group{margin-top:0;padding-top:0;border-top:0}#sidebar a{display:block;padding:8px 11px;text-decoration:none;color:var(--ink);line-height:1.55;border-left:2px solid transparent;border-radius:0 4px 4px 0;margin:3px 0}#sidebar a.nav-sub{padding-left:24px;font-size:14px;color:var(--muted)}#sidebar .nav-branch{border:0;margin:0;padding:0;background:none}.nav-branch>summary{list-style:none;cursor:pointer;font-size:12px;color:var(--muted);padding:4px 11px 4px 24px;border-radius:4px;user-select:none}.nav-branch>summary::-webkit-details-marker{display:none}.nav-branch>summary::before{content:'▸';display:inline-block;width:12px;color:var(--muted)}.nav-branch[open]>summary::before{content:'▾'}.nav-branch>summary:hover{background:#f8faf9;color:var(--ink)}.nav-branch>summary:focus-visible{outline:2px solid var(--accent);outline-offset:1px}#sidebar a:hover{background:#f8faf9}#sidebar a[aria-current=page]{color:var(--accent);background:#edf5f1;border-left-color:var(--accent);font-weight:600}.sidebar-note{border-top:1px solid var(--line);padding:22px 10px;margin-top:42px;font-size:12px;color:var(--muted)}
+/* Selected documents use one quiet surface; keyboard rings stay inside each row. */
+#sidebar a{border-radius:6px}
+#sidebar a[aria-current=page]{background:#edf5f1;border-left-color:transparent}
+#sidebar :is(a,.nav-branch>summary):focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+main{min-width:0;padding:40px 42px 28px;max-width:804px;width:100%;margin:0 auto}.breadcrumb{font-size:12px;color:var(--muted);margin:0 0 20px}.breadcrumb span{padding:0 9px;color:#a3ada8}h1{font-size:32px;letter-spacing:-.035em;line-height:1.35;margin:0 0 17px;font-weight:700}h2{font-size:22px;letter-spacing:-.025em;line-height:1.45;margin:38px 0 16px}h3{font-size:18px;margin-top:28px}p{margin:16px 0}article>p:first-child{font-size:17px;line-height:1.9;color:#49584f}article>p:first-child strong{font-weight:500}.page-state{display:flex;flex-wrap:wrap;gap:9px 16px;align-items:center;color:var(--muted);font-size:12px;margin-bottom:32px}.review-state{color:#865606;background:#fffaf0;border:1px solid #eee1c6;border-radius:4px;padding:2px 8px}
+.page-toc{position:sticky;top:68px;align-self:start;padding:40px 20px 20px 0;max-height:calc(100vh - 68px);overflow:auto;font-size:12px}.page-toc nav{border-left:1px solid var(--line);padding-left:20px}.page-toc p{font-weight:650;margin:0 0 12px}.toc ul{list-style:none;padding:0;margin:0}.toc li{margin:9px 0}.toc ul ul{padding-left:12px}.toc a{text-decoration:none;color:var(--muted)}.toc a:hover,.toc a[aria-current]{color:var(--accent)}.mobile-toc{display:none}
+.table-scroll{overflow-x:auto;margin:18px 0 28px;max-width:100%}table{width:100%;border-collapse:collapse;font-size:13px;line-height:1.7}th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--line);padding:12px 10px}th{font-weight:650;background:#f7f9f8;color:#46564d}td code{font-size:11px;overflow-wrap:anywhere}td:first-child{min-width:135px}
+code{font-family:"Geist Mono",Consolas,monospace;font-size:.86em;background:#f1f4f2;border-radius:3px;padding:2px 4px;word-break:break-word}pre{background:#18221e;color:#e2ebe5;padding:20px;border-radius:5px;overflow:auto;line-height:1.6}pre code{background:none;color:inherit;padding:0}.citation{text-decoration:none}.citation:hover{text-decoration:underline}blockquote{border-left:3px solid #8ba99e;padding:3px 18px;margin:24px 0;color:#526057;background:#f8faf9}
+details{border:1px solid var(--line);border-radius:5px;padding:12px 16px;margin:28px 0;font-size:13px}summary{cursor:pointer;font-weight:600}details ul{padding-left:20px}li+li{margin-top:6px}.mermaid{background:#fbfdfc;border:1px solid var(--line);padding:24px 12px;color:var(--ink);text-align:center;white-space:pre-wrap;overflow:auto;min-height:150px}.mermaid[data-ready]{cursor:zoom-in;position:relative}.mermaid svg{display:block;margin:auto;max-width:100%;height:auto}.diagram-hint{font-size:11px;color:var(--muted);text-align:right;margin:-10px 0 24px}.diagram-error{color:#865606;font-size:13px}
+.evidence{border-top:1px solid var(--line);margin-top:38px;padding-top:5px;font-size:12px;color:var(--muted)}.evidence h2{font-size:15px;margin-top:20px}.evidence dl{display:grid;grid-template-columns:115px minmax(0,1fr);gap:8px;margin:14px 0 20px}.evidence dd{margin:0;word-break:break-all}.evidence>a{margin-right:20px}.pagination{display:flex;gap:20px;justify-content:space-between;border-top:1px solid var(--line);margin-top:38px;padding-top:24px;font-size:14px}.pagination a{text-decoration:none;max-width:48%}.pagination small{display:block;color:var(--muted);font-size:11px;margin-bottom:5px}.pagination .next{margin-left:auto;text-align:right}footer{border-top:1px solid var(--line);margin-top:40px;padding-top:22px;color:var(--muted);font-size:11px}
+dialog{color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:6px;padding:24px;max-height:88vh}dialog::backdrop{background:rgba(16,30,22,.48)}.dialog-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px}.dialog-head h2{font-size:19px;margin:0}.dialog-head button{font-size:12px}#search-dialog{width:min(640px,94vw)}dialog label{font-size:13px}input{padding:10px 12px;border:1px solid #cbd5cf;border-radius:4px;background:white;color:var(--ink);min-width:0}#search-input{width:100%;margin-top:8px}#search-count{font-size:12px;color:var(--muted)}#search-results{list-style:none;padding:0;max-height:48vh;overflow:auto}#search-results a{display:block;text-decoration:none;padding:10px 12px;border-radius:4px}#search-results a:hover{background:var(--soft)}#search-results small{display:block;color:var(--muted);font-size:11px}
+#diagram-dialog{width:96vw;height:90vh;max-width:1500px;padding:18px}#diagram-dialog[open]{display:flex;flex-direction:column}.diagram-tools{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:12px;margin-bottom:14px}.diagram-tools input{width:200px;padding:6px 9px}.diagram-tools output{min-width:42px;text-align:center}#node-count{margin-right:auto;color:var(--muted)}#diagram-viewport{flex:1;min-height:0;overflow:auto;border:1px solid var(--line);background:#fafcfb}#diagram-canvas{min-width:100%;min-height:100%;width:max-content;padding:28px;display:flex;justify-content:center;align-items:center}#diagram-canvas svg{max-width:none!important;flex:none}.node.is-match rect,.node.is-match polygon,.node.is-match circle{stroke:#bb6500!important;stroke-width:3px!important;fill:#fff1ce!important}
+@media(min-width:761px){#menu-toggle{display:none}}
+@media(max-width:1150px){.layout{--sidebar-width:clamp(180px,var(--preferred-sidebar-width,220px),min(420px,45%));grid-template-columns:var(--sidebar-width) minmax(0,1fr)}.page-toc{display:none}.mobile-toc{display:block}main{padding:32px;max-width:784px}}
+@media(max-width:760px){.site-header{height:60px;padding:0 18px}.brand{font-size:15px;gap:8px}.brand-mark{font-size:23px}#search-open{width:auto;font-size:12px}#search-open kbd{display:none}#menu-toggle{font-size:12px}.layout{display:block}#sidebar{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:20px}body.js #sidebar:not(.is-open){display:none}.edition,.sidebar-note{display:none}main{padding:28px 20px}.breadcrumb{font-size:11px}h1{font-size:28px}h2{font-size:21px}.page-state{margin-bottom:24px}.diagram-tools input{width:150px}.diagram-tools label{display:none}#diagram-dialog{padding:12px;max-height:94vh}.evidence dl{grid-template-columns:1fr;gap:3px}.evidence dd{margin-bottom:10px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+@media print{.site-header,#sidebar,.sidebar-resizer,.page-toc,.mobile-toc,.pagination,dialog,.diagram-hint{display:none!important}.layout{display:block}main{max-width:none;padding:0}.table-scroll{overflow:visible}table{min-width:0}details{display:block}footer{font-size:10px}}
+/* The native disclosure keeps language switching available without JavaScript. */
+.language-selector { position: relative; font-size: 14px; margin: 0; padding: 0; align-self: center; }
+.language-selector summary { cursor: pointer; padding: .4rem .65rem; white-space: nowrap; }
+.language-selector nav { position: absolute; right: 0; top: 100%; min-width: 130px; padding: .4rem; background: white; border: 1px solid #cbd8d2; border-radius: 6px; z-index: 50; box-shadow: 0 4px 12px #17201e18; }
+.language-selector nav a { display: block; padding: .4rem .65rem; }
+.language-selector [aria-current] { font-weight: 700; background: #edf5f1; }
+.translation-note { font-size: 13px; color: #52635c; border-left: 3px solid #8ba99e; padding-left: 12px; }
+@media(max-width:760px){.site-header{height:auto;min-height:60px;flex-wrap:wrap;padding:10px 18px;gap:8px}.brand{flex:1 1 100%}.header-actions{margin-left:auto}.language-selector{font-size:12px}}
+/* Glossary terms: folded per-page list, underlined first use in the text and an in-place meaning box. */
+details.page-terms{margin:18px 0 26px;padding:10px 14px;background:var(--soft);font-size:14px}details.page-terms summary{font-weight:600;color:#33433c}details.page-terms[open] summary{margin-bottom:8px}
+button.term{display:inline;font:inherit;color:inherit;background:none;border:0;border-radius:0;padding:0;margin:0;cursor:help;text-decoration:underline dotted #6f8b80;text-decoration-thickness:1.5px;text-underline-offset:4px}button.term:hover,button.term[aria-expanded=true]{background:#edf5f1;text-decoration-color:var(--accent)}
+#term-popover{position:absolute;z-index:40;background:#fff;border:1px solid #cbd8d2;border-radius:6px;padding:12px 15px;box-shadow:0 8px 22px #17201e26;font-size:14px;line-height:1.7}#term-popover p{margin:4px 0 8px}#term-popover a{font-size:13px}
+@media print{button.term{text-decoration:none}#term-popover{display:none}}
+
+/* Reader navigation is a short choice table, including on narrow screens. */
+.reading-routes table{min-width:0;table-layout:fixed}.reading-routes td:first-child{min-width:0}.reading-routes th,.reading-routes td{overflow-wrap:anywhere}
+
+/* Phones read tables of three or more columns as one labelled block per row, without sideways scrolling. */
+@media screen and (max-width:760px){.table-scroll.stack{overflow:visible}.stack thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.stack table,.stack tbody,.stack tr,.stack td{display:block;width:auto;min-width:0}.stack tr{border:1px solid var(--line);border-radius:6px;padding:4px 14px;margin:0 0 12px}
+.stack td,.stack td:first-child{border:0;padding:7px 0;min-width:0;overflow-wrap:anywhere}.stack td+td{border-top:1px solid var(--line)}
+.stack td::before{content:attr(data-label);display:block;font-size:11px;font-weight:650;color:var(--muted);line-height:1.5;margin-bottom:2px}.stack td[data-label=""]::before{content:none}}
+
+/* Page state badges are short words; the exact record stays in the page evidence. */
+/* Three visible levels: audience, task, then document. */
+.nav-section{margin:0 0 18px 3px;padding-left:9px;border-left:1px solid var(--line)}
+.nav-section>h2{font-size:11px;font-weight:650;line-height:1.6;letter-spacing:.02em;margin:0 0 5px 11px;color:var(--muted)}
+#sidebar .nav-section>a{margin-left:0}
+.state-help{font-size:12px;color:var(--muted)}.state-help:hover{color:var(--accent)}
+
+/* Evidence belongs to the preceding paragraph; native disclosure works offline. */
+details.source-excerpts{margin:16px 0;overflow-wrap:anywhere}.source-excerpts>details{margin:12px 0}.source-excerpts>summary{min-height:28px}
+details.evidence-links{border:0;border-left:2px solid var(--line);border-radius:0;padding:0 12px;margin:-7px 0 20px;font-size:12px;color:var(--muted)}
+.evidence-links>summary{font-weight:400;padding:4px 0;min-height:28px;width:fit-content}
+.evidence-links>summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.evidence-links ul{list-style:none;padding:0;margin:8px 0 12px}.evidence-links li{margin:8px 0;overflow-wrap:anywhere}
+.evidence-links li>code{background:none;padding:0;color:var(--ink)}.evidence-lines{display:block;line-height:2.1}
+.evidence-lines a{display:inline-block;margin-right:4px}.evidence-lines a:focus-visible{outline:2px solid var(--accent)}
+details.evidence-section{border-top:1px solid var(--line);border-left:0;margin:8px 0 24px;padding:5px 0 0}
+
+/* Mobile navigation is a viewport drawer; static navigation remains available without scripts. */
+.menu-backdrop,.sidebar-close{display:none}
+.previous-route:not(:target){display:none}.previous-route{scroll-margin-top:calc(var(--site-header-height,68px) + 16px);padding:12px;border:1px solid var(--line);margin:12px 0}.previous-route p{margin:0 0 4px;font-size:12px;color:var(--muted)}
+html.menu-open,html.menu-open body{overflow:hidden}
+.evidence-return{position:sticky;top:calc(var(--site-header-height,68px) + 8px);z-index:2;margin:10px 0;background:#fff}
+.index-tools{display:grid;grid-template-columns:minmax(160px,2fr) minmax(130px,1fr) minmax(100px,1fr) auto;gap:12px;align-items:end;padding:16px;margin:20px 0;background:var(--soft);border:1px solid var(--line);border-radius:6px}
+.index-tools label{display:grid;gap:4px;min-width:0;font-size:12px}.index-tools :is(input,select){width:100%;min-width:0;font:inherit;font-size:14px;padding:8px;border:1px solid #cbd5cf;border-radius:4px;background:#fff;color:var(--ink)}
+.index-tools button{font-size:13px;min-height:40px}.index-tools p{grid-column:1/-1;margin:0;font-size:12px;color:var(--muted)}
+tr[id^="symbol-"]:target{background:#edf5f1}tr[id^="symbol-"]{scroll-margin-top:calc(var(--site-header-height,68px) + 16px)}
+.diagram-pan-hint{font-size:12px;color:var(--muted);margin:0 0 10px}
+@media(max-width:760px){
+  body.js #sidebar{position:fixed;top:var(--site-header-height,104px);bottom:0;left:0;width:min(360px,calc(100vw - 36px));height:auto;max-height:calc(100dvh - var(--site-header-height,104px));overflow:auto;overscroll-behavior:contain;z-index:60;background:#fff;border-right:1px solid var(--line);box-shadow:6px 0 24px #17201e26}
+  .menu-backdrop{display:block;position:fixed;inset:var(--site-header-height,104px) 0 0;z-index:50;border:0;border-radius:0;background:#17201e70;padding:0}.menu-backdrop:hover{background:#17201e70}
+  .sidebar-close{display:block;margin:0 0 18px auto;min-height:44px}
+  .index-tools{grid-template-columns:1fr 1fr;padding:12px;gap:10px}.index-tools label:first-child{grid-column:1/-1}.index-tools :is(input,select,button){min-height:44px}
+  #diagram-dialog .dialog-head button,.diagram-tools button{min-width:44px;min-height:44px}.diagram-tools input{min-height:44px;flex:1;max-width:100%}.diagram-tools{gap:8px}.diagram-pan-hint{line-height:1.5}
+}
+@media print{.menu-backdrop,.sidebar-close,.index-tools,.evidence-return{display:none!important}}
+
+Follow-up: prior review flagged hidden attribute override; reading.css globally has [hidden]{display:none!important}. Multi-destination aliases and leaving evidence scroll restoration have now been fixed. Check the complete updated diff.
