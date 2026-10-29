@@ -1,0 +1,37 @@
+from pathlib import Path
+from sdd.config import AgentConfig
+from sdd.llm import Agent
+import json,shutil
+
+root=Path.cwd();work=root/'build/prose-cleanup'
+inventory=json.loads((work/'inventory-before.json').read_bytes())
+groups=[['index','vendor-overview','vendor-integration','vendor-assurance','team-overview','overview','onboarding','component-index'],
+        ['camera-model','camera-requests','pipeline-handler','pipeline-requests','request-lifecycle','request-diagnosis','framebuffer-allocator','scenarios/queue_request','scenarios/complete_request','scenarios/camera_stop'],
+        ['ipa','ipa-algorithms','ipa-module-validation','ipu3-lsc','ipu3-lsc-flow','ipu3-lsc-prepare','rkisp1-dewarp','glossary','scenarios/manager_start','scenarios/configure','scenarios/camera_start','scenarios/index']]
+schema={'type':'object','properties':{'pages':{'type':'array','items':{'type':'object','properties':{
+    'page':{'type':'string'},'decision':{'type':'string','enum':['keep','change']},'reason':{'type':'string'},
+    'findings':{'type':'array','items':{'type':'object','properties':{'units':{'type':'array','items':{'type':'string'}},
+        'kind':{'type':'string','enum':['adjacent-repeat','cross-page-repeat','verbose','translation-repeat','stale-guidance']},
+        'reason':{'type':'string'},'suggestion':{'type':'string'},'preserve':{'type':'array','items':{'type':'string'}}},
+        'required':['units','kind','reason','suggestion','preserve'],'additionalProperties':False}}},
+    'required':['page','decision','reason','findings'],'additionalProperties':False}}},'required':['pages'],'additionalProperties':False}
+system=('한국어와 영어의 실제 읽기 본문 전체를 편집 감사합니다. 표·코드·접힌 감사 자료는 이미 제외했습니다. '
+    '각 페이지를 빠짐없이 keep/change로 기록하고 실제 불필요한 반복·늘어진 설명만 제시하세요. '
+    '독립 전달 문서에 필요한 짧은 요약과 안전 경계, 주체·시점·조건·예외·may/must·반환값·소유권·스레드를 삭제하지 마세요. '
+    '긴 문장이더라도 고유한 정보면 유지합니다. 서로 다른 함수·조건을 같은 내용으로 취급하지 마세요. '
+    '중복 상세는 기준 문서와의 짧은 요약/연결을 제안하되 실제 문서에 없는 지식으로 대체하지 마세요. '
+    '수정할 원고는 아직 생성하지 말고 문단 ID와 보존할 고유 사실을 명시하세요. '
+    '같은 문서의 한영판은 내용 보존과 번역 장황함도 함께 대조하세요. 도구는 없습니다. 자동 감사는 사람 승인이 아닙니다.')
+for i,names in enumerate(groups,1):
+    out=work/f'audit-{i}';out.mkdir(exist_ok=True)
+    selected=[dict(page=p['page'],title=p['title'],units=[{k:u[k] for k in ('id','heading','text')} for u in p['units']])
+              for p in inventory['pages'] if p['page'].removeprefix('en/').removesuffix('.html') in names]
+    request=json.dumps(selected,ensure_ascii=False)
+    assert len(request)<100000,len(request)
+    cfg=AgentConfig(kind='cli',runner='codex',model='gpt-6.1-terra',command=[shutil.which('codex')],args=['-c','model_reasoning_effort="high"'],max_input_chars=110000,timeout_sec=600)
+    (out/'input.json').write_text(request,encoding='utf-8');print('Audit',i,len(selected),'pages',len(request),'characters',flush=True)
+    result=Agent(cfg,out/'prompts').chat(system,request,tag=f'prose-audit-{i}',response_schema=schema)
+    data=json.loads(result)
+    assert {p['page'] for p in data['pages']}=={p['page'] for p in selected}
+    (out/'result.json').write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    print('Completed',i,'change candidates',sum(len(p['findings']) for p in data['pages']),flush=True)

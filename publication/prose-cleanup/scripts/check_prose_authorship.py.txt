@@ -1,0 +1,47 @@
+"""Read-only archive/answer matching; this is not an independent fresh-model trial."""
+from pathlib import Path
+import json,re
+from sdd.config import load,AgentConfig
+from sdd.facts.model import KnowledgeModel
+from sdd.call_records import iter_records
+from sdd.cli_provenance import verify_cli_receipt
+from sdd.generated_design import normalize_answer,resolve_passages,verify
+from sdd.document_metadata import split_frontmatter
+from sdd.provenance import same_answer
+
+w=Path('build/prose-cleanup');cfg=load(w/'sdd-e117.yaml');model=KnowledgeModel.load(cfg.facts_path)
+calls=cfg.build_dir/'prompts/calls';expected=AgentConfig(kind='cli',runner='codex',model='gpt-6.1-terra')
+responses={};receipts=0
+for record in iter_records(calls):
+    verify_cli_receipt(record.request,record.raw,record.receipt,calls,expected);receipts+=1
+    user=record.request['user']
+    try:
+        data=json.loads(re.sub(r'^```(?:json)?\s*|\s*```$','',record.raw.strip()))
+        payload,_=json.JSONDecoder().raw_decode(user[user.index('{'):])
+        if 'sources' in payload:sources=payload['sources'];topic=payload.get('topic','')
+        elif user.startswith('근거:\n'):sources=payload;topic=user.split('\n질문: ',1)[1].split('\n출력: ',1)[0]
+        else:continue
+        passages={i['quote_id']:(sid,i['text'].strip()) for sid,blocks in sources.items() for i in blocks if i.get('quote_id')}
+        statements=resolve_passages(data['statements'],passages)
+        normalize_answer(model,statements,['\n'.join(b['text'] for b in blocks) for blocks in sources.values()]+[topic,*[v for blocks in sources.values() for b in blocks for v in b.get('scope',{}).values()]])
+    except (ValueError,KeyError,TypeError,AttributeError):continue
+    responses.setdefault(record.receipt['tag'],[]).extend(statements)
+report=[]
+for section in cfg.sections():
+    if section.get('design_generation')!='llm':continue
+    path=cfg.sdd_dir/section['output'];text=path.read_text(encoding='utf-8');meta,_=split_frontmatter(text)
+    verify(model,section,text,cfg=cfg)
+    count=0
+    for tid,answers in meta['generated_design']['answers'].items():
+        for answer in answers:
+            prefix=f"{section['id']}_{tid}_"+(answer['part_id']+'_' if 'part_id' in answer else '')
+            if 'subpart_id' in answer:prefix+=f"sub{answer['subpart_id']}_"
+            original={k:v for k,v in answer.items() if k not in ('part_id','subpart_id')}
+            possible=[st for tag,rows in responses.items() if re.fullmatch(re.escape(prefix)+r'\d+(?:_revision)?',tag) for st in rows]
+            assert any(same_answer(original,st) for st in possible),(path,tid,answer.get('part_id'))
+            count+=1
+    report.append(dict(page=section['output'],matched_answers=count,current_source_contract='passed'))
+assert len(report)==19
+result=dict(scope='Current-source contracts and original CLI archive authorship for 19 LLM documents; historical receipt and completed checkpoint reuse are retained, not counted as new independent trials.',source_commit=model.meta['source_commit'],verified_cli_receipts=receipts,pages=report,human_review='pending')
+(w/'archived-authorship-e117.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+print(json.dumps(dict(verified_cli_receipts=receipts,documents=len(report),matched_answers=sum(p['matched_answers'] for p in report)),ensure_ascii=False),flush=True)

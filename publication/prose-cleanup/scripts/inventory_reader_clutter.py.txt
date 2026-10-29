@@ -1,0 +1,69 @@
+from pathlib import Path
+from html.parser import HTMLParser
+from collections import Counter
+import json,re
+
+class Node:
+    def __init__(self,tag='',attrs=(),parent=None):
+        self.tag,self.attrs,self.parent,self.children=tag,dict(attrs),parent,[]
+    def text(self):
+        return re.sub(r'\s+',' ',''.join(c if isinstance(c,str) else c.text() for c in self.children)).strip()
+    def all(self,tag=None):
+        for child in self.children:
+            if isinstance(child,Node):
+                if tag is None or child.tag==tag:yield child
+                yield from child.all(tag)
+    def find(self,tag):return next(self.all(tag),None)
+    def ancestors(self):
+        node=self.parent
+        while node:
+            yield node
+            node=node.parent
+class DOM(HTMLParser):
+    def __init__(self,value):
+        super().__init__(convert_charrefs=True)
+        self.root=Node();self.stack=[self.root];self.feed(value)
+    def handle_starttag(self,tag,attrs):
+        node=Node(tag,attrs,self.stack[-1]);self.stack[-1].children.append(node)
+        if tag not in {'area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr'}:self.stack.append(node)
+    def handle_startendtag(self,tag,attrs):self.handle_starttag(tag,attrs);self.handle_endtag(tag)
+    def handle_endtag(self,tag):
+        for i in range(len(self.stack)-1,0,-1):
+            if self.stack[i].tag==tag:self.stack=self.stack[:i];break
+    def handle_data(self,value):self.stack[-1].children.append(value)
+
+def main():
+    root=Path.cwd()
+    site=root/'build/publication/libcamera-sdd/docs'
+    out=root/'build/reader-cleanup';out.mkdir(exist_ok=True)
+    manifest=json.loads((site/'site-manifest.json').read_bytes())
+    pages=[]
+    for name in manifest['outputs']:
+        if not name.endswith('.html'):continue
+        doc=DOM((site/name).read_text(encoding='utf-8')).root
+        article=doc.find('article');tables=[];heading=''
+        for node in article.all():
+            if node.tag in ('h2','h3'):heading=node.text()
+            if node.tag!='table':continue
+            rows=[[cell.text() for cell in row.children if isinstance(cell,Node) and cell.tag in ('td','th')] for row in node.all('tr')]
+            links=[dict(a.attrs,text=a.text()) for a in node.all('a')]
+            tables.append(dict(heading=heading,headers=rows[0] if rows else [],rows=rows[1:],links=links,
+                folds=[p.find('summary').text() for p in node.ancestors() if p.tag=='details' and p.find('summary')],
+                empty_cells=sum(not c for row in rows[1:] for c in row)))
+        paragraphs=[n.text() for n in article.children if isinstance(n,Node) and n.tag=='p']
+        headings=[dict(id=n.attrs.get('id'),text=n.text()) for n in article.all() if n.tag in ('h2','h3')]
+        nav=[dict(n.attrs,text=n.text()) for n in doc.all('a') if any(p.tag=='nav' and p.attrs.get('class')=='pagination' for p in n.ancestors())]
+        pages.append(dict(page=name,title=doc.find('h1').text(),tables=tables,paragraphs=paragraphs,headings=headings,pagination=nav))
+    report=dict(scope='All manifest-owned reader-facing HTML pages; historical publication archives are evidence, not reading pages.',baseline_build_id=manifest['build_id'],pages=pages)
+    (out/'inventory-before.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    for page in pages:
+        if page['page'].startswith('en/'):continue
+        print(page['page'],page['title'])
+        for index,table in enumerate(page['tables']):
+            print(' ',index,table['heading'],table['headers'],'rows=',len(table['rows']),'empty=',table['empty_cells'],'folds=',table['folds'])
+            if len(table['rows'])<=6:print('   ',table['rows'])
+        print(' paragraphs:',page['paragraphs'][:1],page['paragraphs'][-2:])
+    print('TOTAL',len(pages),'pages',sum(len(p['tables']) for p in pages),'tables')
+
+if __name__ == "__main__":
+    main()
