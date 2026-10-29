@@ -1,22 +1,18 @@
 ---
-generated_at: 2026-10-27T20:47:22+00:00
-source_commit: e117198c015057761bb0bbaa85f963c41ce412d7
+generated_at: 2026-10-29T20:32:18+00:00
+source_commit: 212c689fcf2450bbfbaab25c7472895ac277b5d6
 status: ok
 section: ipu3-lsc
 generation_method: extracted-structure
 evidence_fingerprint: ea0a1be98289a029e50beb0b5ee846ae82f2435348b23ed6c994ff019ac68dd3
 semantic_review: human-review-required
-revalidated_from: 182307a772ebebf173ee84911906da707718485f
 ---
 
 # IPU3 LSC와 상태 연결
 
 **현재 커밋의 LSC 구현과 IPU3 상태 연결을 확인하세요.**
 
-| 지금 확인할 내용 | 이동할 절 |
-|---|---|
-| 구조 설명 절을 확인합니다. | [구조 설명](#구조-설명) |
-| 관련 자유 함수 절을 확인합니다. | [관련 자유 함수](#관련-자유-함수) |
+
 
 ## 구조 설명
 
@@ -93,8 +89,8 @@ flowchart LR
     - 생성 방식: 추출 사실로 만든 구조 설명
     - 검증 범위: 클래스와 관계를 facts에서 구성합니다. 실행 동작을 검증하지 않습니다.
     - 근거 파일: `src/ipa/ipu3/algorithms/lsc.cpp`, `src/ipa/ipu3/algorithms/lsc.h`, `src/ipa/ipu3/ipa_context.h`, `src/ipa/libipa/lsc.h`
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `182307a772`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `212c689fcf`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-10-28 · 사람 검토 전
+    - 검토 상태 기록일: 2026-10-30 · 사람 검토 전
 
 다음 단계: [IPU3 LSC의 설정과 프레임 처리](ipu3-lsc-flow.md)
