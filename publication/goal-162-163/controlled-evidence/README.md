@@ -34,4 +34,4 @@ python restore_controlled_evidence.py controlled-trials.zip --out restored --pre
 
 브라우저 기준 텍스트·화면, 고정 자동 독자 평가의 요청·응답, 코드 검토, 동결한 시험 런타임과 실행 스크립트도 보존합니다. ZIP 생성 때 진행 중이던 전체 회귀 같은 비모델 로그는 그 시점의 부분 스냅샷입니다. 최종 CI와 최신 소스 전체 파이프라인 결과는 별도 기록을 사용하세요. 자격증명·CLI 실행 파일·가상환경·Git 저장소·사내 자료는 포함하지 않습니다. 집필 지문과 실제 요청은 보존하지만 완전한 개발 환경 설치 이미지가 아닙니다.
 
-실제 사람의 과업 성공·읽기 부담 측정은 수행되지 않았습니다. 생성기 저장소의 [고정 절차](https://github.com/TTolsun/camera-hal-sdd-generator/blob/codex/issues-162-163-evidence/docs/libcamera/records/goal-162-163/reader-protocol.md)와 빈 기록 양식을 사용합니다. 자동 판독을 사람 평가로 계산하지 않으며 #163과 전체 Goal은 그 조건이 남으면 완료하지 않습니다.
+실제 사람의 과업 성공·읽기 부담 측정은 수행되지 않았습니다. 생성기 저장소의 [고정 절차](https://github.com/TTolsun/camera-hal-sdd-generator/blob/d099cd2ab5a066fa3842a68419c899b483c14783/docs/libcamera/records/goal-162-163/reader-protocol.md)와 빈 기록 양식을 사용합니다. 자동 판독을 사람 평가로 계산하지 않으며 #163과 전체 Goal은 그 조건이 남으면 완료하지 않습니다.
