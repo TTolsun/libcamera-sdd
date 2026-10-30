@@ -1,0 +1,184 @@
+{
+  "reviews": {
+    "review-source-distinctions": {
+      "seconds": 12.02019619999919,
+      "input_characters": 30602,
+      "result": {
+        "findings": [
+          {
+            "severity": "high",
+            "problem": "_different_bound_booleans exempts an entire pair when any shared member has opposite values. Two claims can therefore repeat the same behavior under a shared guard while also mentioning an opposite value for another flag; the repeated portion bypasses duplicate detection. The single-guard restriction in _different_guards does not apply here.",
+            "repair": "Limit the exemption to claims whose complete relevant guard and effect can be compared unambiguously. Keep mixed claims eligible for duplicate review when they contain a repeated portion."
+          },
+          {
+            "severity": "high",
+            "problem": "The boolean exemption uses source code only to resolve a short field name. It does not establish that the claimed guards or effects occur in the bound source. A source containing the member, together with valid quotes, can therefore exempt invented opposing conditions.",
+            "repair": "Require source evidence for the compared guard and its associated effect before using the difference to suppress a duplicate finding; otherwise retain the finding."
+          },
+          {
+            "severity": "high",
+            "problem": "The suffix check for negation applies only to shortened fields that are replaced. Once any short field is qualified, _members also parses already-qualified fields without that check. A qualified claim such as `frameContext.lsc.enabled` true가 아니면 can consequently be treated as true and used as an opposite guard.",
+            "repair": "Validate the full polarity and certainty of every boolean claim used in the comparison, including already-qualified members, and reject ambiguous or negated forms that cannot be parsed reliably."
+          },
+          {
+            "severity": "high",
+            "problem": "_different_indexed_writes verifies only that each destination appears on the left of an assignment. It never verifies the right-hand side. Assignments of constants, swapped channels, or unrelated values satisfy the check even though they do not support the claimed channel-to-destination writes.",
+            "repair": "Match each complete code assignment to its claimed source expression and destination, using code-aware parsing that excludes comments and literals."
+          },
+          {
+            "severity": "medium",
+            "problem": "Distinct destination spellings and channel names do not establish distinct storage. For example, r_and_gr and gb_and_b can be union members that overlap; all four assignment checks can pass while the claimed writes target overlapping locations.",
+            "repair": "Require evidence that the destination paths denote distinct fields without aliasing, or conservatively retain the duplicate finding when the source does not establish that distinction."
+          }
+        ],
+        "limitations": "Review is limited to the supplied diff, tests, and excerpts. No tools were used and the tests were not independently run."
+      },
+      "human_review": "pending"
+    },
+    "review-source-distinctions-v2": {
+      "seconds": 13.802007999969646,
+      "input_characters": 37231,
+      "result": {
+        "findings": [
+          {
+            "severity": "medium",
+            "problem": "The indexed-write parser accepts an explicit function owner but discards it. Consequently, a claim naming a different function can be treated as source-proven whenever the bound source contains the four matching assignments, even if those assignments belong to another function. The supplied indexed source excerpt contains no function definition against which the owner is checked.",
+            "repair": "Retain the claimed owner and verify it against authenticated function context containing the assignments. If that context is unavailable or the owner does not match, do not grant the distinction."
+          },
+          {
+            "severity": "medium",
+            "problem": "The boolean proof does not require the two claimed fields to differ. A source tree such as `if (!state.flag) { if (!state.flag) return; ... }` can match the proof for claims that require the same flag to be both false and true. The purported positive branch is unreachable, yet it can suppress a duplicate finding.",
+            "repair": "Reject claims where the two normalized field paths are identical, and add a regression test for the contradictory nested guard."
+          }
+        ],
+        "limitations": "Review was limited to the supplied excerpts; no tools or tests were run."
+      },
+      "human_review": "pending"
+    },
+    "review-source-distinctions-v3": {
+      "seconds": 15.351231699984055,
+      "input_characters": 38740,
+      "result": {
+        "findings": [
+          {
+            "severity": "high",
+            "problem": "The boolean proof allows statements such as `return`-free `throw` or an unconditional `goto` before the matched guard. Either can make the entire return tree unreachable, yet the prefix check accepts it and suppresses the duplicate finding.",
+            "repair": "Require the matched guard to be reachable from the function entry, or conservatively reject preceding control transfers and other constructs whose control flow cannot be proven."
+          },
+          {
+            "severity": "medium",
+            "problem": "The comparison claim accepts any Korean noun in the optional phrase `원래 ...` and verifies the absolute-difference operation solely from the called function's name ending in `abs_diff`. The source match therefore does not establish either the asserted meaning of the operand or the function's behavior, so an unsupported claim can receive the distinction.",
+            "repair": "Restrict the accepted claim to semantics established by authenticated source evidence, including the comparison function's behavior and any asserted operand meaning; otherwise decline the distinction."
+          },
+          {
+            "severity": "medium",
+            "problem": "Both proofs can treat code inside an inactive preprocessor branch such as `#if 0` as executable source. The guard or assignments may therefore be absent from the compiled function while still suppressing a duplicate finding.",
+            "repair": "Account for preprocessing under the relevant build configuration, or conservatively reject proofs involving conditional compilation that cannot be resolved."
+          }
+        ],
+        "limitations": "Review based only on the supplied diff, excerpts, and test descriptions; no tools or tests were run."
+      },
+      "human_review": "pending"
+    },
+    "review-source-distinctions-v5-code": {
+      "seconds": 19.831461400026456,
+      "input_characters": 31156,
+      "result": {
+        "findings": [
+          {
+            "severity": "high",
+            "problem": "The boolean proof calls `_function_span` on the result of `_code`, after `_code` has removed line splices. Consequently, `_function_span` cannot enforce its rejection of spliced source. This can expose non-code text as a return tree: a C++ raw string containing `)\\` followed by a newline and `\"` remains open in the original source, but `_code` joins those characters into `)\"` and can treat subsequent text inside the raw string as code. A fabricated matching guard and quotes inside that string can therefore make duplicate statements appear distinct.",
+            "repair": "Reject physical line splices in the original source before calling `_code` for the boolean proof, and add a regression case with a spliced apparent raw-string terminator enclosing the claimed return tree."
+          }
+        ],
+        "limitations": "The review is limited to the supplied excerpts and was not verified by executing tests. Distinguishing claims does not establish their factual grounding."
+      },
+      "human_review": "pending"
+    },
+    "review-source-distinctions-v5-tests": {
+      "seconds": 22.006589099997655,
+      "input_characters": 38635,
+      "result": {
+        "findings": [
+          {
+            "severity": "high",
+            "problem": "`_different_bound_booleans` treats the concatenation returned by `_source_text` as one source file. If both rows cite the same two authenticated records, one record can contain the function opening and negative return while another contains the comparison returns and closing brace. The joined text can pass the return-tree proof even though no individual source contains that function or tree.",
+            "repair": "Require both quotes and the complete return-tree proof to be bound to the same authenticated source record; do not parse a concatenation of evidence records as one translation unit."
+          },
+          {
+            "severity": "medium",
+            "problem": "The boolean proof calls `_function_span` with the output of `_code`, which has already removed escaped physical newlines. Consequently, `_function_span` cannot detect and decline a line-spliced source as intended; inserting a splice into an otherwise accepted guard source still permits the distinction.",
+            "repair": "Check the original authenticated source for line splices before calling `_code`, or pass the original source to a span parser that preserves and rejects them."
+          }
+        ],
+        "limitations": "The review is based on the supplied excerpts; no tools or tests were run."
+      },
+      "human_review": "pending"
+    },
+    "review-source-distinctions-v6-closure": {
+      "seconds": 21.94836460001534,
+      "input_characters": 36008,
+      "result": {
+        "findings": [],
+        "limitations": "Review was limited to the supplied patch and excerpts; no tools or tests were run. Duplicate discrimination does not establish factual grounding, and the supplied consumer runs grounding only when its grounding option is enabled."
+      },
+      "human_review": "pending"
+    }
+  },
+  "final_closure": "review-source-distinctions-v6-closure",
+  "addressed": [
+    "whole-claim match and actual complete guard tree",
+    "full RHS/LHS authenticated function and selected line range",
+    "shadow/ambiguous field refusal",
+    "same flag rejection",
+    "control transfer and preprocessing refusal",
+    "original physical line splice refusal before normalization",
+    "single same authenticated source record for boolean proof"
+  ],
+  "not_guaranteed": [
+    "physical storage disjointness of distinct named channel writes",
+    "callee semantics or runtime reachability; factual grounding remains a separate mandatory configured publication check"
+  ],
+  "failed_preflight": "review-source-distinctions-v4: input cap exceeded before zero model calls; cap remained 40000",
+  "windows_test_failure": "Long pytest basetemp path exceeded Windows path length. Re-ran using a short own-workspace basetemp with no test change or added skip.",
+  "followups": {
+    "review-bound-threshold-reference": {
+      "seconds": 7.459820199990645,
+      "input_characters": 13379,
+      "result": {
+        "findings": [],
+        "limitations": "검토는 제공된 코드와 테스트 설명에 한정됩니다. 새 지시어로 인한 구체적인 잘못된 허용 사례는 확인하지 못했습니다. 테스트를 직접 실행하지 않았으며, fixture와 관련 헬퍼의 구현이 제공되지 않아 반대 비교 거부 테스트의 전체 실행 경로는 독립적으로 검증할 수 없습니다."
+      },
+      "human_review": "pending"
+    },
+    "review-explicit-channel-mapping": {
+      "seconds": 6.789215299999341,
+      "input_characters": 33305,
+      "result": {
+        "findings": [],
+        "limitations": "The review is limited to the supplied diff, helpers, fixture, and validation report. Tests were not independently run, and the full contract-validation and factual-grounding implementations were not provided."
+      },
+      "human_review": "pending"
+    },
+    "review-explicit-return-branch": {
+      "seconds": 6.215355299995281,
+      "input_characters": 28481,
+      "result": {
+        "findings": [],
+        "limitations": "Review was limited to the supplied diff, predicate, source excerpts, and reported test results; no tools were used and the tests were not independently run. The supplied diff adds the ‘그렇지 않으면’ alternative; ‘해당 값’ was already accepted, despite the follow-up description presenting it as the new change. The supplied new wrong-comparison test changes the first comparison in the complement wording; it does not separately test an opposite comparison using ‘해당 값’."
+      },
+      "human_review": "pending"
+    },
+    "review-explicit-return-branch-bound": {
+      "seconds": 5.233689600019716,
+      "input_characters": 31251,
+      "result": {
+        "findings": [],
+        "limitations": "Review was limited to the supplied diff, predicate, source excerpts, and reported test results. Tests were not independently run."
+      },
+      "human_review": "pending"
+    }
+  },
+  "final_review": "review-explicit-return-branch-bound",
+  "validation": "453 passed, 1 unchanged environment symlink skip; explicit-branch-final-tests.log. Final bound review follows the corrected current diff/context; stale prior description is preserved."
+}
