@@ -1,11 +1,11 @@
 ---
-generated_at: 2026-10-29T20:32:17+00:00
+generated_at: 2026-10-29T22:20:22+00:00
 source_commit: 212c689fcf2450bbfbaab25c7472895ac277b5d6
 status: ok
 section: scenarios
 entry: Camera::start(const ControlList *)
 scenario_id: camera_start
-scenario_fingerprint: 1b229ec7351d7c0b2944ce25ecd8b35cef3f8d02ba9585b713c9422e081ce937
+scenario_fingerprint: 32f0d03b3491b90ffb0736a642fac9e6a9d8a5ad23bf22f4fa5d67ba9f53f295
 generation_method: extracted-scenario
 ---
 
@@ -18,7 +18,7 @@ generation_method: extracted-scenario
 | `Camera::start(const ControlList *)`에서 시작한 정적 탐색으로 호출 기록 48개를 수집했습니다. | [이 흐름에서 확인할 것](#이-흐름에서-확인할-것) |
 | 아래 항목은 추출한 호출에서 고른 코드 탐색 지점입니다. | [주요 확인 지점](#주요-확인-지점) |
 | 화살표는 호출 측과 대상을 연결합니다. | [주요 호출 관계](#주요-호출-관계) |
-| facts에 기록된 호출은 48개이며, 요약의 hide 규칙에 해당하는 호출은 27개입니다. | [추적 범위와 경계](#추적-범위와-경계) |
+| 요약의 hide 규칙에 해당하는 호출은 27개입니다. | [추적 범위와 경계](#추적-범위와-경계) |
 | 아래 구간을 펼치면 요약에서 제외된 호출까지 확인할 수 있습니다. | [전체 추적 기록](#전체-추적-기록) |
 
 ## 이 흐름에서 확인할 것
@@ -51,7 +51,7 @@ flowchart LR
 
 ## 추적 범위와 경계
 
-facts에 기록된 호출은 48개이며, 요약의 hide 규칙에 해당하는 호출은 27개입니다. 전체 추적 기록에는 해당 호출도 모두 보존합니다. 기록 번호는 정적 탐색의 식별자이며 실행 순번이 아닙니다.
+요약의 hide 규칙에 해당하는 호출은 27개입니다. 전체 추적 기록에는 해당 호출도 모두 보존합니다. 기록 번호는 정적 탐색의 식별자이며 실행 순번이 아닙니다.
 
 조건 분기, 반복 횟수와 실제 실행 스레드는 이 호출 목록만으로 확정할 수 없습니다. 가상 호출 후보는 실제 객체에 따라 선택됩니다. 예약 표시는 인자로 전달한 메서드 대상을 뜻하며, 비동기 실행을 보증하지 않습니다. 호출부의 연결 방식과 동기화 계약을 확인해야 합니다.
 

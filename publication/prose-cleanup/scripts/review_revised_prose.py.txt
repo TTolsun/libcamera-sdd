@@ -1,0 +1,31 @@
+from pathlib import Path
+import json,shutil
+from sdd.config import AgentConfig
+from sdd.document_metadata import split_frontmatter
+from sdd.llm import Agent
+r=Path.cwd();w=r/'build/prose-cleanup';items=[]
+for name in ('ipa','ipu3-lsc-flow','team-overview','framebuffer-allocator'):
+    docs=[]
+    for folder in (r/'build/source-excerpts/manuscripts',w/'manuscripts'):
+        meta,_=split_frontmatter((folder/(name+'.md')).read_text(encoding='utf-8'))
+        docs.append({tid:[{k:v for k,v in row.items() if k!='quote'} for row in rows]
+                     for tid,rows in meta['generated_design']['answers'].items()})
+    findings=[]
+    for f in w.glob('audit-*/result.json'):
+        for p in json.loads(f.read_text(encoding='utf-8'))['pages']:
+            if p['page']==name+'.html':findings=p['findings']
+    items.append(dict(page=name,before=docs[0],after=docs[1],audit_findings=findings))
+schema={'type':'object','additionalProperties':False,'required':['pages'],'properties':{'pages':{'type':'array','items':{'type':'object','additionalProperties':False,'required':['page','unresolved_repetition','lost_required_information','notes'],'properties':{'page':{'type':'string'},'unresolved_repetition':{'type':'array','items':{'type':'string'}},'lost_required_information':{'type':'array','items':{'type':'string'}},'notes':{'type':'string'}}}}}}
+cfg=AgentConfig(kind='cli',runner='codex',model='gpt-6.1-terra',command=[shutil.which('codex')],args=['-c','model_reasoning_effort="high"'],max_input_chars=65000,timeout_sec=600)
+system=('본문 편집의 전후를 검토합니다. after는 별도 실제 CLI의 소스 근거 대조를 통과한 응답입니다. '
+        '각 문서 전체를 읽고 audit_findings의 실제 불필요한 반복이 해결됐는지, 보존 목록의 조건·예외·호출 책임·may/must·순서가 빠졌는지 판정하세요. '
+        '본문의 다른 topic으로 옮겨 한 번 남은 사실을 삭제로 판정하지 마세요. '
+        '서로 다른 함수·조건·대상의 고유한 설명과 독립 문서의 짧은 요약을 중복으로 취급하지 마세요. '
+        '같은 문단에서 같은 사실을 두 번 풀어 쓴 경우나 여러 절의 상세 반복만 unresolved_repetition에 구체적으로 적으세요. '
+        '근거 밖 새 정보를 만들어 보완을 요구하지 마세요. 자동 감사이며 사람 승인이 아닙니다.')
+out=w/'revision-review-v4';out.mkdir(exist_ok=True);payload=json.dumps(items,ensure_ascii=False)
+(out/'input.json').write_text(payload,encoding='utf-8')
+answer=Agent(cfg,out/'prompts').chat(system,payload,tag='revised-prose-review',response_schema=schema)
+data=json.loads(answer);assert len(data['pages'])==4
+(out/'result.json').write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+print(json.dumps(data,ensure_ascii=False),flush=True)

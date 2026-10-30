@@ -1,11 +1,11 @@
 ---
-generated_at: 2026-10-29T20:32:17+00:00
+generated_at: 2026-10-29T22:20:22+00:00
 source_commit: 212c689fcf2450bbfbaab25c7472895ac277b5d6
 status: ok
 section: scenarios
 entry: PipelineHandler::completeRequest(Request *)
 scenario_id: complete_request
-scenario_fingerprint: 81448bbfb8a7552c31efb256219ff67ac72b81882f949d2c447af1000f9fac6d
+scenario_fingerprint: cd861883aaa4fa13d5e12af7800b8d3eca0fb9fbf81fdb726d2a03f57c4a010e
 generation_method: extracted-scenario
 ---
 
@@ -18,7 +18,7 @@ generation_method: extracted-scenario
 | `PipelineHandler::completeRequest(Request *)`에서 시작한 정적 탐색으로 호출 기록 126개를 수집했습니다. | [이 흐름에서 확인할 것](#이-흐름에서-확인할-것) |
 | 아래 항목은 추출한 호출에서 고른 코드 탐색 지점입니다. | [주요 확인 지점](#주요-확인-지점) |
 | 화살표는 호출 측과 대상을 연결합니다. | [주요 호출 관계](#주요-호출-관계) |
-| facts에 기록된 호출은 126개이며, 요약의 hide 규칙에 해당하는 호출은 63개입니다. | [추적 범위와 경계](#추적-범위와-경계) |
+| 요약의 hide 규칙에 해당하는 호출은 63개입니다. | [추적 범위와 경계](#추적-범위와-경계) |
 | 아래 구간을 펼치면 요약에서 제외된 호출까지 확인할 수 있습니다. | [전체 추적 기록](#전체-추적-기록) |
 
 ## 이 흐름에서 확인할 것
@@ -72,7 +72,7 @@ flowchart LR
 
 ## 추적 범위와 경계
 
-facts에 기록된 호출은 126개이며, 요약의 hide 규칙에 해당하는 호출은 63개입니다. 전체 추적 기록에는 해당 호출도 모두 보존합니다. 기록 번호는 정적 탐색의 식별자이며 실행 순번이 아닙니다.
+요약의 hide 규칙에 해당하는 호출은 63개입니다. 전체 추적 기록에는 해당 호출도 모두 보존합니다. 기록 번호는 정적 탐색의 식별자이며 실행 순번이 아닙니다.
 
 조건 분기, 반복 횟수와 실제 실행 스레드는 이 호출 목록만으로 확정할 수 없습니다. 가상 호출 후보는 실제 객체에 따라 선택됩니다. 예약 표시는 인자로 전달한 메서드 대상을 뜻하며, 비동기 실행을 보증하지 않습니다. 호출부의 연결 방식과 동기화 계약을 확인해야 합니다.
 
