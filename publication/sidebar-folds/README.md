@@ -32,6 +32,8 @@ consistency checks select the independent review profile. It performs no histori
 
 Structural facts were reused from the hash-verified public archive and source212 overlay, then configured public source excerpts
 were recollected; [this release overlay](facts-overlay.json) records the differences. This is not fresh Clang extraction.
+Restore the previous source212 snapshot first, then use `restore_facts.py --base BASE --out OUT`.
+Its ordered evidence keys preserve the exact original serialized hash.
 Twenty-seven unchanged manuscripts, original visual drafts, prior model identities and human-review status remain intact.
 The previous root run and receipt index are copied byte-for-byte in [previous-release](previous-release/).
 
