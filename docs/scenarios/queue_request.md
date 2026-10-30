@@ -1,12 +1,13 @@
 ---
 generated_at: 2026-10-29T22:20:22+00:00
-source_commit: 212c689fcf2450bbfbaab25c7472895ac277b5d6
+source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
 status: ok
 section: scenarios
 entry: Camera::queueRequest(Request *)
 scenario_id: queue_request
 scenario_fingerprint: 1a24d5b555055d2168511b1cf3bb737eb47a69d159ab3ec336c65612fdb19565
 generation_method: extracted-scenario
+revalidated_from: 212c689fcf2450bbfbaab25c7472895ac277b5d6
 ---
 
 # 요청 제출 (Camera::queueRequest)

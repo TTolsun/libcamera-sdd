@@ -1,12 +1,13 @@
 ---
 generated_at: 2026-10-29T22:20:22+00:00
-source_commit: 212c689fcf2450bbfbaab25c7472895ac277b5d6
+source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
 status: ok
 section: scenarios
 entry: Camera::start(const ControlList *)
 scenario_id: camera_start
 scenario_fingerprint: 32f0d03b3491b90ffb0736a642fac9e6a9d8a5ad23bf22f4fa5d67ba9f53f295
 generation_method: extracted-scenario
+revalidated_from: 212c689fcf2450bbfbaab25c7472895ac277b5d6
 ---
 
 # 캡처 시작 (Camera::start)

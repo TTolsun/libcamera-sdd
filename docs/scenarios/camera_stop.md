@@ -1,12 +1,13 @@
 ---
 generated_at: 2026-10-29T22:20:22+00:00
-source_commit: 212c689fcf2450bbfbaab25c7472895ac277b5d6
+source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
 status: ok
 section: scenarios
 entry: Camera::stop()
 scenario_id: camera_stop
 scenario_fingerprint: be0689d0fb82f80b71bdb283bc50badfdefb854a5d1d3df800bfa426c8da3df1
 generation_method: extracted-scenario
+revalidated_from: 212c689fcf2450bbfbaab25c7472895ac277b5d6
 ---
 
 # 캡처 종료 요청 (Camera::stop)

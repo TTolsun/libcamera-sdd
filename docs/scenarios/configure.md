@@ -1,12 +1,13 @@
 ---
 generated_at: 2026-10-29T22:20:22+00:00
-source_commit: 212c689fcf2450bbfbaab25c7472895ac277b5d6
+source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
 status: ok
 section: scenarios
 entry: Camera::configure(CameraConfiguration *)
 scenario_id: configure
 scenario_fingerprint: fb24e34e2c7f4a5c63bef8e91e8202ca0c30dcb6bd8414ffe07efc9c7c929ccd
 generation_method: extracted-scenario
+revalidated_from: 212c689fcf2450bbfbaab25c7472895ac277b5d6
 ---
 
 # 스트림 구성 (Camera::configure)
