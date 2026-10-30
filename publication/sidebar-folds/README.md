@@ -1,10 +1,13 @@
 # Persistent sidebar navigation and allocator preconditions
 
-Generator [PR195](https://github.com/TTolsun/camera-hal-sdd-generator/pull/195), merged `0c1feca3254becc2be39a0c30f585f0c099c5095`.
+Generator [PR195](https://github.com/TTolsun/camera-hal-sdd-generator/pull/195) and follow-up
+[PR197](https://github.com/TTolsun/camera-hal-sdd-generator/pull/197), merged `774677a08bb710a65d0129f7bb7ce27995dd320b`.
 Official source and public upstream mirror both remain `212c689fcf2450bbfbaab25c7472895ac277b5d6`. No public recurring schedule was installed.
 
 Reader groups, task sections and scenario branches use native details/summary disclosures. Same-tab choices survive
 document/pagination links, reload, Korean/English switches and history, including rapid navigation and nested choices.
+The user's latest instruction sets every group, task and scenario branch to initially collapsed, including the current branch.
+Explicit previously saved open choices still restore under unchanged IDs.
 Folds restore before menu scroll. Mobile focus targets the outermost visible closed ancestor and controls have 44px touch targets.
 See [actual browser checks](browser-validation.json) and [build/link/repeat checks](build-validation.json).
 
@@ -17,6 +20,8 @@ New drafting and translation use independent Claude Code CLI 2.1.314, exact mode
 The official npm package is local to the task; its official Node wrapper resolves the executable. Global defaults were not changed.
 An initial native-executable launch error and a corrected question-contract validation failure remain archived. Successful
 checkpoint reuse is recorded separately and is not a new inference. Every new Claude native receipt exposes only the selected Haiku model.
+Six nested JSON response wrappers discovered in English display strings were rejected by the generator and actually
+retranslated through the same Haiku/high CLI. Their original values and receipts are retained; no saved wrapper was manually unwrapped.
 
 The complete changed allocator manuscript was independently grounded through Codex CLI `gpt-6.1-terra`,
 `-c model_reasoning_effort="high"`; see [review result](independent-grounding.json). Cross-document review uses the separate
@@ -32,12 +37,12 @@ consistency checks select the independent review profile. It performs no histori
 
 Structural facts were reused from the hash-verified public archive and source212 overlay, then configured public source excerpts
 were recollected; [this release overlay](facts-overlay.json) records the differences. This is not fresh Clang extraction.
-Restore the previous source212 snapshot first, then use `restore_facts.py --base BASE --out OUT`.
-Its ordered evidence keys preserve the exact original serialized hash.
+Restore the previous source212 snapshot first, then use restore_facts.py --base BASE --out OUT; ordered evidence keys preserve the exact serialized hash.
 Twenty-seven unchanged manuscripts, original visual drafts, prior model identities and human-review status remain intact.
 The previous root run and receipt index are copied byte-for-byte in [previous-release](previous-release/).
+The initially deployed sidebar run/catalog are retained in [initial-release](initial-release/).
 
-Build `efa07f052b201bc0c40b8f45d43a9ec1eb1850f5f0aaa5c86bc01f3e1bc04af0` has 257 manifest-owned outputs and zero broken links. The second build has the same manifest.
+Build `85bf88f3eed937d9536096ad920b3c6b5cc7702272e1af0f84f17e19083b3ad9` has 257 manifest-owned outputs and zero broken links. The second build has the same manifest.
 The site was generated through the ordinary export/verify gate; no generated HTML was manually edited.
 Pages workflow success and actual public URL/hash/browser checks are recorded after merge in
 [generator issue194](https://github.com/TTolsun/camera-hal-sdd-generator/issues/194).
