@@ -1,0 +1,1 @@
+{"findings":[],"limitations":"No concrete factual discrepancies were identified against the supplied actual summaries. The summaries do not independently establish the model configuration, receipt verification, retry causes, preservation details, or other claims whose underlying evidence was not supplied. This is an automatic review, not human approval."}
