@@ -1,12 +1,13 @@
 ---
 generated_at: 2026-10-29T22:20:22+00:00
-source_commit: 212c689fcf2450bbfbaab25c7472895ac277b5d6
+source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
 status: ok
 section: scenarios
 entry: PipelineHandler::completeRequest(Request *)
 scenario_id: complete_request
 scenario_fingerprint: cd861883aaa4fa13d5e12af7800b8d3eca0fb9fbf81fdb726d2a03f57c4a010e
 generation_method: extracted-scenario
+revalidated_from: 212c689fcf2450bbfbaab25c7472895ac277b5d6
 ---
 
 # 요청 완료 통지 (PipelineHandler::completeRequest)

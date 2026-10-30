@@ -1,12 +1,13 @@
 ---
 generated_at: 2026-10-29T22:20:22+00:00
-source_commit: 212c689fcf2450bbfbaab25c7472895ac277b5d6
+source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
 status: ok
 section: scenarios
 entry: CameraManager::start()
 scenario_id: manager_start
 scenario_fingerprint: cd1259592467fd5fcd35810d789ea55d2db35418700286e14384affaabeacf99
 generation_method: extracted-scenario
+revalidated_from: 212c689fcf2450bbfbaab25c7472895ac277b5d6
 ---
 
 # 카메라 탐색 (CameraManager::start)
