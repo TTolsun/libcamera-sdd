@@ -37,8 +37,9 @@ found an existing English paragraph expanding waiting requests to all pending re
 Haiku CLI retranslated it as all waiting requests; its Korean original was unchanged.
 The full audit rejected a generated claim that the cancelRequest body was unconfirmed. A corrected
 call-only question and separate submission/failure units regenerated through the same Haiku CLI
-remove that claim. Rejected artifacts and all verdicts remain in the evidence archive. The approval ledger and
-request-lifecycle.md, including its unexecuted callback investigation plan, are byte-identical;
+remove that claim. Rejected artifacts and all verdicts remain in the evidence archive. The effective human approval state is unchanged: no approval ledger exists in either original
+or current input, and both have no accepted pages or findings. See [approval state](approval-state.json).
+request-lifecycle.md, including its unexecuted callback investigation plan, is byte-identical;
 see [preservation](manuscript-preservation.json). No accept command was executed.
 [Independent grounding](independent-grounding.json) reviews all generated pipeline statements.
 The original historical figure identity remains solely for verification; no new inference
