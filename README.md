@@ -1,6 +1,6 @@
 # libcamera design documentation
 
-Current release: [navigation audit scope](publication/navigation-audit-scope/README.md), generator [PR207](https://github.com/TTolsun/camera-hal-sdd-generator/pull/207), build `4668d4888f21994b57b0f571b0912626c62b04b38afb4cd5b0c06763f20f57bd`, official public libcamera `293d751a814e0d4c34e85ad457ccd9d5eefd1a61`. [Korean and English site](https://ttolsun.github.io/libcamera-sdd/). Manuscripts and human approval state are preserved; actual callback execution remains unverified.
+Current release: [normal/stop conditions and bounded actual callbacks](publication/stop-completion-runtime/README.md), generator [PR209](https://github.com/TTolsun/camera-hal-sdd-generator/pull/209), build `be63d1f8ced0150f9c5fef10f44acbe644d19c812d85ec009a452e6ed3482bef`. [Korean and English site](https://ttolsun.github.io/libcamera-sdd/). Human review remains pending; physical camera/DMA/production/internal HAL validation remains incomplete.
 
 All earlier publication and CLI archives remain preserved under publication/, cli-runners/ and the historical Qwen directories. Their original model identities, exceptions and incomplete results are historical records, not new CLI generation claims. The immediately previous root run and receipt records are preserved in the current release package.
 
