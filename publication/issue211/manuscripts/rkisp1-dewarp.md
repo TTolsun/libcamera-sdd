@@ -1,0 +1,792 @@
+---
+generated_at: 2026-10-29T22:19:51+00:00
+source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
+status: ok
+section: rkisp1-dewarp
+generation_method: facts-and-llm
+evidence_fingerprint: 78bfab5c8bebd24b22351944891272d0b35753c7e43a3eb9d32901e1fa0f55b6
+semantic_review: human-review-required
+agent: cli/codex/gpt-6.1-terra
+generated_design: {"schema": 1, "input_fingerprint": "78bfab5c8bebd24b22351944891272d0b35753c7e43a3eb9d32901e1fa0f55b6", "answers": {"ownership": [{"text": "`RkISP1CameraData`는 각 카메라의 보정값을 `std::optional<Dw100VertexMap::DewarpParams>` 형식의 멤버 `dewarpParams_`에 보관합니다. `PipelineHandlerRkISP1::configure()`는 `cameraData(camera)`로 현재 카메라의 데이터를 가져오고, 메인 경로에서 보정기를 사용할 때 그 데이터의 `dewarpParams_`를 `dewarper_->configure()`에 전달합니다. 이 호출이 0이 아닌 값을 반환하면 그 값을 반환합니다.", "evidence": ["camera", "configure"], "covers": ["ownership"], "kind": "behavior", "quote": "bool canUseDewarper_;\n\tbool usesDewarper_;\n\tstd::optional<Dw100VertexMap::DewarpParams> dewarpParams_;"}, {"text": "`RkISP1CameraData::loadTuningFile()`은 보정기가 없으면 파일을 열지 않고 0을 반환합니다. 보정기가 있으면 파일을 읽기 전용으로 열며, 열기에 실패하면 파일 오류 값을 반환하고 YAML 파싱에 실패하면 `-EINVAL`을 반환합니다.", "evidence": ["load"], "covers": ["ownership"], "kind": "behavior", "quote": "if (!pipe()->dewarper_)\n\t\t/* Nothing to do without dewarper */\n\t\treturn 0;"}, {"text": "`loadTuningFile()`은 YAML에 `modules`가 없으면 0을 반환하고, 각 모듈에서 `Dewarp`가 없으면 다음 모듈로 넘어갑니다. `Dewarp`가 있는 모듈에서는 `loadDewarpParams()`에 해당 파라미터와 카메라 데이터의 `dewarpParams_`를 전달하며, 호출이 0이 아닌 값을 반환하면 그 값을 반환합니다. 성공하면 `canUseDewarper_`를 `true`로 설정하고 0을 반환하며, 해당 모듈이 없어도 0을 반환합니다.", "evidence": ["load"], "covers": ["ownership"], "kind": "behavior", "quote": "ret = pipe()->dewarper_->loadDewarpParams(params, dewarpParams_);\n\t\tif (ret)\n\t\t\treturn ret;"}], "parameters": [{"text": "`ConverterDW100Module::loadDewarpParams`는 먼저 출력 `dewarpParams`를 초기화합니다. `cm`, `coefficients`, `cmNew`가 모두 없으면 보정기는 계속 동작하며 함수는 `0`을 반환합니다. 일부 항목이 제공된 경우 `cm`이나 `coefficients`가 없으면 `-EINVAL`을 반환합니다.", "evidence": ["parameters"], "covers": ["parameters"], "kind": "behavior", "quote": "/* If nothing is provided, the dewarper is still functional */\n\tif (!cm && !coefficients && !cmNew)\n\t\treturn 0;"}, {"text": "`ConverterDW100Module::loadDewarpParams`는 `cm`을 3×3 `double` 행렬로 읽고, `coefficients`를 `double` 목록으로 읽어 4개, 5개, 8개 또는 12개의 값을 설정합니다. 행렬이나 목록을 읽지 못하거나 계수 설정이 실패하면 `-EINVAL`을 반환합니다. `cmNew`가 있으면 3×3 `double` 행렬로 읽으며 실패하면 `-EINVAL`을 반환하고, 없으면 `cm`을 기본값으로 사용합니다. 모든 처리가 성공하면 `dewarpParams`에 보정값을 저장하고 `0`을 반환합니다.", "evidence": ["parameters"], "covers": ["parameters"], "kind": "behavior", "quote": "dewarpParams = dp;"}], "application": [{"text": "`ConverterDW100Module::configure`는 `converter_.configure`가 성공하면 각 출력 설정을 순회하며 해당 스트림의 `vertexMap`에 `inputCfg.size`를 `setInputSize`로, `outputCfg.size`를 `setOutputSize`로, `sensorCrop_`을 `setSensorCrop`으로 차례로 전달합니다.", "evidence": ["configure"], "covers": ["application"], "kind": "behavior", "quote": "for (auto &ref : outputCfgs) {\n\t\tconst auto &outputCfg = ref.get();\n\t\tauto &info = vertexMaps_[outputCfg.stream()];\n\t\tauto &vertexMap = info.map;\n\t\tvertexMap.setInputSize(inputCfg.size);\n\t\tvertexMap.setOutputSize(outputCfg.size);\n\t\tvertexMap.setSensorCrop(sensorCrop_);", "part_id": "configure"}, {"text": "`ConverterDW100Module::configure`는 출력 스트림 반복문에서 `dewarpParams`에 값이 있으면 각 출력의 `vertexMap.setDewarpParams`를 호출하고, 역참조한 값인 `*dewarpParams`를 전달합니다.", "evidence": ["configure"], "covers": ["application"], "kind": "behavior", "quote": "if (dewarpParams)\n\t\t\tvertexMap.setDewarpParams(*dewarpParams);\n\t\tinfo.update = true;\n\t}", "part_id": "optional-params"}, {"text": "`ConverterDW100Module::updateControlInfos`는 `hasDewarpParams_`가 참이면 `controls::LensDewarpEnable`을 지원 제어로 등록하고, 최솟값을 `false`, 최댓값과 기본값을 `true`로 설정합니다.", "evidence": ["controls"], "covers": ["application"], "kind": "behavior", "quote": "if (hasDewarpParams_)\n\t\tcontrols[&controls::LensDewarpEnable] = ControlInfo(false, true, true);", "part_id": "support"}, {"text": "`ConverterDW100Module::setControls`는 `isConfigured(stream)`이 거짓이면 반환하여 종료합니다. 구성된 스트림에서는 `info.update`와 `running_`이 참이고 `converter_.supportsRequests()`가 거짓이면 동적 제어 오류 로그를 기록합니다.", "evidence": ["controls-entry", "controls"], "covers": ["application"], "kind": "behavior", "quote": "if (!isConfigured(stream))\n\t\treturn;", "part_id": "unconfigured-controls"}, {"text": "`populateMetadata`는 `isConfigured(stream)` 검사에서 스트림이 설정되지 않았으면 바로 반환합니다.", "evidence": ["metadata"], "covers": ["application"], "kind": "behavior", "quote": "void ConverterDW100Module::populateMetadata(const Stream *stream, ControlList &meta)\n{\n\tif (!isConfigured(stream))\n\t\treturn;", "part_id": "metadata"}, {"text": "`ConverterDW100Module::populateMetadata`는 구성된 스트림에 대해 `vertexMap.effectiveScalerCrop()`의 값을 `controls::ScalerCrop`에 기록합니다. 이어서 `hasDewarpParams_`가 참이면 `vertexMap.lensDewarpEnable()`의 값을 `controls::LensDewarpEnable`에 기록합니다.", "evidence": ["crop-metadata", "dewarp-metadata"], "covers": ["application"], "kind": "behavior", "quote": "meta.set(controls::ScalerCrop, vertexMap.effectiveScalerCrop());", "part_id": "crop-metadata"}]}, "topic_inputs": {"ownership": "044f50bdb18e988d917ff33bb698b725c1edf6868b21a8466b107c8961808284", "parameters": "769174aa68afb907f3172fb54afd38d70385c4a476e1eee89f1214152e704cb5", "application": "21df356910a7d6dfb0875372b38b479cfa09944a38a1e32bf53b22324bb62a16"}, "reused_topics": ["ownership", "parameters"], "replayed_units": [], "generated_topics": ["application"], "topic_agents": {"ownership": "cli/codex/gpt-6.1-terra", "parameters": "cli/codex/gpt-6.1-terra", "application": "cli/codex/gpt-6.1-terra"}, "grounding_review": "passed", "grounding_policy": "3c9673abb403dee9aa554ee5b3c549ebfe95bb18ec0e9cd7bf6e495e060439c2", "validation_policy": {"manuscript": "e0c429a5c80a01c34563ce00a616df89d8f75c735f8669bcbd1f75d84cce82a6", "semantic": "571896e4854c21322a1ce4580107c235cae5a9f94e71adc8c97a7e2897405968", "duplicates": "1f0355f74c3b70d713c7a9b7d42598279476819e3a7af472259871135a4d799d", "design_contracts": "9f54ecddce57c7a9caa6c02af77904b57eff2471f2a052951c1cffd18256a4f0", "validate": "78d29ffd1bf6235067edf5a0c7d9b1290f1f11e90599605a0e192e90be5f3372", "reader_profiles": "ad9005d08295212371f59e8934ace86786c0683f7a4c416301ee0e0cadc8b797", "contract_schema": "fecc4ee78a481139776e562c164c0da9a3e5edf0a64a72be1d1c8feddee3cd08", "answer_contracts": "1e0d24e0cf26ded53ecec2e5a6fbc51836bac6e17530318a9fa7cffaa936c00b", "reader_scope": "1b9c26b10b74ae8cf034f5863cbac2114e1d844e5d8332eb1f10562a18371782", "product_context": "9db4d42a710b4a71a7d2bb16f69db06926409281dc1a200c796e77d5deaa25a0", "design_response": "74ebb2d21768d6bdd4ef7611c1c539526a7e72e6a58604c82e8305003d24f8b7", "design_validation": "b8133c78a8eb42fd5194c2756bb649b396ec54b40c49b72544bdbbcaf3366c57"}, "validation_model": "44197615786b818e4d9150110e74bef6772ea4f261a58d27ac12f379abaeb439", "style_policy": {"fluent-korean.md": "ce5aa71e58371e3fc02ff8cb165e07c9234f5166f6541423a91cc4cb40878975", "i-have-adhd.md": "3170b16ace00aecb0dd7feb54c0b5aa642e7502acda06ecd24fd89a11c7127e9", "README.md": "f8fd5a3d8041c23fc68b93ff32b8727e98393383b5099032eb00ad0013e7611c"}, "reuse_lineage": {"source_commit": "212c689fcf2450bbfbaab25c7472895ac277b5d6", "body_sha256": "8ca9d9b7077014a47ef3933fadada1fcfdf5f60a6da03b26a33d6abacadbe3ac", "topics": ["ownership", "parameters"], "validation": "current source, contract and editorial checks; human review pending"}, "checkpoint_units": [{"checkpoint": "9f7d27e25b84a7ee4e85dcd34f7ad62a106d564acc86445c535952d4c49c4e50.json", "topic": "application", "part": "optional-params", "subpart": null, "revalidated": true, "new_grounding_review": false, "receipts": ["1e42e614fb52437f8da6a4195760620b/035.receipt.json", "1e42e614fb52437f8da6a4195760620b/036.receipt.json"]}, {"checkpoint": "4a040bdbbaf7e9dcc6e90b1eb0d133ead184e40fb3c39bd4516b056139f3687a.json", "topic": "application", "part": "support", "subpart": null, "revalidated": true, "new_grounding_review": false, "receipts": ["1e42e614fb52437f8da6a4195760620b/037.receipt.json", "1e42e614fb52437f8da6a4195760620b/038.receipt.json"]}, {"checkpoint": "9744667c2c526eb9290b67791536baf59b067d68eee3d91483879d8200614707.json", "topic": "application", "part": "unconfigured-controls", "subpart": null, "revalidated": true, "new_grounding_review": false, "receipts": ["1e42e614fb52437f8da6a4195760620b/039.receipt.json", "1e42e614fb52437f8da6a4195760620b/040.receipt.json"]}, {"checkpoint": "85a39c9437f95b637e51b7afed01447c3a4e6de820c0bf94aa7371cb82a2c957.json", "topic": "application", "part": "metadata", "subpart": null, "revalidated": true, "new_grounding_review": false, "receipts": ["1e42e614fb52437f8da6a4195760620b/041.receipt.json", "1e42e614fb52437f8da6a4195760620b/042.receipt.json"]}], "body_sha256": "ea617dbed3ae968a8d6762a59bca2d07924d68726320eb9d60b5f9ec3b2bc298"}
+revalidated_from: 212c689fcf2450bbfbaab25c7472895ac277b5d6
+---
+
+# RKISP1 카메라별 왜곡 보정
+
+**카메라별 보정값의 보관 위치와 설정 시점을 확인한 뒤 튜닝 입력과 커널 지원을 점검하세요.**
+
+| 지금 확인할 내용 | 이동할 절 |
+|---|---|
+| `RkISP1CameraData`는 각 카메라의 보정값을 `std::optional<Dw100VertexMap::DewarpParams>` 형식의 멤버 `dewarpParams_`에 보관합니다. | [카메라별 보정값의 소유권](#카메라별-보정값의-소유권) |
+| `ConverterDW100Module::loadDewarpParams`는 먼저 출력 `dewarpParams`를 초기화합니다. | [튜닝 입력의 기본값과 오류](#튜닝-입력의-기본값과-오류) |
+| `ConverterDW100Module::configure`는 `converter_.configure`가 성공하면 각 출력 설정을 순회하며 해당 스트림의 `vertexMap`에 `inputCfg.size`를 `setInputSize`로, `outputCfg.size`를 `setOutputSize`로, `sensorCrop_`을 `setSensorCrop`으로 차례로 전달합니다. | [스트림 적용과 실행 확인 범위](#스트림-적용과-실행-확인-범위) |
+
+## 카메라별 보정값의 소유권
+
+`RkISP1CameraData`는 각 카메라의 보정값을 `std::optional<Dw100VertexMap::DewarpParams>` 형식의 멤버 `dewarpParams_`에 보관합니다. `PipelineHandlerRkISP1::configure()`는 `cameraData(camera)`로 현재 카메라의 데이터를 가져오고, 메인 경로에서 보정기를 사용할 때 그 데이터의 `dewarpParams_`를 `dewarper_->configure()`에 전달합니다. 이 호출이 0이 아닌 값을 반환하면 그 값을 반환합니다. `src/libcamera/pipeline/rkisp1/rkisp1.cpp:94`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp:914`
+
+<!-- sdd:visual:per-camera-parameters -->
+### 보정값은 카메라별로 저장하고 구성 때 전달
+
+보정값의 저장 위치와 전달을 표시합니다. 전역 보정값을 모든 카메라가 공유한다고 해석하지 마세요.
+
+```mermaid
+flowchart TB
+%% sdd:translations {"RkISP1CameraData::dewarpPara<br/>ms_": "RkISP1CameraData::dewarpPara<br/>ms_", "cameraData(camera)로 선택": "Select with <br/>cameraData(camera)", "dewarper_-&gt;configure()": "dewarper_-&gt;configure()", "loadDewarpParams()가 저장": "loadDewarpParams() stores <br/>parameters", "usesDewarper_인 mainPath <br/>구성": "Configure mainPath when <br/>usesDewarper_", "튜닝 파일의 Dewarp 항목": "Dewarp entry in tuning file", "현재 카메라의 CameraData": "Current camera CameraData"}
+  v_tuning["튜닝 파일의 Dewarp 항목"]
+  v_camera["RkISP1CameraData::dewarpPara<br/>ms_"]
+  v_configure["현재 카메라의 CameraData"]
+  v_converter["dewarper_-&gt;configure()"]
+  v_tuning -->|"loadDewarpParams()가 저장"| v_camera
+  v_camera -->|"cameraData(camera)로 선택"| v_configure
+  v_configure -->|"usesDewarper_인 mainPath <br/>구성"| v_converter
+```
+
+[Mermaid 원문](rkisp1-dewarp.per-camera-parameters.mmd)
+
+??? note "그림 근거와 확인 범위"
+    소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.
+    
+    | 요소·전이 | 소스 근거 |
+    |---|---|
+    | 튜닝 파일의 Dewarp 항목 | [src/libcamera/pipeline/rkisp1/rkisp1.cpp:434](#source-af6210cb39d0385e) |
+    | RkISP1CameraData::dewarpParams_ | [src/libcamera/pipeline/rkisp1/rkisp1.cpp:94](#source-04546183f68b35f4) |
+    | 현재 카메라의 CameraData | [src/libcamera/pipeline/rkisp1/rkisp1.cpp:914](#source-c164eb4c00d1c1d6) |
+    | dewarper_-&gt;configure() | [src/libcamera/pipeline/rkisp1/rkisp1.cpp:914](#source-c164eb4c00d1c1d6) |
+    | loadDewarpParams()가 저장 | [src/libcamera/pipeline/rkisp1/rkisp1.cpp:434](#source-af6210cb39d0385e) |
+    | cameraData(camera)로 선택 | [src/libcamera/pipeline/rkisp1/rkisp1.cpp:914](#source-c164eb4c00d1c1d6) |
+    | usesDewarper_인 mainPath 구성 | [src/libcamera/pipeline/rkisp1/rkisp1.cpp:914](#source-c164eb4c00d1c1d6) |
+<!-- /sdd:visual:per-camera-parameters -->
+
+`RkISP1CameraData::loadTuningFile()`은 보정기가 없으면 파일을 열지 않고 0을 반환합니다. 보정기가 있으면 파일을 읽기 전용으로 열며, 열기에 실패하면 파일 오류 값을 반환하고 YAML 파싱에 실패하면 `-EINVAL`을 반환합니다. `src/libcamera/pipeline/rkisp1/rkisp1.cpp:434`
+
+`loadTuningFile()`은 YAML에 `modules`가 없으면 0을 반환하고, 각 모듈에서 `Dewarp`가 없으면 다음 모듈로 넘어갑니다. `Dewarp`가 있는 모듈에서는 `loadDewarpParams()`에 해당 파라미터와 카메라 데이터의 `dewarpParams_`를 전달하며, 호출이 0이 아닌 값을 반환하면 그 값을 반환합니다. 성공하면 `canUseDewarper_`를 `true`로 설정하고 0을 반환하며, 해당 모듈이 없어도 0을 반환합니다. `src/libcamera/pipeline/rkisp1/rkisp1.cpp:434`
+
+근거 원문: [src/libcamera/pipeline/rkisp1/rkisp1.cpp:94](#source-04546183f68b35f4) · [src/libcamera/pipeline/rkisp1/rkisp1.cpp:434](#source-af6210cb39d0385e) · [src/libcamera/pipeline/rkisp1/rkisp1.cpp:914](#source-c164eb4c00d1c1d6)
+
+## 튜닝 입력의 기본값과 오류
+
+`ConverterDW100Module::loadDewarpParams`는 먼저 출력 `dewarpParams`를 초기화합니다. `cm`, `coefficients`, `cmNew`가 모두 없으면 보정기는 계속 동작하며 함수는 `0`을 반환합니다. 일부 항목이 제공된 경우 `cm`이나 `coefficients`가 없으면 `-EINVAL`을 반환합니다. `src/libcamera/converter/converter_dw100.cpp:105`
+
+<!-- sdd:visual:dewarp-input-branches -->
+### 보정 파라미터의 기본값과 입력 오류
+
+입력이 없는 경우와 일부만 잘못 제공한 경우를 구분하세요. 성공 반환만으로 보정값이 저장됐다고 판단하면 안 됩니다.
+
+```mermaid
+flowchart TB
+%% sdd:translations {"-EINVAL 반환": "Return -EINVAL", "0 반환, optional은 비어 있음": "Return 0 with empty optional", "cmNew 기본값 적용 후 저장": "Apply cmNew default and <br/>store", "cm·coefficients·cmNew가 <br/>모두 없는가?": "Are cm, coefficients and <br/>cmNew all absent?", "아니오: 필수 입력 검사": "No: validate required input", "예: 별도 보정값 없음": "Yes: no explicit parameters", "유효, cmNew가 있으면 별도 <br/>검증": "Valid; also validate cmNew <br/>when provided", "필수 입력 누락·잘못된 형식": "Missing or malformed <br/>required input", "필수 행렬·계수가 유효한가?": "Required matrix and <br/>coefficients valid?"}
+  v_empty{"cm·coefficients·cmNew가 <br/>모두 없는가?"}
+  v_default["0 반환, optional은 비어 있음"]
+  v_valid{"필수 행렬·계수가 유효한가?"}
+  v_error["-EINVAL 반환"]
+  v_store["cmNew 기본값 적용 후 저장"]
+  v_empty -->|"예: 별도 보정값 없음"| v_default
+  v_empty -->|"아니오: 필수 입력 검사"| v_valid
+  v_valid -->|"필수 입력 누락·잘못된 형식"| v_error
+  v_valid -->|"유효, cmNew가 있으면 별도 <br/>검증"| v_store
+```
+
+[Mermaid 원문](rkisp1-dewarp.dewarp-input-branches.mmd)
+
+??? note "그림 근거와 확인 범위"
+    소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.
+    
+    | 요소·전이 | 소스 근거 |
+    |---|---|
+    | cm·coefficients·cmNew가 모두 없는가? | [src/libcamera/converter/converter_dw100.cpp:105](#source-eacff078bd6a9d79) |
+    | 0 반환, optional은 비어 있음 | [src/libcamera/converter/converter_dw100.cpp:105](#source-eacff078bd6a9d79) |
+    | 필수 행렬·계수가 유효한가? | [src/libcamera/converter/converter_dw100.cpp:105](#source-eacff078bd6a9d79) |
+    | -EINVAL 반환 | [src/libcamera/converter/converter_dw100.cpp:105](#source-eacff078bd6a9d79) |
+    | cmNew 기본값 적용 후 저장 | [src/libcamera/converter/converter_dw100.cpp:105](#source-eacff078bd6a9d79) |
+    | 예: 별도 보정값 없음 | [src/libcamera/converter/converter_dw100.cpp:105](#source-eacff078bd6a9d79) |
+    | 아니오: 필수 입력 검사 | [src/libcamera/converter/converter_dw100.cpp:105](#source-eacff078bd6a9d79) |
+    | 필수 입력 누락·잘못된 형식 | [src/libcamera/converter/converter_dw100.cpp:105](#source-eacff078bd6a9d79) |
+    | 유효, cmNew가 있으면 별도 검증 | [src/libcamera/converter/converter_dw100.cpp:105](#source-eacff078bd6a9d79) |
+<!-- /sdd:visual:dewarp-input-branches -->
+
+`ConverterDW100Module::loadDewarpParams`는 `cm`을 3×3 `double` 행렬로 읽고, `coefficients`를 `double` 목록으로 읽어 4개, 5개, 8개 또는 12개의 값을 설정합니다. 행렬이나 목록을 읽지 못하거나 계수 설정이 실패하면 `-EINVAL`을 반환합니다. `cmNew`가 있으면 3×3 `double` 행렬로 읽으며 실패하면 `-EINVAL`을 반환하고, 없으면 `cm`을 기본값으로 사용합니다. 모든 처리가 성공하면 `dewarpParams`에 보정값을 저장하고 `0`을 반환합니다. `src/libcamera/converter/converter_dw100.cpp:105`
+
+근거 원문: [src/libcamera/converter/converter_dw100.cpp:105](#source-eacff078bd6a9d79)
+
+## 스트림 적용과 실행 확인 범위
+
+`ConverterDW100Module::configure`는 `converter_.configure`가 성공하면 각 출력 설정을 순회하며 해당 스트림의 `vertexMap`에 `inputCfg.size`를 `setInputSize`로, `outputCfg.size`를 `setOutputSize`로, `sensorCrop_`을 `setSensorCrop`으로 차례로 전달합니다. `ConverterDW100Module::configure`는 출력 스트림 반복문에서 `dewarpParams`에 값이 있으면 각 출력의 `vertexMap.setDewarpParams`를 호출하고, 역참조한 값인 `*dewarpParams`를 전달합니다. `src/libcamera/converter/converter_dw100.cpp:178`
+
+`ConverterDW100Module::updateControlInfos`는 `hasDewarpParams_`가 참이면 `controls::LensDewarpEnable`을 지원 제어로 등록하고, 최솟값을 `false`, 최댓값과 기본값을 `true`로 설정합니다. `ConverterDW100Module::setControls`는 `isConfigured(stream)`이 거짓이면 반환하여 종료합니다. 구성된 스트림에서는 `info.update`와 `running_`이 참이고 `converter_.supportsRequests()`가 거짓이면 동적 제어 오류 로그를 기록합니다. `populateMetadata`는 `isConfigured(stream)` 검사에서 스트림이 설정되지 않았으면 바로 반환합니다. `src/libcamera/converter/converter_dw100.cpp:369`, `src/libcamera/converter/converter_dw100.cpp:402`, `src/libcamera/converter/converter_dw100.cpp:434`
+
+`ConverterDW100Module::populateMetadata`는 구성된 스트림에 대해 `vertexMap.effectiveScalerCrop()`의 값을 `controls::ScalerCrop`에 기록합니다. 이어서 `hasDewarpParams_`가 참이면 `vertexMap.lensDewarpEnable()`의 값을 `controls::LensDewarpEnable`에 기록합니다. `src/libcamera/converter/converter_dw100.cpp:441`, `src/libcamera/converter/converter_dw100.cpp:443`
+
+근거 원문: [src/libcamera/converter/converter_dw100.cpp:178](#source-167e93a77fbf4931) · [src/libcamera/converter/converter_dw100.cpp:369](#source-fc0e25ddead912f1) · [src/libcamera/converter/converter_dw100.cpp:434](#source-3a4c4ed7cee81158) · [src/libcamera/converter/converter_dw100.cpp:197](#source-fff6050000b728bd) · [src/libcamera/converter/converter_dw100.cpp:198](#source-a6496a0f6db3636a) · [src/libcamera/converter/converter_dw100.cpp:199](#source-a92725ea0f81f8d7) · [src/libcamera/converter/converter_dw100.cpp:402](#source-ec47236059d2723f) · [src/libcamera/converter/converter_dw100.cpp:441](#source-6fc7fca6e9842fbd) · [src/libcamera/converter/converter_dw100.cpp:443](#source-aebf4a59ba423b05)
+
+??? note "설계 질문과 검증 범위"
+    질문별 답변과 근거 연결을 검사했습니다. 의미와 실행 결과는 사람 검토가 필요합니다.
+    
+    | 설계 질문 | 설명 위치 | 확인 범위 |
+    |---|---|---|
+    | 여러 카메라의 보정값이 섞이지 않도록 누가 값을 보관하고 전달합니까? | [카메라별 보정값의 소유권](#카메라별-보정값의-소유권) | 코드 근거와 설명 연결 |
+    | 보정값이 없거나 일부만 있을 때 어떤 결과를 반환합니까? | [튜닝 입력의 기본값과 오류](#튜닝-입력의-기본값과-오류) | 코드 근거와 설명 연결 |
+    | 보정값은 어느 스트림에 적용되고 어떤 실행 조건을 따로 확인해야 합니까? | [스트림 적용과 실행 확인 범위](#스트림-적용과-실행-확인-범위) | 코드 근거와 설명 연결 |
+
+## 소스 근거
+
+같은 발췌는 한 번만 싣습니다. 필요한 원문을 펼쳐 설명과 대조하세요.
+
+<a id="source-04546183f68b35f4"></a>
+
+??? note "소스 근거: src/libcamera/pipeline/rkisp1/rkisp1.cpp:94"
+    `src/libcamera/pipeline/rkisp1/rkisp1.cpp:94`에서 시작하는 발췌입니다. 종료 줄은 142이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `4c9387123443d958220746e355a9e93b30dca2bb4a32b4f4020c938e1a699de1`
+    
+    ```text
+    class RkISP1CameraData : public Camera::Private
+    {
+    public:
+    	RkISP1CameraData(PipelineHandler *pipe, RkISP1MainPath *mainPath,
+    			 RkISP1SelfPath *selfPath)
+    		: Camera::Private(pipe), frame_(0), frameInfo_(pipe),
+    		  mainPath_(mainPath), selfPath_(selfPath),
+    		  canUseDewarper_(false), usesDewarper_(false)
+    	{
+    	}
+    
+    	PipelineHandlerRkISP1 *pipe();
+    	const PipelineHandlerRkISP1 *pipe() const;
+    	int loadIPA(unsigned int hwRevision, uint32_t supportedBlocks);
+    
+    	Stream mainPathStream_;
+    	Stream selfPathStream_;
+    	std::unique_ptr<CameraSensor> sensor_;
+    	std::unique_ptr<DelayedControls> delayedCtrls_;
+    	unsigned int frame_;
+    	std::vector<IPABuffer> ipaBuffers_;
+    	RkISP1Frames frameInfo_;
+    
+    	RkISP1MainPath *mainPath_;
+    	RkISP1SelfPath *selfPath_;
+    
+    	std::unique_ptr<ipa::rkisp1::IPAProxyRkISP1> ipa_;
+    
+    	ControlInfoMap ipaControls_;
+    
+    	/*
+    	 * All entities in the pipeline, from the camera sensor to the RKISP1.
+    	 */
+    	MediaPipeline pipe_;
+    
+    	bool canUseDewarper_;
+    	bool usesDewarper_;
+    	std::optional<Dw100VertexMap::DewarpParams> dewarpParams_;
+    
+    private:
+    	void paramsComputed(unsigned int frame, unsigned int bytesused);
+    	void setSensorControls(unsigned int frame,
+    			       const ControlList &sensorControls);
+    
+    	void metadataReady(unsigned int frame, const ControlList &metadata);
+    	int loadTuningFile(const std::string &file);
+    };
+    
+    class RkISP1CameraConfiguration :
+    ```
+
+<a id="source-af6210cb39d0385e"></a>
+
+??? note "소스 근거: src/libcamera/pipeline/rkisp1/rkisp1.cpp:434"
+    `src/libcamera/pipeline/rkisp1/rkisp1.cpp:434`에서 시작하는 발췌입니다. 종료 줄은 479이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `d0fb5eb90b4c6d0df3e90cff142c95b4f7daeddb6d483a4272a5fb07d7dd3fec`
+    
+    ```text
+    int RkISP1CameraData::loadTuningFile(const std::string &path)
+    {
+    	int ret;
+    
+    	if (!pipe()->dewarper_)
+    		/* Nothing to do without dewarper */
+    		return 0;
+    
+    	LOG(RkISP1, Debug) << "Load tuning file " << path;
+    
+    	File file(path);
+    	if (!file.open(File::OpenModeFlag::ReadOnly)) {
+    		ret = file.error();
+    		LOG(RkISP1, Error)
+    			<< "Failed to open tuning file "
+    			<< path << ": " << strerror(-ret);
+    		return ret;
+    	}
+    
+    	std::unique_ptr<ValueNode> data = YamlParser::parse(file);
+    	if (!data)
+    		return -EINVAL;
+    
+    	if (!data->contains("modules"))
+    		return 0;
+    
+    	const auto &modules = (*data)["modules"].asList();
+    	for (const auto &module : modules) {
+    		const auto &params = module["Dewarp"];
+    		if (!params)
+    			continue;
+    
+    		ret = pipe()->dewarper_->loadDewarpParams(params, dewarpParams_);
+    		if (ret)
+    			return ret;
+    
+    		LOG(RkISP1, Info) << "Dw100 dewarper initialized";
+    
+    		canUseDewarper_ = true;
+    		return 0;
+    	}
+    
+    	return 0;
+    }
+    
+    void RkISP1CameraData::paramsComputed(
+    ```
+
+<a id="source-c164eb4c00d1c1d6"></a>
+
+??? note "소스 근거: src/libcamera/pipeline/rkisp1/rkisp1.cpp:914"
+    `src/libcamera/pipeline/rkisp1/rkisp1.cpp:914`에서 시작하는 발췌입니다. 종료 줄은 1122이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `85e3aef5f0b623538bedbd13a895c0a08ada48616ab1e9ee8fe1a87882b67ee6`
+    
+    ```text
+    int PipelineHandlerRkISP1::configure(Camera *camera, CameraConfiguration *c)
+    {
+    	RkISP1CameraConfiguration *config =
+    		static_cast<RkISP1CameraConfiguration *>(c);
+    	RkISP1CameraData *data = cameraData(camera);
+    	CameraSensor *sensor = data->sensor_.get();
+    	int ret;
+    
+    	ret = initLinks(camera, *config);
+    	if (ret)
+    		return ret;
+    
+    	const PixelFormat &streamFormat = config->at(0).pixelFormat;
+    	const PixelFormatInfo &info = PixelFormatInfo::info(streamFormat);
+    	isRaw_ = info.colourEncoding == PixelFormatInfo::ColourEncodingRAW;
+    	data->usesDewarper_ = data->canUseDewarper_ && !isRaw_;
+    
+    	Transform transform = config->combinedTransform();
+    	bool transposeAfterIsp = false;
+    	if (data->usesDewarper_) {
+    		if (!!(transform & Transform::Transpose))
+    			transposeAfterIsp = true;
+    		transform = Transform::Identity;
+    	}
+    
+    	/*
+    	 * Configure the format on the sensor output and propagate it through
+    	 * the pipeline.
+    	 */
+    	V4L2SubdeviceFormat format = config->sensorFormat();
+    	LOG(RkISP1, Debug) << "Configuring sensor with " << format;
+    
+    	if (config->sensorConfig)
+    		ret = sensor->applyConfiguration(*config->sensorConfig,
+    						 transform,
+    						 &format);
+    	else
+    		ret = sensor->setFormat(&format, transform);
+    
+    	if (ret < 0)
+    		return ret;
+    
+    	LOG(RkISP1, Debug) << "Sensor configured with " << format;
+    
+    	/* Propagate format through the internal media pipeline up to the ISP */
+    	ret = data->pipe_.configure(sensor, &format);
+    	if (ret < 0)
+    		return ret;
+    
+    	LOG(RkISP1, Debug) << "Configuring ISP with : " << format;
+    	ret = isp_->setFormat(0, &format);
+    	if (ret < 0)
+    		return ret;
+    
+    	Rectangle inputCrop(0, 0, format.size);
+    	ret = isp_->setSelection(0, V4L2_SEL_TGT_CROP, &inputCrop);
+    	if (ret < 0)
+    		return ret;
+    
+    	LOG(RkISP1, Debug)
+    		<< "ISP input pad configured with " << format
+    		<< " crop " << inputCrop;
+    
+    	Rectangle outputCrop = inputCrop;
+    
+    	/* YUYV8_2X8 is required on the ISP source path pad for YUV output. */
+    	if (!isRaw_)
+    		format.code = MEDIA_BUS_FMT_YUYV8_2X8;
+    
+    	/*
+    	 * On devices without DUAL_CROP (like the imx8mp) cropping needs to be
+    	 * done on the ISP/IS output.
+    	 *
+    	 * If the dewarper is used, the cropping shall be done by the dewarper.
+    	 */
+    	if (media_->hwRevision() == RKISP1_V_IMX8MP) {
+    		/* imx8mp has only a single path. */
+    		const auto &cfg = config->at(0);
+    		/*
+    		 * If the dewarper is used, all cropping including aspect ratio
+    		 * preservation shall be done there. To ensure that the output
+    		 * format provided by the ISP is supported by the dewarper, a
+    		 * minimal crop still needs to be applied on the ISP output.
+    		 *
+    		 * \todo It might be possible to allocate bigger buffers
+    		 * (aligned to 8 pixels) with a stride matching format.size for
+    		 * the ISP. The not-filled border could later be ignored by the
+    		 * dewarper. This way we could skip the minimal crop here and
+    		 * the MaximumScalerCrop would always match the isp output.
+    		 */
+    		Size ispCrop;
+    		if (data->usesDewarper_)
+    			ispCrop = dewarper_->adjustInputSize(cfg.pixelFormat,
+    							     format.size);
+    		else
+    			ispCrop = format.size.boundedToAspectRatio(cfg.size)
+    					  .alignedUpTo(2, 2);
+    
+    		outputCrop = ispCrop.centeredTo(Rectangle(format.size).center());
+    		format.size = ispCrop;
+    	}
+    
+    	LOG(RkISP1, Debug)
+    		<< "Configuring ISP output pad with " << format
+    		<< " crop " << outputCrop;
+    
+    	ret = isp_->setSelection(2, V4L2_SEL_TGT_CROP, &outputCrop);
+    	if (ret < 0)
+    		return ret;
+    
+    	format.colorSpace = config->at(0).colorSpace;
+    	ret = isp_->setFormat(2, &format);
+    	if (ret < 0)
+    		return ret;
+    
+    	LOG(RkISP1, Debug)
+    		<< "ISP output pad configured with " << format
+    		<< " crop " << outputCrop;
+    
+    	IPACameraSensorInfo sensorInfo;
+    	ret = data->sensor_->sensorInfo(&sensorInfo);
+    	if (ret)
+    		return ret;
+    
+    	/* Apply the actual sensor crop for proper dewarp map calculation. */
+    	Rectangle sensorCrop = outputCrop.transformedBetween(
+    		inputCrop, sensorInfo.analogCrop);
+    	if (data->usesDewarper_)
+    		dewarper_->setSensorCrop(sensorCrop);
+    	data->properties_.set(properties::ScalerCropMaximum, sensorCrop);
+    
+    	std::map<unsigned int, IPAStream> streamConfig;
+    
+    	for (const StreamConfiguration &cfg : *config) {
+    		if (cfg.stream() == &data->mainPathStream_) {
+    			/*
+    			 * To allow for digital zoom, scaling down should happen
+    			 * in the dewarper, instead of the resizer. Configure
+    			 * the isp output to the same size as the sensor output.
+    			 */
+    			StreamConfiguration ispCfg = cfg;
+    			if (data->usesDewarper_) {
+    				ispCfg.bufferCount = kRkISP1MinBufferCount;
+    				ispCfg.size = format.size;
+    				ispCfg.stride =
+    					PixelFormatInfo::info(ispCfg.pixelFormat)
+    						.stride(ispCfg.size.width, 0);
+    
+    				ret = dewarper_->configure(ispCfg, { cfg }, data->dewarpParams_);
+    				if (ret)
+    					return ret;
+    
+    				dewarper_->setTransform(cfg.stream(), config->combinedTransform());
+    				/*
+    				 * Apply a default scaler crop that keeps the
+    				 * aspect ratio.
+    				 */
+    				Size size = cfg.size;
+    				if (transposeAfterIsp)
+    					size.transpose();
+    				size = sensorCrop.size().boundedToAspectRatio(size);
+    
+    				ControlList ctrls;
+    				ctrls.set(controls::ScalerCrop, size.centeredTo(sensorCrop.center()));
+    				dewarper_->setControls(cfg.stream(), ctrls);
+    			}
+    
+    			ret = mainPath_.configure(ispCfg, format);
+    			streamConfig[0] = IPAStream(cfg.pixelFormat,
+    						    cfg.size);
+    		} else if (hasSelfPath_) {
+    			ret = selfPath_.configure(cfg, format);
+    			streamConfig[1] = IPAStream(cfg.pixelFormat,
+    						    cfg.size);
+    		} else {
+    			return -ENODEV;
+    		}
+    
+    		if (ret)
+    			return ret;
+    	}
+    
+    	V4L2DeviceFormat paramFormat;
+    	paramFormat.fourcc = V4L2PixelFormat(V4L2_META_FMT_RK_ISP1_EXT_PARAMS);
+    	ret = param_->setFormat(&paramFormat);
+    	if (ret)
+    		return ret;
+    
+    	V4L2DeviceFormat statFormat;
+    	statFormat.fourcc = V4L2PixelFormat(V4L2_META_FMT_RK_ISP1_STAT_3A);
+    	ret = stat_->setFormat(&statFormat);
+    	if (ret)
+    		return ret;
+    
+    	/* Inform IPA of stream configuration and sensor controls. */
+    	ipa::rkisp1::IPAConfigInfo ipaConfig{ sensorInfo,
+    					      data->sensor_->controls(),
+    					      paramFormat.fourcc };
+    
+    	ret = data->ipa_->configure(ipaConfig, streamConfig, &data->ipaControls_);
+    	if (ret) {
+    		LOG(RkISP1, Error) << "failed configuring IPA (" << ret << ")";
+    		return ret;
+    	}
+    
+    	return updateControls(data);
+    }
+    
+    int PipelineHandlerRkISP1::exportFrameBuffers(
+    ```
+
+<a id="source-eacff078bd6a9d79"></a>
+
+??? note "소스 근거: src/libcamera/converter/converter_dw100.cpp:105"
+    `src/libcamera/converter/converter_dw100.cpp:105`에서 시작하는 발췌입니다. 종료 줄은 178이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `5e4f1317cd9611173e6e5b1fa350ab26f28500656037c812909008604ebfb091`
+    
+    ```text
+    int ConverterDW100Module::loadDewarpParams(const ValueNode &params,
+    					   std::optional<Dw100VertexMap::DewarpParams> &dewarpParams)
+    {
+    	Dw100VertexMap::DewarpParams dp;
+    	dewarpParams.reset();
+    
+    	auto &cm = params["cm"];
+    	auto &coefficients = params["coefficients"];
+    	auto &cmNew = params["cmNew"];
+    
+    	/* If nothing is provided, the dewarper is still functional */
+    	if (!cm && !coefficients && !cmNew)
+    		return 0;
+    
+    	if (!cm) {
+    		LOG(Converter, Error) << "Dewarp parameters are missing 'cm' value";
+    		return -EINVAL;
+    	}
+    
+    	auto matrix = cm.get<Matrix<double, 3, 3>>();
+    	if (!matrix) {
+    		LOG(Converter, Error) << "Failed to load 'cm' value";
+    		return -EINVAL;
+    	}
+    
+    	dp.cm = *matrix;
+    
+    	if (!coefficients) {
+    		LOG(Converter, Error) << "Dewarp parameters are missing 'coefficients' value";
+    		return -EINVAL;
+    	}
+    
+    	const auto coeffs = coefficients.get<std::vector<double>>();
+    	if (!coeffs) {
+    		LOG(Converter, Error) << "Dewarp parameters 'coefficients' value is not a list";
+    		return -EINVAL;
+    	}
+    
+    	int ret = dp.setCoefficients(*coeffs);
+    	if (ret) {
+    		LOG(Converter, Error)
+    			<< "Dewarp 'coefficients' must have 4, 5, 8 or 12 values";
+    		return -EINVAL;
+    	}
+    
+    	if (cmNew) {
+    		matrix = cmNew.get<Matrix<double, 3, 3>>();
+    		if (!matrix) {
+    			LOG(Converter, Error) << "Failed to load 'cmNew' value";
+    			return -EINVAL;
+    		}
+    
+    		dp.cmNew = *matrix;
+    	} else {
+    		dp.cmNew = dp.cm;
+    	}
+    
+    	dewarpParams = dp;
+    
+    	return 0;
+    }
+    
+    /**
+     * \brief Configure a the dw100 converter module
+     * \param[in] inputCfg Input stream configuration
+     * \param[in] outputCfgs A list of output stream configurations
+     * \param[in] dewarpParams The lens dewarp parameters to apply
+     *
+     * Configures the converter for the given input and output stream configurations
+     * and an optional set of dewarp parameters.
+     *
+     * \return 0 on success or a negative error code otherwise
+     */
+    int ConverterDW100Module::configure(
+    ```
+
+<a id="source-167e93a77fbf4931"></a>
+
+??? note "소스 근거: src/libcamera/converter/converter_dw100.cpp:178"
+    `src/libcamera/converter/converter_dw100.cpp:178`에서 시작하는 발췌입니다. 종료 줄은 212이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `b517243a55de2dab95250c687c7f2aab9fd32b4ed115e3b65b8878daa39b0bc8`
+    
+    ```text
+    int ConverterDW100Module::configure(const StreamConfiguration &inputCfg,
+    				    const std::vector<std::reference_wrapper<const StreamConfiguration>>
+    					    &outputCfgs,
+    				    const std::optional<Dw100VertexMap::DewarpParams> &dewarpParams)
+    {
+    	int ret;
+    
+    	vertexMaps_.clear();
+    	ret = converter_.configure(inputCfg, outputCfgs);
+    	if (ret)
+    		return ret;
+    
+    	inputBufferCount_ = inputCfg.bufferCount;
+    	hasDewarpParams_ = dewarpParams.has_value();
+    
+    	for (auto &ref : outputCfgs) {
+    		const auto &outputCfg = ref.get();
+    		auto &info = vertexMaps_[outputCfg.stream()];
+    		auto &vertexMap = info.map;
+    		vertexMap.setInputSize(inputCfg.size);
+    		vertexMap.setOutputSize(outputCfg.size);
+    		vertexMap.setSensorCrop(sensorCrop_);
+    
+    		if (dewarpParams)
+    			vertexMap.setDewarpParams(*dewarpParams);
+    		info.update = true;
+    	}
+    
+    	return 0;
+    }
+    
+    /**
+     * \copydoc libcamera::V4L2M2MConverter::isConfigured
+     */
+    bool ConverterDW100Module::isConfigured(
+    ```
+
+<a id="source-fc0e25ddead912f1"></a>
+
+??? note "소스 근거: src/libcamera/converter/converter_dw100.cpp:369"
+    `src/libcamera/converter/converter_dw100.cpp:369`에서 시작하는 발췌입니다. 종료 줄은 434이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `aa6937cbf814f9c7bf5c1dfab84e4d5e0fa96ace063b360484f3858066454e02`
+    
+    ```text
+    void ConverterDW100Module::updateControlInfos(const Stream *stream, ControlInfoMap::Map &controls)
+    {
+    	ControlValue scalerCropDefault = sensorCrop_;
+    
+    	if (isConfigured(stream)) {
+    		auto &info = vertexMaps_[stream];
+    		info.map.applyLimits();
+    		scalerCropDefault = info.map.effectiveScalerCrop();
+    	}
+    
+    	controls[&controls::ScalerCrop] = ControlInfo(Rectangle(sensorCrop_.x, sensorCrop_.y, 1, 1),
+    						      sensorCrop_, sensorCrop_);
+    
+    	if (hasDewarpParams_)
+    		controls[&controls::LensDewarpEnable] = ControlInfo(false, true, true);
+    
+    	if (!converter_.supportsRequests())
+    		LOG(Converter, Warning)
+    			<< "dw100 kernel driver has no requests support."
+    			   " Dynamic configuration is not possible.";
+    }
+    
+    /**
+     * \brief Set libcamera controls
+     * \param[in] stream The stream to update
+     * \param[in] controls The controls
+     *
+     * Looks up all supported controls in \a controls and sets them on stream \a
+     * stream. The controls will be applied to the device on the next call to
+     * queueBuffers().
+     */
+    void ConverterDW100Module::setControls(const Stream *stream, const ControlList &controls)
+    {
+    	if (!isConfigured(stream))
+    		return;
+    
+    	auto &info = vertexMaps_[stream];
+    	auto &vertexMap = info.map;
+    
+    	const auto &lensDewarpEnable = controls.get(controls::LensDewarpEnable);
+    	if (lensDewarpEnable) {
+    		vertexMap.setLensDewarpEnable(*lensDewarpEnable);
+    		info.update = true;
+    	}
+    
+    	const auto &crop = controls.get(controls::ScalerCrop);
+    	if (crop) {
+    		vertexMap.setScalerCrop(*crop);
+    		info.update = true;
+    	}
+    
+    	if (info.update && running_ && !converter_.supportsRequests())
+    		LOG(Converter, Error)
+    			<< "Dynamically setting dw100 specific controls requires"
+    			   " a dw100 kernel driver with requests support";
+    }
+    
+    /**
+     * \brief Retrieve updated metadata
+     * \param[in] stream The stream
+     * \param[in] meta The metadata list
+     *
+     * This function retrieves the metadata for the provided \a stream and writes it
+     * to \a list. It shall be called after queueBuffers().
+     */
+    void ConverterDW100Module::populateMetadata(
+    ```
+
+<a id="source-3a4c4ed7cee81158"></a>
+
+??? note "소스 근거: src/libcamera/converter/converter_dw100.cpp:434"
+    `src/libcamera/converter/converter_dw100.cpp:434`에서 시작하는 발췌입니다. 종료 줄은 465이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `37f3f992d5270f1f7309de486064df8a88ceebdafa81963ddb49872b7e674ecb`
+    
+    ```text
+    void ConverterDW100Module::populateMetadata(const Stream *stream, ControlList &meta)
+    {
+    	if (!isConfigured(stream))
+    		return;
+    
+    	auto &vertexMap = vertexMaps_[stream].map;
+    
+    	meta.set(controls::ScalerCrop, vertexMap.effectiveScalerCrop());
+    
+    	if (hasDewarpParams_)
+    		meta.set(controls::LensDewarpEnable, vertexMap.lensDewarpEnable());
+    }
+    
+    /**
+     * \var ConverterDW100Module::inputBufferReady
+     * \brief A signal emitted when the input frame buffer completes
+     */
+    
+    /**
+     * \var ConverterDW100Module::outputBufferReady
+     * \brief A signal emitted on each frame buffer completion of the output queue
+     */
+    
+    /**
+     * \brief Set sensor crop rectangle
+     * \param[in] rect The crop rectangle
+     *
+     * Set the sensor crop rectangle to \a rect. This rectangle describes the area
+     * covered by the input buffers in sensor coordinates. It is used internally
+     * to handle the ScalerCrop control and related metadata.
+     */
+    void ConverterDW100Module::setSensorCrop(
+    ```
+
+<a id="source-fff6050000b728bd"></a>
+
+??? note "소스 근거: src/libcamera/converter/converter_dw100.cpp:197"
+    `src/libcamera/converter/converter_dw100.cpp:197`에서 시작하는 발췌입니다. 종료 줄은 197이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `79a73838f65043686ff00e9decb65d5e058c110f8f633815a213b06858cad86c`
+    
+    ```text
+    vertexMap.setInputSize(inputCfg.size);
+    ```
+
+<a id="source-a6496a0f6db3636a"></a>
+
+??? note "소스 근거: src/libcamera/converter/converter_dw100.cpp:198"
+    `src/libcamera/converter/converter_dw100.cpp:198`에서 시작하는 발췌입니다. 종료 줄은 198이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `ff8b08a01f0408c265812b9f25f000f48aa90b693ea8464759f4ad5c955cd742`
+    
+    ```text
+    vertexMap.setOutputSize(outputCfg.size);
+    ```
+
+<a id="source-a92725ea0f81f8d7"></a>
+
+??? note "소스 근거: src/libcamera/converter/converter_dw100.cpp:199"
+    `src/libcamera/converter/converter_dw100.cpp:199`에서 시작하는 발췌입니다. 종료 줄은 199이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `a9ebf143a526bae7de1baeb9b3e16dbddd4e3b5a9ff2db059bfc1d9f3f5cf3ae`
+    
+    ```text
+    vertexMap.setSensorCrop(sensorCrop_);
+    ```
+
+<a id="source-ec47236059d2723f"></a>
+
+??? note "소스 근거: src/libcamera/converter/converter_dw100.cpp:402"
+    `src/libcamera/converter/converter_dw100.cpp:402`에서 시작하는 발췌입니다. 종료 줄은 403이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `c5040e533831af4e7c96d2886389921009cc952c3969afe51bc33668cfcd0045`
+    
+    ```text
+    if (!isConfigured(stream))
+    		return;
+    ```
+
+<a id="source-6fc7fca6e9842fbd"></a>
+
+??? note "소스 근거: src/libcamera/converter/converter_dw100.cpp:441"
+    `src/libcamera/converter/converter_dw100.cpp:441`에서 시작하는 발췌입니다. 종료 줄은 441이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `0cae7e4a2d9a50beb66d4df9242bb3a720e325445dc4575db4c9b7d4e05126dd`
+    
+    ```text
+    meta.set(controls::ScalerCrop, vertexMap.effectiveScalerCrop());
+    ```
+
+<a id="source-aebf4a59ba423b05"></a>
+
+??? note "소스 근거: src/libcamera/converter/converter_dw100.cpp:443"
+    `src/libcamera/converter/converter_dw100.cpp:443`에서 시작하는 발췌입니다. 종료 줄은 444이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `d8b9be0d0d3aa6f450f0317006eb47a5a4564b58869a63257194c410a34c9dd9`
+    
+    ```text
+    if (hasDewarpParams_)
+    		meta.set(controls::LensDewarpEnable, vertexMap.lensDewarpEnable());
+    ```
+
+??? note "근거와 검토 정보"
+    - 생성 방식: 추출 사실과 LLM 설명
+    - 검증 범위: 표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.
+    - 근거 파일: `include/libcamera/internal/converter.h`, `include/libcamera/internal/converter/converter_dw100.h`, `include/libcamera/internal/converter/converter_dw100_vertexmap.h`, `src/libcamera/converter.cpp`, `src/libcamera/converter/converter_dw100.cpp`, `src/libcamera/converter/converter_dw100_vertexmap.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `212c689fcf`)
+    - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
+    - 검토 상태 기록일: 2026-10-30 · 사람 검토 전
+
+다음 단계: [Pipeline Handler](pipeline-handler.md)
