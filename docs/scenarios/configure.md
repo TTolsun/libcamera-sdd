@@ -1,32 +1,217 @@
 ---
-generated_at: 2026-10-29T22:20:22+00:00
+generated_at: 2026-10-30T16:46:15+00:00
 source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
 status: ok
-section: scenarios
-entry: Camera::configure(CameraConfiguration *)
+section: scenario-configure
+generation_method: facts-and-llm
 scenario_id: configure
+entry: Camera::configure(CameraConfiguration *)
 scenario_fingerprint: fb24e34e2c7f4a5c63bef8e91e8202ca0c30dcb6bd8414ffe07efc9c7c929ccd
-generation_method: extracted-scenario
+evidence_fingerprint: 1110e19a8090cf4b36e16e7544d1739a3441c6a552c03ad9c7934b9d49e57b68
+semantic_review: human-review-required
+agent: cli/claude/claude-haiku-5-5
+generated_design: {"schema": 1, "input_fingerprint": "1110e19a8090cf4b36e16e7544d1739a3441c6a552c03ad9c7934b9d49e57b68", "answers": {"preconditions": [{"text": "`Camera::configure()`는 캡처를 시작하기 전에 캡처에 참여할 스트림 묶음과 각 스트림의 구성을 고르는 함수입니다. 호출자는 `config`에 참여시킬 스트림과 구성을 채워 지정하며, 이 구성은 `generateConfiguration()`으로 만들고 호출자가 `CameraConfiguration::validate()`로 조정합니다. 이 함수는 완전히 유효한 구성만 받아들입니다.", "evidence": ["configure"], "covers": ["preconditions"], "kind": "behavior", "quote": "\\brief Configure the camera prior to capture\n * \\param[in] config The camera configurations to setup\n *\n * Prior to starting capture, the camera must be configured to select a\n * group of streams to be involved in the capture and their configuration.\n * The caller specifies which streams are to be involved and their configuration\n * by populating \\a config.\n *\n * The configuration is created by generateConfiguration(), and adjusted by the\n * caller with CameraConfiguration::validate(). This function only accepts fully\n * valid configurations and returns an error if \\a config is not valid.\n *\n * Exclusive access to the camera shall be ensured by a call to acquire() prior\n * to calling this function, otherwise an -EACCES error will be returned.\n *\n * \\context This function may only be called when the camera is in the Acquired\n * or Configured state as defined in \\ref camera_operation, and shall be\n * synchronized by the caller with other functions that affect the camera\n * state.\n *\n * Upon return the StreamConfiguration entries in \\a config are associated with\n * Stream instances which can be retrieved with StreamConfiguration::stream().\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not in a state where it can be configured\n * \\retval -EINVAL The configuration is not valid\n */", "part_id": "answer"}, {"text": "`configure()`를 호출하기 전에 호출자는 `acquire()`를 호출해 카메라의 배타 접근을 확보해야 합니다. 이 함수는 카메라가 Acquired 또는 Configured 상태일 때만 호출할 수 있으며, 호출자는 카메라 상태를 바꾸는 다른 함수와 이 호출을 동기화해야 합니다. 배타 접근을 확보하지 않으면 `-EACCES` 오류가 반환되고, 카메라가 구성할 수 있는 상태가 아니어도 `-EACCES`가 반환됩니다.", "evidence": ["configure"], "covers": ["preconditions"], "kind": "behavior", "quote": "\\brief Configure the camera prior to capture\n * \\param[in] config The camera configurations to setup\n *\n * Prior to starting capture, the camera must be configured to select a\n * group of streams to be involved in the capture and their configuration.\n * The caller specifies which streams are to be involved and their configuration\n * by populating \\a config.\n *\n * The configuration is created by generateConfiguration(), and adjusted by the\n * caller with CameraConfiguration::validate(). This function only accepts fully\n * valid configurations and returns an error if \\a config is not valid.\n *\n * Exclusive access to the camera shall be ensured by a call to acquire() prior\n * to calling this function, otherwise an -EACCES error will be returned.\n *\n * \\context This function may only be called when the camera is in the Acquired\n * or Configured state as defined in \\ref camera_operation, and shall be\n * synchronized by the caller with other functions that affect the camera\n * state.\n *\n * Upon return the StreamConfiguration entries in \\a config are associated with\n * Stream instances which can be retrieved with StreamConfiguration::stream().\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not in a state where it can be configured\n * \\retval -EINVAL The configuration is not valid\n */", "part_id": "answer"}, {"text": "카메라가 시스템에서 연결 해제된 경우 `configure()`는 `-ENODEV`를 반환합니다.", "evidence": ["configure"], "covers": ["preconditions"], "kind": "behavior", "quote": "\\brief Configure the camera prior to capture\n * \\param[in] config The camera configurations to setup\n *\n * Prior to starting capture, the camera must be configured to select a\n * group of streams to be involved in the capture and their configuration.\n * The caller specifies which streams are to be involved and their configuration\n * by populating \\a config.\n *\n * The configuration is created by generateConfiguration(), and adjusted by the\n * caller with CameraConfiguration::validate(). This function only accepts fully\n * valid configurations and returns an error if \\a config is not valid.\n *\n * Exclusive access to the camera shall be ensured by a call to acquire() prior\n * to calling this function, otherwise an -EACCES error will be returned.\n *\n * \\context This function may only be called when the camera is in the Acquired\n * or Configured state as defined in \\ref camera_operation, and shall be\n * synchronized by the caller with other functions that affect the camera\n * state.\n *\n * Upon return the StreamConfiguration entries in \\a config are associated with\n * Stream instances which can be retrieved with StreamConfiguration::stream().\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not in a state where it can be configured\n * \\retval -EINVAL The configuration is not valid\n */", "part_id": "answer"}], "application": [{"text": "`Camera::configure()`는 먼저 `d->isAccessAllowed(Private::CameraAcquired, Private::CameraConfigured)`의 반환값이 0보다 작으면 그 값을 그대로 반환합니다. 이어서 `for` 루프에서 모든 `cfg.setStream(nullptr)`를 호출해 이전 `Stream` 연결을 비웁니다. 그다음 `config->validate()`가 `CameraConfiguration::Valid`가 아니면 `LOG(Camera, Error)`로 \"Can't configure camera with invalid configuration\"을 출력하고 `-EINVAL`을 반환합니다. 따라서 검증에 실패해도 `Stream` 연결 비우기는 이미 끝난 뒤입니다.", "evidence": ["configure"], "covers": ["application"], "kind": "behavior", "quote": "if (config->validate() != CameraConfiguration::Valid) {\n\t\tLOG(Camera, Error)\n\t\t\t<< \"Can't configure camera with invalid configuration\";\n\t\treturn -EINVAL;\n\t}", "part_id": "answer"}, {"text": "`Camera::configure()`는 검증을 통과하면 `d->pipe_->invokeMethod(&PipelineHandler::configure, ConnectionTypeBlocking, this, config)`로 파이프라인 핸들러의 `configure`를 호출합니다. 호출 결과 `ret`이 0이 아니면 `return ret;`으로 그 값을 그대로 반환하며, 이 경우 이후의 `Stream` 연결 갱신 코드는 실행되지 않습니다.", "evidence": ["configure"], "covers": ["application"], "kind": "behavior", "quote": "ret = d->pipe_->invokeMethod(&PipelineHandler::configure,\n\t\t\t\t     ConnectionTypeBlocking, this, config);\n\tif (ret)\n\t\treturn ret;", "part_id": "answer"}, {"text": "`invokeMethod`가 0을 반환한 뒤 루프의 `cfg.stream()`이 `nullptr`인 항목이 있으면 `LOG(Camera, Fatal)`로 \"Pipeline handler failed to update stream configuration\"을 출력하는 경로에 들어갑니다. API 문서는 반환 시 `config`의 `StreamConfiguration` 항목이 `StreamConfiguration::stream()`으로 조회되는 `Stream`과 연결된다고 설명하며, 코드는 이 연결이 빠진 항목을 Fatal 경로로 검사합니다. 문서상 Fatal은 메시지 출력 뒤 실행을 중단하므로 `d->activeStreams_.clear()`와 `return -EINVAL;`은 실행되지 않으며, 검사 순서상 앞선 항목은 이미 `configuration_` 저장과 `activeStreams_` 삽입이 끝난 상태입니다.", "evidence": ["configure", "logging", "association"], "covers": ["application"], "kind": "behavior", "quote": "d->activeStreams_.clear();\n\tfor (const StreamConfiguration &cfg : *config) {\n\t\tStream *stream = cfg.stream();\n\t\tif (!stream) {\n\t\t\tLOG(Camera, Fatal)\n\t\t\t\t<< \"Pipeline handler failed to update stream configuration\";\n\t\t\td->activeStreams_.clear();\n\t\t\treturn -EINVAL;\n\t\t}", "part_id": "answer"}, {"text": "`invokeMethod`가 0을 반환하고 각 항목의 `cfg.stream()`이 모두 `nullptr`이 아니면, 루프 전에 `d->activeStreams_.clear()`로 목록을 비운 뒤 각 항목마다 `stream->configuration_ = cfg;`를 저장하고 `d->activeStreams_.insert(stream);`을 호출합니다. 루프가 끝나면 `d->setState(Private::CameraConfigured);`로 상태를 `CameraConfigured`로 바꾸고 `return 0;`으로 성공을 반환합니다.", "evidence": ["configure"], "covers": ["application"], "kind": "behavior", "quote": "stream->configuration_ = cfg;\n\t\td->activeStreams_.insert(stream);\n\t}", "part_id": "answer"}]}, "topic_inputs": {"preconditions": "fb297de287f65adc4a92b3e4cf14a0f042d0f660111cbbbe49f7ae1b6e983c9d", "application": "068fbaec055571b00d299987ba99c1bea68855d79447d957dd542c23d57f7c25"}, "reused_topics": [], "replayed_units": [], "generated_topics": ["preconditions", "application"], "topic_agents": {"preconditions": "cli/claude/claude-haiku-5-5", "application": "cli/claude/claude-haiku-5-5"}, "grounding_review": "passed", "grounding_policy": "3c9673abb403dee9aa554ee5b3c549ebfe95bb18ec0e9cd7bf6e495e060439c2", "validation_policy": {"manuscript": "e0c429a5c80a01c34563ce00a616df89d8f75c735f8669bcbd1f75d84cce82a6", "semantic": "571896e4854c21322a1ce4580107c235cae5a9f94e71adc8c97a7e2897405968", "duplicates": "281d217a1d4a212dd56cdb3ce61e9fae7a4622099962c1beee847a57866e83e0", "design_contracts": "9f54ecddce57c7a9caa6c02af77904b57eff2471f2a052951c1cffd18256a4f0", "validate": "78d29ffd1bf6235067edf5a0c7d9b1290f1f11e90599605a0e192e90be5f3372", "reader_profiles": "ad9005d08295212371f59e8934ace86786c0683f7a4c416301ee0e0cadc8b797", "contract_schema": "fecc4ee78a481139776e562c164c0da9a3e5edf0a64a72be1d1c8feddee3cd08", "answer_contracts": "1e0d24e0cf26ded53ecec2e5a6fbc51836bac6e17530318a9fa7cffaa936c00b", "reader_scope": "1b9c26b10b74ae8cf034f5863cbac2114e1d844e5d8332eb1f10562a18371782", "product_context": "9db4d42a710b4a71a7d2bb16f69db06926409281dc1a200c796e77d5deaa25a0", "design_response": "74ebb2d21768d6bdd4ef7611c1c539526a7e72e6a58604c82e8305003d24f8b7", "design_validation": "b8133c78a8eb42fd5194c2756bb649b396ec54b40c49b72544bdbbcaf3366c57"}, "validation_model": "bf7c671c2ded32908672c0f92d106c624236506d332c3e4befe65123ac580a96", "style_policy": {"fluent-korean.md": "ce5aa71e58371e3fc02ff8cb165e07c9234f5166f6541423a91cc4cb40878975", "i-have-adhd.md": "3170b16ace00aecb0dd7feb54c0b5aa642e7502acda06ecd24fd89a11c7127e9", "README.md": "f8fd5a3d8041c23fc68b93ff32b8727e98393383b5099032eb00ad0013e7611c"}, "checkpoint_units": [{"checkpoint": "25c813c4fd62ed8632a1ea0df45f00ed739b02ef5f55be07cf3016f6f64be9bf.json", "topic": "preconditions", "part": "answer", "subpart": null, "revalidated": false, "new_grounding_review": false, "receipts": ["10ec20f1b60c4df883d5ba943e927c09/007.receipt.json", "10ec20f1b60c4df883d5ba943e927c09/008.receipt.json"]}], "body_sha256": "17db932c0a2446ac4f41b477eec689e3d22f45451044d9ede810e39a69294ce9"}
 revalidated_from: 212c689fcf2450bbfbaab25c7472895ac277b5d6
 ---
 
-# 스트림 구성 (Camera::configure)
+# 스트림 구성
 
-**`Camera::configure(CameraConfiguration *)` 의 주요 호출과 추적 경계를 확인한 뒤 필요한 상세 기록을 펼쳐 보세요.**
+**캡처 전에 유효한 스트림 구성을 적용하고 실패 조건과 연결된 Stream을 확인하세요.**
 
 | 지금 확인할 내용 | 이동할 절 |
 |---|---|
-| `Camera::configure(CameraConfiguration *)`에서 시작한 정적 탐색으로 호출 기록 185개를 수집했습니다. | [이 흐름에서 확인할 것](#이-흐름에서-확인할-것) |
-| 아래 항목은 추출한 호출에서 고른 코드 탐색 지점입니다. | [주요 확인 지점](#주요-확인-지점) |
-| 화살표는 호출 측과 대상을 연결합니다. | [주요 호출 관계](#주요-호출-관계) |
-| 요약의 hide 규칙에 해당하는 호출은 107개입니다. | [추적 범위와 경계](#추적-범위와-경계) |
-| 아래 구간을 펼치면 요약에서 제외된 호출까지 확인할 수 있습니다. | [전체 추적 기록](#전체-추적-기록) |
+| <a id="이-흐름에서-확인할-것"></a>캡처 전에 유효한 스트림 구성을 적용하고 실패 조건과 연결된 Stream을 확인하세요. | [캡처 전에 준비할 스트림 구성](#캡처-전에-준비할-스트림-구성) |
 
-## 이 흐름에서 확인할 것
+## 캡처 전에 준비할 스트림 구성
 
-`Camera::configure(CameraConfiguration *)`에서 시작한 정적 탐색으로 호출 기록 185개를 수집했습니다. 주요 확인 지점 2개를 아래 표와 관계도에 표시합니다. 선택한 지점의 근거를 먼저 확인하고, 필요한 호출은 전체 추적 기록에서 찾아보세요.
+`Camera::configure()`는 캡처를 시작하기 전에 캡처에 참여할 스트림 묶음과 각 스트림의 구성을 고르는 함수입니다. 호출자는 `config`에 참여시킬 스트림과 구성을 채워 지정하며, 이 구성은 `generateConfiguration()`으로 만들고 호출자가 `CameraConfiguration::validate()`로 조정합니다. 이 함수는 완전히 유효한 구성만 받아들입니다. `src/libcamera/camera.cpp:1163`
 
-가상 호출 후보·예약 대상 등 확인이 필요한 경계 기록이 17개 있습니다. 추적 범위와 경계 표에서 후보를 구분한 뒤 실제 객체와 연결 방식을 확인해야 합니다.
+`configure()`를 호출하기 전에 호출자는 `acquire()`를 호출해 카메라의 배타 접근을 확보해야 합니다. 이 함수는 카메라가 Acquired 또는 Configured 상태일 때만 호출할 수 있으며, 호출자는 카메라 상태를 바꾸는 다른 함수와 이 호출을 동기화해야 합니다. 배타 접근을 확보하지 않으면 `-EACCES` 오류가 반환되고, 카메라가 구성할 수 있는 상태가 아니어도 `-EACCES`가 반환됩니다. 카메라가 시스템에서 연결 해제된 경우 `configure()`는 `-ENODEV`를 반환합니다. `src/libcamera/camera.cpp:1163`
+
+근거 원문: [src/libcamera/camera.cpp:1163](#source-72be07b9f03d4034)
+
+## 구성 적용과 성공 상태를 확인할 위치
+
+`Camera::configure()`는 먼저 `d->isAccessAllowed(Private::CameraAcquired, Private::CameraConfigured)`의 반환값이 0보다 작으면 그 값을 그대로 반환합니다. 이어서 `for` 루프에서 모든 `cfg.setStream(nullptr)`를 호출해 이전 `Stream` 연결을 비웁니다. 그다음 `config->validate()`가 `CameraConfiguration::Valid`가 아니면 `LOG(Camera, Error)`로 "Can't configure camera with invalid configuration"을 출력하고 `-EINVAL`을 반환합니다. 따라서 검증에 실패해도 `Stream` 연결 비우기는 이미 끝난 뒤입니다. `src/libcamera/camera.cpp:1191`
+
+`Camera::configure()`는 검증을 통과하면 `d->pipe_->invokeMethod(&PipelineHandler::configure, ConnectionTypeBlocking, this, config)`로 파이프라인 핸들러의 `configure`를 호출합니다. 호출 결과 `ret`이 0이 아니면 `return ret;`으로 그 값을 그대로 반환하며, 이 경우 이후의 `Stream` 연결 갱신 코드는 실행되지 않습니다. `src/libcamera/camera.cpp:1191`
+
+`invokeMethod`가 0을 반환한 뒤 루프의 `cfg.stream()`이 `nullptr`인 항목이 있으면 `LOG(Camera, Fatal)`로 "Pipeline handler failed to update stream configuration"을 출력하는 경로에 들어갑니다. API 문서는 반환 시 `config`의 `StreamConfiguration` 항목이 `StreamConfiguration::stream()`으로 조회되는 `Stream`과 연결된다고 설명하며, 코드는 이 연결이 빠진 항목을 Fatal 경로로 검사합니다. 문서상 Fatal은 메시지 출력 뒤 실행을 중단하므로 `d->activeStreams_.clear()`와 `return -EINVAL;`은 실행되지 않으며, 검사 순서상 앞선 항목은 이미 `configuration_` 저장과 `activeStreams_` 삽입이 끝난 상태입니다. `src/libcamera/camera.cpp:1191`, `src/libcamera/base/log.cpp:1022`, `src/libcamera/camera.cpp:1183`
+
+`invokeMethod`가 0을 반환하고 각 항목의 `cfg.stream()`이 모두 `nullptr`이 아니면, 루프 전에 `d->activeStreams_.clear()`로 목록을 비운 뒤 각 항목마다 `stream->configuration_ = cfg;`를 저장하고 `d->activeStreams_.insert(stream);`을 호출합니다. 루프가 끝나면 `d->setState(Private::CameraConfigured);`로 상태를 `CameraConfigured`로 바꾸고 `return 0;`으로 성공을 반환합니다. `src/libcamera/camera.cpp:1191`
+
+근거 원문: [src/libcamera/camera.cpp:1191](#source-603af0dd7fa357d0) · [src/libcamera/base/log.cpp:1022](#source-47a6ef3943a7b53c) · [src/libcamera/camera.cpp:1183](#source-5296d50aed1a3be0)
+
+??? note "설계 질문과 검증 범위"
+    질문별 답변과 근거 연결을 검사했습니다. 의미와 실행 결과는 사람 검토가 필요합니다.
+    
+    | 설계 질문 | 설명 위치 | 확인 범위 |
+    |---|---|---|
+    | Camera::configure()의 캡처 전 스트림 구성 목적과 호출자가 config를 채우고 generateConfiguration·validate로 준비하는 일을 설명하세요. 완전히 유효한 구성이 필요하다는 전제는 짧게 쓰고 validate 실패의 코드 분기·반환값은 다음 절에서 설명합니다. acquire로 확보할 배타 접근과 Acquired/Configured 상태, 상태 변경 함수와 호출자의 동기화 의무 및 -EACCES 조건을 관련된 한 문단으로 묶으세요. 연결 해제의 -ENODEV는 한 번만 설명하세요. 오류 목록이나 성공/실패 반환값 요약을 마지막에 다시 나열하지 마세요. 세 문단 이내로 작성하세요. | [캡처 전에 준비할 스트림 구성](#캡처-전에-준비할-스트림-구성) | 코드 근거와 설명 연결 |
+    | Camera::configure()가 이전 stream 연결을 비운 뒤 validate()==Valid를 검사하고 유효하지 않으면 -EINVAL을 반환하는 순서를 설명하세요. PipelineHandler::configure를 ConnectionTypeBlocking으로 호출하고 오류면 그대로 반환하는 경로를 설명하세요. 이 호출이 성공한 뒤에도 cfg.stream이 없으면 Fatal 로그 경로에 들어간다는 조건을 구체적으로 서술하세요. API의 Stream 연계 계약과 코드의 성공 뒤 누락 검사를 함께 읽되, 소스가 특정 설계 용어를 명시하는지를 평가하는 문장은 쓰지 마세요. LOG의 문서 계약에 따라 Fatal이 실행을 중단하므로 뒤의 clear/return 코드를 복구 경로로 서술하지 마세요. 모든 stream이 있으면 configuration_·activeStreams_·CameraConfigured를 갱신하고 0을 반환하는 성공 경로를 설명하세요. 네 문단 이내로 작성하세요. ConnectionTypeBlocking은 호출 설명에 한 번만 포함하고 같은 호출 유형을 별도 문장으로 다시 풀이하지 마세요. | [구성 적용과 성공 상태를 확인할 위치](#구성-적용과-성공-상태를-확인할-위치) | 코드 근거와 설명 연결 |
+
+## 소스 근거
+
+같은 발췌는 한 번만 싣습니다. 필요한 원문을 펼쳐 설명과 대조하세요.
+
+<a id="source-72be07b9f03d4034"></a>
+
+??? note "소스 근거: src/libcamera/camera.cpp:1163"
+    `src/libcamera/camera.cpp:1163`에서 시작하는 발췌입니다. 종료 줄은 1190이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `df8c93cd701c8dd65d498d666f63dd166c4470902f254be8a251bf3f6b8f761d`
+    
+    ```text
+    \brief Configure the camera prior to capture
+     * \param[in] config The camera configurations to setup
+     *
+     * Prior to starting capture, the camera must be configured to select a
+     * group of streams to be involved in the capture and their configuration.
+     * The caller specifies which streams are to be involved and their configuration
+     * by populating \a config.
+     *
+     * The configuration is created by generateConfiguration(), and adjusted by the
+     * caller with CameraConfiguration::validate(). This function only accepts fully
+     * valid configurations and returns an error if \a config is not valid.
+     *
+     * Exclusive access to the camera shall be ensured by a call to acquire() prior
+     * to calling this function, otherwise an -EACCES error will be returned.
+     *
+     * \context This function may only be called when the camera is in the Acquired
+     * or Configured state as defined in \ref camera_operation, and shall be
+     * synchronized by the caller with other functions that affect the camera
+     * state.
+     *
+     * Upon return the StreamConfiguration entries in \a config are associated with
+     * Stream instances which can be retrieved with StreamConfiguration::stream().
+     *
+     * \return 0 on success or a negative error code otherwise
+     * \retval -ENODEV The camera has been disconnected from the system
+     * \retval -EACCES The camera is not in a state where it can be configured
+     * \retval -EINVAL The configuration is not valid
+     */
+    ```
+
+<a id="source-603af0dd7fa357d0"></a>
+
+??? note "소스 근거: src/libcamera/camera.cpp:1191"
+    `src/libcamera/camera.cpp:1191`에서 시작하는 발췌입니다. 종료 줄은 1240이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `ff6ceda14768503bdfe753d462853457743d5b46a80e0808a97375632403cd36`
+    
+    ```text
+    int Camera::configure(CameraConfiguration *config)
+    {
+    	Private *const d = _d();
+    
+    	int ret = d->isAccessAllowed(Private::CameraAcquired,
+    				     Private::CameraConfigured);
+    	if (ret < 0)
+    		return ret;
+    
+    	for (auto &cfg : *config)
+    		cfg.setStream(nullptr);
+    
+    	if (config->validate() != CameraConfiguration::Valid) {
+    		LOG(Camera, Error)
+    			<< "Can't configure camera with invalid configuration";
+    		return -EINVAL;
+    	}
+    
+    	std::ostringstream msg("configuring streams:", std::ios_base::ate);
+    
+    	for (unsigned int index = 0; index < config->size(); ++index) {
+    		StreamConfiguration &cfg = config->at(index);
+    		msg << " (" << index << ") " << cfg.toString();
+    	}
+    
+    	LOG(Camera, Info) << msg.str();
+    
+    	ret = d->pipe_->invokeMethod(&PipelineHandler::configure,
+    				     ConnectionTypeBlocking, this, config);
+    	if (ret)
+    		return ret;
+    
+    	d->activeStreams_.clear();
+    	for (const StreamConfiguration &cfg : *config) {
+    		Stream *stream = cfg.stream();
+    		if (!stream) {
+    			LOG(Camera, Fatal)
+    				<< "Pipeline handler failed to update stream configuration";
+    			d->activeStreams_.clear();
+    			return -EINVAL;
+    		}
+    
+    		stream->configuration_ = cfg;
+    		d->activeStreams_.insert(stream);
+    	}
+    
+    	d->setState(Private::CameraConfigured);
+    
+    	return 0;
+    }
+    ```
+
+<a id="source-47a6ef3943a7b53c"></a>
+
+??? note "소스 근거: src/libcamera/base/log.cpp:1022"
+    `src/libcamera/base/log.cpp:1022`에서 시작하는 발췌입니다. 종료 줄은 1060이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `52e64d292f59786541e66fe48f5bae65256bdced60c803aa76bf3637083b47b0`
+    
+    ```text
+    \def LOG(category, severity)
+     * \hideinitializer
+     * \brief Log a message
+     * \param[in] category Category (optional)
+     * \param[in] severity Severity
+     *
+     * Return an std::ostream reference to which a message can be logged using the
+     * iostream API. The \a category, if specified, sets the message category. When
+     * absent the default category is used. The  \a severity controls whether the
+     * message is printed or discarded, depending on the log level for the category.
+     *
+     * If the severity is set to Fatal, execution is aborted and the program
+     * terminates immediately after printing the message.
+     *
+     * \warning Logging from the destructor of a global object, either directly or
+     * indirectly, results in undefined behaviour.
+     *
+     * \todo Allow logging from destructors of global objects to the largest
+     * possible extent
+     */
+    
+    /**
+     * \def ASSERT(condition)
+     * \hideinitializer
+     * \brief Abort program execution if assertion fails
+     *
+     * If \a condition is false, ASSERT() logs an error message with the Fatal log
+     * level and aborts program execution.
+     *
+     * If the macro NDEBUG is defined before including log.h, ASSERT() generates no
+     * code.
+     *
+     * Using conditions that have side effects with ASSERT() is not recommended, as
+     * these effects would depend on whether NDEBUG is defined or not. Similarly,
+     * ASSERT() should not be used to check for errors that can occur under normal
+     * conditions as those checks would then be removed when compiling with NDEBUG.
+     */
+    
+    } /* namespace libcamera */
+    ```
+
+<a id="source-5296d50aed1a3be0"></a>
+
+??? note "소스 근거: src/libcamera/camera.cpp:1183"
+    `src/libcamera/camera.cpp:1183`에서 시작하는 발췌입니다. 종료 줄은 1184이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `7c6d3ef93e52639d7dc41b838e17c708fa6861da3e50c7593d803beb3f7c49d1`
+    
+    ```text
+     * Upon return the StreamConfiguration entries in \a config are associated with
+     * Stream instances which can be retrieved with StreamConfiguration::stream().
+    ```
 
 ## 주요 확인 지점
 
@@ -313,11 +498,11 @@ flowchart LR
     | 185 | `Camera` | `Private::setState()` | 정적 호출 지점입니다. | `src/libcamera/camera.cpp:1237` |
 
 ??? note "근거와 검토 정보"
-    - 생성 방식: 추출 호출로 만든 시나리오
-    - 검증 범위: 주요 호출과 경계를 facts에서 구성하고 전체 추적 기록을 보존합니다. 실행 순서를 추정하지 않습니다.
+    - 생성 방식: 추출 사실과 LLM 설명
+    - 검증 범위: 표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.
     - 근거 파일: `include/libcamera/geometry.h`, `include/libcamera/pixel_format.h`, `src/libcamera/base/log.cpp`, `src/libcamera/camera.cpp`, `src/libcamera/formats.cpp`, `src/libcamera/pipeline/imx8-isi/imx8-isi.cpp`, `src/libcamera/pixel_format.cpp`, `src/libcamera/sensor/camera_sensor_legacy.cpp`, `src/libcamera/sensor/camera_sensor_raw.cpp`, `src/libcamera/stream.cpp`
     - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `212c689fcf`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-10-30 · 사람 검토 전
+    - 검토 상태 기록일: 2026-10-31 · 사람 검토 전
 
-다음 단계: [캡처 시작 (Camera::start)](camera_start.md)
+다음 단계: [캡처 시작](camera_start.md)
