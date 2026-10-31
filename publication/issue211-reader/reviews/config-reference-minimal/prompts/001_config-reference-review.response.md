@@ -1,0 +1,1 @@
+{"verdict":"needs-revision","findings":["규칙 2는 프로파일의 `agent`에 명시적 `model`이 있고 `paths.style`이 있어야 한다고 하지만, 발췌된 코드는 로드된 `profile.agent.model`의 값과 `profile.paths`의 `style` 포함 여부만 확인합니다. `load()`의 기본값 처리가 제공되지 않아 해당 키를 프로파일 파일에 명시해야 하는지는 확인할 수 없습니다."],"scope":"제공된 한국어 옵션 참고 문서를 제공된 구현 발췌와만 대조했습니다."}

@@ -1,0 +1,16 @@
+{
+  "verdict": "needs-revision",
+  "findings": [
+    "Callback diagram: “한도 미도달 시” and “If below the limit” omit the case where captureLimit_ is unset. Express both checks as “limit set and count reached,” with the false branch covering an unset limit.",
+    "Callback diagram: “captureCount_ 증가 후 한도 도달 여부 검사” has no false branch. Show the subsequent sink-dependent return or request reuse and requeue path so the diagram does not imply processing ends there.",
+    "Reproduction diagram: “Docker 중지 등 공유 호스트 변경이 필요한지 확인” branches only on whether Docker must stop. Add the host-change plan and separate approval before any affected host change, including when Docker need not stop.",
+    "Both diagrams use long, repeated edge labels. Shorten the Korean and English branch labels while retaining the cancellation, capture-limit, approval, and device-access conditions."
+  ],
+  "reader_tasks": [],
+  "reviewed_scope": "Korean narrative, pinned callback source, supplied measurements, linked reproduction runbook, execution contract, and both supplied diagram sources and their English labels. The short allocator topic has an acceptable stated reason for omitting a diagram.",
+  "unreviewed": [
+    "No English narrative was supplied for claim-by-claim comparison.",
+    "Collapsed evidence contents and external links were not independently inspected.",
+    "This is an automatic assessment, not human reader approval."
+  ]
+}

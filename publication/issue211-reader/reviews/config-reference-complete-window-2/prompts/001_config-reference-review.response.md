@@ -1,0 +1,1 @@
+{"verdict":"needs-revision","findings":["규칙 2는 `agent.kind`를 명시해야 한다고 읽히지만, 구현은 해당 키가 없으면 `cli`를 기본값으로 사용합니다.","규칙 4의 시각 자료 fingerprint 불일치 시 실패한다는 설명은 너무 단정적입니다. 현재 fingerprint가 달라도 기존 CLI 실행 파일 경로를 사용하는 호환 fingerprint가 일치하면 검증을 통과할 수 있습니다."],"scope":"제공된 한국어 옵션 참고 문서만 제공된 구현 발췌와 대조했습니다."}
