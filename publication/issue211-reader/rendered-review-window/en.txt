@@ -1,0 +1,80 @@
+
+Start from the point where the virtual capture was blocked, and follow the path from the completion notification to frame processing.
+
+
+
+Once the allocator was prepared, the official cam capture completed.
+
+
+In this baseline reproduction, the default WSL kernel did not expose a DMA-BUF allocator, so the official cam could not allocate buffers.
+
+The unmodified official cam (source commit 293d751a) was run independently three times, in three separate processes, on the recorded WSL2 trial kernel with the Virtual2 400x300 NV12 virtual camera configuration. In each run, normal completion of three frames and successful udmabuf allocation were observed. CPU-access success from the separate DMA-BUF probe was recorded separately from this cam allocation observation. The trial ended with the default kernel restored, so this configuration cannot be rerun as-is in the current state.
+
+
+cam receives the completion notification and processes the frame in the event loop.
+
+
+The completion notification (requestComplete) is a separate step from follow-up frame handling in the camera session (processRequest). requestComplete returns immediately if the request status is Request::RequestCancelled; otherwise, it defers processRequest to the event loop using callLater. The comment states that this deferral is meant to avoid blocking the camera manager thread.
+
+
+From completion notification to subsequent processing
+
+
+Mermaid source
+
+
+
+
+processRequest returns immediately on entry if a capture limit is set and the capture count has reached that limit. Otherwise, the frame is processed, and after processing completes, the capture count is increased by 1. If the increased count reaches the configured limit, captureDone is emitted and control returns.
+
+In this run, the callback (requestComplete) and the follow-up processing (processRequest) were observed on different threads, but this observation does not guarantee the thread placement of every run. The cancellation branch (Request::RequestCancelled) of requestComplete exists in the source, but it was not exercised dynamically in this run.
+
+
+We reproduce after confirming a supported kernel and device access.
+
+
+
+1. 
+
+
+Without changing host state, investigate the CONFIG_UDMABUF and dependent symbols of the selected kernel, the actual modules, and the allocator candidates. Access permission for /dev/udmabuf is checked in step 4. Prioritize preparation that does not affect the existing WSL/Docker, and do not treat adding a distribution alone as isolating the kernel.
+
+
+2. 
+
+
+If changes to the shared kernel, modules, or .wslconfig, or termination of the distribution or VM, are required, write an impact, backup, and recovery plan and obtain separate approval immediately before executing the host change. PR merge and Pages approval do not replace this approval. Docker is stopped only when the approved plan requires Docker to be stopped.
+
+
+3. 
+
+
+The reproducing developer installs and boots the recorded trial kernel 6.18.33.2-microsoft-standard-WSL2-issue211 only after separate approval of the host change plan is obtained. After booting, the reproducing developer compares the running kernel version with the recorded kernel. If the running kernel differs from the recorded kernel, the reproducing developer must not proceed with capture.
+
+
+4. 
+
+
+After the developer confirms /dev/udmabuf access and the Virtual2 400x300 NV12 configuration in the recorded root context, the developer runs the unmodified official cam debug build by following the commands in the reproduction guide and observes that run with the observation tools. If the running kernel differs from the recorded kernel, or if /dev/udmabuf access or the configuration differs, the developer must not capture. In this trial, /dev/udmabuf permissions were not changed and were kept root-only.
+
+
+
+
+From environment verification to reproduction execution
+
+
+Mermaid source
+
+
+
+
+Execution check items: this result applies only to the WSL2 virtual camera trial scope configured as a simulation. Physical DMA, physical camera, product app, and internal HAL are unverified. Because GDB affects timing, the callback-return instruction and performance were not verified.
+
+
+
+
+Source evidence
+
+
+
+Next step: Official cam reproduction procedure

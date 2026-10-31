@@ -8,60 +8,313 @@
 <main id="main"><p class="breadcrumb">For Developer <span>/</span> WSL official cam virtual capture verification</p><h1>Verify WSL official cam virtual capture</h1><div class="page-state"><span class="review-state">Human review pending</span><span>Automatic checks passed</span><span class="generation-method">Written from: extracted structure and a model-written draft</span><a class="state-help" href="#page-evidence">What these mean ↓</a></div>
 <details class="mobile-toc"><summary>Contents of this page</summary><div class="toc">
 <ul>
-<li><a href="#공식-cam과-실제-dma-buf-확인-결과">Official cam and actual DMA-BUF verification results</a></li>
-<li><a href="#콜백과-후속-처리에서-확인한-세-프레임">The three frames confirmed in the callback and subsequent processing</a></li>
-<li><a href="#재현-조건과-검증-경계">Reproduction Conditions and Validation Boundary</a></li>
+<li><a href="#할당기를-준비하자-공식-cam-캡처가-완료됐습니다">Once the allocator was prepared, the official cam capture completed.</a></li>
+<li><a href="#cam이-완료-알림을-받아-이벤트-루프에서-프레임을-처리합니다">cam receives the completion notification and processes the frame in the event loop.</a><ul>
+<li><a href="#완료-알림에서-후속-처리까지">From completion notification to subsequent processing</a></li>
+</ul>
+</li>
+<li><a href="#지원-커널과-장치-접근을-확인한-뒤-재현합니다">We reproduce after confirming a supported kernel and device access.</a><ul>
+<li><a href="#환경-확인에서-재현-실행까지">From environment verification to reproduction execution</a></li>
+</ul>
+</li>
 <li><a href="#소스-근거">Source evidence</a></li>
 </ul>
 </div>
-</details><p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p><strong>Check the conditions and observation scope under which the official cam's virtual capture was confirmed with real DMA-BUF.</strong></p>
+</details><p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p><strong>Start from the point where the virtual capture was blocked, and follow the path from the completion notification to frame processing.</strong></p>
 <details class="page-terms">
-<summary>Terms in this document: WSL, WSL2, UDMABUF, errno, and 9 others</summary>
+<summary>Terms used in this document: WSL, WSL2, NV12, VM, and 4 others.</summary>
 <ul>
 <li><strong>WSL</strong> (Windows Subsystem for Linux): A Windows feature that allows a Linux environment to run on a Windows computer.</li>
 <li><strong>WSL2</strong> (Windows Subsystem for Linux 2): an environment for running Linux on Windows. This site is built from libcamera compiled and extracted in WSL2.</li>
-<li><strong>UDMABUF</strong> (userspace dmabuf misc driver): The name of a Linux kernel driver that converts a memfd region in user space into a dma-buf.</li>
-<li><strong>errno</strong>: the standard error numbers Linux functions use to report why they failed. libcamera functions return them as negative values. For example, -ENODEV means no device, -EACCES access denied, -EINVAL an invalid argument, -ENOMEM out of memory and -EXDEV a resource that belongs to another object.</li>
-<li><strong>GDB</strong> (GNU Project Debugger): A GNU debugger that stops a program under specified conditions and lets you examine its execution state after it stops.</li>
-<li><strong>DMA</strong> (Direct Memory Access): DMA(Direct Memory Access) is a term that refers to a method by which an I/O device directly reads from or writes to system memory.</li>
-<li><strong>HAL</strong> (Hardware Abstraction Layer): the layer that lets an operating system drive different vendors' hardware through one interface. This project ultimately targets an in-house Android Camera HAL.</li>
-<li><strong>Pending</strong>: A request state that has not yet changed to complete or cancelled. It does not mean device processing has started; an earlier request in this state can delay later returns.</li>
-<li><strong>TID</strong> (Linux thread ID): TID is the Linux thread ID returned by the gettid system call.</li>
 <li><strong>NV12</strong> (NV12): The format is 4:2:0 and uses 8 bits per component. The first plane is luminance (Y), and the second plane contains interleaved chroma data in which Cb and Cr values are stored alternately, one at a time, and the whole is placed in linearly contiguous memory.</li>
-<li><strong>GCC</strong> (GNU Compiler Collection): A collection of GNU compilers that includes front ends for C, C++, and others.</li>
 <li><strong>VM</strong> (Virtual Machine): A virtual machine is a computer implemented in software by virtualizing the resources of a physical computer, and it runs its own operating system and applications. This is not limited to cloud servers, and it can also be created on a personal physical computer.</li>
 <li><strong>PR</strong> (Pull Request): A request proposing that code changes be merged into a project.</li>
+<li><strong>DMA</strong> (Direct Memory Access): DMA(Direct Memory Access) is a term that refers to a method by which an I/O device directly reads from or writes to system memory.</li>
+<li><strong>HAL</strong> (Hardware Abstraction Layer): the layer that lets an operating system drive different vendors' hardware through one interface. This project ultimately targets an in-house Android Camera HAL.</li>
+<li><strong>GDB</strong> (GNU Project Debugger): A GNU debugger that stops a program under specified conditions and lets you examine its execution state after it stops.</li>
 </ul>
 <p>Other terms are in the <a href="glossary.html">Glossary</a>.</p>
 </details>
 
-<h2 id="공식-cam과-실제-dma-buf-확인-결과">Official cam and actual DMA-BUF verification results</h2>
-<p><strong>This is a virtual test configuration. It must not be used as a support or performance claim for an actual product.</strong></p>
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&quot;, &quot;&lt;a href=\&quot;#source-dd657648532f01f5\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&quot;: [&quot;#source-dd657648532f01f5&quot;]}">On the WSL2 test kernel <code>6.18.33.2-microsoft-standard-WSL2-issue211</code>, with udmabuf built in, we ran the unmodified official cam, based on source <code>293d751a814e0d4c34e85ad457ccd9d5eefd1a61</code>, as a root child process. We applied the <code>(0) 400x300-NV12/SMPTE170M</code> setting to virtual camera <code>Virtual2</code>. Three independent processes each completed 3 frames and ended with exit code 0. Cancelled callbacks were 0 in all three processes, and the unprivileged run failed with errno 13.</p>
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&quot;, &quot;&lt;a href=\&quot;#source-dd657648532f01f5\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&quot;: [&quot;#source-dd657648532f01f5&quot;]}">The DMA-BUF access records come from a separate probe, <code>dmabuf-probe-2</code>, not from the official cam. The probe recorded, at allocate, <code>backing_fd</code> 4, <code>dmabuf_fd</code> 5, and size 4096. After mmap, it logged <code>sync-start</code> (flags 3), cpu-access of 4096 bytes, <code>sync-end</code> (flags 7), munmap, close-dmabuf, close-backing, and close-provider, all with result 0. The records do not contain the names <code>SYNC_START</code> and <code>SYNC_END</code>; the event names are <code>sync-start</code> and <code>sync-end</code>.</p>
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&quot;, &quot;&lt;a href=\&quot;#source-dd657648532f01f5\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&quot;: [&quot;#source-dd657648532f01f5&quot;]}">Execution check item: This configuration is a virtual trial configuration with <code>simulation</code> marked as true and is not an actual product. Observations were made under GDB, and it is recorded that GDB breakpoints affect timing. Physical DMA is <code>not-validated</code>; physical camera, production application, and internal HAL are <code>not-run</code>; human review is <code>pending</code>, and product availability is <code>unknown</code>. The cancellation branch was not dynamically executed, and it is recorded that the observed <code>cancelled_callbacks</code> of 0 is not a forced result.</p>
+<h2 id="할당기를-준비하자-공식-cam-캡처가-완료됐습니다">Once the allocator was prepared, the official cam capture completed.</h2>
 
-<details class="evidence-links evidence-section"><summary><span>2</span> evidence items across the section</summary><ul><li><code>product-evidence/libcamera-official-cam-trial/official-cam-run.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1" href="#source-dd657648532f01f5"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/execution-contract.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/execution-contract.txt:1" href="#source-6722470b9620a771"><code>L1</code></a></span></li></ul></details><h2 id="콜백과-후속-처리에서-확인한-세-프레임">The three frames confirmed in the callback and subsequent processing</h2>
-<p><strong>This is a virtual test configuration. It must not be used as a support or performance claim for an actual product.</strong></p>
-<p data-sdd-evidence="[[&quot;src/apps/cam/camera_session.cpp:458&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/apps/cam/camera_session.cpp#L458\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:458&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&quot;, &quot;&lt;a href=\&quot;#source-dd657648532f01f5\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/apps/cam/camera_session.cpp:458&quot;: [&quot;#source-6b5bd0b09b7f63ff&quot;], &quot;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&quot;: [&quot;#source-dd657648532f01f5&quot;]}"><code>CameraSession::requestComplete</code> returns without doing anything if the request status is RequestCancelled. Any other completed request defers the processRequest call to the event loop via <code>EventLoop::instance()</code>-&gt;callLater so that the camera manager thread is not blocked. If the capture limit has been reached, processRequest returns immediately; otherwise, processRequest prints frame information and then increments <code>captureCount_</code>. The observation point is inside the processRequest function, immediately before <code>captureCount_</code> is incremented.</p>
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&quot;, &quot;&lt;a href=\&quot;#source-dd657648532f01f5\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;include/libcamera/request.h:34&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/include/libcamera/request.h#L34\&quot;&gt;&lt;code&gt;include/libcamera/request.h:34&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&quot;: [&quot;#source-dd657648532f01f5&quot;], &quot;include/libcamera/request.h:34&quot;: [&quot;#source-2f743f0ec1bd4560&quot;]}">In the measurement data, for each of the three independent processes (pid 434, 449, 464), the callback-entry and frame-processed events are paired by the same request address and sequence (0, 1, 2), so three frames are counted once per process. The <code>Request</code> status enum is declared in the order RequestPending, RequestComplete, RequestCancelled, and no numeric values are specified, so the actual status 1 corresponds to the second item, RequestComplete. The TIDs of the callbacks threads are 437, 452, 467, and the TIDs of the <code>main_tid</code> and processed threads are 434, 449, 464. The <code>buffer_sequence</code> values 0, 1, 2 with successful buffer status (<code>buffer_status</code> 0) match the <code>successful_buffer_sequences</code> values 0, 1, 2.</p>
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&quot;, &quot;&lt;a href=\&quot;#source-dd657648532f01f5\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&quot;: [&quot;#source-dd657648532f01f5&quot;]}">Execution check item: The 0 cancellations (<code>cancelled_callbacks</code> 0) are this observed value; since the cancellation branch was not dynamically executed, the observed count of 0 is not a forced result. Because the callback-return instruction was not observed, this measurement is not verification of the cancellation path, return instruction, or performance. There is an observation limitation that GDB breakpoints affect timing, and the result applies only to source 293d751a814e0d4c34e85ad457ccd9d5eefd1a61, the WSL2 custom UDMABUF kernel, and the Virtual2 400x300 NV12 configuration; physical DMA, physical camera, other operating applications, and internal HAL are not verified. This configuration is a simulation-based virtual trial configuration and is not an actual product.</p>
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-10812730226e86cc\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&quot;, &quot;&lt;a href=\&quot;#source-d84e6ca3abcfec11\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;: [&quot;#source-10812730226e86cc&quot;], &quot;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&quot;: [&quot;#source-d84e6ca3abcfec11&quot;]}">In this baseline reproduction, the default WSL kernel did not expose a DMA-BUF allocator, so the official cam could not allocate buffers.</p>
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&quot;, &quot;&lt;a href=\&quot;#source-d84e6ca3abcfec11\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-10812730226e86cc\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&quot;: [&quot;#source-d84e6ca3abcfec11&quot;], &quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;: [&quot;#source-10812730226e86cc&quot;]}">The unmodified official cam (source commit 293d751a) was run independently three times, in three separate processes, on the recorded WSL2 trial kernel with the Virtual2 400x300 NV12 virtual camera configuration. In each run, normal completion of three frames and successful udmabuf allocation were observed. CPU-access success from the separate DMA-BUF probe was recorded separately from this cam allocation observation. The trial ended with the default kernel restored, so this configuration cannot be rerun as-is in the current state.</p>
 
-<details class="evidence-links evidence-section"><summary><span>4</span> evidence items across the section</summary><ul><li><code>src/apps/cam/camera_session.cpp</code><span class="evidence-lines"><a href="#source-6b5bd0b09b7f63ff" aria-label="src/apps/cam/camera_session.cpp:458 excerpt"><code>L458</code> excerpt</a> · <a aria-label="src/apps/cam/camera_session.cpp:458" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/apps/cam/camera_session.cpp#L458">Full source <code>L458</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/official-cam-run.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1" href="#source-dd657648532f01f5"><code>L1</code></a></span></li><li><code>include/libcamera/request.h</code><span class="evidence-lines"><a href="#source-2f743f0ec1bd4560" aria-label="include/libcamera/request.h:34 excerpt"><code>L34</code> excerpt</a> · <a aria-label="include/libcamera/request.h:34" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/include/libcamera/request.h#L34">Full source <code>L34</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/execution-contract.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/execution-contract.txt:1" href="#source-6722470b9620a771"><code>L1</code></a></span></li></ul></details><h2 id="재현-조건과-검증-경계">Reproduction Conditions and Validation Boundary</h2>
-<p><strong>This is a virtual test configuration. It must not be used as a support or performance claim for an actual product.</strong></p>
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&quot;, &quot;&lt;a href=\&quot;#source-dd657648532f01f5\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&quot;: [&quot;#source-dd657648532f01f5&quot;]}">During the pre-check, instead of the default WSL2 kernel, which lacked UDMABUF and a DMA-BUF heap, a test kernel with built-in UDMABUF from the exact Microsoft tag linux-msft-wsl-6.18.33.2 was temporarily applied after user approval. The compiler capability differences from GCC 13.2 to Ubuntu GCC 15.2, and the differences from binutils 2.41 to 2.46 and pahole 1.25 to 1.31, were preserved in the full diff. Because no modules for a new release were installed, Docker was left stopped during the trial. The UDMABUF device is root-only, so permissions were not changed and it was run as a root child process; the errno 13 failure from a normal user run was also preserved. This configuration is a simulated Virtual2 400x300 NV12 test setup, not an actual product, and is a simulation test configuration.</p>
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/execution-contract.txt:1&quot;, &quot;&lt;a href=\&quot;#source-6722470b9620a771\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/execution-contract.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/execution-contract.txt:1&quot;: [&quot;#source-6722470b9620a771&quot;]}">Execution check item: After restoring the default WSL2 kernel, no UDMABUF allocator is available, so before running the reproduction commands, a separately approved supported kernel must be prepared and booted, and device access must be checked first. Approval for the past trial is not approval for future new host changes, and any change to the shared kernel, modules, or .wslconfig, or any termination of a WSL distribution or VM, must receive separate approval immediately before execution. Approval for the existing PR merge and Pages deployment is not extended to approval of these host changes, and this premise follows the execution contract basis.</p>
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&quot;, &quot;&lt;a href=\&quot;#source-dd657648532f01f5\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&quot;: [&quot;#source-dd657648532f01f5&quot;]}">In the dedicated negative tests, the absent provider failed with errno 2 and the unsupported ioctl failed with errno 25, and exit code 1 was recorded in both cases. In the 0.5-second timeout test, the <code>timed_out</code> value was recorded as true, so the failure judgment was preserved.</p>
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&quot;, &quot;&lt;a href=\&quot;#source-dd657648532f01f5\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&quot;: [&quot;#source-dd657648532f01f5&quot;]}">In the same 0.5-second timeout trial, <code>SYNC_END</code> return value 0, munmap return value 0, and three fd close records with return value 0 were logged, and no process group remained. This means resource cleanup succeeded separately from the timeout failure verdict. A close return value of 0 means only that the close succeeded, and does not mean there were zero closes. An additional official cam strace exited normally with exit code 0, but the <code>callback_observation</code> value was recorded as false, so it is separate from callback observation. This configuration is a virtual test configuration, not an actual product.</p>
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&quot;, &quot;&lt;a href=\&quot;#source-dd657648532f01f5\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&quot;: [&quot;#source-dd657648532f01f5&quot;]}">After removing the temporary .wslconfig and restoring the kernel, the kernel after the run is the same as the pretrial kernel, 6.18.33.2-microsoft-standard-WSL2, and the .wslconfig file does not exist. This result was obtained with the WSL2-tailored UDMABUF kernel, root child processes, and Virtual2 400x300 NV12 configuration based on source 293d751a814e0d4c34e85ad457ccd9d5eefd1a61. This configuration is a simulated virtual test configuration and is not an actual product.</p>
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&quot;, &quot;&lt;a href=\&quot;#source-dd657648532f01f5\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1&quot;: [&quot;#source-dd657648532f01f5&quot;]}">Execution check item: Physical DMA, physical camera, other product applications, internal HAL, and human approval (<code>human_review</code>: pending) are unvalidated. GDB breakpoint observation affects timing, and the callback-return instruction was not observed.</p>
+<details class="evidence-links evidence-section"><summary><span>3</span> evidence items across the section</summary><ul><li><code>product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1" href="#source-10812730226e86cc"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/official-cam-reader.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1" href="#source-d84e6ca3abcfec11"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/execution-contract.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/execution-contract.txt:1" href="#source-6722470b9620a771"><code>L1</code></a></span></li></ul></details><h2 id="cam이-완료-알림을-받아-이벤트-루프에서-프레임을-처리합니다">cam receives the completion notification and processes the frame in the event loop.</h2>
+
+<p data-sdd-evidence="[[&quot;src/apps/cam/camera_session.cpp:458&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/apps/cam/camera_session.cpp#L458\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:458&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/apps/cam/camera_session.cpp:458&quot;: [&quot;#source-6b5bd0b09b7f63ff&quot;]}">The completion notification (<code>requestComplete</code>) is a separate step from follow-up frame handling in the camera session (<code>processRequest</code>). <code>requestComplete</code> returns immediately if the request status is <code>Request::RequestCancelled</code>; otherwise, it defers <code>processRequest</code> to the event loop using <code>callLater</code>. The comment states that this deferral is meant to avoid blocking the camera manager thread.</p>
+<!-- sdd:visual:completion-flow -->
+<h3 id="완료-알림에서-후속-처리까지">From completion notification to subsequent processing</h3>
+<pre class="mermaid">flowchart TB
+
+  v_n0["Enter requestComplete with &lt;br/&gt;the completed Request"]
+  v_n1{"Check cancel state: &lt;br/&gt;RequestCancelled"}
+  v_n2["Return from current &lt;br/&gt;function, no captureDone &lt;br/&gt;signal"]
+  v_n3["Defer processing to event &lt;br/&gt;loop via callLater"]
+  v_n4{"processRequest entry: check &lt;br/&gt;if limit reached"}
+  v_n5["After frame work, &lt;br/&gt;captureCount_ increments"]
+  v_n6{"Right after increment, &lt;br/&gt;check captureLimit_ reached"}
+  v_n7["After captureDone.emit(), &lt;br/&gt;return from current function"]
+  v_n8{"Does the sink hold the &lt;br/&gt;request?"}
+  v_n9["Call &lt;br/&gt;reuse(Request::ReuseBuffers)&lt;br/&gt;, then queueRequest"]
+  v_n0 --&gt;|"Check cancel state"| v_n1
+  v_n1 --&gt;|"Cancelled: return now [true]"| v_n2
+  v_n1 --&gt;|"Not cancelled: defer [false]"| v_n3
+  v_n3 --&gt;|"Event loop calls it later"| v_n4
+  v_n4 --&gt;|"Entry limit reached: return &lt;br/&gt;[true]"| v_n2
+  v_n4 --&gt;|"Unset/not reached: continue &lt;br/&gt;[false]"| v_n5
+  v_n5 --&gt;|"Then check limit reached"| v_n6
+  v_n6 --&gt;|"Reached: emit captureDone &lt;br/&gt;[true]"| v_n7
+  v_n6 --&gt;|"Unset/not reached: continue &lt;br/&gt;[false]"| v_n8
+  v_n8 --&gt;|"Sink holds: return [true]"| v_n2
+  v_n8 --&gt;|"Not held: reuse and queue &lt;br/&gt;[false]"| v_n9</pre>
+<p><a href="official-cam-validation.completion-flow.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>How does it proceed from cancellation return, event loop delivery, entry limit check, to completion signal or requeue after frame processing and increment?</p>
+<p>This is an authored interpretation linked to source evidence. Automated binding checks are neither semantic approval nor device runtime validation.</p>
+<p>LLM diagram draft · human review pending</p>
+<p>Authoring model: <code>cli/claude/claude-haiku-5-5</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Element or transition</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Enter requestComplete with the completed Request</td>
+<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+</tr>
+<tr>
+<td>Check cancel state: RequestCancelled</td>
+<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+</tr>
+<tr>
+<td>Return from current function, no captureDone signal</td>
+<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+</tr>
+<tr>
+<td>Defer processing to event loop via callLater</td>
+<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+</tr>
+<tr>
+<td>processRequest entry: check if limit reached</td>
+<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+</tr>
+<tr>
+<td>After frame work, captureCount_ increments</td>
+<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+</tr>
+<tr>
+<td>Right after increment, check captureLimit_ reached</td>
+<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+</tr>
+<tr>
+<td>After captureDone.emit(), return from current function</td>
+<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+</tr>
+<tr>
+<td>Does the sink hold the request?</td>
+<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+</tr>
+<tr>
+<td>Call reuse(Request::ReuseBuffers), then queueRequest</td>
+<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+</tr>
+<tr>
+<td>Check cancel state</td>
+<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+</tr>
+<tr>
+<td>Cancelled: return immediately · request-&gt;status() == Request::RequestCancelled [true]</td>
+<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+</tr>
+<tr>
+<td>Not cancelled: deliver · request-&gt;status() == Request::RequestCancelled [false]</td>
+<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+</tr>
+<tr>
+<td>Event loop calls it later</td>
+<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+</tr>
+<tr>
+<td>Entry limit reached: return · captureLimit_ &amp;&amp; captureCount_ &gt;= captureLimit_ [true]</td>
+<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+</tr>
+<tr>
+<td>Unset or not reached: continue · captureLimit_ &amp;&amp; captureCount_ &gt;= captureLimit_ [false]</td>
+<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+</tr>
+<tr>
+<td>Then check limit reached</td>
+<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+</tr>
+<tr>
+<td>Reached: completion signal · captureLimit_ &amp;&amp; captureCount_ &gt;= captureLimit_ [true]</td>
+<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+</tr>
+<tr>
+<td>Unset or not reached: continue · captureLimit_ &amp;&amp; captureCount_ &gt;= captureLimit_ [false]</td>
+<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+</tr>
+<tr>
+<td>Held: return · !requeue [true]</td>
+<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+</tr>
+<tr>
+<td>Not held: reuse/requeue · !requeue [false]</td>
+<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:completion-flow -->
+
+<p data-sdd-evidence="[[&quot;src/apps/cam/camera_session.cpp:458&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/apps/cam/camera_session.cpp#L458\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:458&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/apps/cam/camera_session.cpp:458&quot;: [&quot;#source-6b5bd0b09b7f63ff&quot;]}"><code>processRequest</code> returns immediately on entry if a capture limit is set and the capture count has reached that limit. Otherwise, the frame is processed, and after processing completes, the capture count is increased by 1. If the increased count reaches the configured limit, <code>captureDone</code> is emitted and control returns.</p>
+<p data-sdd-evidence="[[&quot;src/apps/cam/camera_session.cpp:458&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/apps/cam/camera_session.cpp#L458\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:458&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&quot;, &quot;&lt;a href=\&quot;#source-d84e6ca3abcfec11\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/apps/cam/camera_session.cpp:458&quot;: [&quot;#source-6b5bd0b09b7f63ff&quot;], &quot;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&quot;: [&quot;#source-d84e6ca3abcfec11&quot;]}">In this run, the callback (<code>requestComplete</code>) and the follow-up processing (<code>processRequest</code>) were observed on different threads, but this observation does not guarantee the thread placement of every run. The cancellation branch (<code>Request::RequestCancelled</code>) of <code>requestComplete</code> exists in the source, but it was not exercised dynamically in this run.</p>
+
+<details class="evidence-links evidence-section"><summary><span>4</span> evidence items across the section</summary><ul><li><code>src/apps/cam/camera_session.cpp</code><span class="evidence-lines"><a href="#source-6b5bd0b09b7f63ff" aria-label="src/apps/cam/camera_session.cpp:458 excerpt">Excerpt of <code>L458</code></a> · <a aria-label="src/apps/cam/camera_session.cpp:458" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/apps/cam/camera_session.cpp#L458">Full source <code>L458</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/official-cam-reader.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1" href="#source-d84e6ca3abcfec11"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/execution-contract.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/execution-contract.txt:1" href="#source-6722470b9620a771"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1" href="#source-10812730226e86cc"><code>L1</code></a></span></li></ul></details><h2 id="지원-커널과-장치-접근을-확인한-뒤-재현합니다">We reproduce after confirming a supported kernel and device access.</h2>
+
+<ol>
+<li>
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-10812730226e86cc\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/execution-contract.txt:1&quot;, &quot;&lt;a href=\&quot;#source-6722470b9620a771\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/execution-contract.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;: [&quot;#source-10812730226e86cc&quot;], &quot;product-evidence/libcamera-official-cam-trial/execution-contract.txt:1&quot;: [&quot;#source-6722470b9620a771&quot;]}">Without changing host state, investigate the <code>CONFIG_UDMABUF</code> and dependent symbols of the selected kernel, the actual modules, and the allocator candidates. Access permission for <code>/dev/udmabuf</code> is checked in step 4. Prioritize preparation that does not affect the existing WSL/Docker, and do not treat adding a distribution alone as isolating the kernel.</p>
+</li>
+<li>
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-10812730226e86cc\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/execution-contract.txt:1&quot;, &quot;&lt;a href=\&quot;#source-6722470b9620a771\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/execution-contract.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;: [&quot;#source-10812730226e86cc&quot;], &quot;product-evidence/libcamera-official-cam-trial/execution-contract.txt:1&quot;: [&quot;#source-6722470b9620a771&quot;]}">If changes to the shared kernel, modules, or .wslconfig, or termination of the distribution or VM, are required, write an impact, backup, and recovery plan and obtain separate approval immediately before executing the host change. PR merge and Pages approval do not replace this approval. Docker is stopped only when the approved plan requires Docker to be stopped.</p>
+</li>
+<li>
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-10812730226e86cc\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/execution-contract.txt:1&quot;, &quot;&lt;a href=\&quot;#source-6722470b9620a771\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/execution-contract.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;: [&quot;#source-10812730226e86cc&quot;], &quot;product-evidence/libcamera-official-cam-trial/execution-contract.txt:1&quot;: [&quot;#source-6722470b9620a771&quot;]}">The reproducing developer installs and boots the recorded trial kernel <code>6.18.33.2-microsoft-standard-WSL2-issue211</code> only after separate approval of the host change plan is obtained. After booting, the reproducing developer compares the running kernel version with the recorded kernel. If the running kernel differs from the recorded kernel, the reproducing developer must not proceed with capture.</p>
+</li>
+<li>
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/execution-contract.txt:1&quot;, &quot;&lt;a href=\&quot;#source-6722470b9620a771\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/execution-contract.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&quot;, &quot;&lt;a href=\&quot;#source-d84e6ca3abcfec11\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-10812730226e86cc\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/execution-contract.txt:1&quot;: [&quot;#source-6722470b9620a771&quot;], &quot;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&quot;: [&quot;#source-d84e6ca3abcfec11&quot;], &quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;: [&quot;#source-10812730226e86cc&quot;]}">After the developer confirms <code>/dev/udmabuf</code> access and the Virtual2 400x300 NV12 configuration in the recorded root context, the developer runs the unmodified official <code>cam</code> debug build by following the commands in the reproduction guide and observes that run with the observation tools. If the running kernel differs from the recorded kernel, or if <code>/dev/udmabuf</code> access or the configuration differs, the developer must not capture. In this trial, <code>/dev/udmabuf</code> permissions were not changed and were kept root-only.</p>
+</li>
+</ol>
+<!-- sdd:visual:reproduction-flow -->
+<h3 id="환경-확인에서-재현-실행까지">From environment verification to reproduction execution</h3>
+<pre class="mermaid">flowchart TB
+
+  v_kconfig_survey["Survey Kconfig; non-impact &lt;br/&gt;prep before approval"]
+  v_wsl_plan["WSL host change plan: &lt;br/&gt;impact, backup, recovery"]
+  v_host_approval["Separate host approval; PR &lt;br/&gt;merge cannot replace"]
+  v_docker_decide{"Decide whether Docker stop &lt;br/&gt;is needed per plan"}
+  v_docker_stop["After approval, stop Docker &lt;br/&gt;if needed"]
+  v_kernel_prep["Post-approval kernel &lt;br/&gt;install/boot (host change)"]
+  v_device_verify{"All: recorded kernel, root &lt;br/&gt;/dev/udmabuf access, &lt;br/&gt;Virtual2 400 x 300 NV12"}
+  v_run_cam["Run official cam &lt;br/&gt;reproduction (WSL root)"]
+  v_mismatch_stop["If any differs, do not &lt;br/&gt;capture; stop"]
+  v_kconfig_survey --&gt;|"Plan host change from survey"| v_wsl_plan
+  v_wsl_plan --&gt;|"Approval just before host &lt;br/&gt;change"| v_host_approval
+  v_host_approval --&gt;|"After approval, check Docker"| v_docker_decide
+  v_docker_decide --&gt;|"If needed, stop Docker"| v_docker_stop
+  v_docker_decide --&gt;|"If not needed, skip stop"| v_kernel_prep
+  v_docker_stop --&gt;|"After stop, install and boot"| v_kernel_prep
+  v_kernel_prep --&gt;|"Check conditions after boot"| v_device_verify
+  v_device_verify --&gt;|"Run cam only when all match"| v_run_cam
+  v_device_verify --&gt;|"If any differs, stop capture"| v_mismatch_stop</pre>
+<p><a href="official-cam-validation.reproduction-flow.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>In the recorded reproduction procedure, in what preparation order do the following proceed: investigation of the current environment, separate approval of any required shared-host changes, confirmation of booting a supported kernel and device access, and execution of the official cam reproduction?</p>
+<p>This is an authored interpretation linked to source evidence. Automated binding checks are neither semantic approval nor device runtime validation.</p>
+<p>LLM diagram draft · human review pending</p>
+<p>Authoring model: <code>cli/claude/claude-haiku-5-5</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Element or transition</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Survey Kconfig; non-impact prep before approval</td>
+<td><a href="#source-6722470b9620a771">product-evidence/libcamera-official-cam-trial/execution-contract.txt:1</a> · <a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td>WSL host change plan: impact, backup, recovery</td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a> · <a href="#source-6722470b9620a771">product-evidence/libcamera-official-cam-trial/execution-contract.txt:1</a></td>
+</tr>
+<tr>
+<td>Separate host approval; PR merge cannot replace</td>
+<td><a href="#source-6722470b9620a771">product-evidence/libcamera-official-cam-trial/execution-contract.txt:1</a> · <a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td>Decide whether Docker stop is needed per plan</td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td>After approval, stop Docker if needed</td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td>Post-approval kernel install/boot (host change)</td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td>All: recorded kernel, root /dev/udmabuf access, Virtual2 400 x 300 NV12</td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td>Run official cam reproduction (WSL root)</td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td>If any differs, do not capture; stop</td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td>Plan host change from survey</td>
+<td><a href="#source-6722470b9620a771">product-evidence/libcamera-official-cam-trial/execution-contract.txt:1</a> · <a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td>Approval just before host change</td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a> · <a href="#source-6722470b9620a771">product-evidence/libcamera-official-cam-trial/execution-contract.txt:1</a></td>
+</tr>
+<tr>
+<td>After approval, check Docker</td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td>If needed, stop Docker</td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td>If not needed, skip stop</td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td>After stop, install and boot</td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td>Check conditions after boot</td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td>Run cam only when all match</td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td>If any differs, stop capture</td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:reproduction-flow -->
+
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-10812730226e86cc\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&quot;, &quot;&lt;a href=\&quot;#source-d84e6ca3abcfec11\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;: [&quot;#source-10812730226e86cc&quot;], &quot;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&quot;: [&quot;#source-d84e6ca3abcfec11&quot;]}">Execution check items: this result applies only to the WSL2 virtual camera trial scope configured as a simulation. Physical DMA, physical camera, product app, and internal HAL are unverified. Because GDB affects timing, the callback-return instruction and performance were not verified.</p>
 
 <details class="note">
 <summary>Design questions and validation scope</summary>
 <p>Answers and their evidence links have been checked for each question. Meaning and runtime results still require human review.</p>
-<ul class="coverage-links"><li><p>In which WSL environment did you confirm the official cam's capture and actual DMA-BUF access?</p><p><a href="#공식-cam과-실제-dma-buf-확인-결과">Official cam and actual DMA-BUF verification results</a></p><p>Runtime checks are separate</p></li><li><p>How did you distinguish callback entry from subsequent processing to confirm the three frames and the execution threads?</p><p><a href="#콜백과-후속-처리에서-확인한-세-프레임">The three frames confirmed in the callback and subsequent processing</a></p><p>Runtime checks are separate</p></li><li><p>What permission and kernel conditions are required for reproduction, what are the timeout and recovery results, and what scope is not validated?</p><p><a href="#재현-조건과-검증-경계">Reproduction Conditions and Validation Boundary</a></p><p>Runtime checks are separate</p></li></ul><p><span>Verification scope</span>: <span>Code evidence linked to explanation</span></p>
+<ul class="coverage-links"><li><p>What blocked the capture, under what conditions did the official cam capture succeed, and can it be re-run immediately now?</p><p><a href="#할당기를-준비하자-공식-cam-캡처가-완료됐습니다">Once the allocator was prepared, the official cam capture completed.</a></p></li><li><p>Why does the function that receives the completion notification defer follow-up processing to the event loop, and how are normal requests and canceled requests separated?</p><p><a href="#cam이-완료-알림을-받아-이벤트-루프에서-프레임을-처리합니다">cam receives the completion notification and processes the frame in the event loop.</a></p></li><li><p>Before capture, which environment, permission, and source conditions does the developer check, through which procedure do they reproduce the issue, and to what extent can the results be applied?</p><p><a href="#지원-커널과-장치-접근을-확인한-뒤-재현합니다">We reproduce after confirming a supported kernel and device access.</a></p><p>Runtime checks are separate</p></li></ul><p><span>Verification scope</span>: <span>Code evidence linked to explanation</span></p>
 </details>
-<details class="evidence-links evidence-section"><summary><span>2</span> evidence items across the section</summary><ul><li><code>product-evidence/libcamera-official-cam-trial/official-cam-run.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1" href="#source-dd657648532f01f5"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/execution-contract.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/execution-contract.txt:1" href="#source-6722470b9620a771"><code>L1</code></a></span></li></ul></details><h2 id="소스-근거">Source evidence</h2>
+<details class="evidence-links evidence-section"><summary><span>3</span> evidence items across the section</summary><ul><li><code>product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1" href="#source-10812730226e86cc"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/execution-contract.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/execution-contract.txt:1" href="#source-6722470b9620a771"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/official-cam-reader.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1" href="#source-d84e6ca3abcfec11"><code>L1</code></a></span></li></ul></details><details class="note scope-notices"><summary>Verification scope of the virtual trial</summary><p><strong>This is a virtual test configuration. It must not be used as a support or performance claim for an actual product.</strong></p><ul><li><a href="#할당기를-준비하자-공식-cam-캡처가-완료됐습니다">Once the allocator was prepared, the official cam capture completed.</a></li><li><a href="#cam이-완료-알림을-받아-이벤트-루프에서-프레임을-처리합니다">cam receives the completion notification and processes the frame in the event loop.</a></li><li><a href="#지원-커널과-장치-접근을-확인한-뒤-재현합니다">We reproduce after confirming a supported kernel and device access.</a></li></ul></details>
+<h2 id="소스-근거">Source evidence</h2>
 <details class="source-excerpts"><summary><span>4</span> source excerpts</summary>
 <p>Each identical excerpt appears once. Expand the source you need and compare it with the explanation.</p>
 <p><a id="source-6722470b9620a771"></a></p>
@@ -98,14 +351,18 @@
 <span class="p">}</span>
 </code></pre></div>
 </details>
-<p><a id="source-dd657648532f01f5"></a></p>
+<p><a id="source-d84e6ca3abcfec11"></a></p>
 <details class="note">
-<summary>Product material: product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1</summary>
+<summary>Product material: product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1</summary>
 <p>This material was provided separately from the source. Check the records below for the provider, version, and scope of applicability. Automated checks do not constitute human approval.</p>
-<p>This is an excerpt starting at <code>product-evidence/libcamera-official-cam-trial/official-cam-run.txt:1</code>. The end line is 608, and the original text below can be compared against the description.</p>
-<p>SHA-256: <code>6724319768e46327e26f324d536ccaf22e9b71852e055a7b3c91318f0c11a7f1</code></p>
+<p>An excerpt starting at <code>product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1</code>. The end line is 249, and the original text below can be compared with the explanation.</p>
+<p>SHA-256: <code>6ad6510d9624cd8075ccdc0a4622214c441afc5a778a2e577b4c7a76bf10efc0</code></p>
 <div class="highlight"><pre><span></span><code>{
+  "schema": 1,
   "source_commit": "293d751a814e0d4c34e85ad457ccd9d5eefd1a61",
+  "camera": "Virtual2",
+  "applied_configuration": "(0) 400x300-NV12/SMPTE170M",
+  "status": "observed-wsl-virtual-only",
   "kernel": "6.18.33.2-microsoft-standard-WSL2-issue211",
   "results": [
     {
@@ -154,35 +411,59 @@
       "allocations": 4
     }
   ],
-  "uid": 0,
-  "gid": 0,
-  "binaries": {
-    "/home/baboess/.cache/issue211-runtime-D6sfkcnF/build/src/apps/cam/cam": "1ceed18da065a383e2f573ba49e9caea77033abd6830a7ec051e3681dabc79d2",
-    "/home/baboess/.cache/issue211-runtime-D6sfkcnF/build/src/libcamera/libcamera.so": "2423e936a6ffde0fa533c76a4738f748f77b4535c881c12a616dfeec50a940eb",
-    "/home/baboess/.cache/issue211-runtime-D6sfkcnF/build/src/libcamera/base/libcamera-base.so": "441f04294e61632d080f4bb55fb38ce787bb8af173a4b6d55d7c05f0f04fd18c",
-    "/home/baboess/.cache/issue211-runtime-D6sfkcnF/dmabuf-probe-2": "531e499f094cca32f03e354afe2aa5a8d48b425916cbd7be2ad7e02306c58512"
-  },
-  "human_review": "pending",
-  "physical_dma": "not-validated",
-  "physical_camera": "not-run",
-  "production_application": "not-run",
-  "internal_hal": "not-run",
-  "status": "observed-wsl-virtual-only",
-  "schema": 1,
-  "camera": "Virtual2",
-  "applied_configuration": "(0) 400x300-NV12/SMPTE170M",
-  "official_source_tracked_clean": true,
-  "kernel_tag": "linux-msft-wsl-6.18.33.2",
-  "kernel_tag_commit": "c21a03b2943d147c280bdf32530d4fe6badfd6bd",
-  "kernel_sha256": "cf23bf492a00a5c7517e221b0d8f742ea3cffa9351823191a5ba5c476ba15460",
-  "compiler_config_diff": "GCC 13.2 to Ubuntu GCC 15.2 capability changes, binutils 2.41 to 2.46, pahole 1.25 to 1.31; full diff preserved",
-  "matching_modules_installed": false,
-  "docker_during_trial": "stopped",
+  "source_unmodified": true,
   "allocator": "udmabuf built-in, /dev/udmabuf root-only; permissions unchanged",
-  "unprivileged_run": {
-    "status": "failed",
-    "errno": 13
-  },
+  "run_threads": [
+    {
+      "pid": 434,
+      "callbacks": [
+        437
+      ],
+      "processed": [
+        434
+      ]
+    },
+    {
+      "pid": 449,
+      "callbacks": [
+        452
+      ],
+      "processed": [
+        449
+      ]
+    },
+    {
+      "pid": 464,
+      "callbacks": [
+        467
+      ],
+      "processed": [
+        464
+      ]
+    }
+  ],
+  "inferior_exit_codes": [
+    0,
+    0,
+    0
+  ],
+  "processed_sequences": [
+    [
+      0,
+      1,
+      2
+    ],
+    [
+      0,
+      1,
+      2
+    ],
+    [
+      0,
+      1,
+      2
+    ]
+  ],
   "dma_probe_events": [
     {
       "event": "provider-open",
@@ -245,477 +526,90 @@
       "errno": 0
     }
   ],
-  "run_threads": [
-    {
-      "pid": 434,
-      "callbacks": [
-        437
-      ],
-      "processed": [
-        434
-      ]
-    },
-    {
-      "pid": 449,
-      "callbacks": [
-        452
-      ],
-      "processed": [
-        449
-      ]
-    },
-    {
-      "pid": 464,
-      "callbacks": [
-        467
-      ],
-      "processed": [
-        464
-      ]
-    }
-  ],
-  "inferior_exit_codes": [
-    0,
-    0,
-    0
-  ],
-  "processed_sequences": [
-    [
-      0,
-      1,
-      2
-    ],
-    [
-      0,
-      1,
-      2
-    ],
-    [
-      0,
-      1,
-      2
-    ]
-  ],
-  "timeout_probe": {
-    "seconds": 0.5,
-    "timed_out": true,
-    "exit_code": 1,
-    "sync_end_return_code": 0,
-    "munmap_return_code": 0,
-    "close_return_codes": [
-      0,
-      0,
-      0
-    ],
-    "process_group_absent": true
-  },
-  "negative_probes": {
-    "absent_provider_errno": 2,
-    "unsupported_ioctl_errno": 25,
-    "exit_codes": [
-      1,
-      1
-    ]
-  },
-  "supplemental_official_cam_strace": {
-    "exit_code": 0,
-    "callback_observation": false
-  },
+  "pretrial_kernel": "6.18.33.2-microsoft-standard-WSL2",
+  "pretrial_udmabuf": false,
+  "pretrial_dmabuf_heaps": false,
+  "pretrial_provider_devices_present": false,
+  "kernel_trial_authorized_by_user": true,
   "restored_kernel": "6.18.33.2-microsoft-standard-WSL2",
   "restored_wslconfig_exists": false,
-  "old_cpu_probe": {
-    "callbacks": 72,
-    "dma": "unvalidated-provider-and-sync-errors-retained",
-    "history_unchanged": true
+  "matching_modules_installed": false,
+  "docker_during_trial": "stopped",
+  "unprivileged_run": {
+    "status": "failed",
+    "errno": 13
   },
   "observation_limits": [
     "GDB breakpoints affect timing",
     "No callback-return instruction observation",
     "Cancellation branch not dynamically exercised; observed count 0 is not forced"
   ],
-  "reproduction_code": "https://github.com/TTolsun/camera-hal-sdd-generator/blob/main/examples/libcamera/runtime/run_cam.py",
+  "physical_dma": "not-validated",
+  "physical_camera": "not-run",
+  "production_application": "not-run",
+  "internal_hal": "not-run",
+  "human_review": "pending",
   "raw_evidence": "https://github.com/TTolsun/camera-hal-sdd-generator/tree/main/examples/libcamera/validation/issue211/runs/20261031-wsl-cam-3",
-  "buffer_metadata": [
-    [
-      {
-        "buffer_sequence": 0,
-        "buffer_status": 0,
-        "cookie": 0,
-        "location": "/home/baboess/.cache/issue211-runtime-D6sfkcnF/source/src/apps/cam/camera_session.cpp:503",
-        "pid": 434,
-        "point": "buffer-metadata",
-        "request": "0x5555556794f0",
-        "sequence": 0,
-        "status": 1,
-        "tid": 434
-      },
-      {
-        "buffer_sequence": 1,
-        "buffer_status": 0,
-        "cookie": 0,
-        "location": "/home/baboess/.cache/issue211-runtime-D6sfkcnF/source/src/apps/cam/camera_session.cpp:503",
-        "pid": 434,
-        "point": "buffer-metadata",
-        "request": "0x5555556793b0",
-        "sequence": 1,
-        "status": 1,
-        "tid": 434
-      },
-      {
-        "buffer_sequence": 2,
-        "buffer_status": 0,
-        "cookie": 0,
-        "location": "/home/baboess/.cache/issue211-runtime-D6sfkcnF/source/src/apps/cam/camera_session.cpp:503",
-        "pid": 434,
-        "point": "buffer-metadata",
-        "request": "0x555555679450",
-        "sequence": 2,
-        "status": 1,
-        "tid": 434
-      }
-    ],
-    [
-      {
-        "buffer_sequence": 0,
-        "buffer_status": 0,
-        "cookie": 0,
-        "location": "/home/baboess/.cache/issue211-runtime-D6sfkcnF/source/src/apps/cam/camera_session.cpp:503",
-        "pid": 449,
-        "point": "buffer-metadata",
-        "request": "0x5555556794f0",
-        "sequence": 0,
-        "status": 1,
-        "tid": 449
-      },
-      {
-        "buffer_sequence": 1,
-        "buffer_status": 0,
-        "cookie": 0,
-        "location": "/home/baboess/.cache/issue211-runtime-D6sfkcnF/source/src/apps/cam/camera_session.cpp:503",
-        "pid": 449,
-        "point": "buffer-metadata",
-        "request": "0x5555556793b0",
-        "sequence": 1,
-        "status": 1,
-        "tid": 449
-      },
-      {
-        "buffer_sequence": 2,
-        "buffer_status": 0,
-        "cookie": 0,
-        "location": "/home/baboess/.cache/issue211-runtime-D6sfkcnF/source/src/apps/cam/camera_session.cpp:503",
-        "pid": 449,
-        "point": "buffer-metadata",
-        "request": "0x555555679450",
-        "sequence": 2,
-        "status": 1,
-        "tid": 449
-      }
-    ],
-    [
-      {
-        "buffer_sequence": 0,
-        "buffer_status": 0,
-        "cookie": 0,
-        "location": "/home/baboess/.cache/issue211-runtime-D6sfkcnF/source/src/apps/cam/camera_session.cpp:503",
-        "pid": 464,
-        "point": "buffer-metadata",
-        "request": "0x5555556794f0",
-        "sequence": 0,
-        "status": 1,
-        "tid": 464
-      },
-      {
-        "buffer_sequence": 1,
-        "buffer_status": 0,
-        "cookie": 0,
-        "location": "/home/baboess/.cache/issue211-runtime-D6sfkcnF/source/src/apps/cam/camera_session.cpp:503",
-        "pid": 464,
-        "point": "buffer-metadata",
-        "request": "0x5555556793b0",
-        "sequence": 1,
-        "status": 1,
-        "tid": 464
-      },
-      {
-        "buffer_sequence": 2,
-        "buffer_status": 0,
-        "cookie": 0,
-        "location": "/home/baboess/.cache/issue211-runtime-D6sfkcnF/source/src/apps/cam/camera_session.cpp:503",
-        "pid": 464,
-        "point": "buffer-metadata",
-        "request": "0x555555679450",
-        "sequence": 2,
-        "status": 1,
-        "tid": 464
-      }
-    ]
-  ],
-  "pretrial_kernel": "6.18.33.2-microsoft-standard-WSL2",
-  "pretrial_udmabuf": false,
-  "pretrial_dmabuf_heaps": false,
-  "pretrial_provider_devices_present": false,
-  "source_unmodified": true,
-  "kernel_trial_authorized_by_user": true,
-  "request_events": [
-    [
-      {
-        "cookie": 0,
-        "location": "CameraSession::requestComplete",
-        "pid": 434,
-        "point": "callback-entry",
-        "request": "0x5555556794f0",
-        "sequence": 0,
-        "status": 1,
-        "tid": 437
-      },
-      {
-        "cookie": 0,
-        "location": "CameraSession::requestComplete",
-        "pid": 434,
-        "point": "callback-entry",
-        "request": "0x5555556793b0",
-        "sequence": 1,
-        "status": 1,
-        "tid": 437
-      },
-      {
-        "cookie": 0,
-        "location": "/home/baboess/.cache/issue211-runtime-D6sfkcnF/source/src/apps/cam/camera_session.cpp:535",
-        "pid": 434,
-        "point": "frame-processed",
-        "request": "0x5555556794f0",
-        "sequence": 0,
-        "status": 1,
-        "tid": 434
-      },
-      {
-        "cookie": 0,
-        "location": "CameraSession::requestComplete",
-        "pid": 434,
-        "point": "callback-entry",
-        "request": "0x555555679450",
-        "sequence": 2,
-        "status": 1,
-        "tid": 437
-      },
-      {
-        "cookie": 0,
-        "location": "/home/baboess/.cache/issue211-runtime-D6sfkcnF/source/src/apps/cam/camera_session.cpp:535",
-        "pid": 434,
-        "point": "frame-processed",
-        "request": "0x5555556793b0",
-        "sequence": 1,
-        "status": 1,
-        "tid": 434
-      },
-      {
-        "cookie": 0,
-        "location": "/home/baboess/.cache/issue211-runtime-D6sfkcnF/source/src/apps/cam/camera_session.cpp:535",
-        "pid": 434,
-        "point": "frame-processed",
-        "request": "0x555555679450",
-        "sequence": 2,
-        "status": 1,
-        "tid": 434
-      }
-    ],
-    [
-      {
-        "cookie": 0,
-        "location": "CameraSession::requestComplete",
-        "pid": 449,
-        "point": "callback-entry",
-        "request": "0x5555556794f0",
-        "sequence": 0,
-        "status": 1,
-        "tid": 452
-      },
-      {
-        "cookie": 0,
-        "location": "CameraSession::requestComplete",
-        "pid": 449,
-        "point": "callback-entry",
-        "request": "0x5555556793b0",
-        "sequence": 1,
-        "status": 1,
-        "tid": 452
-      },
-      {
-        "cookie": 0,
-        "location": "/home/baboess/.cache/issue211-runtime-D6sfkcnF/source/src/apps/cam/camera_session.cpp:535",
-        "pid": 449,
-        "point": "frame-processed",
-        "request": "0x5555556794f0",
-        "sequence": 0,
-        "status": 1,
-        "tid": 449
-      },
-      {
-        "cookie": 0,
-        "location": "CameraSession::requestComplete",
-        "pid": 449,
-        "point": "callback-entry",
-        "request": "0x555555679450",
-        "sequence": 2,
-        "status": 1,
-        "tid": 452
-      },
-      {
-        "cookie": 0,
-        "location": "/home/baboess/.cache/issue211-runtime-D6sfkcnF/source/src/apps/cam/camera_session.cpp:535",
-        "pid": 449,
-        "point": "frame-processed",
-        "request": "0x5555556793b0",
-        "sequence": 1,
-        "status": 1,
-        "tid": 449
-      },
-      {
-        "cookie": 0,
-        "location": "/home/baboess/.cache/issue211-runtime-D6sfkcnF/source/src/apps/cam/camera_session.cpp:535",
-        "pid": 449,
-        "point": "frame-processed",
-        "request": "0x555555679450",
-        "sequence": 2,
-        "status": 1,
-        "tid": 449
-      }
-    ],
-    [
-      {
-        "cookie": 0,
-        "location": "CameraSession::requestComplete",
-        "pid": 464,
-        "point": "callback-entry",
-        "request": "0x5555556794f0",
-        "sequence": 0,
-        "status": 1,
-        "tid": 467
-      },
-      {
-        "cookie": 0,
-        "location": "CameraSession::requestComplete",
-        "pid": 464,
-        "point": "callback-entry",
-        "request": "0x5555556793b0",
-        "sequence": 1,
-        "status": 1,
-        "tid": 467
-      },
-      {
-        "cookie": 0,
-        "location": "/home/baboess/.cache/issue211-runtime-D6sfkcnF/source/src/apps/cam/camera_session.cpp:535",
-        "pid": 464,
-        "point": "frame-processed",
-        "request": "0x5555556794f0",
-        "sequence": 0,
-        "status": 1,
-        "tid": 464
-      },
-      {
-        "cookie": 0,
-        "location": "CameraSession::requestComplete",
-        "pid": 464,
-        "point": "callback-entry",
-        "request": "0x555555679450",
-        "sequence": 2,
-        "status": 1,
-        "tid": 467
-      },
-      {
-        "cookie": 0,
-        "location": "/home/baboess/.cache/issue211-runtime-D6sfkcnF/source/src/apps/cam/camera_session.cpp:535",
-        "pid": 464,
-        "point": "frame-processed",
-        "request": "0x5555556793b0",
-        "sequence": 1,
-        "status": 1,
-        "tid": 464
-      },
-      {
-        "cookie": 0,
-        "location": "/home/baboess/.cache/issue211-runtime-D6sfkcnF/source/src/apps/cam/camera_session.cpp:535",
-        "pid": 464,
-        "point": "frame-processed",
-        "request": "0x555555679450",
-        "sequence": 2,
-        "status": 1,
-        "tid": 464
-      }
-    ]
-  ],
-  "main_tid": [
-    434,
-    449,
-    464
-  ],
-  "observation_points": {
-    "callback-entry": "CameraSession::requestComplete entry",
-    "frame-processed": "CameraSession::processRequest immediately before captureCount_++",
-    "buffer-metadata": "CameraSession::processRequest after reading FrameMetadata"
-  },
-  "timeout_cleanup_events": [
+  "official_allocator_observations": [
     {
-      "event": "provider-open",
-      "provider": "/dev/udmabuf",
-      "result": 3,
-      "errno": 0
+      "pid": 434,
+      "successful_allocations": 4,
+      "providers": [
+        "/dev/udmabuf"
+      ],
+      "exporters": [
+        "udmabuf"
+      ],
+      "raw_sha256": "bfc0215112bb3a7e30cf66e2ce016dbcc3bd1ad7f7d3ba79d14c868d29417bd2"
     },
     {
-      "event": "allocate",
-      "result": 5,
-      "errno": 0,
-      "backing_fd": 4,
-      "dmabuf_fd": 5,
-      "size": 4096
+      "pid": 449,
+      "successful_allocations": 4,
+      "providers": [
+        "/dev/udmabuf"
+      ],
+      "exporters": [
+        "udmabuf"
+      ],
+      "raw_sha256": "0529146d43e1f826240fa9790545e81b69b274dca8173d9da598add516320727"
     },
     {
-      "event": "mmap",
-      "result": 0,
-      "errno": 0
-    },
-    {
-      "event": "sync-start",
-      "result": 0,
-      "errno": 0,
-      "flags": 3,
-      "retry": false
-    },
-    {
-      "event": "sync-end",
-      "result": 0,
-      "errno": 0,
-      "flags": 7,
-      "retry": false
-    },
-    {
-      "event": "munmap",
-      "result": 0,
-      "errno": 0
-    },
-    {
-      "event": "close-dmabuf",
-      "result": 0,
-      "errno": 0
-    },
-    {
-      "event": "close-backing",
-      "result": 0,
-      "errno": 0
-    },
-    {
-      "event": "close-provider",
-      "result": 0,
-      "errno": 0
+      "pid": 464,
+      "successful_allocations": 4,
+      "providers": [
+        "/dev/udmabuf"
+      ],
+      "exporters": [
+        "udmabuf"
+      ],
+      "raw_sha256": "38433db15aa2928b1e6fe0f54293fd3b4ee34eb1b9b9d5e5b10526c89605d46a"
     }
-  ]
+  ],
+  "baseline_capture": {
+    "inferior_exit": {
+      "exit_code": 1,
+      "observation_failures": []
+    },
+    "errors": [
+      "[0:07:17.247127806] [20972] ERROR DmaBufAllocator dma_buf_allocator.cpp:119 Could not open any dma-buf provider",
+      "[0:07:17.258236285] [20972] ERROR DmaBufAllocator dma_buf_allocator.cpp:119 Could not open any dma-buf provider",
+      "Can't allocate buffers"
+    ],
+    "stdout_sha256": "2432d60d69ed6e496a45df1c3edac64e9296b1c77f5054a60aa9d40a75ae5bd1",
+    "stderr_sha256": "cdcfbb0f7b1d46f55b30b94e7a1de119dfcfb7ab937fbb18cda4be9397e8e32a",
+    "raw_url": "https://github.com/TTolsun/camera-hal-sdd-generator/tree/580df5156da7066a60e16ff9b656253b1c17f0c0/examples/libcamera/validation/issue211/runs/20261031-runtime-negative/official-cam-debugger-before"
+  },
+  "source_measurement": {
+    "sha256": "6724319768e46327e26f324d536ccaf22e9b71852e055a7b3c91318f0c11a7f1",
+    "url": "https://github.com/TTolsun/libcamera-sdd/blob/d36affef9b3a741581d1c5f0f4cd68425c5dbe15/publication/issue211/config/product-evidence/official-cam-observation.json",
+    "operation": "Exact projection of named original fields, no new runtime execution"
+  }
 }
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
 <span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"measurement"</span><span class="p">,</span>
 <span class="w">  </span><span class="nt">"supplier"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Source-pinned official cam trial; raw events, GDB, syscall and cleanup records"</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"051c8bd9f7c693a474384fa63c96dcfaa0e80cd83506b375e2f89193e6a25b91"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"6724319768e46327e26f324d536ccaf22e9b71852e055a7b3c91318f0c11a7f1"</span><span class="p">,</span>
 <span class="w">  </span><span class="nt">"date"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-31"</span><span class="p">,</span>
 <span class="w">  </span><span class="nt">"valid_until"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-31"</span><span class="p">,</span>
 <span class="w">  </span><span class="nt">"product"</span><span class="p">:</span><span class="w"> </span><span class="s2">"libcamera-official-cam-trial"</span><span class="p">,</span>
@@ -727,7 +621,70 @@
 <span class="w">    </span><span class="s2">"WSL2 custom UDMABUF kernel, root child, Virtual2 400x300 NV12"</span><span class="p">,</span>
 <span class="w">    </span><span class="s2">"GDB observation; no timing/return/physical/internal HAL qualification"</span>
 <span class="w">  </span><span class="p">],</span>
-<span class="w">  </span><span class="nt">"sha256"</span><span class="p">:</span><span class="w"> </span><span class="s2">"6724319768e46327e26f324d536ccaf22e9b71852e055a7b3c91318f0c11a7f1"</span>
+<span class="w">  </span><span class="nt">"sha256"</span><span class="p">:</span><span class="w"> </span><span class="s2">"6ad6510d9624cd8075ccdc0a4622214c441afc5a778a2e577b4c7a76bf10efc0"</span>
+<span class="p">}</span>
+</code></pre></div>
+</details>
+<p><a id="source-10812730226e86cc"></a></p>
+<details class="note">
+<summary>Product material: product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</summary>
+<p>This material was provided separately from the source. Check the records below for the provider, version, and scope of applicability. Automated checks do not constitute human approval.</p>
+<p>This is an excerpt starting at <code>product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</code>. The end line is 38, and the original text below can be compared against the description.</p>
+<p>SHA-256: <code>93f4c8ea45fc873453b7739b88105877f6b1bc60ed7f3f6a280b15d8b131a9a7</code></p>
+<div class="highlight"><pre><span></span><code># 공식 cam WSL 가상 카메라 검증
+
+## 결론과 다음 행동
+
+먼저 아래 준비 1번부터 시작합니다. 호스트 승인 전에는 Docker를 중지하거나 WSL을 종료하지 않습니다.
+
+## 관측된 결과
+
+소스 `293d751a814e0d4c34e85ad457ccd9d5eefd1a61`을 수정하지 않은 디버그 빌드의 공식 cam은 시험 커널 `6.18.33.2-microsoft-standard-WSL2-issue211`의 WSL `Virtual2` 카메라(400x300 NV12)에서 프레임 3개를 처리했습니다. 실행 세 개(PID 434, 449, 464)는 모두 request와 sequence 0~2에서 status 1, buffer_status 0을 기록했습니다.
+
+세 기록은 PID, request, sequence로 묶어 status를 비교합니다. 콜백 TID(437, 452, 467)와 처리 TID(434, 449, 464)는 실행마다 달랐으므로 같아야 하는 키가 아니라 속성으로 기록합니다.
+
+DMA 프로브는 `/dev/udmabuf` 열기, 4096바이트 할당, mmap, RW START(flags 3), CPU 접근, RW END(flags 7), munmap과 닫기를 모두 errno 0으로 마쳤습니다. 0.5초 시간 초과 시험은 시간 초과(exit 1)로 끝났고, 정리 반환 코드는 모두 0이었습니다. 반환 코드 0은 정리가 성공했다는 뜻이며, 정리 이벤트가 0개라는 뜻이 아닙니다. 없는 provider는 errno 2, 지원하지 않는 ioctl은 errno 25로 실패했습니다.
+
+`cancelled_callbacks` 0은 세 실행 모두에서 관측된 값입니다. 다만 취소 분기를 동적으로 실행한 결과가 아니며, 0으로 강제한 값도 아닙니다.
+
+## 범위와 한계
+
+이 결과는 `simulation=true`로 로드된 가상 파이프라인 시뮬레이션 구성의 WSL 가상 카메라 범위에만 해당합니다. 시험 커널에서 성공했다고 해서 복구된 기본 커널(`6.18.33.2-microsoft-standard-WSL2`)이 지원한다는 뜻은 아닙니다. 기본 커널은 allocator를 노출하지 않았습니다. 시험 커널에서는 udmabuf이 내장이었고, 일치하는 모듈은 설치하지 않았습니다.
+
+권한 없는 실행의 errno 13은 이번 시험 커널 실행에만 해당하며, 앞으로 모든 권한 없는 실행을 뜻하지 않습니다. `/dev/udmabuf` 권한은 root 전용 그대로 두었습니다. 복구 후 커널은 기본 커널로 돌아왔고 `.wslconfig`는 존재하지 않습니다.
+
+GDB 중단점은 타이밍에 영향을 주므로 콜백 반환이나 타이밍·성능을 확정하는 증거가 아닙니다. 물리 DMA, 물리 카메라, 제품 앱, 사내 HAL은 검증하지 않았고, 사람 검토는 pending 상태입니다.
+
+## 실행 전 준비
+
+1. 호스트 상태를 바꾸지 않고 커널을 조사합니다. 커널 태그 `linux-msft-wsl-6.18.33.2`(commit `c21a03b2943d147c280bdf32530d4fe6badfd6bd`, 이미지 SHA-256 `cf23bf492a00a5c7517e221b0d8f742ea3cffa9351823191a5ba5c476ba15460`)의 `CONFIG_UDMABUF`, `CONFIG_DMA_SHARED_BUFFER`, `CONFIG_MEMFD_CREATE`(또는 `CONFIG_COMPILE_TEST`), `CONFIG_MMU`, 할당기 후보 `CONFIG_DMABUF_HEAPS`를 확인합니다. `CONFIG_UDMABUF`는 bool이므로 모듈이 아니라 내장 여부만 확인하고, 실제 사용 가능한 모듈과 할당기 후보를 조사한 뒤 사용할 할당기를 하나 선택합니다. `CONFIG_UDMABUF`는 테스트·디버그 용도의 기능이며, 잘못 사용하면 사용자 공간에서 커널 드라이버를 교착시킬 수 있으므로 시험 환경 밖에서 사용하지 않습니다. 기존 WSL에 배포판을 추가하는 것만으로 커널이 격리된다고 보지 않습니다. 커널 빌드 예시는 [prepare_kernel.sh](../validation/issue211/prepare_kernel.sh)이며, 실행 전 태그와 출력 위치를 확인합니다. 이 예시와 [prepare_runtime.sh](../validation/issue211/prepare_runtime.sh)는 기록된 예시이므로 로컬 경로와 설정을 현재 환경에서 다시 확인해야 하며, 실행 전 각 스크립트의 실제 동작과 입력을 직접 읽어 확인합니다. 이 예시들은 커널을 설치하거나 부팅하지 않으며, 설치와 부팅은 2단계 계획과 승인 뒤에만 수행합니다.
+2. 기존 WSL·Docker에 영향을 주지 않는 시험 환경을 먼저 검토합니다. 공유 커널 모듈 변경, 공유 커널 재부팅, `.wslconfig` 변경, 배포판 또는 VM 종료, Docker 중지가 필요하면 영향, 정확한 백업 경로, 부팅할 커널과 이미지 SHA-256, 부팅 절차, 복구 절차를 포함한 호스트 변경 계획을 작성합니다. 복구 기준은 이번 시험 복구 후 확인된 기본 커널 `6.18.33.2-microsoft-standard-WSL2`와 `.wslconfig` 부재 상태입니다. 이 계획은 PR 병합·Pages 배포 승인으로 대신하지 않으며, 실행 직전에 별도 호스트 승인을 받습니다. 승인 전에는 Docker를 중지하거나 WSL을 종료하지 않습니다.
+3. 호스트 승인 후 승인된 계획의 각 단계를 하나씩 수행합니다. 계획이 Docker 중지를 요구하는 환경이면 승인 후 Docker를 중지하고, 그 다음에 공유 커널을 재부팅합니다. Docker 중지가 필요 없으면 이 단계를 생략합니다. 커널 준비는 영향 없는 단계부터 진행하며, 준비 절차는 1단계 예시와 2단계 계획을 따릅니다. 선택한 커널과 할당기가 실제로 요구하는 모듈은 1단계에서 확인해 계획에 포함합니다. 이번 기록된 시험에서 일치하는 모듈을 설치하지 않은 것은 그 시험의 사실이며, 이후 모든 준비를 금지하지 않습니다. `kernel_trial.py`는 자동으로 실행하지 않습니다.
+4. 실행 중인 커널이 `6.18.33.2-microsoft-standard-WSL2-issue211`인지, root가 `/dev/udmabuf`을 열 수 있는지 확인합니다. 하나라도 다르면 캡처하지 않습니다.
+5. WSL root 자식 컨텍스트에서 아래 명령을 실행합니다. `&lt;new-evidence-directory&gt;`는 존재하지 않는 경로여야 하며, 명령이 이 경로를 새로 만듭니다. 미리 빈 디렉터리를 만들지 않습니다. `&lt;private-extracted-tools-prefix&gt;`는 `usr/bin/gdb`와 `usr/share/gdb`를 포함하는 디렉터리입니다. `&lt;compiled-dmabuf-probe&gt;`는 `dmabuf_probe.c`를 `gcc -std=c11 -Wall -Wextra -Werror -O0 -g`로 컴파일한 결과입니다. `&lt;unmodified-source-at-293d751a&gt;`, `&lt;its-debug-meson-build&gt;`, `&lt;private-extracted-tools-prefix&gt;`, `&lt;compiled-dmabuf-probe&gt;`의 실제 경로는 현재 환경에서 확인해 채웁니다. [prepare_runtime.sh](../validation/issue211/prepare_runtime.sh) 예시가 가리키는 산출 위치는 참고만 하며, 실행 전 실제 존재와 293d751a 고정 여부를 확인합니다.
+
+```
+PYTHONPATH=&lt;generator&gt;/src python3 &lt;generator&gt;/examples/libcamera/runtime/run_cam.py --source &lt;unmodified-source-at-293d751a&gt; --build &lt;its-debug-meson-build&gt; --tools &lt;private-extracted-tools-prefix&gt; --probe &lt;compiled-dmabuf-probe&gt; --out &lt;new-evidence-directory&gt;
+```
+
+CPU 전용 과거 프로브는 [README.md](README.md)를, 원본 관측 기록은 [observation.json](../validation/issue211/runs/20261031-wsl-cam-3/observation.json)을 참고합니다.
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"project-document"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"supplier"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Source-pinned official cam trial; raw events, GDB, syscall and cleanup records"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"580df5156da7066a60e16ff9b656253b1c17f0c0"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"date"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-31"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"valid_until"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-31"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"product"</span><span class="p">:</span><span class="w"> </span><span class="s2">"libcamera-official-cam-trial"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"release"</span><span class="p">:</span><span class="w"> </span><span class="s2">"293d751a814e0d4c34e85ad457ccd9d5eefd1a61"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"configuration"</span><span class="p">:</span><span class="w"> </span><span class="s2">"wsl2-virtual2-official-cam-udmabuf"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"feature"</span><span class="p">:</span><span class="w"> </span><span class="s2">"wsl-virtual-capture"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"conditions"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="s2">"Source 293d751a814e0d4c34e85ad457ccd9d5eefd1a61"</span><span class="p">,</span>
+<span class="w">    </span><span class="s2">"WSL2 custom UDMABUF kernel, root child, Virtual2 400x300 NV12"</span><span class="p">,</span>
+<span class="w">    </span><span class="s2">"GDB observation; no timing/return/physical/internal HAL qualification"</span>
+<span class="w">  </span><span class="p">],</span>
+<span class="w">  </span><span class="nt">"sha256"</span><span class="p">:</span><span class="w"> </span><span class="s2">"93f4c8ea45fc873453b7739b88105877f6b1bc60ed7f3f6a280b15d8b131a9a7"</span>
 <span class="p">}</span>
 </code></pre></div>
 </details>
@@ -833,37 +790,31 @@ void CameraSession::processRequest(Request *request)
 void CameraSession::sinkRelease(Request *request)
 </code></pre></div>
 </details>
-<p><a id="source-2f743f0ec1bd4560"></a></p>
-<details class="note">
-<summary>Source evidence: include/libcamera/request.h:34</summary>
-<p>This is an excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/include/libcamera/request.h#L34"><code>include/libcamera/request.h:34</code></a>. The end line is 38, and the source text below can be compared against the description.</p>
-<p>SHA-256: <code>ef4aa440cefbe5629113672961902a8a7c541797d19f05fa7cad90fe97030a3d</code></p>
-<div class="highlight"><pre><span></span><code>enum Status {
-        RequestPending,
-        RequestComplete,
-        RequestCancelled,
-    };
-</code></pre></div>
-</details>
 </details>
 <details class="note">
 <summary>Evidence and review information</summary>
 <ul>
 <li>Generation method: extracted facts and LLM explanations</li>
 <li>Validation scope: tables and diagrams come from extracted facts; an LLM writes the explanations. Citation, prose and configured structural checks are applied.</li>
-<li>Evidence files: <code>include/libcamera/request.h</code>, <code>product-evidence/libcamera-official-cam-trial/execution-contract.txt</code>, <code>product-evidence/libcamera-official-cam-trial/official-cam-run.txt</code>, <code>src/apps/cam/camera_session.cpp</code></li>
+<li>Evidence files: <code>product-evidence/libcamera-official-cam-trial/execution-contract.txt</code>, <code>product-evidence/libcamera-official-cam-trial/official-cam-reader.txt</code>, <code>product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt</code>, <code>src/apps/cam/camera_session.cpp</code></li>
 <li>Evidence level: code verification (static analysis, simple_compdb configuration, commit <code>293d751a81</code>)</li>
 <li>Automatic checks (citations, prose and configured structure checks): passed</li>
 <li>Review status recorded: 2026-10-31 · Before human review</li>
 </ul>
 </details>
-<p>Next step: <a href="https://github.com/TTolsun/camera-hal-sdd-generator/blob/main/examples/libcamera/runtime/OFFICIAL_CAM.md">Official cam reproduction procedure</a></p></article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanations</dd><dt>Validation scope</dt><dd>Tables and diagrams come from extracted facts; an LLM writes the explanations. Citation, prose and configured structural checks are applied.</dd><dt>Automatic checks</dt><dd>Passed (<code>ok</code>). The checked items are listed under Validation scope. Whether the explanation is correct still needs a person to confirm.</dd><dt>Analyzed source commit</dt><dd><code>293d751a814e0d4c34e85ad457ccd9d5eefd1a61</code></dd><dt>Document generation time</dt><dd><code>2026-10-31 07:14:01+00:00</code></dd><dt>Prose generation model</dt><dd><code>cli/claude/claude-haiku-5-5</code></dd><dt>Cross-document contract</dt><dd><a href="../contract-consistency.json">Automated Comparison Report</a> · Before human review</dd><dt>Product description input</dt><dd><a href="../product-context.json">Scope, conditions, and materials</a></dd></dl><a href="../official-cam-validation.md">Korean Markdown source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="framebuffer-allocator.html"><small>Previous</small>FrameBufferAllocator Failures and Reference Lifetime ←</a><a class="next" href="component-index.html"><small>Next</small> Component index →</a></nav>
+<p>Next step: <a href="https://github.com/TTolsun/camera-hal-sdd-generator/blob/main/examples/libcamera/runtime/OFFICIAL_CAM.md">Official cam reproduction procedure</a></p></article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanations</dd><dt>Validation scope</dt><dd>Tables and diagrams come from extracted facts; an LLM writes the explanations. Citation, prose and configured structural checks are applied.</dd><dt>Automatic checks</dt><dd>Passed (<code>ok</code>). The checked items are listed under Validation scope. Whether the explanation is correct still needs a person to confirm.</dd><dt>Analyzed source commit</dt><dd><code>293d751a814e0d4c34e85ad457ccd9d5eefd1a61</code></dd><dt>Document generation time</dt><dd><code>2026-10-31 12:36:16+00:00</code></dd><dt>Prose generation model</dt><dd><code>cli/claude/claude-haiku-5-5</code></dd><dt>Cross-document contract</dt><dd><a href="../contract-consistency.json">Automated Comparison Report</a> · Before human review</dd><dt>Product description input</dt><dd><a href="../product-context.json">Scope, conditions, and materials</a></dd></dl><a href="../official-cam-validation.md">Korean Markdown source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="framebuffer-allocator.html"><small>Previous</small>FrameBufferAllocator Failures and Reference Lifetime ←</a><a class="next" href="component-index.html"><small>Next</small> Component index →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
 <aside class="page-toc"><nav aria-label="Current page contents"><p>On this page</p><div class="toc">
 <ul>
-<li><a href="#공식-cam과-실제-dma-buf-확인-결과">Official cam and actual DMA-BUF verification results</a></li>
-<li><a href="#콜백과-후속-처리에서-확인한-세-프레임">The three frames confirmed in the callback and subsequent processing</a></li>
-<li><a href="#재현-조건과-검증-경계">Reproduction Conditions and Validation Boundary</a></li>
+<li><a href="#할당기를-준비하자-공식-cam-캡처가-완료됐습니다">Once the allocator was prepared, the official cam capture completed.</a></li>
+<li><a href="#cam이-완료-알림을-받아-이벤트-루프에서-프레임을-처리합니다">cam receives the completion notification and processes the frame in the event loop.</a><ul>
+<li><a href="#완료-알림에서-후속-처리까지">From completion notification to subsequent processing</a></li>
+</ul>
+</li>
+<li><a href="#지원-커널과-장치-접근을-확인한-뒤-재현합니다">We reproduce after confirming a supported kernel and device access.</a><ul>
+<li><a href="#환경-확인에서-재현-실행까지">From environment verification to reproduction execution</a></li>
+</ul>
+</li>
 <li><a href="#소스-근거">Source evidence</a></li>
 </ul>
 </div>

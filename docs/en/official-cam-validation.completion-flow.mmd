@@ -1,0 +1,23 @@
+flowchart TB
+
+  v_n0["Enter requestComplete with <br/>the completed Request"]
+  v_n1{"Check cancel state: <br/>RequestCancelled"}
+  v_n2["Return from current <br/>function, no captureDone <br/>signal"]
+  v_n3["Defer processing to event <br/>loop via callLater"]
+  v_n4{"processRequest entry: check <br/>if limit reached"}
+  v_n5["After frame work, <br/>captureCount_ increments"]
+  v_n6{"Right after increment, <br/>check captureLimit_ reached"}
+  v_n7["After captureDone.emit(), <br/>return from current function"]
+  v_n8{"Does the sink hold the <br/>request?"}
+  v_n9["Call <br/>reuse(Request::ReuseBuffers)<br/>, then queueRequest"]
+  v_n0 -->|"Check cancel state"| v_n1
+  v_n1 -->|"Cancelled: return now [true]"| v_n2
+  v_n1 -->|"Not cancelled: defer [false]"| v_n3
+  v_n3 -->|"Event loop calls it later"| v_n4
+  v_n4 -->|"Entry limit reached: return <br/>[true]"| v_n2
+  v_n4 -->|"Unset/not reached: continue <br/>[false]"| v_n5
+  v_n5 -->|"Then check limit reached"| v_n6
+  v_n6 -->|"Reached: emit captureDone <br/>[true]"| v_n7
+  v_n6 -->|"Unset/not reached: continue <br/>[false]"| v_n8
+  v_n8 -->|"Sink holds: return [true]"| v_n2
+  v_n8 -->|"Not held: reuse and queue <br/>[false]"| v_n9
