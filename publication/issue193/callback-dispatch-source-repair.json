@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "reason": "Independent whole-page completeness found only the conditional separate-thread callback dispatch investigation branch missing. Add the immutable ConnectionType documentation and activatePack implementation as context; distinguish recorded queued delivery from unobserved callback execution. The summary also keeps zero return scoped to queued invocation.",
+  "source_commit": "293d751a814e0d4c34e85ad457ccd9d5eefd1a61",
+  "evidence_count": 320,
+  "new_sources": {
+    "request-lifecycle/journey/queued-connection": {
+      "commit": "293d751a814e0d4c34e85ad457ccd9d5eefd1a61",
+      "selector": {
+        "id": "queued-connection",
+        "file": "src/libcamera/base/bound_method.cpp",
+        "start": "bool BoundMethodBase::activatePack(",
+        "end": "\n}",
+        "scope": {
+          "start": "\\enum ConnectionType",
+          "end": "\n}"
+        }
+      },
+      "status": "available",
+      "file": "src/libcamera/base/bound_method.cpp",
+      "line": 68,
+      "end_line": 108,
+      "text": "bool BoundMethodBase::activatePack(std::shared_ptr<BoundMethodPackBase> pack,\n\t\t\t\t   bool deleteMethod)\n{\n\tConnectionType type = connectionType_;\n\tif (type == ConnectionTypeAuto) {\n\t\tif (Thread::current() == object_->thread())\n\t\t\ttype = ConnectionTypeDirect;\n\t\telse\n\t\t\ttype = ConnectionTypeQueued;\n\t} else if (type == ConnectionTypeBlocking) {\n\t\tif (Thread::current() == object_->thread())\n\t\t\ttype = ConnectionTypeDirect;\n\t}\n\n\tswitch (type) {\n\tcase ConnectionTypeDirect:\n\tdefault:\n\t\tinvokePack(pack.get());\n\t\tif (deleteMethod)\n\t\t\tdelete this;\n\t\treturn true;\n\n\tcase ConnectionTypeQueued: {\n\t\tstd::unique_ptr<Message> msg =\n\t\t\tstd::make_unique<InvokeMessage>(this, pack, nullptr, deleteMethod);\n\t\tobject_->postMessage(std::move(msg));\n\t\treturn false;\n\t}\n\n\tcase ConnectionTypeBlocking: {\n\t\tSemaphore semaphore;\n\n\t\tstd::unique_ptr<Message> msg =\n\t\t\tstd::make_unique<InvokeMessage>(this, pack, &semaphore, deleteMethod);\n\t\tobject_->postMessage(std::move(msg));\n\n\t\tsemaphore.acquire();\n\t\treturn true;\n\t}\n\t}\n}",
+      "sha256": "9d139a7558500489b81d2ef8b83d3b1a3b143d252992c91f56331bc1e6d1b327",
+      "whole_file": false,
+      "context": {
+        "text": "\\enum ConnectionType\n * \\brief Connection type for asynchronous communication\n *\n * This enumeration describes the possible types of asynchronous communication\n * between a sender and a receiver. It applies to Signal::emit() and\n * Object::invokeMethod().\n *\n * \\var ConnectionTypeAuto\n * \\brief If the sender and the receiver live in the same thread,\n * ConnectionTypeDirect is used. Otherwise ConnectionTypeQueued is used.\n *\n * \\var ConnectionTypeDirect\n * \\brief The receiver is invoked immediately and synchronously in the sender's\n * thread.\n *\n * \\var ConnectionTypeQueued\n * \\brief The receiver is invoked asynchronously\n *\n * Invoke the receiver asynchronously in its thread when control returns to the\n * thread's event loop. The sender proceeds without waiting for the invocation\n * to complete.\n *\n * \\var ConnectionTypeBlocking\n * \\brief The receiver is invoked synchronously\n *\n * If the sender and the receiver live in the same thread, this is equivalent to\n * ConnectionTypeDirect. Otherwise, the receiver is invoked asynchronously in\n * its thread when control returns to the thread's event loop. The sender\n * blocks until the receiver signals the completion of the invocation.\n */\n\n/**\n * \\brief Invoke the bound method with packed arguments\n * \\param[in] pack Packed arguments\n * \\param[in] deleteMethod True to delete \\a this bound method instance when\n * method invocation completes\n *\n * The bound method stores its return value, if any, in the arguments \\a pack.\n * For direct and blocking invocations, this is performed synchronously, and\n * the return value contained in the pack may be used. For queued invocations,\n * the return value is stored at an undefined point of time and shall thus not\n * be used by the caller.\n *\n * \\return True if the return value contained in the \\a pack may be used by the\n * caller, false otherwise\n */\nbool BoundMethodBase::activatePack(std::shared_ptr<BoundMethodPackBase> pack,\n\t\t\t\t   bool deleteMethod)\n{\n\tConnectionType type = connectionType_;\n\tif (type == ConnectionTypeAuto) {\n\t\tif (Thread::current() == object_->thread())\n\t\t\ttype = ConnectionTypeDirect;\n\t\telse\n\t\t\ttype = ConnectionTypeQueued;\n\t} else if (type == ConnectionTypeBlocking) {\n\t\tif (Thread::current() == object_->thread())\n\t\t\ttype = ConnectionTypeDirect;\n\t}\n\n\tswitch (type) {\n\tcase ConnectionTypeDirect:\n\tdefault:\n\t\tinvokePack(pack.get());\n\t\tif (deleteMethod)\n\t\t\tdelete this;\n\t\treturn true;\n\n\tcase ConnectionTypeQueued: {\n\t\tstd::unique_ptr<Message> msg =\n\t\t\tstd::make_unique<InvokeMessage>(this, pack, nullptr, deleteMethod);\n\t\tobject_->postMessage(std::move(msg));\n\t\treturn false;\n\t}\n\n\tcase ConnectionTypeBlocking: {\n\t\tSemaphore semaphore;\n\n\t\tstd::unique_ptr<Message> msg =\n\t\t\tstd::make_unique<InvokeMessage>(this, pack, &semaphore, deleteMethod);\n\t\tobject_->postMessage(std::move(msg));\n\n\t\tsemaphore.acquire();\n\t\treturn true;\n\t}\n\t}\n}",
+        "sha256": "3f4cdedea77a04c5861338b3051e7635cb0940059081bd235d09c8d9acb098d5",
+        "line": 22,
+        "end_line": 108
+      }
+    },
+    "request-lifecycle/stopping/queued-connection": {
+      "commit": "293d751a814e0d4c34e85ad457ccd9d5eefd1a61",
+      "selector": {
+        "id": "queued-connection",
+        "file": "src/libcamera/base/bound_method.cpp",
+        "start": "bool BoundMethodBase::activatePack(",
+        "end": "\n}",
+        "scope": {
+          "start": "\\enum ConnectionType",
+          "end": "\n}"
+        }
+      },
+      "status": "available",
+      "file": "src/libcamera/base/bound_method.cpp",
+      "line": 68,
+      "end_line": 108,
+      "text": "bool BoundMethodBase::activatePack(std::shared_ptr<BoundMethodPackBase> pack,\n\t\t\t\t   bool deleteMethod)\n{\n\tConnectionType type = connectionType_;\n\tif (type == ConnectionTypeAuto) {\n\t\tif (Thread::current() == object_->thread())\n\t\t\ttype = ConnectionTypeDirect;\n\t\telse\n\t\t\ttype = ConnectionTypeQueued;\n\t} else if (type == ConnectionTypeBlocking) {\n\t\tif (Thread::current() == object_->thread())\n\t\t\ttype = ConnectionTypeDirect;\n\t}\n\n\tswitch (type) {\n\tcase ConnectionTypeDirect:\n\tdefault:\n\t\tinvokePack(pack.get());\n\t\tif (deleteMethod)\n\t\t\tdelete this;\n\t\treturn true;\n\n\tcase ConnectionTypeQueued: {\n\t\tstd::unique_ptr<Message> msg =\n\t\t\tstd::make_unique<InvokeMessage>(this, pack, nullptr, deleteMethod);\n\t\tobject_->postMessage(std::move(msg));\n\t\treturn false;\n\t}\n\n\tcase ConnectionTypeBlocking: {\n\t\tSemaphore semaphore;\n\n\t\tstd::unique_ptr<Message> msg =\n\t\t\tstd::make_unique<InvokeMessage>(this, pack, &semaphore, deleteMethod);\n\t\tobject_->postMessage(std::move(msg));\n\n\t\tsemaphore.acquire();\n\t\treturn true;\n\t}\n\t}\n}",
+      "sha256": "9d139a7558500489b81d2ef8b83d3b1a3b143d252992c91f56331bc1e6d1b327",
+      "whole_file": false,
+      "context": {
+        "text": "\\enum ConnectionType\n * \\brief Connection type for asynchronous communication\n *\n * This enumeration describes the possible types of asynchronous communication\n * between a sender and a receiver. It applies to Signal::emit() and\n * Object::invokeMethod().\n *\n * \\var ConnectionTypeAuto\n * \\brief If the sender and the receiver live in the same thread,\n * ConnectionTypeDirect is used. Otherwise ConnectionTypeQueued is used.\n *\n * \\var ConnectionTypeDirect\n * \\brief The receiver is invoked immediately and synchronously in the sender's\n * thread.\n *\n * \\var ConnectionTypeQueued\n * \\brief The receiver is invoked asynchronously\n *\n * Invoke the receiver asynchronously in its thread when control returns to the\n * thread's event loop. The sender proceeds without waiting for the invocation\n * to complete.\n *\n * \\var ConnectionTypeBlocking\n * \\brief The receiver is invoked synchronously\n *\n * If the sender and the receiver live in the same thread, this is equivalent to\n * ConnectionTypeDirect. Otherwise, the receiver is invoked asynchronously in\n * its thread when control returns to the thread's event loop. The sender\n * blocks until the receiver signals the completion of the invocation.\n */\n\n/**\n * \\brief Invoke the bound method with packed arguments\n * \\param[in] pack Packed arguments\n * \\param[in] deleteMethod True to delete \\a this bound method instance when\n * method invocation completes\n *\n * The bound method stores its return value, if any, in the arguments \\a pack.\n * For direct and blocking invocations, this is performed synchronously, and\n * the return value contained in the pack may be used. For queued invocations,\n * the return value is stored at an undefined point of time and shall thus not\n * be used by the caller.\n *\n * \\return True if the return value contained in the \\a pack may be used by the\n * caller, false otherwise\n */\nbool BoundMethodBase::activatePack(std::shared_ptr<BoundMethodPackBase> pack,\n\t\t\t\t   bool deleteMethod)\n{\n\tConnectionType type = connectionType_;\n\tif (type == ConnectionTypeAuto) {\n\t\tif (Thread::current() == object_->thread())\n\t\t\ttype = ConnectionTypeDirect;\n\t\telse\n\t\t\ttype = ConnectionTypeQueued;\n\t} else if (type == ConnectionTypeBlocking) {\n\t\tif (Thread::current() == object_->thread())\n\t\t\ttype = ConnectionTypeDirect;\n\t}\n\n\tswitch (type) {\n\tcase ConnectionTypeDirect:\n\tdefault:\n\t\tinvokePack(pack.get());\n\t\tif (deleteMethod)\n\t\t\tdelete this;\n\t\treturn true;\n\n\tcase ConnectionTypeQueued: {\n\t\tstd::unique_ptr<Message> msg =\n\t\t\tstd::make_unique<InvokeMessage>(this, pack, nullptr, deleteMethod);\n\t\tobject_->postMessage(std::move(msg));\n\t\treturn false;\n\t}\n\n\tcase ConnectionTypeBlocking: {\n\t\tSemaphore semaphore;\n\n\t\tstd::unique_ptr<Message> msg =\n\t\t\tstd::make_unique<InvokeMessage>(this, pack, &semaphore, deleteMethod);\n\t\tobject_->postMessage(std::move(msg));\n\n\t\tsemaphore.acquire();\n\t\treturn true;\n\t}\n\t}\n}",
+        "sha256": "3f4cdedea77a04c5861338b3051e7635cb0940059081bd235d09c8d9acb098d5",
+        "line": 22,
+        "end_line": 108
+      }
+    }
+  },
+  "structural_facts_unchanged": true,
+  "human_review": "pending"
+}

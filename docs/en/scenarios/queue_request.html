@@ -1,25 +1,262 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Request submission (Camera::queueRequest) · libcamera Design Documentation</title><link rel="stylesheet" href="../../assets/reading.css?v=cba5d69b6e"><link rel="alternate" hreflang="ko" href="../../scenarios/queue_request.html"><link rel="alternate" hreflang="en" href="queue_request.html"></head>
+<title>Request submission · libcamera design document</title><link rel="stylesheet" href="../../assets/reading.css?v=cba5d69b6e"><link rel="alternate" hreflang="ko" href="../../scenarios/queue_request.html"><link rel="alternate" hreflang="en" href="queue_request.html"></head>
 <body><a class="skip" href="#main">Skip to content</a>
 <header class="site-header"><a class="brand" href="../index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera Design Documentation</a>
 <div class="header-actions"><details class="language-selector"><summary aria-label="Choose language">English ▾</summary><nav><a lang="ko" hreflang="ko" href="../../scenarios/queue_request.html">한국어</a><a lang="en" hreflang="en" href="queue_request.html" aria-current="true">English</a></nav></details><button id="search-open" hidden>Find documents <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button></div></header>
-<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Documentation menu"><details class="nav-group" data-nav-id="group-eb5fc4597bcab08dd609eb65"><summary>Getting started</summary><a href="../index.html">Documentation guide</a><a href="../glossary.html">Glossary</a></details><details class="nav-group" data-nav-id="group-d671e203b93701cc4b6e3099"><summary>For Vendor</summary><details class="nav-section" data-nav-id="task-d6e030e93c998b7019a15936"><summary>Assess adoption</summary><a href="../vendor-overview.html">libcamera Product Overview</a><a href="../vendor-assurance.html">Support Scope and Validation</a></details><details class="nav-section" data-nav-id="task-3e788d9bf0a3e06fa9605fc7"><summary>Implement integration</summary><a href="../vendor-integration.html">Integration Guide</a><a href="../pipeline-handler.html">Pipeline Handler</a><a href="../pipeline-requests.html">Pipeline Request Submission and Completion</a><a href="../ipa.html">IPA management and implementation entry points</a><a href="../ipa-algorithms.html">IPA Tuning and Software ISP</a></details><details class="nav-section" data-nav-id="task-4e6bf6a82fb4765e60a97382"><summary>Implement device features</summary><a href="../ipu3-lsc-flow.html">IPU3 LSC configuration and frame processing</a><a href="../ipu3-lsc-prepare.html">IPU3 Lens Correction Table Preparation</a><a href="../rkisp1-dewarp.html">RKISP1 per-camera lens dewarping</a></details></details><details class="nav-group" data-nav-id="group-8c6df661e792ad45c78bb2ef"><summary>For Developer</summary><details class="nav-section" data-nav-id="task-99be7fb5d49c7ce6147f371a"><summary>Understand the structure</summary><a href="../team-overview.html">What this project does</a><a href="../overview.html">System overview</a><a href="../onboarding.html">Run it and read the design rationale</a><a href="../camera-model.html">Camera and request model</a><a href="../camera-requests.html">Request Object and Buffer Lifetime</a></details><details class="nav-section" data-nav-id="task-1fd1cf94625ce3af7bee3dfe"><summary>Trace behavior and diagnose issues</summary><a href="../request-lifecycle.html">Request lifecycle and troubleshooting</a><a href="../request-diagnosis.html">Investigation of configuration and request errors</a><a href="index.html">Core scenarios</a><details class="nav-branch" data-nav-id="branch-6cdafc2d5a06483de679705c"><summary>6 child documents</summary><a class="nav-sub" href="manager_start.html">Camera discovery (CameraManager::start)</a><a class="nav-sub" href="configure.html">Stream configuration (Camera::configure)</a><a class="nav-sub" href="camera_start.html">Capture start (Camera::start)</a><a class="nav-sub" href="queue_request.html" aria-current="page">Request submission (Camera::queueRequest)</a><a class="nav-sub" href="complete_request.html">Request completion (PipelineHandler::completeRequest)</a><a class="nav-sub" href="camera_stop.html">Capture stop request (Camera::stop)</a></details><a href="../ipa-module-validation.html">IPA module information inspection and signature file missing</a><a href="../framebuffer-allocator.html">FrameBufferAllocator Failures and Reference Lifetime</a></details><details class="nav-section" data-nav-id="task-832d04faf930a39f3dde0065"><summary>Find code</summary><a href="../component-index.html">Component index</a><a href="../ipu3-lsc.html">IPU3 LSC and state connections</a></details></details></nav><p class="sidebar-note">Extract structure from code<br>and review it with evidence.</p></aside>
-<main id="main"><p class="breadcrumb">For Developer <span>/</span> Request submission (Camera::queueRequest)</p><h1>Request submission (Camera::queueRequest)</h1><div class="page-state"><span class="review-state">Human review pending</span><span>Automatic checks passed</span><span class="generation-method">Written from: call flow extracted from code</span><a class="state-help" href="#page-evidence">What these mean ↓</a></div>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Documentation menu"><details class="nav-group" data-nav-id="group-eb5fc4597bcab08dd609eb65"><summary>Getting started</summary><a href="../index.html">Documentation guide</a><a href="../glossary.html">Glossary</a></details><details class="nav-group" data-nav-id="group-d671e203b93701cc4b6e3099"><summary>For Vendor</summary><details class="nav-section" data-nav-id="task-d6e030e93c998b7019a15936"><summary>Assess adoption</summary><a href="../vendor-overview.html">libcamera Product Overview</a><a href="../vendor-assurance.html">Support Scope and Validation</a></details><details class="nav-section" data-nav-id="task-3e788d9bf0a3e06fa9605fc7"><summary>Implement integration</summary><a href="../vendor-integration.html">Integration Guide</a><a href="../pipeline-handler.html">Pipeline Handler</a><a href="../pipeline-requests.html">Pipeline Request Submission and Completion</a><a href="../ipa.html">IPA management and implementation entry points</a><a href="../ipa-algorithms.html">IPA Tuning and Software ISP</a></details><details class="nav-section" data-nav-id="task-4e6bf6a82fb4765e60a97382"><summary>Implement device features</summary><a href="../ipu3-lsc-flow.html">IPU3 LSC configuration and frame processing</a><a href="../ipu3-lsc-prepare.html">IPU3 Lens Correction Table Preparation</a><a href="../rkisp1-dewarp.html">RKISP1 per-camera lens dewarping</a></details></details><details class="nav-group" data-nav-id="group-8c6df661e792ad45c78bb2ef"><summary>For Developer</summary><details class="nav-section" data-nav-id="task-99be7fb5d49c7ce6147f371a"><summary>Understand the structure</summary><a href="../team-overview.html">What this project does</a><a href="../overview.html">System overview</a><a href="../onboarding.html">Run it and read the design rationale</a><a href="../camera-model.html">Camera and request model</a><a href="../camera-requests.html">Request Object and Buffer Lifetime</a></details><details class="nav-section" data-nav-id="task-1fd1cf94625ce3af7bee3dfe"><summary>Trace behavior and diagnose issues</summary><a href="../request-lifecycle.html">Request lifecycle and troubleshooting</a><a href="../request-diagnosis.html">Investigation of configuration and request errors</a><a href="index.html">Core scenarios</a><details class="nav-branch" data-nav-id="branch-6cdafc2d5a06483de679705c"><summary>6 child documents</summary><a class="nav-sub" href="manager_start.html">Camera discovery</a><a class="nav-sub" href="configure.html">Stream configuration</a><a class="nav-sub" href="camera_start.html">Capture start</a><a class="nav-sub" href="queue_request.html" aria-current="page">Request submission</a><a class="nav-sub" href="complete_request.html">Request completion notification</a><a class="nav-sub" href="camera_stop.html">Capture stop request</a></details><a href="../ipa-module-validation.html">IPA module information inspection and signature file missing</a><a href="../framebuffer-allocator.html">FrameBufferAllocator Failures and Reference Lifetime</a></details><details class="nav-section" data-nav-id="task-832d04faf930a39f3dde0065"><summary>Find code</summary><a href="../component-index.html">Component index</a><a href="../ipu3-lsc.html">IPU3 LSC and state connections</a></details></details></nav><p class="sidebar-note">Extract structure from code<br>and review it with evidence.</p></aside>
+<main id="main"><p class="breadcrumb">For Developer <span>/</span> Request Submission</p><h1>Request submission</h1><div class="page-state"><span class="review-state">Human review pending</span><span>Automatic checks passed</span><span class="generation-method">Written from: extracted structure and a model-written draft</span><a class="state-help" href="#page-evidence">What these mean ↓</a></div>
 <details class="mobile-toc"><summary>Contents of this page</summary><div class="toc">
 <ul>
-<li><a href="#이-흐름에서-확인할-것">What to check in this flow</a></li>
+<li><a href="#요청을-제출하기-전에-갖출-조건">Conditions to meet before submitting a request</a></li>
+<li><a href="#큐로-전달된-요청의-준비와-실패">Preparation and failure of requests delivered to the queue</a></li>
+<li><a href="#소스-근거">Source evidence</a></li>
 <li><a href="#주요-확인-지점">Key checkpoints</a></li>
 <li><a href="#주요-호출-관계">Main call relationships</a></li>
 <li><a href="#추적-범위와-경계">Trace scope and boundaries</a></li>
 <li><a href="#전체-추적-기록">Complete trace records</a></li>
 </ul>
 </div>
-</details><p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p><strong>Check the main calls and trace boundaries of <code>Camera::queueRequest(Request *)</code>, then expand the detailed records you need.</strong></p>
+</details><p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p><strong>Submit valid requests to the started camera, and check completion notifications separately.</strong></p>
+<details class="page-terms">
+<summary>Terms on this page: Pipeline Handler</summary>
+<ul>
+<li><strong>Pipeline Handler</strong>: the libcamera component that finds a hardware platform's media devices (IPU3, RKISP1 and so on), creates cameras, queues requests to the devices and returns completions. There is one per platform.</li>
+</ul>
+<p>Other terms are in the <a href="../glossary.html">Glossary</a>.</p>
+</details>
+<div class="previous-route" id="이-흐름에서-확인할-것"><p>Destination of the previous link</p><a href="#요청을-제출하기-전에-갖출-조건">Conditions to meet before submitting a request</a></div>
+<h2 id="요청을-제출하기-전에-갖출-조건">Conditions to meet before submitting a request</h2>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1308&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L1308\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1308&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera.cpp:690&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L690\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:690&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1308&quot;: [&quot;#source-3c1e4a3c695a8890&quot;], &quot;src/libcamera/camera.cpp:690&quot;: [&quot;#source-43bf991ac670b1aa&quot;]}"><code>Camera::queueRequest()</code> is a function that queues a request to the camera for capture. This function is defined as thread-safe and may be called only when the camera is in the Running state. If the return value of <code>d-&gt;isAccessAllowed(Private::CameraRunning)</code> is negative, the function returns that value unchanged. <code>Camera::Private::isAccessAllowed()</code> returns <code>-ENODEV</code> if <code>allowDisconnected</code> is false for a disconnected camera, and Camera::Private::isAccessAllowed() returns <code>-EACCES</code> if the current <code>state_</code> differs from the state passed as an argument.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1308&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L1308\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1308&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1308&quot;: [&quot;#source-3c1e4a3c695a8890&quot;]}">If <code>request-&gt;_d()-&gt;camera()</code> differs from <code>this</code>, Camera::queueRequest returns <code>-EXDEV</code> and does not proceed to the pipeline call. After this check, if <code>request-&gt;status()</code> is not <code>Request::RequestPending</code>, or if <code>request-&gt;controls().infoMap()</code> differs from <code>&amp;controls()</code>, Camera::queueRequest returns <code>-EINVAL</code>. Also, if <code>request-&gt;buffers()</code> is empty, or if any stream in it is absent from <code>d-&gt;activeStreams_</code>, Camera::queueRequest returns <code>-EINVAL</code>.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1308&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L1308\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1308&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1308&quot;: [&quot;#source-3c1e4a3c695a8890&quot;]}">If all checks pass, <code>Camera::queueRequest()</code> calls <code>pipe_-&gt;invokeMethod(&amp;PipelineHandler::queueRequest, ConnectionTypeQueued, request)</code> and then returns <code>0</code>. Therefore, the return value <code>0</code> means that the request has been handed off to the pipeline, and does not mean that the request has completed. After the request is queued, the camera notifies completion through the <code>requestCompleted</code> signal.</p>
 
-<h2 id="이-흐름에서-확인할-것">What to check in this flow</h2>
-<p>Static traversal from <code>Camera::queueRequest(Request *)</code> collected 80 call records. The table and diagram below show 2 key checkpoints. Check their evidence first, then find other calls in the complete trace records.</p>
-<p>There is 1 boundary record that requires verification, such as virtual call candidates and reservation targets. You must distinguish the candidates using the trace scope and boundary entries, then verify the actual object and linking method.</p>
+<details class="evidence-links evidence-section"><summary><span>2</span> evidence items across the section</summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-3c1e4a3c695a8890" aria-label="src/libcamera/camera.cpp:1308 excerpt">Excerpt from <code>L1308</code></a> · <a aria-label="src/libcamera/camera.cpp:1308" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L1308">Full source <code>L1308</code></a> · <a href="#source-43bf991ac670b1aa" aria-label="src/libcamera/camera.cpp:690 excerpt">Excerpt from <code>L690</code></a> · <a aria-label="src/libcamera/camera.cpp:690" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L690">Full source <code>L690</code></a></span></li></ul></details><h2 id="큐로-전달된-요청의-준비와-실패">Preparation and failure of requests delivered to the queue</h2>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1373&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L1373\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1373&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1373&quot;: [&quot;#source-997ecce495182b6b&quot;]}"><code>Camera::queueRequest()</code> calls <code>patchControlList(request-&gt;controls())</code> to preprocess <code>AeEnable</code> as the comment says, then specifies <code>ConnectionTypeQueued</code> for <code>d-&gt;pipe_-&gt;invokeMethod()</code> and passes <code>request</code> to <code>PipelineHandler::queueRequest</code>. The comment between the request checks states that the camera state may change until the function ends, and explains that <code>PipelineHandler::queueRequest()</code> handles state changes as the reason no locking is needed.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/pipeline_handler.cpp:447&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/pipeline_handler.cpp#L447\&quot;&gt;&lt;code&gt;src/libcamera/pipeline_handler.cpp:447&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline_handler.cpp:447&quot;: [&quot;#source-5493b66ef420047f&quot;]}">According to the comment, this function is called from the <code>CameraManager</code> thread. <code>PipelineHandler::queueRequest</code> adds <code>request</code> to <code>waitingRequests_</code> of <code>camera-&gt;_d()</code>, then calls <code>request-&gt;_d()-&gt;prepare(300ms)</code> to start preparation. The comment states that the request is cancelled if <code>Request</code> fails during preparation or if the pipeline handler fails to queue the request to hardware.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/pipeline_handler.cpp:509&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/pipeline_handler.cpp#L509\&quot;&gt;&lt;code&gt;src/libcamera/pipeline_handler.cpp:509&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline_handler.cpp:509&quot;: [&quot;#source-9bef16708cb3efe3&quot;]}"><code>doQueueRequests</code> repeats until <code>waitingRequests_</code> is empty. If the size of <code>queuedRequests_</code> equals <code>maxQueuedRequestsDevice_</code>, it stops repeating. If <code>prepared_</code> of the front request is false, it stops without removing that request. A request that passes these conditions is removed with <code>pop()</code> and passed to <code>doQueueRequest</code>. According to the comment, the reason for removing it first is that <code>doQueueRequests()</code> may be called recursively within <code>doQueueRequest()</code>.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/pipeline_handler.cpp:483&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/pipeline_handler.cpp#L483\&quot;&gt;&lt;code&gt;src/libcamera/pipeline_handler.cpp:483&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline_handler.cpp:483&quot;: [&quot;#source-7348e9b4af985eb2&quot;]}"><code>doQueueRequest</code> appends the request to the end of <code>queuedRequests_</code> in the <code>Camera::Private</code> data obtained with <code>camera-&gt;_d()</code>. Then the request's <code>sequence_</code> is assigned the current value of <code>requestSequence_</code>, and <code>requestSequence_</code> is incremented by 1. If the request's <code>cancelled_</code> is true, the function calls <code>completeRequest(request)</code> and returns immediately and does not call <code>queueRequestDevice</code>. Otherwise, the function calls <code>queueRequestDevice(camera, request)</code>, and if the return value is not 0, the function cancels the request via <code>cancelRequest(request)</code>.</p>
+
+<details class="note">
+<summary>Design questions and validation scope</summary>
+<p>Answers and their evidence links have been checked for each question. Meaning and runtime results still require human review.</p>
+<ul class="coverage-links"><li><p>Explain once the purpose of Camera::queueRequest() in accepting requests for capture, the Running state and thread-safe contract, and the connection/state errors -ENODEV/-EACCES. Explain by condition the -EXDEV mismatch with the camera that created the request, and the -EINVAL that results from the checks for RequestPending, controls infoMap, buffer presence, and active streams. Distinguish the return value 0 from the request completion notification signaled by requestCompleted, but do not summarize the same states or error list again. Write within three paragraphs.</p><p><a href="#요청을-제출하기-전에-갖출-조건">Conditions to meet before submitting a request</a></p></li><li><p>Explain the scope of the comment stating that the patchControlList and ConnectionTypeQueued handoff in Camera::queueRequest, and the state change, are handled by PipelineHandler. Explain the flow in which PipelineHandler::queueRequest places the request into waitingRequests_ on the CameraManager thread and calls prepare(300ms), and the conditions under which requests are passed on in preparation order up to maxQueuedRequestsDevice_: cancellation on preparation or hardware queueing failure. Distinguish the branches: processing stops at an unprepared request at the front of the waiting queue or at the device limit; doQueueRequest updates the camera data's queuedRequests_ and sequence_; if cancelled_ is set, it calls completeRequest, and on a device queueing error it calls cancelRequest. Each paragraph describes one reader task; do not restate the same result or return value again. Do not create a paragraph for each source line. Do not repeat the internal implementation explained in the section below as an unverified limitation.</p><p><a href="#큐로-전달된-요청의-준비와-실패">Preparation and failure of requests delivered to the queue</a></p></li></ul><p><span>Verification scope</span>: <span>Code evidence linked to explanation</span></p>
+</details>
+<details class="evidence-links evidence-section"><summary><span>4</span> evidence items across the section</summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-997ecce495182b6b" aria-label="src/libcamera/camera.cpp:1373 excerpt">Excerpt from <code>L1373</code></a> · <a aria-label="src/libcamera/camera.cpp:1373" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L1373">Full source <code>L1373</code></a></span></li><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="#source-5493b66ef420047f" aria-label="src/libcamera/pipeline_handler.cpp:447 excerpt">Excerpt from <code>L447</code></a> · <a aria-label="src/libcamera/pipeline_handler.cpp:447" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/pipeline_handler.cpp#L447">Full source <code>L447</code></a> · <a href="#source-9bef16708cb3efe3" aria-label="Extracted from src/libcamera/pipeline_handler.cpp:509">Excerpt from <code>L509</code></a> · <a aria-label="src/libcamera/pipeline_handler.cpp:509" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/pipeline_handler.cpp#L509">Full source <code>L509</code></a> · <a href="#source-7348e9b4af985eb2" aria-label="Extracted from src/libcamera/pipeline_handler.cpp:483">Excerpt from <code>L483</code></a> · <a aria-label="src/libcamera/pipeline_handler.cpp:483" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/pipeline_handler.cpp#L483">Full source <code>L483</code></a></span></li></ul></details><h2 id="소스-근거">Source evidence</h2>
+<details class="source-excerpts"><summary><span>6</span> source excerpts</summary>
+<p>Each identical excerpt appears once. Expand the source you need and compare it with the explanation.</p>
+<p><a id="source-3c1e4a3c695a8890"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/camera.cpp:1308</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L1308"><code>src/libcamera/camera.cpp:1308</code></a>. The end line is 1380, and the original text below can be compared against the description.</p>
+<p>SHA-256: <code>7f775e92fe4ad43798ec85c6dba7e2b8bba7d189e554cb9300d2475891a1764a</code></p>
+<div class="highlight"><pre><span></span><code>\brief Queue a request to the camera
+ * \param[in] request The request to queue to the camera
+ *
+ * This function queues a \a request to the camera for capture.
+ *
+ * After allocating the request with createRequest(), the application shall
+ * fill it with at least one capture buffer before queuing it. Requests that
+ * contain no buffers are invalid and are rejected without being queued.
+ *
+ * Once the request has been queued, the camera will notify its completion
+ * through the \ref requestCompleted signal.
+ *
+ * \context This function is \threadsafe. It may only be called when the camera
+ * is in the Running state as defined in \ref camera_operation.
+ *
+ * \return 0 on success or a negative error code otherwise
+ * \retval -ENODEV The camera has been disconnected from the system
+ * \retval -EACCES The camera is not running so requests can't be queued
+ * \retval -EXDEV The request does not belong to this camera
+ * \retval -EINVAL The request is invalid
+ * \retval -ENOMEM No buffer memory was available to handle the request
+ */
+int Camera::queueRequest(Request *request)
+{
+    Private *const d = _d();
+
+    int ret = d-&gt;isAccessAllowed(Private::CameraRunning);
+    if (ret &lt; 0)
+        return ret;
+
+    /* Requests can only be queued to the camera that created them. */
+    if (request-&gt;_d()-&gt;camera() != this) {
+        LOG(Camera, Error) &lt;&lt; "Request was not created by this camera";
+        return -EXDEV;
+    }
+
+    if (request-&gt;status() != Request::RequestPending) {
+        LOG(Camera, Error) &lt;&lt; request-&gt;toString() &lt;&lt; " is not valid";
+        return -EINVAL;
+    }
+
+    /* Make sure the Request has a valid control list. */
+    if (request-&gt;controls().infoMap() != &amp;controls()) {
+        LOG(Camera, Error) &lt;&lt; "Overwriting Request::controls() is not allowed";
+        return -EINVAL;
+    }
+
+    /*
+     * The camera state may change until the end of the function. No locking
+     * is however needed as PipelineHandler::queueRequest() will handle
+     * this.
+     */
+
+    if (request-&gt;buffers().empty()) {
+        LOG(Camera, Error) &lt;&lt; "Request contains no buffers";
+        return -EINVAL;
+    }
+
+    for (const auto &amp;[stream, buffer] : request-&gt;buffers()) {
+        if (d-&gt;activeStreams_.find(stream) == d-&gt;activeStreams_.end()) {
+            LOG(Camera, Error) &lt;&lt; "Invalid request";
+            return -EINVAL;
+        }
+    }
+
+    /* Pre-process AeEnable. */
+    patchControlList(request-&gt;controls());
+
+    d-&gt;pipe_-&gt;invokeMethod(&amp;PipelineHandler::queueRequest,
+                   ConnectionTypeQueued, request);
+
+    return 0;
+}
+</code></pre></div>
+</details>
+<p><a id="source-43bf991ac670b1aa"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/camera.cpp:690</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L690"><code>src/libcamera/camera.cpp:690</code></a>. The end line is 707, and the original text below can be checked against the description.</p>
+<p>SHA-256: <code>eda58d39ca207e5943afd21f4d2439316a5afdb0d3d19c7a40800658db295899</code></p>
+<div class="highlight"><pre><span></span><code>int Camera::Private::isAccessAllowed(State state, bool allowDisconnected,
+                     const char *from) const
+{
+    if (!allowDisconnected &amp;&amp; disconnected_)
+        return -ENODEV;
+
+    State currentState = state_.load(std::memory_order_acquire);
+    if (currentState == state)
+        return 0;
+
+    ASSERT(static_cast&lt;unsigned int&gt;(state) &lt; std::size(camera_state_names));
+
+    LOG(Camera, Error) &lt;&lt; "Camera in " &lt;&lt; camera_state_names[currentState]
+               &lt;&lt; " state trying " &lt;&lt; from &lt;&lt; "() requiring state "
+               &lt;&lt; camera_state_names[state];
+
+    return -EACCES;
+}
+</code></pre></div>
+</details>
+<p><a id="source-997ecce495182b6b"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/camera.cpp:1373</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L1373"><code>src/libcamera/camera.cpp:1373</code></a>. The end line is 1380, and the original text below can be compared against the description.</p>
+<p>SHA-256: <code>e45022d3fce2d8886d9ff5afa6e10f4c6687e85b7eec1ed64af80c775e36e030</code></p>
+<div class="highlight"><pre><span></span><code>/* Pre-process AeEnable. */
+    patchControlList(request-&gt;controls());
+
+    d-&gt;pipe_-&gt;invokeMethod(&amp;PipelineHandler::queueRequest,
+                   ConnectionTypeQueued, request);
+
+    return 0;
+}
+</code></pre></div>
+</details>
+<p><a id="source-5493b66ef420047f"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/pipeline_handler.cpp:447</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/pipeline_handler.cpp#L447"><code>src/libcamera/pipeline_handler.cpp:447</code></a>. The end line is 478, and the source text below can be compared with the description.</p>
+<p>SHA-256: <code>7bc050721f49ab7e95fd95627a35b21026512d193d48bf886273b1ac0dc1b7ab</code></p>
+<div class="highlight"><pre><span></span><code>\fn PipelineHandler::queueRequest()
+ * \brief Queue a request
+ * \param[in] request The request to queue
+ *
+ * This function queues a capture request to the pipeline handler for
+ * processing. The request is first added to the internal list of waiting
+ * requests which have to be prepared to make sure they are ready for being
+ * queued to the pipeline handler.
+ *
+ * The queue of waiting requests is iterated and up to \a
+ * maxQueuedRequestsDevice_ prepared requests are passed to the pipeline handler
+ * in the same order they have been queued by calling this function.
+ *
+ * If a Request fails during the preparation phase or if the pipeline handler
+ * fails in queuing the request to the hardware the request is cancelled.
+ *
+ * Keeping track of queued requests ensures automatic completion of all requests
+ * when the pipeline handler is stopped with stop(). Request completion shall be
+ * signalled by the pipeline handler using the completeRequest() function.
+ *
+ * \context This function is called from the CameraManager thread.
+ */
+void PipelineHandler::queueRequest(Request *request)
+{
+    LIBCAMERA_TRACEPOINT(request_queue, request);
+
+    Camera *camera = request-&gt;_d()-&gt;camera();
+    Camera::Private *data = camera-&gt;_d();
+    data-&gt;waitingRequests_.push(request);
+
+    request-&gt;_d()-&gt;prepare(300ms);
+}
+</code></pre></div>
+</details>
+<p><a id="source-7348e9b4af985eb2"></a></p>
+<details class="note">
+<summary>Source basis: src/libcamera/pipeline_handler.cpp:483</summary>
+<p>The excerpt begins at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/pipeline_handler.cpp#L483"><code>src/libcamera/pipeline_handler.cpp:483</code></a>. The end line is 501, and the original text below can be compared with this description.</p>
+<p>SHA-256: <code>fbd3ed6fe295b1cdd82d6ce420a30695986e43199347f92ac2545fe0e7831da8</code></p>
+<div class="highlight"><pre><span></span><code>void PipelineHandler::doQueueRequest(Request *request)
+{
+    LIBCAMERA_TRACEPOINT(request_device_queue, request);
+
+    Camera *camera = request-&gt;_d()-&gt;camera();
+    Camera::Private *data = camera-&gt;_d();
+    data-&gt;queuedRequests_.push_back(request);
+
+    request-&gt;_d()-&gt;sequence_ = data-&gt;requestSequence_++;
+
+    if (request-&gt;_d()-&gt;cancelled_) {
+        completeRequest(request);
+        return;
+    }
+
+    int ret = queueRequestDevice(camera, request);
+    if (ret)
+        cancelRequest(request);
+}
+</code></pre></div>
+</details>
+<p><a id="source-9bef16708cb3efe3"></a></p>
+<details class="note">
+<summary>Source basis: src/libcamera/pipeline_handler.cpp:509</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/pipeline_handler.cpp#L509"><code>src/libcamera/pipeline_handler.cpp:509</code></a>. The end line is 527, and the original text below can be checked against the description.</p>
+<p>SHA-256: <code>2bcae42fd283195880204cc5f4cfa46a3cb50981efd559abfebb1f8c163f920a</code></p>
+<div class="highlight"><pre><span></span><code>void PipelineHandler::doQueueRequests(Camera *camera)
+{
+    Camera::Private *data = camera-&gt;_d();
+    while (!data-&gt;waitingRequests_.empty()) {
+        if (data-&gt;queuedRequests_.size() == maxQueuedRequestsDevice_)
+            break;
+
+        Request *request = data-&gt;waitingRequests_.front();
+        if (!request-&gt;_d()-&gt;prepared_)
+            break;
+
+        /*
+         * Pop the request first, in case doQueueRequests() is called
+         * recursively from within doQueueRequest()
+         */
+        data-&gt;waitingRequests_.pop();
+        doQueueRequest(request);
+    }
+}
+</code></pre></div>
+</details>
+</details>
 <h2 id="주요-확인-지점">Key checkpoints</h2>
 <p>These are code-navigation checkpoints selected from extracted calls. Their listing order is not execution order.</p>
 <div class="table-scroll stack" tabindex="0" role="region" aria-label="Table"><table>
@@ -688,19 +925,21 @@
 <details class="note">
 <summary>Evidence and review information</summary>
 <ul>
-<li>Generation method: scenarios from extracted calls</li>
-<li>Validation scope: builds main calls and boundaries from facts and retains all trace records. It does not infer execution order.</li>
-<li>Evidence files: <code>src/libcamera/base/log.cpp</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/controls.cpp</code>, <code>src/libcamera/request.cpp</code></li>
+<li>Generation method: extracted facts and LLM explanations</li>
+<li>Validation scope: tables and diagrams come from extracted facts; an LLM writes the explanations. Citation, prose and configured structural checks are applied.</li>
+<li>Evidence files: <code>src/libcamera/base/log.cpp</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/controls.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code>, <code>src/libcamera/request.cpp</code></li>
 <li>Evidence level: code verification (static analysis, simple_compdb configuration, commit <code>212c689fcf</code>)</li>
 <li>Automatic checks (citations, prose and configured structure checks): passed</li>
-<li>Review status recorded on: 2026-10-30 · Awaiting human review</li>
+<li>Review status recorded: 2026-10-31 · Before human review</li>
 </ul>
 </details>
-</article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Scenarios from extracted calls</dd><dt>Validation scope</dt><dd>Builds main calls and boundaries from facts and retains all trace records. It does not infer execution order.</dd><dt>Automatic checks</dt><dd>Passed (<code>ok</code>). The checked items are listed under Validation scope. Whether the explanation is correct still needs a person to confirm.</dd><dt>Analyzed source commit</dt><dd><code>293d751a814e0d4c34e85ad457ccd9d5eefd1a61</code></dd><dt>Document generation time</dt><dd><code>2026-10-29 22:20:22+00:00</code></dd><dt>Cross-document contract</dt><dd><a href="../../contract-consistency.json">Automated Comparison Report</a> · Before human review</dd></dl><a href="../../scenarios/queue_request.md">Korean Markdown source ↗</a> <a href="queue_request.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="camera_start.html"><small>Previous</small>Capture start (Camera::start) ←</a><a class="next" href="complete_request.html"><small>Next</small>Request completion (PipelineHandler::completeRequest) →</a></nav>
+</article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanations</dd><dt>Validation scope</dt><dd>Tables and diagrams come from extracted facts; an LLM writes the explanations. Citation, prose and configured structural checks are applied.</dd><dt>Automatic checks</dt><dd>Passed (<code>ok</code>). The checked items are listed under Validation scope. Whether the explanation is correct still needs a person to confirm.</dd><dt>Analyzed source commit</dt><dd><code>293d751a814e0d4c34e85ad457ccd9d5eefd1a61</code></dd><dt>Document generation time</dt><dd><code>2026-10-30 16:46:17+00:00</code></dd><dt>Prose generation model</dt><dd><code>cli/claude/claude-haiku-5-5</code></dd><dt>Cross-document contract</dt><dd><a href="../../contract-consistency.json">Automated Comparison Report</a> · Before human review</dd></dl><a href="../../scenarios/queue_request.md">Korean Markdown source ↗</a> <a href="queue_request.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="camera_start.html"><small>Previous</small> Capture start ←</a><a class="next" href="complete_request.html"><small>Next</small> request completion notice →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
 <aside class="page-toc"><nav aria-label="Current page contents"><p>On this page</p><div class="toc">
 <ul>
-<li><a href="#이-흐름에서-확인할-것">What to check in this flow</a></li>
+<li><a href="#요청을-제출하기-전에-갖출-조건">Conditions to meet before submitting a request</a></li>
+<li><a href="#큐로-전달된-요청의-준비와-실패">Preparation and failure of requests delivered to the queue</a></li>
+<li><a href="#소스-근거">Source evidence</a></li>
 <li><a href="#주요-확인-지점">Key checkpoints</a></li>
 <li><a href="#주요-호출-관계">Main call relationships</a></li>
 <li><a href="#추적-범위와-경계">Trace scope and boundaries</a></li>
@@ -710,4 +949,4 @@
 </nav></aside></div>
 <dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find documents</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search documents, sections, terms and symbols</label><input id="search-input" type="search" autocomplete="off" placeholder="e.g. Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
 <dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Diagram element or function name"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Zoom out">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to view</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">Scroll horizontally or vertically when the diagram is larger than the screen. Use Fit to see the whole diagram.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="Enlarged diagram"><div id="diagram-canvas"></div></div></dialog>
-<script id="site-config" type="application/json">{"root": "../", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "32ed23b6d5", "language": "en"}</script><script defer src="../../assets/site.js?v=cba5d69b6e"></script><script defer src="../../assets/reader-tools.js?v=cba5d69b6e"></script></body></html>
+<script id="site-config" type="application/json">{"root": "../", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "75f84f9d6e", "language": "en"}</script><script defer src="../../assets/site.js?v=cba5d69b6e"></script><script defer src="../../assets/reader-tools.js?v=cba5d69b6e"></script></body></html>

@@ -1,6 +1,6 @@
 # libcamera design documentation
 
-Current release: [normal/stop conditions and bounded actual callbacks](publication/stop-completion-runtime/README.md), generator [PR209](https://github.com/TTolsun/camera-hal-sdd-generator/pull/209), build `be63d1f8ced0150f9c5fef10f44acbe644d19c812d85ec009a452e6ed3482bef`. [Korean and English site](https://ttolsun.github.io/libcamera-sdd/). Human review remains pending; physical camera/DMA/production/internal HAL validation remains incomplete.
+Current release: [source-grounded scenario guides](publication/issue193/README.md), generator issue [#193](https://github.com/TTolsun/camera-hal-sdd-generator/issues/193), build 1940468f0421836a6532951a6dfc0b09bc58102a1ccc163af32f03251f965e7f, official public libcamera 293d751a814e0d4c34e85ad457ccd9d5eefd1a61. [Korean and English site](https://ttolsun.github.io/libcamera-sdd/). See [run](run.json), [actual native Claude receipts](generation-receipts.json) and [preserved previous release](publication/issue193/previous-release/). Automatic checks are not human approval or internal HAL/device validation.
 
 All earlier publication and CLI archives remain preserved under publication/, cli-runners/ and the historical Qwen directories. Their original model identities, exceptions and incomplete results are historical records, not new CLI generation claims. The immediately previous root run and receipt records are preserved in the current release package.
 

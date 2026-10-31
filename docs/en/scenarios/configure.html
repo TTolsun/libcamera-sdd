@@ -1,25 +1,197 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Stream configuration (Camera::configure) · libcamera Design Documentation</title><link rel="stylesheet" href="../../assets/reading.css?v=cba5d69b6e"><link rel="alternate" hreflang="ko" href="../../scenarios/configure.html"><link rel="alternate" hreflang="en" href="configure.html"></head>
+<title>Stream configuration · libcamera design document</title><link rel="stylesheet" href="../../assets/reading.css?v=cba5d69b6e"><link rel="alternate" hreflang="ko" href="../../scenarios/configure.html"><link rel="alternate" hreflang="en" href="configure.html"></head>
 <body><a class="skip" href="#main">Skip to content</a>
 <header class="site-header"><a class="brand" href="../index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera Design Documentation</a>
 <div class="header-actions"><details class="language-selector"><summary aria-label="Choose language">English ▾</summary><nav><a lang="ko" hreflang="ko" href="../../scenarios/configure.html">한국어</a><a lang="en" hreflang="en" href="configure.html" aria-current="true">English</a></nav></details><button id="search-open" hidden>Find documents <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button></div></header>
-<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Documentation menu"><details class="nav-group" data-nav-id="group-eb5fc4597bcab08dd609eb65"><summary>Getting started</summary><a href="../index.html">Documentation guide</a><a href="../glossary.html">Glossary</a></details><details class="nav-group" data-nav-id="group-d671e203b93701cc4b6e3099"><summary>For Vendor</summary><details class="nav-section" data-nav-id="task-d6e030e93c998b7019a15936"><summary>Assess adoption</summary><a href="../vendor-overview.html">libcamera Product Overview</a><a href="../vendor-assurance.html">Support Scope and Validation</a></details><details class="nav-section" data-nav-id="task-3e788d9bf0a3e06fa9605fc7"><summary>Implement integration</summary><a href="../vendor-integration.html">Integration Guide</a><a href="../pipeline-handler.html">Pipeline Handler</a><a href="../pipeline-requests.html">Pipeline Request Submission and Completion</a><a href="../ipa.html">IPA management and implementation entry points</a><a href="../ipa-algorithms.html">IPA Tuning and Software ISP</a></details><details class="nav-section" data-nav-id="task-4e6bf6a82fb4765e60a97382"><summary>Implement device features</summary><a href="../ipu3-lsc-flow.html">IPU3 LSC configuration and frame processing</a><a href="../ipu3-lsc-prepare.html">IPU3 Lens Correction Table Preparation</a><a href="../rkisp1-dewarp.html">RKISP1 per-camera lens dewarping</a></details></details><details class="nav-group" data-nav-id="group-8c6df661e792ad45c78bb2ef"><summary>For Developer</summary><details class="nav-section" data-nav-id="task-99be7fb5d49c7ce6147f371a"><summary>Understand the structure</summary><a href="../team-overview.html">What this project does</a><a href="../overview.html">System overview</a><a href="../onboarding.html">Run it and read the design rationale</a><a href="../camera-model.html">Camera and request model</a><a href="../camera-requests.html">Request Object and Buffer Lifetime</a></details><details class="nav-section" data-nav-id="task-1fd1cf94625ce3af7bee3dfe"><summary>Trace behavior and diagnose issues</summary><a href="../request-lifecycle.html">Request lifecycle and troubleshooting</a><a href="../request-diagnosis.html">Investigation of configuration and request errors</a><a href="index.html">Core scenarios</a><details class="nav-branch" data-nav-id="branch-6cdafc2d5a06483de679705c"><summary>6 child documents</summary><a class="nav-sub" href="manager_start.html">Camera discovery (CameraManager::start)</a><a class="nav-sub" href="configure.html" aria-current="page">Stream configuration (Camera::configure)</a><a class="nav-sub" href="camera_start.html">Capture start (Camera::start)</a><a class="nav-sub" href="queue_request.html">Request submission (Camera::queueRequest)</a><a class="nav-sub" href="complete_request.html">Request completion (PipelineHandler::completeRequest)</a><a class="nav-sub" href="camera_stop.html">Capture stop request (Camera::stop)</a></details><a href="../ipa-module-validation.html">IPA module information inspection and signature file missing</a><a href="../framebuffer-allocator.html">FrameBufferAllocator Failures and Reference Lifetime</a></details><details class="nav-section" data-nav-id="task-832d04faf930a39f3dde0065"><summary>Find code</summary><a href="../component-index.html">Component index</a><a href="../ipu3-lsc.html">IPU3 LSC and state connections</a></details></details></nav><p class="sidebar-note">Extract structure from code<br>and review it with evidence.</p></aside>
-<main id="main"><p class="breadcrumb">For Developer <span>/</span> Stream configuration (Camera::configure)</p><h1>Stream configuration (Camera::configure)</h1><div class="page-state"><span class="review-state">Human review pending</span><span>Automatic checks passed</span><span class="generation-method">Written from: call flow extracted from code</span><a class="state-help" href="#page-evidence">What these mean ↓</a></div>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Documentation menu"><details class="nav-group" data-nav-id="group-eb5fc4597bcab08dd609eb65"><summary>Getting started</summary><a href="../index.html">Documentation guide</a><a href="../glossary.html">Glossary</a></details><details class="nav-group" data-nav-id="group-d671e203b93701cc4b6e3099"><summary>For Vendor</summary><details class="nav-section" data-nav-id="task-d6e030e93c998b7019a15936"><summary>Assess adoption</summary><a href="../vendor-overview.html">libcamera Product Overview</a><a href="../vendor-assurance.html">Support Scope and Validation</a></details><details class="nav-section" data-nav-id="task-3e788d9bf0a3e06fa9605fc7"><summary>Implement integration</summary><a href="../vendor-integration.html">Integration Guide</a><a href="../pipeline-handler.html">Pipeline Handler</a><a href="../pipeline-requests.html">Pipeline Request Submission and Completion</a><a href="../ipa.html">IPA management and implementation entry points</a><a href="../ipa-algorithms.html">IPA Tuning and Software ISP</a></details><details class="nav-section" data-nav-id="task-4e6bf6a82fb4765e60a97382"><summary>Implement device features</summary><a href="../ipu3-lsc-flow.html">IPU3 LSC configuration and frame processing</a><a href="../ipu3-lsc-prepare.html">IPU3 Lens Correction Table Preparation</a><a href="../rkisp1-dewarp.html">RKISP1 per-camera lens dewarping</a></details></details><details class="nav-group" data-nav-id="group-8c6df661e792ad45c78bb2ef"><summary>For Developer</summary><details class="nav-section" data-nav-id="task-99be7fb5d49c7ce6147f371a"><summary>Understand the structure</summary><a href="../team-overview.html">What this project does</a><a href="../overview.html">System overview</a><a href="../onboarding.html">Run it and read the design rationale</a><a href="../camera-model.html">Camera and request model</a><a href="../camera-requests.html">Request Object and Buffer Lifetime</a></details><details class="nav-section" data-nav-id="task-1fd1cf94625ce3af7bee3dfe"><summary>Trace behavior and diagnose issues</summary><a href="../request-lifecycle.html">Request lifecycle and troubleshooting</a><a href="../request-diagnosis.html">Investigation of configuration and request errors</a><a href="index.html">Core scenarios</a><details class="nav-branch" data-nav-id="branch-6cdafc2d5a06483de679705c"><summary>6 child documents</summary><a class="nav-sub" href="manager_start.html">Camera discovery</a><a class="nav-sub" href="configure.html" aria-current="page">Stream configuration</a><a class="nav-sub" href="camera_start.html">Capture start</a><a class="nav-sub" href="queue_request.html">Request submission</a><a class="nav-sub" href="complete_request.html">Request completion notification</a><a class="nav-sub" href="camera_stop.html">Capture stop request</a></details><a href="../ipa-module-validation.html">IPA module information inspection and signature file missing</a><a href="../framebuffer-allocator.html">FrameBufferAllocator Failures and Reference Lifetime</a></details><details class="nav-section" data-nav-id="task-832d04faf930a39f3dde0065"><summary>Find code</summary><a href="../component-index.html">Component index</a><a href="../ipu3-lsc.html">IPU3 LSC and state connections</a></details></details></nav><p class="sidebar-note">Extract structure from code<br>and review it with evidence.</p></aside>
+<main id="main"><p class="breadcrumb">For Developer <span>/</span> Stream Configuration</p><h1>Stream configuration</h1><div class="page-state"><span class="review-state">Human review pending</span><span>Automatic checks passed</span><span class="generation-method">Written from: extracted structure and a model-written draft</span><a class="state-help" href="#page-evidence">What these mean ↓</a></div>
 <details class="mobile-toc"><summary>Contents of this page</summary><div class="toc">
 <ul>
-<li><a href="#이-흐름에서-확인할-것">What to check in this flow</a></li>
+<li><a href="#캡처-전에-준비할-스트림-구성">Stream configuration to prepare before capture</a></li>
+<li><a href="#구성-적용과-성공-상태를-확인할-위치">Where to check configuration application and success status</a></li>
+<li><a href="#소스-근거">Source evidence</a></li>
 <li><a href="#주요-확인-지점">Key checkpoints</a></li>
 <li><a href="#주요-호출-관계">Main call relationships</a></li>
 <li><a href="#추적-범위와-경계">Trace scope and boundaries</a></li>
 <li><a href="#전체-추적-기록">Complete trace records</a></li>
 </ul>
 </div>
-</details><p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p><strong>Check the main calls and trace boundaries of <code>Camera::configure(CameraConfiguration *)</code>, then expand the detailed records you need.</strong></p>
+</details><p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p><strong>Before capture, a valid stream configuration is applied, and the Stream linked to failure conditions is checked.</strong></p>
+<details class="page-terms">
+<summary>Terms on this page: Pipeline Handler</summary>
+<ul>
+<li><strong>Pipeline Handler</strong>: the libcamera component that finds a hardware platform's media devices (IPU3, RKISP1 and so on), creates cameras, queues requests to the devices and returns completions. There is one per platform.</li>
+</ul>
+<p>Other terms are in the <a href="../glossary.html">Glossary</a>.</p>
+</details>
+<div class="previous-route" id="이-흐름에서-확인할-것"><p>Destination of the previous link</p><a href="#캡처-전에-준비할-스트림-구성">Stream configuration to prepare before capture</a></div>
+<h2 id="캡처-전에-준비할-스트림-구성">Stream configuration to prepare before capture</h2>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1163&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L1163\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1163&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1163&quot;: [&quot;#source-72be07b9f03d4034&quot;]}"><code>Camera::configure()</code> is the function that selects, before capture starts, the group of streams to participate in the capture and the configuration of each stream. The caller specifies the streams to participate and their configurations by populating <code>config</code>; this configuration is created by <code>generateConfiguration()</code>, and the caller adjusts it with <code>CameraConfiguration::validate()</code>. This function accepts only fully valid configurations.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1163&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L1163\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1163&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1163&quot;: [&quot;#source-72be07b9f03d4034&quot;]}">Before calling <code>configure()</code>, the caller must call <code>acquire()</code> to obtain exclusive access to the camera. This function may only be called when the camera is in the Acquired or Configured state, and the caller must synchronize this call with other functions that change the camera state. If exclusive access is not obtained, the <code>-EACCES</code> error is returned, and even when the camera is not in a state where it can be configured, <code>-EACCES</code> is returned. If the camera has been disconnected from the system, <code>configure()</code> returns <code>-ENODEV</code>.</p>
 
-<h2 id="이-흐름에서-확인할-것">What to check in this flow</h2>
-<p>Static traversal from <code>Camera::configure(CameraConfiguration *)</code> collected 185 call records. The table and diagram below show 2 key checkpoints. Check their evidence first, then find other calls in the complete trace records.</p>
-<p>There are 17 boundary records that require verification, such as virtual call candidates and reservation targets. You must distinguish the candidates using the trace scope and boundary table, then verify the actual object and linking method.</p>
+<details class="evidence-links evidence-section"><summary><span>1</span> evidence items across the section</summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-72be07b9f03d4034" aria-label="src/libcamera/camera.cpp:1163 excerpt">Excerpt from <code>L1163</code></a> · <a aria-label="src/libcamera/camera.cpp:1163" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L1163">Full source <code>L1163</code></a></span></li></ul></details><h2 id="구성-적용과-성공-상태를-확인할-위치">Where to check configuration application and success status</h2>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1191&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L1191\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1191&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1191&quot;: [&quot;#source-603af0dd7fa357d0&quot;]}"><code>Camera::configure()</code> first returns the value as-is if the return value of <code>d-&gt;isAccessAllowed(Private::CameraAcquired, Private::CameraConfigured)</code> is less than 0. Then, in the <code>for</code> loop, it calls every <code>cfg.setStream(nullptr)</code> to clear the previous <code>Stream</code> connections. Next, if <code>config-&gt;validate()</code> is not <code>CameraConfiguration::Valid</code>, it outputs "Can't configure camera with invalid configuration" with <code>LOG(Camera, Error)</code> and returns <code>-EINVAL</code>. Therefore, even if validation fails, clearing the <code>Stream</code> connections has already been completed.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1191&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L1191\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1191&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1191&quot;: [&quot;#source-603af0dd7fa357d0&quot;]}"><code>Camera::configure()</code> calls <code>configure</code> of the pipeline handler via <code>d-&gt;pipe_-&gt;invokeMethod(&amp;PipelineHandler::configure, ConnectionTypeBlocking, this, config)</code> if validation passes. If the call result <code>ret</code> is not 0, it returns that value as-is with <code>return ret;</code>, and in this case the subsequent <code>Stream</code> connection update code is not executed.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1191&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L1191\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1191&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/base/log.cpp:1022&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/base/log.cpp#L1022\&quot;&gt;&lt;code&gt;src/libcamera/base/log.cpp:1022&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera.cpp:1183&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L1183\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1183&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1191&quot;: [&quot;#source-603af0dd7fa357d0&quot;], &quot;src/libcamera/base/log.cpp:1022&quot;: [&quot;#source-47a6ef3943a7b53c&quot;], &quot;src/libcamera/camera.cpp:1183&quot;: [&quot;#source-5296d50aed1a3be0&quot;]}">After <code>invokeMethod</code> returns 0, if there is an item in the loop for which <code>cfg.stream()</code> is <code>nullptr</code>, it enters the path that outputs "Pipeline handler failed to update stream configuration" with <code>LOG(Camera, Fatal)</code>. The API documentation explains that on return, the <code>StreamConfiguration</code> entry of <code>config</code> is linked to the <code>Stream</code> looked up by <code>StreamConfiguration::stream()</code>, and the code checks, through the Fatal path, for an item lacking this link. Because the documentation states that Fatal aborts execution after printing the message, <code>d-&gt;activeStreams_.clear()</code> and <code>return -EINVAL;</code> are not executed, and in check order, earlier items have already completed <code>configuration_</code> storage and <code>activeStreams_</code> insertion.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1191&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L1191\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1191&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1191&quot;: [&quot;#source-603af0dd7fa357d0&quot;]}">If <code>invokeMethod</code> returns 0 and <code>cfg.stream()</code> is not <code>nullptr</code> for every item, then before the loop, empty the list with <code>d-&gt;activeStreams_.clear()</code>, and for each item store <code>stream-&gt;configuration_ = cfg;</code> and call <code>d-&gt;activeStreams_.insert(stream);</code>. When the loop ends, change the state to <code>CameraConfigured</code> with <code>d-&gt;setState(Private::CameraConfigured);</code> and return success with <code>return 0;</code>.</p>
+
+<details class="note">
+<summary>Design questions and validation scope</summary>
+<p>Answers and their evidence links have been checked for each question. Meaning and runtime results still require human review.</p>
+<ul class="coverage-links"><li><p>Explain the purpose of Camera::configure() in configuring streams before capture, and how the caller fills config and prepares it with generateConfiguration and validate. Briefly state the premise that a fully valid configuration is required; the code branches and return values for validate failure are explained in the next section. Group into one related paragraph the exclusive access acquired with acquire, the Acquired/Configured states, the state-changing functions and the caller's synchronization obligation, and the -EACCES condition. Explain -ENODEV for disconnection only once. Do not list the errors or summarize the success/failure return values again at the end. Write within three paragraphs.</p><p><a href="#캡처-전에-준비할-스트림-구성">Stream configuration to prepare before capture</a></p></li><li><p>Describe the order in which Camera::configure() clears the previous stream connections, then checks validate()==Valid and returns -EINVAL if it is not valid. Describe the path that calls PipelineHandler::configure with ConnectionTypeBlocking and returns the error as-is if it fails. Concretely describe the condition under which, even after this call succeeds, the code enters the Fatal log path if cfg.stream is absent. Read the API's Stream linkage contract together with the post-success missing-check in the code, but do not write sentences that evaluate whether the source explicitly states a specific design term. Following the LOG documentation contract, Fatal aborts execution, so do not describe the following clear/return code as a recovery path. Describe the success path in which, when all streams are present, configuration_, activeStreams_, and CameraConfigured are updated and 0 is returned. Write within four paragraphs. Include ConnectionTypeBlocking only once, in the call description, and do not re-explain the same call type in a separate sentence.</p><p><a href="#구성-적용과-성공-상태를-확인할-위치">Where to check configuration application and success status</a></p></li></ul><p><span>Verification scope</span>: <span>Code evidence linked to explanation</span></p>
+</details>
+<details class="evidence-links evidence-section"><summary><span>3</span> evidence items across the section</summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-603af0dd7fa357d0" aria-label="Extracted from src/libcamera/camera.cpp:1191">Excerpt from <code>L1191</code></a> · <a aria-label="src/libcamera/camera.cpp:1191" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L1191">Full source <code>L1191</code></a> · <a href="#source-5296d50aed1a3be0" aria-label="src/libcamera/camera.cpp:1183 excerpt">Excerpt from <code>L1183</code></a> · <a aria-label="src/libcamera/camera.cpp:1183" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L1183">Full source <code>L1183</code></a></span></li><li><code>src/libcamera/base/log.cpp</code><span class="evidence-lines"><a href="#source-47a6ef3943a7b53c" aria-label="src/libcamera/base/log.cpp:1022 excerpt">Excerpt from <code>L1022</code></a> · <a aria-label="src/libcamera/base/log.cpp:1022" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/base/log.cpp#L1022">Full source <code>L1022</code></a></span></li></ul></details><h2 id="소스-근거">Source evidence</h2>
+<details class="source-excerpts"><summary><span>4</span> source excerpts</summary>
+<p>Each identical excerpt appears once. Expand the source you need and compare it with the explanation.</p>
+<p><a id="source-72be07b9f03d4034"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/camera.cpp:1163</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L1163"><code>src/libcamera/camera.cpp:1163</code></a>. The end line is 1190, and the original text below can be compared against the description.</p>
+<p>SHA-256: <code>df8c93cd701c8dd65d498d666f63dd166c4470902f254be8a251bf3f6b8f761d</code></p>
+<div class="highlight"><pre><span></span><code>\brief Configure the camera prior to capture
+ * \param[in] config The camera configurations to setup
+ *
+ * Prior to starting capture, the camera must be configured to select a
+ * group of streams to be involved in the capture and their configuration.
+ * The caller specifies which streams are to be involved and their configuration
+ * by populating \a config.
+ *
+ * The configuration is created by generateConfiguration(), and adjusted by the
+ * caller with CameraConfiguration::validate(). This function only accepts fully
+ * valid configurations and returns an error if \a config is not valid.
+ *
+ * Exclusive access to the camera shall be ensured by a call to acquire() prior
+ * to calling this function, otherwise an -EACCES error will be returned.
+ *
+ * \context This function may only be called when the camera is in the Acquired
+ * or Configured state as defined in \ref camera_operation, and shall be
+ * synchronized by the caller with other functions that affect the camera
+ * state.
+ *
+ * Upon return the StreamConfiguration entries in \a config are associated with
+ * Stream instances which can be retrieved with StreamConfiguration::stream().
+ *
+ * \return 0 on success or a negative error code otherwise
+ * \retval -ENODEV The camera has been disconnected from the system
+ * \retval -EACCES The camera is not in a state where it can be configured
+ * \retval -EINVAL The configuration is not valid
+ */
+</code></pre></div>
+</details>
+<p><a id="source-603af0dd7fa357d0"></a></p>
+<details class="note">
+<summary>Source basis: src/libcamera/camera.cpp:1191</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L1191"><code>src/libcamera/camera.cpp:1191</code></a>. The end line is 1240, and the original text below can be compared against the description.</p>
+<p>SHA-256: <code>ff6ceda14768503bdfe753d462853457743d5b46a80e0808a97375632403cd36</code></p>
+<div class="highlight"><pre><span></span><code>int Camera::configure(CameraConfiguration *config)
+{
+    Private *const d = _d();
+
+    int ret = d-&gt;isAccessAllowed(Private::CameraAcquired,
+                     Private::CameraConfigured);
+    if (ret &lt; 0)
+        return ret;
+
+    for (auto &amp;cfg : *config)
+        cfg.setStream(nullptr);
+
+    if (config-&gt;validate() != CameraConfiguration::Valid) {
+        LOG(Camera, Error)
+            &lt;&lt; "Can't configure camera with invalid configuration";
+        return -EINVAL;
+    }
+
+    std::ostringstream msg("configuring streams:", std::ios_base::ate);
+
+    for (unsigned int index = 0; index &lt; config-&gt;size(); ++index) {
+        StreamConfiguration &amp;cfg = config-&gt;at(index);
+        msg &lt;&lt; " (" &lt;&lt; index &lt;&lt; ") " &lt;&lt; cfg.toString();
+    }
+
+    LOG(Camera, Info) &lt;&lt; msg.str();
+
+    ret = d-&gt;pipe_-&gt;invokeMethod(&amp;PipelineHandler::configure,
+                     ConnectionTypeBlocking, this, config);
+    if (ret)
+        return ret;
+
+    d-&gt;activeStreams_.clear();
+    for (const StreamConfiguration &amp;cfg : *config) {
+        Stream *stream = cfg.stream();
+        if (!stream) {
+            LOG(Camera, Fatal)
+                &lt;&lt; "Pipeline handler failed to update stream configuration";
+            d-&gt;activeStreams_.clear();
+            return -EINVAL;
+        }
+
+        stream-&gt;configuration_ = cfg;
+        d-&gt;activeStreams_.insert(stream);
+    }
+
+    d-&gt;setState(Private::CameraConfigured);
+
+    return 0;
+}
+</code></pre></div>
+</details>
+<p><a id="source-47a6ef3943a7b53c"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/base/log.cpp:1022</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/base/log.cpp#L1022"><code>src/libcamera/base/log.cpp:1022</code></a>. The end line is 1060, and the original text below can be compared against the description.</p>
+<p>SHA-256: <code>52e64d292f59786541e66fe48f5bae65256bdced60c803aa76bf3637083b47b0</code></p>
+<div class="highlight"><pre><span></span><code>\def LOG(category, severity)
+ * \hideinitializer
+ * \brief Log a message
+ * \param[in] category Category (optional)
+ * \param[in] severity Severity
+ *
+ * Return an std::ostream reference to which a message can be logged using the
+ * iostream API. The \a category, if specified, sets the message category. When
+ * absent the default category is used. The  \a severity controls whether the
+ * message is printed or discarded, depending on the log level for the category.
+ *
+ * If the severity is set to Fatal, execution is aborted and the program
+ * terminates immediately after printing the message.
+ *
+ * \warning Logging from the destructor of a global object, either directly or
+ * indirectly, results in undefined behaviour.
+ *
+ * \todo Allow logging from destructors of global objects to the largest
+ * possible extent
+ */
+
+/**
+ * \def ASSERT(condition)
+ * \hideinitializer
+ * \brief Abort program execution if assertion fails
+ *
+ * If \a condition is false, ASSERT() logs an error message with the Fatal log
+ * level and aborts program execution.
+ *
+ * If the macro NDEBUG is defined before including log.h, ASSERT() generates no
+ * code.
+ *
+ * Using conditions that have side effects with ASSERT() is not recommended, as
+ * these effects would depend on whether NDEBUG is defined or not. Similarly,
+ * ASSERT() should not be used to check for errors that can occur under normal
+ * conditions as those checks would then be removed when compiling with NDEBUG.
+ */
+
+} /* namespace libcamera */
+</code></pre></div>
+</details>
+<p><a id="source-5296d50aed1a3be0"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/camera.cpp:1183</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/camera.cpp#L1183"><code>src/libcamera/camera.cpp:1183</code></a>. The end line is 1184, and the original text below can be compared against the description.</p>
+<p>SHA-256: <code>7c6d3ef93e52639d7dc41b838e17c708fa6861da3e50c7593d803beb3f7c49d1</code></p>
+<div class="highlight"><pre><span></span><code> * Upon return the StreamConfiguration entries in \a config are associated with
+ * Stream instances which can be retrieved with StreamConfiguration::stream().
+</code></pre></div>
+</details>
+</details>
 <h2 id="주요-확인-지점">Key checkpoints</h2>
 <p>These are code-navigation checkpoints selected from extracted calls. Their listing order is not execution order.</p>
 <div class="table-scroll stack" tabindex="0" role="region" aria-label="Table"><table>
@@ -1550,19 +1722,21 @@
 <details class="note">
 <summary>Evidence and review information</summary>
 <ul>
-<li>Generation method: scenarios from extracted calls</li>
-<li>Validation scope: builds main calls and boundaries from facts and retains all trace records. It does not infer execution order.</li>
+<li>Generation method: extracted facts and LLM explanations</li>
+<li>Validation scope: tables and diagrams come from extracted facts; an LLM writes the explanations. Citation, prose and configured structural checks are applied.</li>
 <li>Evidence files: <code>include/libcamera/geometry.h</code>, <code>include/libcamera/pixel_format.h</code>, <code>src/libcamera/base/log.cpp</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/formats.cpp</code>, <code>src/libcamera/pipeline/imx8-isi/imx8-isi.cpp</code>, <code>src/libcamera/pixel_format.cpp</code>, <code>src/libcamera/sensor/camera_sensor_legacy.cpp</code>, <code>src/libcamera/sensor/camera_sensor_raw.cpp</code>, <code>src/libcamera/stream.cpp</code></li>
 <li>Evidence level: code verification (static analysis, simple_compdb configuration, commit <code>212c689fcf</code>)</li>
 <li>Automatic checks (citations, prose and configured structure checks): passed</li>
-<li>Review status recorded on: 2026-10-30 · Awaiting human review</li>
+<li>Review status recorded: 2026-10-31 · Before human review</li>
 </ul>
 </details>
-</article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Scenarios from extracted calls</dd><dt>Validation scope</dt><dd>Builds main calls and boundaries from facts and retains all trace records. It does not infer execution order.</dd><dt>Automatic checks</dt><dd>Passed (<code>ok</code>). The checked items are listed under Validation scope. Whether the explanation is correct still needs a person to confirm.</dd><dt>Analyzed source commit</dt><dd><code>293d751a814e0d4c34e85ad457ccd9d5eefd1a61</code></dd><dt>Document generation time</dt><dd><code>2026-10-29 22:20:22+00:00</code></dd><dt>Cross-document contract</dt><dd><a href="../../contract-consistency.json">Automated Comparison Report</a> · Before human review</dd></dl><a href="../../scenarios/configure.md">Korean Markdown source ↗</a> <a href="configure.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="manager_start.html"><small>Previous</small>Camera discovery (CameraManager::start) ←</a><a class="next" href="camera_start.html"><small>Next</small>Capture start (Camera::start) →</a></nav>
+</article><section class="evidence"><h2 id="page-evidence">Generation evidence</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanations</dd><dt>Validation scope</dt><dd>Tables and diagrams come from extracted facts; an LLM writes the explanations. Citation, prose and configured structural checks are applied.</dd><dt>Automatic checks</dt><dd>Passed (<code>ok</code>). The checked items are listed under Validation scope. Whether the explanation is correct still needs a person to confirm.</dd><dt>Analyzed source commit</dt><dd><code>293d751a814e0d4c34e85ad457ccd9d5eefd1a61</code></dd><dt>Document generation time</dt><dd><code>2026-10-30 16:46:15+00:00</code></dd><dt>Prose generation model</dt><dd><code>cli/claude/claude-haiku-5-5</code></dd><dt>Cross-document contract</dt><dd><a href="../../contract-consistency.json">Automated Comparison Report</a> · Before human review</dd></dl><a href="../../scenarios/configure.md">Korean Markdown source ↗</a> <a href="configure.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="manager_start.html"><small>Previous</small> camera discovery ←</a><a class="next" href="camera_start.html"><small>Next</small> Capture start →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
 <aside class="page-toc"><nav aria-label="Current page contents"><p>On this page</p><div class="toc">
 <ul>
-<li><a href="#이-흐름에서-확인할-것">What to check in this flow</a></li>
+<li><a href="#캡처-전에-준비할-스트림-구성">Stream configuration to prepare before capture</a></li>
+<li><a href="#구성-적용과-성공-상태를-확인할-위치">Where to check configuration application and success status</a></li>
+<li><a href="#소스-근거">Source evidence</a></li>
 <li><a href="#주요-확인-지점">Key checkpoints</a></li>
 <li><a href="#주요-호출-관계">Main call relationships</a></li>
 <li><a href="#추적-범위와-경계">Trace scope and boundaries</a></li>
@@ -1572,4 +1746,4 @@
 </nav></aside></div>
 <dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find documents</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search documents, sections, terms and symbols</label><input id="search-input" type="search" autocomplete="off" placeholder="e.g. Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
 <dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Diagram element or function name"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Zoom out">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to view</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">Scroll horizontally or vertically when the diagram is larger than the screen. Use Fit to see the whole diagram.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="Enlarged diagram"><div id="diagram-canvas"></div></div></dialog>
-<script id="site-config" type="application/json">{"root": "../", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "32ed23b6d5", "language": "en"}</script><script defer src="../../assets/site.js?v=cba5d69b6e"></script><script defer src="../../assets/reader-tools.js?v=cba5d69b6e"></script></body></html>
+<script id="site-config" type="application/json">{"root": "../", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "75f84f9d6e", "language": "en"}</script><script defer src="../../assets/site.js?v=cba5d69b6e"></script><script defer src="../../assets/reader-tools.js?v=cba5d69b6e"></script></body></html>
