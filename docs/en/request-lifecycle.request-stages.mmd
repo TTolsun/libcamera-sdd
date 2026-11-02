@@ -3,13 +3,15 @@ flowchart TB
   v_queue["Camera::queueRequest()"]
   v_waiting["Waiting queue and <br/>preparation"]
   v_device["queueRequestDevice()"]
-  v_buffer["completeBuffer()"]
-  v_remaining["Update buffer completion <br/>tracking"]
+  v_buffer{"completeBuffer(): have all <br/>buffers completed?"}
+  v_remaining["Opportunity for any <br/>additional required work"]
   v_request["completeRequest()"]
   v_application["Return to application in <br/>submission order"]
+  v_pending["false: buffers have not all <br/>completed"]
   v_queue -->|"Queue the handler invocation"| v_waiting
-  v_waiting -->|"Prepared, within queue <br/>limit and not cancelled"| v_device
-  v_device -->|"Device handler signals <br/>buffer completion"| v_buffer
-  v_buffer -->|"Notify buffer completion"| v_remaining
-  v_remaining -->|"Handler explicitly <br/>completes after remaining <br/>work"| v_request
+  v_waiting -->|"Prepared, within queue <br/>limit, not cancelled; all <br/>valid fences signalled if <br/>present"| v_device
+  v_device -->|"Device submission success <br/>(0): pipeline handler <br/>signals buffer completion"| v_buffer
+  v_buffer -->|"true: all buffers <br/>completed; request is not <br/>automatically completed"| v_remaining
+  v_remaining -->|"Handler explicitly calls <br/>completion"| v_request
   v_request -->|"Wait behind an incomplete <br/>head request"| v_application
+  v_buffer -->|"false"| v_pending

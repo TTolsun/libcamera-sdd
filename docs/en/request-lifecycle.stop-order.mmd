@@ -2,8 +2,19 @@ flowchart TB
 
   v_detach["Detach waiting queue"]
   v_stop["stopDevice()"]
-  v_cancel["Cancel and complete waiting <br/>requests"]
+  v_cancel["Cancel one waiting item, <br/>then doQueueRequest"]
   v_configured["Return to Configured"]
+  v_waiting{"Does waitingRequests <br/>contain an item?"}
+  v_handlerchecks["Source locations of the two <br/>handler ASSERTs"]
+  v_sequence["requestSequence_ = 0"]
+  v_handlerreturn["Handler normal-return <br/>boundary"]
+  v_cameraassert["Source location of <br/>Camera::stop ASSERT"]
   v_detach -->|"Stop device after detaching"| v_stop
-  v_stop -->|"Cancel waiting requests <br/>after device requests"| v_cancel
-  v_cancel -->|"After handler stop returns"| v_configured
+  v_cancel -->|"Inspect next waiting item"| v_waiting
+  v_stop -->|"Inspect waiting queue after <br/>device stop"| v_waiting
+  v_waiting -->|"Yes: each waiting request"| v_cancel
+  v_waiting -->|"If empty: leave loop"| v_handlerchecks
+  v_handlerchecks -->|"Following source order"| v_sequence
+  v_sequence -->|"End of this normal function <br/>path"| v_handlerreturn
+  v_handlerreturn -->|"After the blocking <br/>invocation returns"| v_cameraassert
+  v_cameraassert -->|"Following normal source path"| v_configured
