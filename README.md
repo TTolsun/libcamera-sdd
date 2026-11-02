@@ -1,18 +1,9 @@
-# libcamera SDD: Official Cam Validation (issue #211)
+# libcamera SDD
 
-Developer SDD for the official libcamera camera validation page.
+Public source-bound design documents and generator validation evidence.
 
-## Status
-- Order: conclusion, callback → event loop → processing, then reproduction prerequisites.
-- Raw PID/JSON fields and repeated scope notices sit in collapsed evidence. Scoped sections link to it and to the original manuscripts.
-- No new camera or kernel trial in this documentation update.
-- Source and original runtime trial: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61.
-- Checks are automatic. They are not a human reader study or manuscript approval.
-- Hardware DMA, camera, product apps, and internal HAL remain unvalidated.
-- Deployment is prepared before merge. The final proof will be in the publication PR.
+- [Public site](https://ttolsun.github.io/libcamera-sdd/)
+- [Issue214 release evidence](publication/issue214/README.md)
+- [Original official cam reader/runtime evidence](publication/issue211-reader/README.md)
 
-## Links
-- Reader package: [README](publication/issue211-reader/README.md), [run.json](publication/issue211-reader/run.json), [generation-receipts.json](publication/issue211-reader/generation-receipts.json)
-- Page: https://ttolsun.github.io/libcamera-sdd/official-cam-validation.html
-- English page: https://ttolsun.github.io/libcamera-sdd/en/official-cam-validation.html
-- Runtime records: publication/issue211/. Earlier records: publication/issue193/, publication/issue193-comment-followup/, older publication archives.
+Analysis and original trial:293d751a814e0d4c34e85ad457ccd9d5eefd1a61. Official upstream mirror:df8e348d64b4932a0676256ed24f0da3ee9438bc(version-only change). Automatic checks remain separate from human approval and hardware/internal HAL validation.

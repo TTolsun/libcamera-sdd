@@ -1,11 +1,16 @@
 flowchart TB
 
-  v_caller["Caller owns Request"]
-  v_buffer["Request references buffer"]
-  v_callback["Request completion callback"]
+  v_caller["createRequest caller: owns <br/>Request"]
+  v_buffer["addBuffer caller: buffer <br/>validity duty"]
+  v_callback["Application <br/>request-completion callback <br/>is called"]
   v_delete["Delete request"]
-  v_reuse["Reset before requeue"]
-  v_caller -->|"addBuffer()"| v_buffer
-  v_buffer -->|"Keep buffer valid until <br/>this point"| v_callback
+  v_reuse["Reuse Request after <br/>resetting state"]
+  v_complete["completeRequest return <br/>boundary"]
+  v_cancel["cancelRequest return <br/>boundary"]
+  v_ban["Handler management ends; <br/>must not access request <br/>after return"]
+  v_buffer -->|"Keep buffer valid until <br/>callback is called"| v_callback
   v_callback -->|"May delete in completion <br/>handler"| v_delete
-  v_callback -->|"Reset state before reuse"| v_reuse
+  v_complete -->|"No access once it returns"| v_ban
+  v_cancel -->|"Same rules apply"| v_ban
+  v_caller -->|"Owner may reuse after <br/>resetting state"| v_reuse
+  v_caller -->|"Owner is responsible for <br/>deletion"| v_delete
