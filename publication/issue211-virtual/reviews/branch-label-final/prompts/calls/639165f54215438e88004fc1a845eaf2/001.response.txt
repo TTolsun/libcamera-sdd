@@ -1,0 +1,17 @@
+{
+  "verdict": "needs-revision",
+  "findings": [
+    "Virtual-frame diagram, Korean “CPU가 Virtual2 NV12 패턴 쓰기 실패했는가?” and English “CPU Virtual2 NV12 pattern write failed?”: the branch tests the return from generateFrame(), which reports conversion failure on the selected NV12 path; the source does not establish a separate CPU-write failure check. Label the decision and both branches in terms of generation or conversion success.",
+    "The virtual-frame diagram’s “processRequest가 패턴 쓰기 시도” / “processRequest tries write” skips the central mechanism: software pattern generation and CPU conversion to NV12 in a writable DMA-BUF mapping. Make that path visible while retaining the generation-error and completion branches.",
+    "The callback narrative’s “captureLimit_”, “captureCount_”, and “sink_” explanation is implementation-heavy before it explains the reader-facing behavior. State the limit, optional sink, completion signal, and subsequent reuse or deferred requeue in plain language, with identifiers as supporting detail. Preserve the early-return and cancellation distinctions."
+  ],
+  "reader_tasks": [
+    "Revise the virtual-frame diagram in both languages and check its branches against generateFrame() and the buffer-completion path.",
+    "Make the callback-to-event-loop explanation easier to follow, including what happens when the capture limit is not reached and the sink retains or releases a request."
+  ],
+  "reviewed_scope": "Reviewed the supplied Korean and English narratives and diagram sources against the pinned implementation, derived measurements, linked runbook, execution contract, and writing policy. The allocator conclusion’s diagram omission is reasonable; the callback and reproduction diagrams are present and address their respective topics.",
+  "unreviewed": [
+    "Live pages, link targets, rendered diagram appearance, and evidence beyond the supplied excerpts were not independently accessed.",
+    "No human approval or new runtime validation was established."
+  ]
+}

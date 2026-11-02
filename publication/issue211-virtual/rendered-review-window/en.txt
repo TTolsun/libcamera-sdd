@@ -1,0 +1,118 @@
+
+Start from the point where the virtual capture was blocked, and follow the path from the completion notification to frame processing.
+
+
+
+Once the allocator was prepared, the official cam capture completed.
+
+
+In this baseline reproduction, the default WSL kernel did not expose a DMA-BUF allocator, so the official cam could not allocate buffers.
+
+The unmodified official cam (source commit 293d751a) was run independently three times, in three separate processes, on the recorded WSL2 trial kernel with the Virtual2 400x300 NV12 virtual camera configuration. In each run, normal completion of three frames and successful udmabuf allocation were observed. CPU-access success from the separate DMA-BUF probe was recorded separately from this cam allocation observation. The trial ended with the default kernel restored, so this configuration cannot be rerun as-is in the current state.
+
+
+The virtual pipeline produces video and notifies request completion.
+
+In the reference source, the official libcamera virtual feature supplies fake external camera frames instead of a real sensor, and those frames are either software-generated test patterns or configured .jpg image files. The provided Virtual2 configuration uses a 400x300 resolution with the lines test pattern, which is diagonal stripes.
+
+
+From pattern creation through cam's completion notification
+
+
+Mermaid source
+
+
+
+
+Virtual video also requires actual buffers: through Camera::exportFrameBuffers, PipelineHandlerVirtual::exportFrameBuffers allocates DMA-BUF buffers, and cam attaches them to Request. On the selected NV12 path, TestPatternGenerator::generateFrame uses a write-direction DmaSyncer and a write mapping. After that, the CPU converts the pattern to NV12 and writes it into the buffer.
+
+Virtual camera requests are forwarded asynchronously from queueRequestDevice, and VirtualCameraData::processRequest waits until the target time before it attempts to generate the test pattern. If pattern generation fails, FrameError is recorded in the frame metadata status of the buffer, and buffer completion alone does not establish success. completeBuffer returns a boolean indicating whether all buffers in the request have completed, and completeRequest is called only when that boolean is true. A completed request whose notification turn has come is delivered to the cam callback connected to the requestCompleted signal. If an earlier request is still incomplete, notification of later requests is held. Because this is software processing in the virtual video path, it does not mean verification of physical sensors, ISP, or hardware DMA, nor a guarantee of exact execution timing or performance.
+
+
+cam receives the completion notification and processes the frame in the event loop.
+
+
+The completion notification (requestComplete) is a separate step from follow-up frame handling in the camera session (processRequest). requestComplete returns immediately if the request status is Request::RequestCancelled; otherwise, it defers processRequest to the event loop using callLater. The comment states that this deferral is meant to avoid blocking the camera manager thread.
+
+
+From completion notification to subsequent processing
+
+
+Mermaid source
+
+
+
+
+CameraSession::processRequest compares the processed frame count captureCount_ with the configured limit captureLimit_; if a limit exists and has already been reached, it returns immediately without emitting the signal again. Otherwise, sink processing is performed only when a sink exists, while frame information output and the increment of captureCount_ proceed regardless of whether a sink exists. When the incremented captureCount_ reaches the limit, it emits the capture-done signal captureDone and returns; this signal is different from the request-completion notification.
+
+When the processing end condition is not met (including when no limit is set) and the sink holds the request in processRequest, resubmission is deferred to later completion handling. If the sink does not hold the request, request->reuse(Request::ReuseBuffers) keeps the buffers so the request can be reused, and then an attempt to resubmit the request is made via queueRequest. CameraSession::queueRequest compares the submission count queueCount_, not the processed-frame count captureCount_, against the same captureLimit_ limit, and returns 0 without actually queueing when the submission count has already reached that limit.
+
+In this run, the callback (requestComplete) and the follow-up processing (processRequest) were observed on different threads, but this observation does not guarantee the thread placement of every run. The cancellation branch (Request::RequestCancelled) of requestComplete exists in the source, but it was not exercised dynamically in this run.
+
+
+We reproduce after confirming a supported kernel and device access.
+
+
+
+1. 
+
+
+The developer investigates the Kconfig and dependent symbols of the selected kernel. The developer prioritizes investigation that does not change host state and does not affect the existing WSL/Docker.
+
+
+2. 
+
+
+The developer directly investigates the modules actually available in the selected kernel. Because UDMABUF is not a module, it is confirmed as built in only when enabled in that kernel configuration. Adding a distribution to an existing WSL alone does not isolate the shared kernel.
+
+
+3. 
+
+
+Based on the results of investigating kernel configuration, dependencies, actually usable modules, and allocator candidates, the developer selects one DMA-BUF allocator. To reproduce the run recorded in this document as-is, the udmabuf condition must be met. A test that selects a different allocator is distinguished from a same-condition reproduction of this recorded procedure.
+
+
+4. 
+
+
+If shared kernel, module, .wslconfig changes, or distribution or VM shutdown is required, you must write the impact, backup path, and recovery plan, and you must obtain separate approval immediately before executing the host change. PR merge or Pages deployment approval does not replace this host change approval. Docker is stopped only when the approved plan requires stopping it.
+
+
+5. 
+
+
+Under the approved host change plan, the developer installs and boots the recorded trial kernel 6.18.33.2-microsoft-standard-WSL2-issue211.
+
+
+6. 
+
+
+The developer checks the recorded test conditions against the actual state before execution. The running kernel version is checked against 6.18.33.2-microsoft-standard-WSL2-issue211, the permission to open /dev/udmabuf from the root child context is checked against the recorded state, and the camera configuration is checked against Virtual2, 400x300, and NV12. All three conditions must match, and if any one differs, capture is not performed.
+
+
+7. 
+
+
+When the execution conditions are met, the developer uses observation tools to run the unmodified official cam debug build, following the linked reproduction guide.
+
+
+
+
+From environment verification to reproduction execution
+
+
+Mermaid source
+
+
+
+
+Execution check items: this result applies only to the WSL2 virtual camera trial scope configured as a simulation. Physical DMA, physical camera, product app, and internal HAL are unverified. Because GDB affects timing, the callback-return instruction and performance were not verified.
+
+
+
+
+Source evidence
+
+
+
+Next step: Official cam reproduction procedure

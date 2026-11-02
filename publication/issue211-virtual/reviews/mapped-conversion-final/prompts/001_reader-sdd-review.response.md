@@ -1,0 +1,18 @@
+{
+  "verdict": "needs-revision",
+  "findings": [
+    "English callback narrative: “If the limit has not been reached and a selected output handler (sink) exists, the request is processed, the frame information is printed, and the processed count is increased by one” incorrectly makes printing and counting conditional on a sink. Only sink processing is conditional; align this clause with the Korean narrative and CameraSession::processRequest.",
+    "Virtual-frame diagram, both languages: “Virtual2 DMA-BUF 버퍼를 캡처 전에 미리 준비” / “Virtual2 prepares DMA-BUF before capture” gives the camera configuration an unclear or incorrect actor. Identify cam and the virtual pipeline as the participants in buffer allocation.",
+    "Virtual-frame diagram, both languages: “CPU 쓰기 동기화 후 DMA-BUF 쓰기 매핑” / “CPU write sync, then map DMA-BUF for write” can imply that synchronization has finished before mapping and conversion. Show write synchronization as covering CPU access rather than as a completed preceding step."
+  ],
+  "reader_tasks": [
+    "Use the allocator conclusion to distinguish the default-kernel failure, the three independent successful cam runs, the separate CPU probe and the restored state.",
+    "Follow the source-inspected virtual frame path and the callback-to-event-loop path, including error, cancellation, capture-limit and requeue branches.",
+    "Use the page and linked runbook together to prepare and boot the recorded allocator-capable kernel with the required host approval, verify the execution conditions and run the reproduction."
+  ],
+  "reviewed_scope": "Korean and English visible narratives, supplied source excerpts and measurements, linked runbook, and all three supplied Korean and English diagram sources. The short allocator conclusion can omit a diagram; the virtual-frame, callback and reproduction topics have separate diagrams.",
+  "unreviewed": [
+    "Live pages, linked artifacts and rendered diagram appearance were not independently accessed.",
+    "No new execution, physical hardware validation or human approval was performed."
+  ]
+}

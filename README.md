@@ -1,18 +1,17 @@
-# libcamera SDD: Official Cam Validation (issue #211)
+# libcamera-sdd
 
-Developer SDD for the official libcamera camera validation page.
+This repository publishes public libcamera source-history records and the design documents (SDD) generated from them. The generator tool is in the separate repository TTolsun/camera-hal-sdd-generator.
 
-## Status
-- Order: conclusion, callback → event loop → processing, then reproduction prerequisites.
-- Raw PID/JSON fields and repeated scope notices sit in collapsed evidence. Scoped sections link to it and to the original manuscripts.
-- No new camera or kernel trial in this documentation update.
-- Source and original runtime trial: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61.
-- Checks are automatic. They are not a human reader study or manuscript approval.
-- Hardware DMA, camera, product apps, and internal HAL remain unvalidated.
-- Deployment is prepared before merge. The final proof will be in the publication PR.
+## Contents
+- publication/issue211/ and publication/issue211-reader/: original records, unchanged by the latest update.
+- publication/issue211-virtual/: virtual-principle update with config, manuscripts, profiles, reviews, native-call-verification.json, evidence-index.json, and an indexed cli-evidence.zip.
+- Previous root README, run, and receipts: kept in the previous-release directory.
 
-## Links
-- Reader package: [README](publication/issue211-reader/README.md), [run.json](publication/issue211-reader/run.json), [generation-receipts.json](publication/issue211-reader/generation-receipts.json)
-- Page: https://ttolsun.github.io/libcamera-sdd/official-cam-validation.html
-- English page: https://ttolsun.github.io/libcamera-sdd/en/official-cam-validation.html
-- Runtime records: publication/issue211/. Earlier records: publication/issue193/, publication/issue193-comment-followup/, older publication archives.
+## Public pages
+- Korean: https://ttolsun.github.io/libcamera-sdd/official-cam-validation.html
+- English: https://ttolsun.github.io/libcamera-sdd/en/official-cam-validation.html
+
+## Scope
+- Baseline: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61. Upstream recorded separately as df8e348d64b4932a0676256ed24f0da3ee9438bc, not identical to the baseline.
+- Fresh writing and translation used Claude CLI claude-haiku-5-5. Independent grounding used Codex CLI gpt-6.1-terra. No alternate model, API, or manual prose fallback was used.
+- Automatic checks are not human approval. Hardware, sensor, ISP, physical DMA, product-app, and internal-HAL validation are not established.
