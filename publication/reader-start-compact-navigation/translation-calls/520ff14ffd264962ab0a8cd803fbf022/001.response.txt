@@ -1,0 +1,1 @@
+{"translations":{"978":"Review the features and support requirements, and define the scope of integration and implementation.","1398":"Start with the system overview →","1445":"Where would you like to start?","1612":"Learn the overall structure and follow the request processing flow.","1643":"Start with the product overview →"}}
