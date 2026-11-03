@@ -1,24 +1,20 @@
 flowchart TB
 
-  v_n0["cam gets DMA-BUF via <br/>virtual pipeline"]
-  v_n1["Check buffered request; add <br/>to waiting list"]
-  v_n2["Prepared request handed to <br/>device async"]
-  v_n3["Writable DMA-BUF map within <br/>CPU write sync"]
-  v_n4["CPU tries NV12 conversion <br/>to mapped buffer"]
-  v_n5{"Is Virtual2 NV12 conversion <br/>result non-zero?"}
-  v_n6["Buffer-done signal for <br/>either frame status"]
-  v_n7{"All request buffers done? <br/>(completeBuffer)"}
-  v_n8["Marks the current request <br/>as complete"]
-  v_n9["Notify cam callback in <br/>submission order"]
-  v_n10["This handler call ends; <br/>request incomplete"]
-  v_n0 -->|"After prep, submit request <br/>with buffers"| v_n1
-  v_n1 -->|"Prepared request moves to <br/>virtual handoff"| v_n2
-  v_n2 -->|"After handoff, frame <br/>processing maps buffer"| v_n3
-  v_n3 -->|"Same CPU write sync scope"| v_n4
-  v_n4 -->|"Conversion ret decides <br/>generateFrame result"| v_n5
-  v_n5 -->|"true (non-zero): FrameError <br/>set [true]"| v_n6
-  v_n5 -->|"false (0): FrameSuccess <br/>kept [false]"| v_n6
-  v_n6 -->|"Connected handler receives <br/>the signal"| v_n7
-  v_n7 -->|"true (all buffers done) <br/>[true]"| v_n8
-  v_n7 -->|"false: some buffers still <br/>pending [false]"| v_n10
-  v_n8 -->|"In submission order; held <br/>if earlier pending"| v_n9
+  v_n0["PipelineHandler receives <br/>request and starts preparing"]
+  v_n1{"Is the prepared request at <br/>its turn cancelled?"}
+  v_n2["Cancelled completion in <br/>order; hold if prior <br/>RequestPending"]
+  v_n3["Virtual device schedules <br/>frames via queued connection"]
+  v_n4["VirtualCameraData::<br/>processRequest waits until <br/>target time"]
+  v_n5["Inside CPU write sync, <br/>tries mapping buffer for <br/>write"]
+  v_n6["For NV12, CPU tries <br/>Virtual2 lines conversion, <br/>mapped write"]
+  v_n7{"Is the frame generation <br/>result an error?"}
+  v_n8["Emits buffer-complete <br/>signal regardless of frame <br/>status"]
+  v_n0 -->|"After prepared, wait"| v_n1
+  v_n1 -->|"If cancelled, notify [true]"| v_n2
+  v_n1 -->|"If not cancelled [false]"| v_n3
+  v_n3 -->|"Queued connection"| v_n4
+  v_n4 -->|"Matching stream only"| v_n5
+  v_n5 -->|"Within write sync"| v_n6
+  v_n6 -->|"Return frame result"| v_n7
+  v_n7 -->|"On error: FrameError [true]"| v_n8
+  v_n7 -->|"Keep FrameSuccess [false]"| v_n8
