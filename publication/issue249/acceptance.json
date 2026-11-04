@@ -1,0 +1,315 @@
+{
+  "status": "passed",
+  "stage": "issue249-representative-automatic-review",
+  "source_commit": "be7e83e91348250c015aad6d6f59f1468555bae8",
+  "manuscript_sha256": "c68e84a40defef60ec629c29e6f8d2cc4128981f6df77bcb1d3c21147e112db9",
+  "catalog_sha256": "e08b0167d9dbaa368b6f181c121cddd030f030e6e2e1f04c958a982974f9d154",
+  "fixed_questions_sha256": "b049e1ac8b2f9251080ac766637aba8a59b44e6da9d43a522fb962764f8d4533",
+  "rubric_sha256": "11a7eeec42ec6268cb6fe76d383405b03a3578e656eb7b8b3af5c6bb9e0c71e2",
+  "reader_result_sha256": "f02d6e33f31ce81cbc20c76bdf88d622a37b41052e7b9d8116fabb4b25ac8173",
+  "grader_result_sha256": "98dba7ef7862d09ae11a2e76818d0b1b211fc4a8f6b86855de887b1192342a68",
+  "source_review_sha256": "4cd0bcea6346730bda7e169b6549e929ac4077d2434c67b55237775af1e208af",
+  "source_review_original_commit": "293d751a814e0d4c34e85ad457ccd9d5eefd1a61",
+  "source_identical_revalidation": {
+    "analysis_source": "be7e83e91348250c015aad6d6f59f1468555bae8",
+    "previous_source": "293d751a814e0d4c34e85ad457ccd9d5eefd1a61",
+    "changed_paths": [
+      "meson.build",
+      "src/ipa/libipa/agc_mean_luminance.cpp",
+      "src/py/libcamera/py_main.cpp"
+    ],
+    "representative_files_identical": true,
+    "representative_files": [
+      "src/libcamera/request.cpp",
+      "src/libcamera/camera.cpp",
+      "src/libcamera/pipeline_handler.cpp",
+      "include/libcamera/camera.h",
+      "include/libcamera/request.h",
+      "include/libcamera/internal/pipeline_handler.h"
+    ],
+    "translation_profile": "Codex CLI / gpt-6.1-terra / high",
+    "extraction": {
+      "translation_units": 294,
+      "parse_errors": 0,
+      "portable_classes": 1403,
+      "baseline_classes": 1412,
+      "excluded_class_delta": "9 LC-compliance test-tool classes from 5 omitted translation units; build coverage change, not source deletion",
+      "pipelines": 10,
+      "ipas": 7,
+      "scenarios": 6
+    },
+    "historical_runtime_reexecuted": false,
+    "human_review": "pending"
+  },
+  "bilingual_result": "bilingual-review-v11\\result.json",
+  "bilingual_result_sha256": "cf6a8d688d6542ef7620094bdd2dd5bffe2f2b3a9ead34b99bdf7d1b18c1c8c3",
+  "baseline_automatic_questions_passed": 4,
+  "final_automatic_questions_passed": 5,
+  "human_review": "pending",
+  "human_study": "not conducted; issue and Goal remain open",
+  "consistency_unresolved": [
+    {
+      "contract": "request-completion",
+      "claim_id": "catalog/9d141e4b7ca20344",
+      "peers": [
+        "catalog/9d141e4b7ca20344/en",
+        "request-lifecycle.md/resources/0",
+        "catalog/d978c8b30a4e498d",
+        "catalog/d978c8b30a4e498d/en",
+        "catalog/8118138bc41cdedf",
+        "catalog/8118138bc41cdedf/en"
+      ],
+      "status": "ambiguous",
+      "condition": "The buffer and stream guards apply when earlier access, ownership, status and control checks have passed.",
+      "actor": "Camera::queueRequest performs the checks and schedules the pipeline handler invocation; the camera notifies completion.",
+      "timing": "The queued invocation is made before returning 0; completion is notified separately.",
+      "scope": "Source control flow and the queued-request notification contract, not an observed callback.",
+      "reason": "The translation and success-path peers agree with the source. However, the empty-buffer and inactive-stream outcomes omit the prerequisite that execution reaches those guards; earlier checks can return a different error.",
+      "sources": [
+        {
+          "source_id": "camera-requests/request/queue-buffers-guard",
+          "source_quote": "int Camera::queueRequest(Request *request)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\tif (ret < 0)\n\t\treturn ret;\n\n\t/* Requests can only be queued to the camera that created them. */\n\tif (request->_d()->camera() != this) {\n\t\tLOG(Camera, Error) << \"Request was not created by this camera\";\n\t\treturn -EXDEV;\n\t}\n\n\tif (request->status() != Request::RequestPending) {\n\t\tLOG(Camera, Error) << request->toString() << \" is not valid\";\n\t\treturn -EINVAL;\n\t}\n\n\t/* Make sure the Request has a valid control list. */\n\tif (request->controls().infoMap() != &controls()) {\n\t\tLOG(Camera, Error) << \"Overwriting Request::controls() is not allowed\";\n\t\treturn -EINVAL;\n\t}\n\n\t/*\n\t * The camera state may change until the end of the function. No locking\n\t * is however needed as PipelineHandler::queueRequest() will handle\n\t * this.\n\t */\n\n\tif (request->buffers().empty()) {\n\t\tLOG(Camera, Error) << \"Request contains no buffers\";\n\t\treturn -EINVAL;\n\t}\n\n\tfor (const auto &[stream, buffer] : request->buffers()) {\n\t\tif (d->activeStreams_.find(stream) == d->activeStreams_.end()) {\n\t\t\tLOG(Camera, Error) << \"Invalid request\";\n\t\t\treturn -EINVAL;\n\t\t}\n\t}\n\n\t/* Pre-process AeEnable. */\n\tpatchControlList(request->controls());\n\n\td->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t       ConnectionTypeQueued, request);\n\n\treturn 0;\n}"
+        },
+        {
+          "source_id": "request-lifecycle/journey/queue",
+          "source_quote": "\\brief Queue a request to the camera\n * \\param[in] request The request to queue to the camera\n *\n * This function queues a \\a request to the camera for capture.\n *\n * After allocating the request with createRequest(), the application shall\n * fill it with at least one capture buffer before queuing it. Requests that\n * contain no buffers are invalid and are rejected without being queued.\n *\n * Once the request has been queued, the camera will notify its completion\n * through the \\ref requestCompleted signal.\n *\n * \\context This function is \\threadsafe. It may only be called when the camera\n * is in the Running state as defined in \\ref camera_operation.\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not running so requests can't be queued\n * \\retval -EXDEV The request does not belong to this camera\n * \\retval -EINVAL The request is invalid\n * \\retval -ENOMEM No buffer memory was available to handle the request\n */\nint Camera::queueRequest(Request *request)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\tif (ret < 0)\n\t\treturn ret;\n\n\t/* Requests can only be queued to the camera that created them. */\n\tif (request->_d()->camera() != this) {\n\t\tLOG(Camera, Error) << \"Request was not created by this camera\";\n\t\treturn -EXDEV;\n\t}\n\n\tif (request->status() != Request::RequestPending) {\n\t\tLOG(Camera, Error) << request->toString() << \" is not valid\";\n\t\treturn -EINVAL;\n\t}\n\n\t/* Make sure the Request has a valid control list. */\n\tif (request->controls().infoMap() != &controls()) {\n\t\tLOG(Camera, Error) << \"Overwriting Request::controls() is not allowed\";\n\t\treturn -EINVAL;\n\t}\n\n\t/*\n\t * The camera state may change until the end of the function. No locking\n\t * is however needed as PipelineHandler::queueRequest() will handle\n\t * this.\n\t */\n\n\tif (request->buffers().empty()) {\n\t\tLOG(Camera, Error) << \"Request contains no buffers\";\n\t\treturn -EINVAL;\n\t}\n\n\tfor (const auto &[stream, buffer] : request->buffers()) {\n\t\tif (d->activeStreams_.find(stream) == d->activeStreams_.end()) {\n\t\t\tLOG(Camera, Error) << \"Invalid request\";\n\t\t\treturn -EINVAL;\n\t\t}\n\t}\n\n\t/* Pre-process AeEnable. */\n\tpatchControlList(request->controls());\n\n\td->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t       ConnectionTypeQueued, request);\n\n\treturn 0;\n}\n\n/**\n * \\brief Start capture from camera"
+        },
+        {
+          "source_id": "request-lifecycle/journey/queued-connection",
+          "source_quote": "\\enum ConnectionType\n * \\brief Connection type for asynchronous communication\n *\n * This enumeration describes the possible types of asynchronous communication\n * between a sender and a receiver. It applies to Signal::emit() and\n * Object::invokeMethod().\n *\n * \\var ConnectionTypeAuto\n * \\brief If the sender and the receiver live in the same thread,\n * ConnectionTypeDirect is used. Otherwise ConnectionTypeQueued is used.\n *\n * \\var ConnectionTypeDirect\n * \\brief The receiver is invoked immediately and synchronously in the sender's\n * thread.\n *\n * \\var ConnectionTypeQueued\n * \\brief The receiver is invoked asynchronously\n *\n * Invoke the receiver asynchronously in its thread when control returns to the\n * thread's event loop. The sender proceeds without waiting for the invocation\n * to complete.\n *\n * \\var ConnectionTypeBlocking\n * \\brief The receiver is invoked synchronously\n *\n * If the sender and the receiver live in the same thread, this is equivalent to\n * ConnectionTypeDirect. Otherwise, the receiver is invoked asynchronously in\n * its thread when control returns to the thread's event loop. The sender\n * blocks until the receiver signals the completion of the invocation.\n */\n\n/**\n * \\brief Invoke the bound method with packed arguments\n * \\param[in] pack Packed arguments\n * \\param[in] deleteMethod True to delete \\a this bound method instance when\n * method invocation completes\n *\n * The bound method stores its return value, if any, in the arguments \\a pack.\n * For direct and blocking invocations, this is performed synchronously, and\n * the return value contained in the pack may be used. For queued invocations,\n * the return value is stored at an undefined point of time and shall thus not\n * be used by the caller.\n *\n * \\return True if the return value contained in the \\a pack may be used by the\n * caller, false otherwise\n */\nbool BoundMethodBase::activatePack(std::shared_ptr<BoundMethodPackBase> pack,\n\t\t\t\t   bool deleteMethod)\n{\n\tConnectionType type = connectionType_;\n\tif (type == ConnectionTypeAuto) {\n\t\tif (Thread::current() == object_->thread())\n\t\t\ttype = ConnectionTypeDirect;\n\t\telse\n\t\t\ttype = ConnectionTypeQueued;\n\t} else if (type == ConnectionTypeBlocking) {\n\t\tif (Thread::current() == object_->thread())\n\t\t\ttype = ConnectionTypeDirect;\n\t}\n\n\tswitch (type) {\n\tcase ConnectionTypeDirect:\n\tdefault:\n\t\tinvokePack(pack.get());\n\t\tif (deleteMethod)\n\t\t\tdelete this;\n\t\treturn true;\n\n\tcase ConnectionTypeQueued: {\n\t\tstd::unique_ptr<Message> msg =\n\t\t\tstd::make_unique<InvokeMessage>(this, pack, nullptr, deleteMethod);\n\t\tobject_->postMessage(std::move(msg));\n\t\treturn false;\n\t}\n\n\tcase ConnectionTypeBlocking: {\n\t\tSemaphore semaphore;\n\n\t\tstd::unique_ptr<Message> msg =\n\t\t\tstd::make_unique<InvokeMessage>(this, pack, &semaphore, deleteMethod);\n\t\tobject_->postMessage(std::move(msg));\n\n\t\tsemaphore.acquire();\n\t\treturn true;\n\t}\n\t}\n}"
+        }
+      ],
+      "claim_quote": "Camera::queueRequest()는 request->buffers()가 비어 있으면, 즉 empty()가 참이면 Request contains no buffers 오류를 기록하고 -EINVAL을 반환합니다. Camera::queueRequest()는 request->buffers()의 각 stream이 d->activeStreams_에 없으면(find가 end()를 반환하면) -EINVAL을 반환합니다. Camera::queueRequest()는 요청 검사를 마친 뒤 ConnectionTypeQueued를 지정해 invokeMethod로 PipelineHandler::queueRequest를 호출하고, 그 호출 뒤에 0을 반환합니다. 이 0은 invokeMethod 호출 뒤의 반환값이며, 요청 완료는 카메라가 requestCompleted 신호로 별도로 알립니다."
+    },
+    {
+      "contract": "request-completion",
+      "claim_id": "catalog/9d141e4b7ca20344/en",
+      "peers": [
+        "catalog/9d141e4b7ca20344",
+        "request-lifecycle.md/resources/0",
+        "catalog/d978c8b30a4e498d",
+        "catalog/d978c8b30a4e498d/en",
+        "catalog/8118138bc41cdedf",
+        "catalog/8118138bc41cdedf/en"
+      ],
+      "status": "ambiguous",
+      "condition": "The buffer and stream guards apply when earlier access, ownership, status and control checks have passed.",
+      "actor": "Camera::queueRequest performs the checks and schedules the pipeline handler invocation; the camera notifies completion.",
+      "timing": "The queued invocation is made before returning 0; completion is notified separately.",
+      "scope": "Source control flow and the queued-request notification contract, not an observed callback.",
+      "reason": "The Korean claim and success-path peers agree on the invocation and notification. The translated guard outcomes leave unspecified that earlier checks must pass before those guards are reached.",
+      "sources": [
+        {
+          "source_id": "camera-requests/request/queue-code",
+          "source_quote": "int Camera::queueRequest(Request *request)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\tif (ret < 0)\n\t\treturn ret;\n\n\t/* Requests can only be queued to the camera that created them. */\n\tif (request->_d()->camera() != this) {\n\t\tLOG(Camera, Error) << \"Request was not created by this camera\";\n\t\treturn -EXDEV;\n\t}\n\n\tif (request->status() != Request::RequestPending) {\n\t\tLOG(Camera, Error) << request->toString() << \" is not valid\";\n\t\treturn -EINVAL;\n\t}\n\n\t/* Make sure the Request has a valid control list. */\n\tif (request->controls().infoMap() != &controls()) {\n\t\tLOG(Camera, Error) << \"Overwriting Request::controls() is not allowed\";\n\t\treturn -EINVAL;\n\t}\n\n\t/*\n\t * The camera state may change until the end of the function. No locking\n\t * is however needed as PipelineHandler::queueRequest() will handle\n\t * this.\n\t */\n\n\tif (request->buffers().empty()) {\n\t\tLOG(Camera, Error) << \"Request contains no buffers\";\n\t\treturn -EINVAL;\n\t}\n\n\tfor (const auto &[stream, buffer] : request->buffers()) {\n\t\tif (d->activeStreams_.find(stream) == d->activeStreams_.end()) {\n\t\t\tLOG(Camera, Error) << \"Invalid request\";\n\t\t\treturn -EINVAL;\n\t\t}\n\t}\n\n\t/* Pre-process AeEnable. */\n\tpatchControlList(request->controls());\n\n\td->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t       ConnectionTypeQueued, request);\n\n\treturn 0;\n}\n\n/**\n * \\brief Start capture from camera"
+        },
+        {
+          "source_id": "request-lifecycle/journey/queue",
+          "source_quote": "\\brief Queue a request to the camera\n * \\param[in] request The request to queue to the camera\n *\n * This function queues a \\a request to the camera for capture.\n *\n * After allocating the request with createRequest(), the application shall\n * fill it with at least one capture buffer before queuing it. Requests that\n * contain no buffers are invalid and are rejected without being queued.\n *\n * Once the request has been queued, the camera will notify its completion\n * through the \\ref requestCompleted signal.\n *\n * \\context This function is \\threadsafe. It may only be called when the camera\n * is in the Running state as defined in \\ref camera_operation.\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not running so requests can't be queued\n * \\retval -EXDEV The request does not belong to this camera\n * \\retval -EINVAL The request is invalid\n * \\retval -ENOMEM No buffer memory was available to handle the request\n */\nint Camera::queueRequest(Request *request)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\tif (ret < 0)\n\t\treturn ret;\n\n\t/* Requests can only be queued to the camera that created them. */\n\tif (request->_d()->camera() != this) {\n\t\tLOG(Camera, Error) << \"Request was not created by this camera\";\n\t\treturn -EXDEV;\n\t}\n\n\tif (request->status() != Request::RequestPending) {\n\t\tLOG(Camera, Error) << request->toString() << \" is not valid\";\n\t\treturn -EINVAL;\n\t}\n\n\t/* Make sure the Request has a valid control list. */\n\tif (request->controls().infoMap() != &controls()) {\n\t\tLOG(Camera, Error) << \"Overwriting Request::controls() is not allowed\";\n\t\treturn -EINVAL;\n\t}\n\n\t/*\n\t * The camera state may change until the end of the function. No locking\n\t * is however needed as PipelineHandler::queueRequest() will handle\n\t * this.\n\t */\n\n\tif (request->buffers().empty()) {\n\t\tLOG(Camera, Error) << \"Request contains no buffers\";\n\t\treturn -EINVAL;\n\t}\n\n\tfor (const auto &[stream, buffer] : request->buffers()) {\n\t\tif (d->activeStreams_.find(stream) == d->activeStreams_.end()) {\n\t\t\tLOG(Camera, Error) << \"Invalid request\";\n\t\t\treturn -EINVAL;\n\t\t}\n\t}\n\n\t/* Pre-process AeEnable. */\n\tpatchControlList(request->controls());\n\n\td->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t       ConnectionTypeQueued, request);\n\n\treturn 0;\n}\n\n/**\n * \\brief Start capture from camera"
+        },
+        {
+          "source_id": "request-lifecycle/journey/queued-connection",
+          "source_quote": "\\enum ConnectionType\n * \\brief Connection type for asynchronous communication\n *\n * This enumeration describes the possible types of asynchronous communication\n * between a sender and a receiver. It applies to Signal::emit() and\n * Object::invokeMethod().\n *\n * \\var ConnectionTypeAuto\n * \\brief If the sender and the receiver live in the same thread,\n * ConnectionTypeDirect is used. Otherwise ConnectionTypeQueued is used.\n *\n * \\var ConnectionTypeDirect\n * \\brief The receiver is invoked immediately and synchronously in the sender's\n * thread.\n *\n * \\var ConnectionTypeQueued\n * \\brief The receiver is invoked asynchronously\n *\n * Invoke the receiver asynchronously in its thread when control returns to the\n * thread's event loop. The sender proceeds without waiting for the invocation\n * to complete.\n *\n * \\var ConnectionTypeBlocking\n * \\brief The receiver is invoked synchronously\n *\n * If the sender and the receiver live in the same thread, this is equivalent to\n * ConnectionTypeDirect. Otherwise, the receiver is invoked asynchronously in\n * its thread when control returns to the thread's event loop. The sender\n * blocks until the receiver signals the completion of the invocation.\n */\n\n/**\n * \\brief Invoke the bound method with packed arguments\n * \\param[in] pack Packed arguments\n * \\param[in] deleteMethod True to delete \\a this bound method instance when\n * method invocation completes\n *\n * The bound method stores its return value, if any, in the arguments \\a pack.\n * For direct and blocking invocations, this is performed synchronously, and\n * the return value contained in the pack may be used. For queued invocations,\n * the return value is stored at an undefined point of time and shall thus not\n * be used by the caller.\n *\n * \\return True if the return value contained in the \\a pack may be used by the\n * caller, false otherwise\n */\nbool BoundMethodBase::activatePack(std::shared_ptr<BoundMethodPackBase> pack,\n\t\t\t\t   bool deleteMethod)\n{\n\tConnectionType type = connectionType_;\n\tif (type == ConnectionTypeAuto) {\n\t\tif (Thread::current() == object_->thread())\n\t\t\ttype = ConnectionTypeDirect;\n\t\telse\n\t\t\ttype = ConnectionTypeQueued;\n\t} else if (type == ConnectionTypeBlocking) {\n\t\tif (Thread::current() == object_->thread())\n\t\t\ttype = ConnectionTypeDirect;\n\t}\n\n\tswitch (type) {\n\tcase ConnectionTypeDirect:\n\tdefault:\n\t\tinvokePack(pack.get());\n\t\tif (deleteMethod)\n\t\t\tdelete this;\n\t\treturn true;\n\n\tcase ConnectionTypeQueued: {\n\t\tstd::unique_ptr<Message> msg =\n\t\t\tstd::make_unique<InvokeMessage>(this, pack, nullptr, deleteMethod);\n\t\tobject_->postMessage(std::move(msg));\n\t\treturn false;\n\t}\n\n\tcase ConnectionTypeBlocking: {\n\t\tSemaphore semaphore;\n\n\t\tstd::unique_ptr<Message> msg =\n\t\t\tstd::make_unique<InvokeMessage>(this, pack, &semaphore, deleteMethod);\n\t\tobject_->postMessage(std::move(msg));\n\n\t\tsemaphore.acquire();\n\t\treturn true;\n\t}\n\t}\n}"
+        }
+      ],
+      "claim_quote": "When request->buffers() is empty, that is, when empty() is true, Camera::queueRequest() logs the error \"Request contains no buffers\" and returns -EINVAL. If any stream in request->buffers() is absent from d->activeStreams_ (that is, if find returns end()), Camera::queueRequest() returns -EINVAL. After completing the request checks, Camera::queueRequest() specifies ConnectionTypeQueued, calls PipelineHandler::queueRequest through invokeMethod, and returns 0 after that call. This 0 is the return value after the invokeMethod call, and the camera separately notifies request completion through the requestCompleted signal."
+    },
+    {
+      "contract": "ownership-reuse",
+      "claim_id": "catalog/948d857e662479be/en",
+      "peers": [],
+      "status": "insufficient-evidence",
+      "condition": "Adjusted indicates a configuration changed to become valid; Camera::configure() returns -EINVAL when its validation result is not Valid.",
+      "actor": "The validation caller must check an adjusted configuration; the sources do not establish the investigator or their recording actions.",
+      "timing": "The return code follows a non-Valid validation result inside Camera::configure(); no investigation timing or execution is established.",
+      "scope": "Configuration validation and the proposed investigation, rather than request ownership or reuse.",
+      "reason": "The sources support the validation status, caller obligation, and conditional return code. They do not establish that an investigator records the result or error code, so the claim as a whole lacks sufficient evidence.",
+      "sources": [
+        {
+          "source_id": "request-diagnosis/configuration-failure/validate",
+          "source_quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.\n * \\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully.\n * \\retval CameraConfiguration::Valid The configuration was already valid and\n * hasn't been adjusted.\n */\n\n/**\n * \\brief Retrieve a reference to a stream configuration"
+        },
+        {
+          "source_id": "request-diagnosis/configuration-failure/validation-caller",
+          "source_quote": "\\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully."
+        },
+        {
+          "source_id": "request-diagnosis/configuration-failure/validation-check",
+          "source_quote": "int Camera::configure(CameraConfiguration *config)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraAcquired,\n\t\t\t\t     Private::CameraConfigured);\n\tif (ret < 0)\n\t\treturn ret;\n\n\tfor (auto &cfg : *config)\n\t\tcfg.setStream(nullptr);\n\n\tif (config->validate() != CameraConfiguration::Valid) {\n\t\tLOG(Camera, Error)\n\t\t\t<< \"Can't configure camera with invalid configuration\";\n\t\treturn -EINVAL;\n\t}\n\n\tstd::ostringstream msg(\"configuring streams:\", std::ios_base::ate);\n\n\tfor (unsigned int index = 0; index < config->size(); ++index) {\n\t\tStreamConfiguration &cfg = config->at(index);\n\t\tmsg << \" (\" << index << \") \" << cfg.toString();\n\t}\n\n\tLOG(Camera, Info) << msg.str();\n\n\tret = d->pipe_->invokeMethod(&PipelineHandler::configure,\n\t\t\t\t     ConnectionTypeBlocking, this, config);\n\tif (ret)\n\t\treturn ret;\n\n\td->activeStreams_.clear();\n\tfor (const StreamConfiguration &cfg : *config) {\n\t\tStream *stream = cfg.stream();\n\t\tif (!stream) {\n\t\t\tLOG(Camera, Fatal)\n\t\t\t\t<< \"Pipeline handler failed to update stream configuration\";\n\t\t\td->activeStreams_.clear();\n\t\t\treturn -EINVAL;\n\t\t}\n\n\t\tstream->configuration_ = cfg;\n\t\td->activeStreams_.insert(stream);\n\t}\n\n\td->setState(Private::CameraConfigured);\n\n\treturn 0;\n}"
+        }
+      ],
+      "claim_quote": "The Adjusted status of CameraConfiguration::validate() means the configuration has been adjusted to be valid, and parameters may change for any stream or stream configurations may be removed. The caller that receives Adjusted must check the configuration carefully. When investigating, the investigator records whether the result of config->validate() in Camera::configure() differs from CameraConfiguration::Valid, and, when they differ, also records the error code -EINVAL that is returned."
+    },
+    {
+      "contract": "callbacks-synchronization",
+      "claim_id": "pipeline-requests.md/completion/6",
+      "peers": [
+        "request-lifecycle.md/resources/13",
+        "request-lifecycle.md/resources/3",
+        "catalog/d9c04a66aff286fe",
+        "catalog/d9c04a66aff286fe/en",
+        "catalog/16ab8d53401a5f0b",
+        "catalog/16ab8d53401a5f0b/en"
+      ],
+      "status": "ambiguous",
+      "condition": "일반적인 버퍼 완료 처리인지 정지 중 취소 처리인지 명시되지 않았습니다.",
+      "actor": "파이프라인 핸들러와 요청 내부 취소 경로입니다.",
+      "timing": "버퍼 부분 완료와 요청 완료 시점이며, 두 API를 호출하는 경우에는 CameraManager 스레드가 요구됩니다.",
+      "scope": "호출 스레드 의무는 명확하지만 버퍼 완료마다 completeBuffer를 호출해야 한다는 조건 없는 표현의 적용 범위가 불명확합니다.",
+      "reason": "일반 완료 계약은 completeBuffer와 명시적 completeRequest를 요구합니다. 별도의 취소 경로는 내부에서 대기 버퍼를 취소하고 신호를 발생시킨 뒤 요청을 완료하므로, 정지 취소까지 같은 호출 의무가 적용되는지 구분해야 합니다. 관련 한영 설명은 일반 완료 흐름을 다룹니다.",
+      "sources": [
+        {
+          "source_id": "pipeline-requests/completion/buffer-contract",
+          "source_quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)\n{\n\tCamera *camera = request->_d()->camera();\n\tcamera->bufferCompleted.emit(request, buffer);\n\treturn request->_d()->completeBuffer(buffer);\n}\n\n/**\n * \\brief Signal request completion"
+        },
+        {
+          "source_id": "request-lifecycle/journey/request-notice",
+          "source_quote": "\\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}\n\n/**\n * \\brief Cancel request and signal its completion"
+        },
+        {
+          "source_id": "request-lifecycle/resources/internal-completion",
+          "source_quote": "\\brief Complete a buffer for the request\n * \\param[in] buffer The buffer that has completed\n *\n * A request tracks the status of all buffers it contains through a set of\n * pending buffers. This function removes the \\a buffer from the set to mark it\n * as complete. All buffers associate with the request shall be marked as\n * complete by calling this function once and once only before reporting the\n * request as complete with the complete() function.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool Request::Private::completeBuffer(FrameBuffer *buffer)\n{\n\tLIBCAMERA_TRACEPOINT(request_complete_buffer, this, buffer);\n\n\tint ret = pending_.erase(buffer);\n\tASSERT(ret == 1);\n\n\tbuffer->_d()->setRequest(nullptr);\n\n\tif (buffer->metadata().status == FrameMetadata::FrameCancelled)\n\t\tcancelled_ = true;\n\n\treturn !hasPendingBuffers();\n}\n\n/**\n * \\brief Complete a queued request\n *\n * Mark the request as complete by updating its status to RequestComplete,\n * unless buffers have been cancelled in which case the status is set to\n * RequestCancelled.\n */\nvoid Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()\n{\n\tRequest *request = _o<Request>();\n\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tbuffer->_d()->cancel();\n\t\tcamera_->bufferCompleted.emit(request, buffer);\n\t}\n\n\tcancelled_ = true;\n\tpending_.clear();\n\tnotifiers_.clear();\n\ttimer_.reset();\n}\n\n/**\n * \\brief Cancel a queued request\n *\n * Mark the request and its associated buffers as cancelled and complete it.\n *\n * Set each pending buffer in error state and emit the buffer completion signal\n * before completing the Request.\n */\nvoid Request::Private::cancel()\n{\n\tLIBCAMERA_TRACEPOINT(request_cancel, this);\n\n\tRequest *request = _o<Request>();\n\tASSERT(request->status() == RequestPending);\n\n\tdoCancelRequest();\n}\n\n/**\n * \\brief Reset the request internal data to default values"
+        },
+        {
+          "source_id": "request-lifecycle/resources/cancel-rules",
+          "source_quote": "\\brief Cancel request and signal its completion\n * \\param[in] request The request to cancel\n *\n * This function cancels and completes the request. The same rules as for\n * completeRequest() apply.\n */\nvoid PipelineHandler::cancelRequest(Request *request)\n{\n\trequest->_d()->cancel();\n\tcompleteRequest(request);\n}\n\n/**\n * \\brief Retrieve the absolute path to a platform configuration file"
+        },
+        {
+          "source_id": "camera-model/concurrency/stop",
+          "source_quote": "\\brief Stop capture from camera\n *\n * This function stops capturing and processing requests immediately. All\n * pending requests are cancelled and complete synchronously in an error state.\n *\n * \\context This function may be called in any camera state as defined in \\ref\n * camera_operation, and shall be synchronized by the caller with other\n * functions that affect the camera state. If called when the camera isn't\n * running, it is a no-op.\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not running so can't be stopped\n */\nint Camera::stop()\n{\n\tPrivate *const d = _d();\n\n\t/*\n\t * \\todo Make calling stop() when not in 'Running' part of the state\n\t * machine rather than take this shortcut\n\t */\n\tif (!d->isRunning())\n\t\treturn 0;\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\tif (ret < 0)\n\t\treturn ret;\n\n\tLOG(Camera, Debug) << \"Stopping capture\";\n\n\td->setState(Private::CameraStopping);\n\n\td->pipe_->invokeMethod(&PipelineHandler::stop, ConnectionTypeBlocking,\n\t\t\t       this);\n\n\tASSERT(!d->pipe_->hasPendingRequests(this));\n\n\td->setState(Private::CameraConfigured);\n\n\treturn 0;\n}\n\n/**\n * \\brief Handle request completion and notify application"
+        }
+      ],
+      "claim_quote": "completeBuffer와 completeRequest는 모두 `CameraManager` 스레드에서 호출되어야 합니다. 파이프라인 핸들러는 요청의 버퍼 부분이 완료되면 completeBuffer를 호출해야 하고, 요청이 완료되면 completeRequest를 호출해야 합니다."
+    },
+    {
+      "contract": "callbacks-synchronization",
+      "claim_id": "catalog/ffdc91b997d12518",
+      "peers": [
+        "catalog/ffdc91b997d12518/en",
+        "request-lifecycle.md/resources/3",
+        "request-lifecycle.md/resources/13",
+        "catalog/d9c04a66aff286fe",
+        "catalog/d9c04a66aff286fe/en",
+        "catalog/16ab8d53401a5f0b",
+        "catalog/16ab8d53401a5f0b/en"
+      ],
+      "status": "ambiguous",
+      "condition": "The completeBuffer duty is stated without distinguishing normal buffer completion from cancellation.",
+      "actor": "The pipeline handler calls the completion APIs; cancelRequest cancels the request and invokes completeRequest.",
+      "timing": "Both API calls have a CameraManager-thread requirement; cancellation precedes the completeRequest call.",
+      "scope": "API invocation duties and cancellation sequence, not the application callback thread.",
+      "reason": "The thread requirements and cancelRequest sequence are supported and match the English translation. The unqualified buffer-completion duty leaves unclear whether it includes cancellation, whose supplied path cancels pending buffers and emits their signals without calling PipelineHandler::completeBuffer.",
+      "sources": [
+        {
+          "source_id": "pipeline-requests/completion/buffer-contract",
+          "source_quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)\n{\n\tCamera *camera = request->_d()->camera();\n\tcamera->bufferCompleted.emit(request, buffer);\n\treturn request->_d()->completeBuffer(buffer);\n}\n\n/**\n * \\brief Signal request completion"
+        },
+        {
+          "source_id": "request-lifecycle/journey/request-notice",
+          "source_quote": "\\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}\n\n/**\n * \\brief Cancel request and signal its completion"
+        },
+        {
+          "source_id": "request-lifecycle/resources/cancel-rules",
+          "source_quote": "\\brief Cancel request and signal its completion\n * \\param[in] request The request to cancel\n *\n * This function cancels and completes the request. The same rules as for\n * completeRequest() apply.\n */\nvoid PipelineHandler::cancelRequest(Request *request)\n{\n\trequest->_d()->cancel();\n\tcompleteRequest(request);\n}\n\n/**\n * \\brief Retrieve the absolute path to a platform configuration file"
+        },
+        {
+          "source_id": "request-lifecycle/resources/internal-completion",
+          "source_quote": "\\brief Complete a buffer for the request\n * \\param[in] buffer The buffer that has completed\n *\n * A request tracks the status of all buffers it contains through a set of\n * pending buffers. This function removes the \\a buffer from the set to mark it\n * as complete. All buffers associate with the request shall be marked as\n * complete by calling this function once and once only before reporting the\n * request as complete with the complete() function.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool Request::Private::completeBuffer(FrameBuffer *buffer)\n{\n\tLIBCAMERA_TRACEPOINT(request_complete_buffer, this, buffer);\n\n\tint ret = pending_.erase(buffer);\n\tASSERT(ret == 1);\n\n\tbuffer->_d()->setRequest(nullptr);\n\n\tif (buffer->metadata().status == FrameMetadata::FrameCancelled)\n\t\tcancelled_ = true;\n\n\treturn !hasPendingBuffers();\n}\n\n/**\n * \\brief Complete a queued request\n *\n * Mark the request as complete by updating its status to RequestComplete,\n * unless buffers have been cancelled in which case the status is set to\n * RequestCancelled.\n */\nvoid Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()\n{\n\tRequest *request = _o<Request>();\n\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tbuffer->_d()->cancel();\n\t\tcamera_->bufferCompleted.emit(request, buffer);\n\t}\n\n\tcancelled_ = true;\n\tpending_.clear();\n\tnotifiers_.clear();\n\ttimer_.reset();\n}\n\n/**\n * \\brief Cancel a queued request\n *\n * Mark the request and its associated buffers as cancelled and complete it.\n *\n * Set each pending buffer in error state and emit the buffer completion signal\n * before completing the Request.\n */\nvoid Request::Private::cancel()\n{\n\tLIBCAMERA_TRACEPOINT(request_cancel, this);\n\n\tRequest *request = _o<Request>();\n\tASSERT(request->status() == RequestPending);\n\n\tdoCancelRequest();\n}\n\n/**\n * \\brief Reset the request internal data to default values"
+        }
+      ],
+      "claim_quote": "completeBuffer와 completeRequest는 모두 CameraManager 스레드에서 호출되어야 합니다. 파이프라인 핸들러는 요청의 버퍼 부분이 완료되면 completeBuffer를 호출해야 하고, 요청이 완료되면 completeRequest를 호출해야 합니다. cancelRequest는 먼저 request->_d()->cancel()을 호출하여 요청을 취소합니다. 그다음 completeRequest(request)를 호출하여 요청의 완료를 알립니다."
+    },
+    {
+      "contract": "callbacks-synchronization",
+      "claim_id": "catalog/ffdc91b997d12518/en",
+      "peers": [
+        "catalog/ffdc91b997d12518",
+        "request-lifecycle.md/resources/3",
+        "request-lifecycle.md/resources/13",
+        "catalog/d9c04a66aff286fe",
+        "catalog/d9c04a66aff286fe/en",
+        "catalog/16ab8d53401a5f0b",
+        "catalog/16ab8d53401a5f0b/en"
+      ],
+      "status": "ambiguous",
+      "condition": "The completeBuffer duty is stated without distinguishing normal buffer completion from cancellation.",
+      "actor": "The pipeline handler calls the completion APIs; cancelRequest cancels the request and invokes completeRequest.",
+      "timing": "Both API calls have a CameraManager-thread requirement; cancellation precedes the completeRequest call.",
+      "scope": "API invocation duties and cancellation sequence, not the application callback thread.",
+      "reason": "The thread requirements and cancelRequest sequence are supported and match the Korean claim. The unqualified buffer-completion duty leaves unclear whether it includes cancellation, whose supplied path cancels pending buffers and emits their signals without calling PipelineHandler::completeBuffer.",
+      "sources": [
+        {
+          "source_id": "pipeline-requests/completion/buffer-contract",
+          "source_quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)\n{\n\tCamera *camera = request->_d()->camera();\n\tcamera->bufferCompleted.emit(request, buffer);\n\treturn request->_d()->completeBuffer(buffer);\n}\n\n/**\n * \\brief Signal request completion"
+        },
+        {
+          "source_id": "request-lifecycle/journey/request-notice",
+          "source_quote": "\\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}\n\n/**\n * \\brief Cancel request and signal its completion"
+        },
+        {
+          "source_id": "request-lifecycle/resources/cancel-rules",
+          "source_quote": "\\brief Cancel request and signal its completion\n * \\param[in] request The request to cancel\n *\n * This function cancels and completes the request. The same rules as for\n * completeRequest() apply.\n */\nvoid PipelineHandler::cancelRequest(Request *request)\n{\n\trequest->_d()->cancel();\n\tcompleteRequest(request);\n}\n\n/**\n * \\brief Retrieve the absolute path to a platform configuration file"
+        },
+        {
+          "source_id": "request-lifecycle/resources/internal-completion",
+          "source_quote": "\\brief Complete a buffer for the request\n * \\param[in] buffer The buffer that has completed\n *\n * A request tracks the status of all buffers it contains through a set of\n * pending buffers. This function removes the \\a buffer from the set to mark it\n * as complete. All buffers associate with the request shall be marked as\n * complete by calling this function once and once only before reporting the\n * request as complete with the complete() function.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool Request::Private::completeBuffer(FrameBuffer *buffer)\n{\n\tLIBCAMERA_TRACEPOINT(request_complete_buffer, this, buffer);\n\n\tint ret = pending_.erase(buffer);\n\tASSERT(ret == 1);\n\n\tbuffer->_d()->setRequest(nullptr);\n\n\tif (buffer->metadata().status == FrameMetadata::FrameCancelled)\n\t\tcancelled_ = true;\n\n\treturn !hasPendingBuffers();\n}\n\n/**\n * \\brief Complete a queued request\n *\n * Mark the request as complete by updating its status to RequestComplete,\n * unless buffers have been cancelled in which case the status is set to\n * RequestCancelled.\n */\nvoid Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()\n{\n\tRequest *request = _o<Request>();\n\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tbuffer->_d()->cancel();\n\t\tcamera_->bufferCompleted.emit(request, buffer);\n\t}\n\n\tcancelled_ = true;\n\tpending_.clear();\n\tnotifiers_.clear();\n\ttimer_.reset();\n}\n\n/**\n * \\brief Cancel a queued request\n *\n * Mark the request and its associated buffers as cancelled and complete it.\n *\n * Set each pending buffer in error state and emit the buffer completion signal\n * before completing the Request.\n */\nvoid Request::Private::cancel()\n{\n\tLIBCAMERA_TRACEPOINT(request_cancel, this);\n\n\tRequest *request = _o<Request>();\n\tASSERT(request->status() == RequestPending);\n\n\tdoCancelRequest();\n}\n\n/**\n * \\brief Reset the request internal data to default values"
+        }
+      ],
+      "claim_quote": "Both completeBuffer and completeRequest must be called from the CameraManager thread. The pipeline handler must call completeBuffer when the buffer part of a request completes, and must call completeRequest when the request completes. cancelRequest first cancels the request by calling request->_d()->cancel(). It then calls completeRequest(request) to signal completion of the request."
+    },
+    {
+      "contract": "submission-checks",
+      "claim_id": "catalog/e247416141f228f2",
+      "peers": [
+        "catalog/e247416141f228f2/en",
+        "request-diagnosis.md/submission-checks/0",
+        "catalog/891b869f3c5a6519",
+        "request-diagnosis.md/submission-checks/1"
+      ],
+      "status": "insufficient-evidence",
+      "condition": "The access helper returns -ENODEV for disconnection only when allowDisconnected is false; the supplied excerpts do not establish that argument's default at this call.",
+      "actor": "Camera::queueRequest calls its private access helper and propagates a negative result.",
+      "timing": "The access check precedes request-content checks.",
+      "scope": "The invocation's disconnected condition and subsequent error propagation.",
+      "reason": "The Korean and English claims agree, and the call order and propagation are visible. However, the omitted default argument prevents establishing the unconditional disconnected-camera result for this invocation.",
+      "sources": [
+        {
+          "source_id": "request-diagnosis/submission-checks/queue",
+          "source_quote": "\\brief Queue a request to the camera\n * \\param[in] request The request to queue to the camera\n *\n * This function queues a \\a request to the camera for capture.\n *\n * After allocating the request with createRequest(), the application shall\n * fill it with at least one capture buffer before queuing it. Requests that\n * contain no buffers are invalid and are rejected without being queued.\n *\n * Once the request has been queued, the camera will notify its completion\n * through the \\ref requestCompleted signal.\n *\n * \\context This function is \\threadsafe. It may only be called when the camera\n * is in the Running state as defined in \\ref camera_operation.\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not running so requests can't be queued\n * \\retval -EXDEV The request does not belong to this camera\n * \\retval -EINVAL The request is invalid\n * \\retval -ENOMEM No buffer memory was available to handle the request\n */\nint Camera::queueRequest(Request *request)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\tif (ret < 0)\n\t\treturn ret;\n\n\t/* Requests can only be queued to the camera that created them. */\n\tif (request->_d()->camera() != this) {\n\t\tLOG(Camera, Error) << \"Request was not created by this camera\";\n\t\treturn -EXDEV;\n\t}\n\n\tif (request->status() != Request::RequestPending) {\n\t\tLOG(Camera, Error) << request->toString() << \" is not valid\";\n\t\treturn -EINVAL;\n\t}\n\n\t/* Make sure the Request has a valid control list. */\n\tif (request->controls().infoMap() != &controls()) {\n\t\tLOG(Camera, Error) << \"Overwriting Request::controls() is not allowed\";\n\t\treturn -EINVAL;\n\t}\n\n\t/*\n\t * The camera state may change until the end of the function. No locking\n\t * is however needed as PipelineHandler::queueRequest() will handle\n\t * this.\n\t */\n\n\tif (request->buffers().empty()) {\n\t\tLOG(Camera, Error) << \"Request contains no buffers\";\n\t\treturn -EINVAL;\n\t}\n\n\tfor (const auto &[stream, buffer] : request->buffers()) {\n\t\tif (d->activeStreams_.find(stream) == d->activeStreams_.end()) {\n\t\t\tLOG(Camera, Error) << \"Invalid request\";\n\t\t\treturn -EINVAL;\n\t\t}\n\t}\n\n\t/* Pre-process AeEnable. */\n\tpatchControlList(request->controls());\n\n\td->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t       ConnectionTypeQueued, request);\n\n\treturn 0;\n}\n\n/**\n * \\brief Start capture from camera"
+        },
+        {
+          "source_id": "request-diagnosis/submission-checks/access",
+          "source_quote": "int Camera::Private::isAccessAllowed(State state, bool allowDisconnected,\n\t\t\t\t     const char *from) const\n{\n\tif (!allowDisconnected && disconnected_)\n\t\treturn -ENODEV;\n\n\tState currentState = state_.load(std::memory_order_acquire);\n\tif (currentState == state)\n\t\treturn 0;\n\n\tASSERT(static_cast<unsigned int>(state) < std::size(camera_state_names));\n\n\tLOG(Camera, Error) << \"Camera in \" << camera_state_names[currentState]\n\t\t\t   << \" state trying \" << from << \"() requiring state \"\n\t\t\t   << camera_state_names[state];\n\n\treturn -EACCES;\n}\n\nint Camera::Private::isAccessAllowed(State low, State high,"
+        }
+      ],
+      "claim_quote": "queueRequest는 먼저 isAccessAllowed(CameraRunning)를 호출하며, 연결이 해제된 경우 -ENODEV를, 연결이 해제되지 않았지만 Running 상태가 아닌 경우 -EACCES를 반환합니다. 반환값이 음수이면 요청 내용을 검사하기 전에 그 값을 그대로 반환합니다."
+    },
+    {
+      "contract": "submission-checks",
+      "claim_id": "catalog/e247416141f228f2/en",
+      "peers": [
+        "catalog/e247416141f228f2",
+        "request-diagnosis.md/submission-checks/0",
+        "catalog/891b869f3c5a6519",
+        "request-diagnosis.md/submission-checks/1"
+      ],
+      "status": "insufficient-evidence",
+      "condition": "The access helper returns -ENODEV for disconnection only when allowDisconnected is false; the supplied excerpts do not establish that argument's default at this call.",
+      "actor": "Camera::queueRequest calls its private access helper and propagates a negative result.",
+      "timing": "The access check precedes request-content checks.",
+      "scope": "The invocation's disconnected condition and subsequent error propagation.",
+      "reason": "The translation matches the Korean claim, but the source does not show the default argument needed to establish its disconnected-camera assertion. The remaining stated order and propagation are visible.",
+      "sources": [
+        {
+          "source_id": "request-diagnosis/submission-checks/queue",
+          "source_quote": "\\brief Queue a request to the camera\n * \\param[in] request The request to queue to the camera\n *\n * This function queues a \\a request to the camera for capture.\n *\n * After allocating the request with createRequest(), the application shall\n * fill it with at least one capture buffer before queuing it. Requests that\n * contain no buffers are invalid and are rejected without being queued.\n *\n * Once the request has been queued, the camera will notify its completion\n * through the \\ref requestCompleted signal.\n *\n * \\context This function is \\threadsafe. It may only be called when the camera\n * is in the Running state as defined in \\ref camera_operation.\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not running so requests can't be queued\n * \\retval -EXDEV The request does not belong to this camera\n * \\retval -EINVAL The request is invalid\n * \\retval -ENOMEM No buffer memory was available to handle the request\n */\nint Camera::queueRequest(Request *request)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\tif (ret < 0)\n\t\treturn ret;\n\n\t/* Requests can only be queued to the camera that created them. */\n\tif (request->_d()->camera() != this) {\n\t\tLOG(Camera, Error) << \"Request was not created by this camera\";\n\t\treturn -EXDEV;\n\t}\n\n\tif (request->status() != Request::RequestPending) {\n\t\tLOG(Camera, Error) << request->toString() << \" is not valid\";\n\t\treturn -EINVAL;\n\t}\n\n\t/* Make sure the Request has a valid control list. */\n\tif (request->controls().infoMap() != &controls()) {\n\t\tLOG(Camera, Error) << \"Overwriting Request::controls() is not allowed\";\n\t\treturn -EINVAL;\n\t}\n\n\t/*\n\t * The camera state may change until the end of the function. No locking\n\t * is however needed as PipelineHandler::queueRequest() will handle\n\t * this.\n\t */\n\n\tif (request->buffers().empty()) {\n\t\tLOG(Camera, Error) << \"Request contains no buffers\";\n\t\treturn -EINVAL;\n\t}\n\n\tfor (const auto &[stream, buffer] : request->buffers()) {\n\t\tif (d->activeStreams_.find(stream) == d->activeStreams_.end()) {\n\t\t\tLOG(Camera, Error) << \"Invalid request\";\n\t\t\treturn -EINVAL;\n\t\t}\n\t}\n\n\t/* Pre-process AeEnable. */\n\tpatchControlList(request->controls());\n\n\td->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t       ConnectionTypeQueued, request);\n\n\treturn 0;\n}\n\n/**\n * \\brief Start capture from camera"
+        },
+        {
+          "source_id": "request-diagnosis/submission-checks/access",
+          "source_quote": "int Camera::Private::isAccessAllowed(State state, bool allowDisconnected,\n\t\t\t\t     const char *from) const\n{\n\tif (!allowDisconnected && disconnected_)\n\t\treturn -ENODEV;\n\n\tState currentState = state_.load(std::memory_order_acquire);\n\tif (currentState == state)\n\t\treturn 0;\n\n\tASSERT(static_cast<unsigned int>(state) < std::size(camera_state_names));\n\n\tLOG(Camera, Error) << \"Camera in \" << camera_state_names[currentState]\n\t\t\t   << \" state trying \" << from << \"() requiring state \"\n\t\t\t   << camera_state_names[state];\n\n\treturn -EACCES;\n}\n\nint Camera::Private::isAccessAllowed(State low, State high,"
+        }
+      ],
+      "claim_quote": "queueRequest first calls isAccessAllowed(CameraRunning). If the camera has been disconnected, queueRequest returns -ENODEV; if it has not been disconnected but is not in the Running state, queueRequest returns -EACCES. If the return value is negative, queueRequest returns that value unchanged before checking the request contents."
+    }
+  ]
+}

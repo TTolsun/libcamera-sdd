@@ -1,6 +1,6 @@
 ---
 generated_at: 2026-10-30 16:46:15+00:00
-source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
+source_commit: be7e83e91348250c015aad6d6f59f1468555bae8
 status: ok
 section: scenario-configure
 generation_method: facts-and-llm
@@ -202,7 +202,6 @@ generated_design:
     - 10ec20f1b60c4df883d5ba943e927c09/007.receipt.json
     - 10ec20f1b60c4df883d5ba943e927c09/008.receipt.json
   body_sha256: ad4597ff26b208426e9d6c9125d12c39a2685429e6df146cbb87f881aff0164f
-revalidated_from: 212c689fcf2450bbfbaab25c7472895ac277b5d6
 managed_format_refresh:
 - source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
   previous_body_sha256: 17db932c0a2446ac4f41b477eec689e3d22f45451044d9ede810e39a69294ce9
@@ -212,6 +211,7 @@ managed_format_refresh:
   change: Mermaid literal encoding only
   new_inference: false
   human_review: unchanged
+revalidated_from: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
 ---
 
 # 스트림 구성
