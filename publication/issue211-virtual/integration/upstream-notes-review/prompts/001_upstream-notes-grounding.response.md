@@ -1,0 +1,1 @@
+{"verdict":"pass","findings":[],"reviewed_scope":"Publication notes reviewed against the recorded upstream commits, exact diff, baseline runtime and facts, and stated publication scope. The unused root draft is outside the publication scope."}

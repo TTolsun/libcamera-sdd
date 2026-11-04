@@ -1,0 +1,1 @@
+{"verdict":"pass","findings":[],"scope":"Reviewed the fragment against the supplied implementation for placement, default and type, guard edge source shape, both outcomes for each used guard, source binding, and stated limits."}

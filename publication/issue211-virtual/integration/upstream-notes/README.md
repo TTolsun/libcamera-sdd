@@ -1,0 +1,21 @@
+# Publication notes: issue211-virtual
+
+This update adds a virtual-principle section and a source-bound diagram to the Korean and English official-cam-validation pages.
+
+The diagram covers Virtual2 lines-pattern generation, DMA-BUF buffers with queued requests, CPU NV12 writes, buffer and request completion, and the cam callback connection. The allocator conclusion, callback follow-up, and reproduction conditions remain. Existing sections have changed wording. The cam processing name is now CameraSession::processRequest, which distinguishes it from VirtualCameraData::processRequest. Reproduction conditions are now split into separate tasks.
+
+Baseline 293d751a814e0d4c34e85ad457ccd9d5eefd1a61 pins the manuscript, facts, and original runtime. Current upstream 25cb6cd274d3112d03d9a825e47eb2c15c70da24 is recorded separately and is not identical to the baseline. Two paths differ from the baseline, and they change different things:
+
+- meson.build changes the libcamera project version from 0.7.2 to 0.8.0. This is a version change, not a change to initial gain estimation.
+- src/ipa/libipa/agc_mean_luminance.cpp changes the extra_gain expression in AgcMeanLuminance::estimateInitialGain from std::min(10.0, yTarget / (yValue + .001)) to std::min(yTarget / std::max(yValue, 0.001), 10.0). This is the initial gain estimation change.
+
+Since the previous observed upstream, df8e348d64b4932a0676256ed24f0da3ee9438bc, the only recorded new commit is 25cb6cd274d3112d03d9a825e47eb2c15c70da24, whose subject concerns libipa AGC initial gain estimation. This record does not attribute the meson.build version change to a specific commit.
+
+No latest-SHA runtime or regeneration is claimed. The manuscript and facts remain pinned to the baseline.
+
+This is source inspection and documentation, not a new camera, kernel, or debugger trial. Hardware, sensor, ISP, physical DMA, product-app, and internal HAL validation is not established. Automatic checks do not confer human approval. Human review is pending. Final review and post-merge Pages proof will be recorded in the publication PR.
+
+Evidence is in publication/issue211-virtual/. Original publication/issue211 and publication/issue211-reader records are unchanged. The previous root README, run, and receipts are in the previous-release directory.
+
+- Korean: https://ttolsun.github.io/libcamera-sdd/official-cam-validation.html
+- English: https://ttolsun.github.io/libcamera-sdd/en/official-cam-validation.html

@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-10-30T16:34:59+00:00
+generated_at: 2026-10-30 16:34:59+00:00
 source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
 status: ok
 section: scenario-camera_stop
@@ -10,8 +10,165 @@ scenario_fingerprint: be0689d0fb82f80b71bdb283bc50badfdefb854a5d1d3df800bfa426c8
 evidence_fingerprint: f61fb6e08e122984fd34ca6a0d4eb1cd15a22a7b523af894522e0dd481947c08
 semantic_review: human-review-required
 agent: cli/claude/claude-haiku-5-5
-generated_design: {"schema": 1, "input_fingerprint": "f61fb6e08e122984fd34ca6a0d4eb1cd15a22a7b523af894522e0dd481947c08", "answers": {"stopping": [{"text": "`Camera::stop()`은 카메라의 캡처와 요청 처리를 즉시 멈추는 함수입니다. 문서에 따르면 대기 중인 모든 요청은 취소되고 오류 상태로 동기적으로 완료됩니다. 이 함수는 `camera_operation`에 정의된 어떤 카메라 상태에서도 호출될 수 있습니다. 다만 `stop()`은 카메라 상태에 영향을 주는 다른 함수와 호출자가 동기화해야 합니다.", "evidence": ["stop"], "covers": ["stopping"], "kind": "behavior", "quote": "\\brief Stop capture from camera\n *\n * This function stops capturing and processing requests immediately. All\n * pending requests are cancelled and complete synchronously in an error state.\n *\n * \\context This function may be called in any camera state as defined in \\ref\n * camera_operation, and shall be synchronized by the caller with other\n * functions that affect the camera state. If called when the camera isn't\n * running, it is a no-op.\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not running so can't be stopped\n */\nint Camera::stop()\n{\n\tPrivate *const d = _d();", "part_id": "answer"}, {"text": "`d->isRunning()`이 거짓이면 `stop()`은 아무 작업도 하지 않고 `return 0;`으로 바로 반환합니다. 코드 주석의 todo 항목은 `Running` 상태 밖에서 `stop()`을 호출할 때 이 단축 경로 대신 상태 기계 경로를 쓰도록 바꾸는 작업이 남아 있음을 나타냅니다. `isRunning()`이 참이면 `d->isAccessAllowed(Private::CameraRunning)`를 호출하고, 결과가 음수이면 `stop()`은 그 값을 그대로 반환합니다. `isAccessAllowed`는 `disconnected_`가 참이고 `allowDisconnected`가 거짓이면 `-ENODEV`를, 현재 상태가 요청한 상태와 다르면 `-EACCES`를 반환합니다.", "evidence": ["stop", "running", "access"], "covers": ["stopping"], "kind": "behavior", "quote": "/*\n\t * \\todo Make calling stop() when not in 'Running' part of the state\n\t * machine rather than take this shortcut\n\t */\n\tif (!d->isRunning())\n\t\treturn 0;", "part_id": "answer"}, {"text": "`isRunning()`과 접근 검사를 통과하면 `d->setState(Private::CameraStopping)`으로 상태를 `CameraStopping`으로 설정합니다. 이어서 `d->pipe_->invokeMethod(&PipelineHandler::stop, ConnectionTypeBlocking, this)`로 `PipelineHandler::stop`을 호출하고, `ASSERT(!d->pipe_->hasPendingRequests(this))`로 대기 요청이 없는지 검사합니다. `ASSERT`는 `log.h`를 포함하기 전에 `NDEBUG`가 정의되면 코드를 생성하지 않으며, 조건이 거짓이면 Fatal 로그를 남기고 프로그램 실행을 중단합니다. 검사가 끝나면 `d->setState(Private::CameraConfigured)`로 상태를 `CameraConfigured`로 설정하고 `return 0;`으로 정상 종료합니다.", "evidence": ["stop", "logging"], "covers": ["stopping"], "kind": "behavior", "quote": "ASSERT(!d->pipe_->hasPendingRequests(this));", "part_id": "answer"}], "cancellation": [{"text": "`PipelineHandler::stop`은 문서 주석상 `CameraManager` 스레드에서 호출됩니다. 이 함수는 `camera->_d()`의 `waitingRequests_`를 지역 변수 `waitingRequests`로 `swap`으로 옮긴 뒤 `stopDevice(camera)`를 호출합니다. 주석에 따르면 대기 요청을 먼저 옮기는 이유는 `stopDevice()` 안의 `completeRequest()` 호출로 요청이 다시 큐에 들어가지 않도록 하기 위함이고, 대기 요청은 장치를 멈춘 뒤에 취소해 순서를 유지합니다.", "evidence": ["pipeline-stop"], "covers": ["cancellation"], "kind": "behavior", "quote": "\\brief Stop capturing from all running streams and cancel pending requests\n * \\param[in] camera The camera to stop\n *\n * This function stops capturing and processing requests immediately. All\n * pending requests are cancelled and complete immediately in an error state.\n *\n * \\context This function is called from the CameraManager thread.\n */\nvoid PipelineHandler::stop(Camera *camera)\n{\n\t/*\n\t * Take all waiting requests so that they are not requeued in response\n\t * to completeRequest() being called inside stopDevice(). Cancel them\n\t * after the device to keep them in order.\n\t */\n\tCamera::Private *data = camera->_d();\n\tstd::queue<Request *> waitingRequests;\n\twaitingRequests.swap(data->waitingRequests_);", "part_id": "answer"}, {"text": "`stop`의 반복문은 `waitingRequests`에서 요청을 하나씩 꺼내 `Request::Private::cancel()`을 호출한 뒤 `doQueueRequest()`를 호출합니다. `cancel()`은 `doCancelRequest()`를 호출하고, 이 함수는 pending 버퍼마다 버퍼를 취소하고 `bufferCompleted` 신호를 내보낸 뒤 `cancelled_`를 `true`로 설정하고 `pending_`, `notifiers_`, `timer_`를 정리합니다. `doQueueRequest()`는 `camera->_d()`의 `queuedRequests_`에 요청을 넣고, `requestSequence_` 값을 요청의 `sequence_`에 부여한 뒤 카운터를 1 올립니다. `cancelled_`가 `true`이면 `queueRequestDevice()`를 호출하지 않고 `completeRequest()`를 호출한 뒤 반환하며, `cancelled_`가 `false`일 때만 `queueRequestDevice()`를 호출하고 반환값이 0이 아니면 `cancelRequest()`를 호출합니다.", "evidence": ["device", "cancel", "pipeline-stop"], "covers": ["cancellation"], "kind": "behavior", "quote": "if (request->_d()->cancelled_) {\n\t\tcompleteRequest(request);\n\t\treturn;\n\t}", "part_id": "answer"}, {"text": "주석에 따르면 `cancelRequest()` 대신 `doQueueRequest()`를 쓰는 이유는 요청에 sequence 번호를 부여하고 `queuedRequests_`에 임시로 넣어 `completeRequest()`에서 올바르게 완료되도록 하기 위함입니다. 반복문 뒤의 두 `ASSERT`는 주석에 따르면 대기 중인 요청이 없는지 `queuedRequests_`와 `waitingRequests_`로 확인하며, 마지막으로 `data->requestSequence_`를 `0`으로 초기화합니다.", "evidence": ["pipeline-stop"], "covers": ["cancellation"], "kind": "behavior", "quote": "/*\n\t\t * Cancel all requests by marking them as cancelled and calling\n\t\t * doQueueRequest() instead of cancelRequest(). This ensures\n\t\t * that the requests get a sequence number and are temporarily\n\t\t * added to queuedRequests_ so they can be properly completed in\n\t\t * completeRequest().\n\t\t */\n\t\trequest->_d()->cancel();\n\t\tdoQueueRequest(request);\n\t}", "part_id": "answer"}]}, "topic_inputs": {"stopping": "3457d04ab6ffdc9b11150b6c631de1161fbe8dd9adc8e67966e3957ae870fb5a", "cancellation": "d64d9d760d80b71f617927c326fae9bdc0020da4e2f0fb5d13a86cfb233c5c77"}, "reused_topics": [], "replayed_units": [], "generated_topics": ["stopping", "cancellation"], "topic_agents": {"stopping": "cli/claude/claude-haiku-5-5", "cancellation": "cli/claude/claude-haiku-5-5"}, "grounding_review": "passed", "grounding_policy": "3c9673abb403dee9aa554ee5b3c549ebfe95bb18ec0e9cd7bf6e495e060439c2", "validation_policy": {"manuscript": "e0c429a5c80a01c34563ce00a616df89d8f75c735f8669bcbd1f75d84cce82a6", "semantic": "571896e4854c21322a1ce4580107c235cae5a9f94e71adc8c97a7e2897405968", "duplicates": "281d217a1d4a212dd56cdb3ce61e9fae7a4622099962c1beee847a57866e83e0", "design_contracts": "9f54ecddce57c7a9caa6c02af77904b57eff2471f2a052951c1cffd18256a4f0", "validate": "78d29ffd1bf6235067edf5a0c7d9b1290f1f11e90599605a0e192e90be5f3372", "reader_profiles": "ad9005d08295212371f59e8934ace86786c0683f7a4c416301ee0e0cadc8b797", "contract_schema": "fecc4ee78a481139776e562c164c0da9a3e5edf0a64a72be1d1c8feddee3cd08", "answer_contracts": "1e0d24e0cf26ded53ecec2e5a6fbc51836bac6e17530318a9fa7cffaa936c00b", "reader_scope": "1b9c26b10b74ae8cf034f5863cbac2114e1d844e5d8332eb1f10562a18371782", "product_context": "9db4d42a710b4a71a7d2bb16f69db06926409281dc1a200c796e77d5deaa25a0", "design_response": "74ebb2d21768d6bdd4ef7611c1c539526a7e72e6a58604c82e8305003d24f8b7", "design_validation": "b8133c78a8eb42fd5194c2756bb649b396ec54b40c49b72544bdbbcaf3366c57"}, "validation_model": "bf7c671c2ded32908672c0f92d106c624236506d332c3e4befe65123ac580a96", "style_policy": {"fluent-korean.md": "ce5aa71e58371e3fc02ff8cb165e07c9234f5166f6541423a91cc4cb40878975", "i-have-adhd.md": "3170b16ace00aecb0dd7feb54c0b5aa642e7502acda06ecd24fd89a11c7127e9", "README.md": "f8fd5a3d8041c23fc68b93ff32b8727e98393383b5099032eb00ad0013e7611c"}, "checkpoint_units": [{"checkpoint": "b0e8d2fcb59f0901bec53e71f077860991afaaaf888a2fb1aae65e427b74cd3d.json", "topic": "cancellation", "part": "answer", "subpart": null, "revalidated": true, "new_grounding_review": false, "receipts": ["cf1a7569d0c640e2894bff6b88ab0472/010.receipt.json", "cf1a7569d0c640e2894bff6b88ab0472/011.receipt.json"]}], "body_sha256": "8d550ca7935d1ff3cb8e4d78825636706d8c81ae9e43e1e455f905cd8fa347fb"}
+generated_design:
+  schema: 1
+  input_fingerprint: f61fb6e08e122984fd34ca6a0d4eb1cd15a22a7b523af894522e0dd481947c08
+  answers:
+    stopping:
+    - text: '`Camera::stop()`은 카메라의 캡처와 요청 처리를 즉시 멈추는 함수입니다. 문서에 따르면 대기 중인 모든 요청은
+        취소되고 오류 상태로 동기적으로 완료됩니다. 이 함수는 `camera_operation`에 정의된 어떤 카메라 상태에서도 호출될 수
+        있습니다. 다만 `stop()`은 카메라 상태에 영향을 주는 다른 함수와 호출자가 동기화해야 합니다.'
+      evidence:
+      - stop
+      covers:
+      - stopping
+      kind: behavior
+      quote: "\\brief Stop capture from camera\n *\n * This function stops capturing\
+        \ and processing requests immediately. All\n * pending requests are cancelled\
+        \ and complete synchronously in an error state.\n *\n * \\context This function\
+        \ may be called in any camera state as defined in \\ref\n * camera_operation,\
+        \ and shall be synchronized by the caller with other\n * functions that affect\
+        \ the camera state. If called when the camera isn't\n * running, it is a no-op.\n\
+        \ *\n * \\return 0 on success or a negative error code otherwise\n * \\retval\
+        \ -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES\
+        \ The camera is not running so can't be stopped\n */\nint Camera::stop()\n\
+        {\n\tPrivate *const d = _d();"
+      part_id: answer
+    - text: '`d->isRunning()`이 거짓이면 `stop()`은 아무 작업도 하지 않고 `return 0;`으로 바로 반환합니다.
+        코드 주석의 todo 항목은 `Running` 상태 밖에서 `stop()`을 호출할 때 이 단축 경로 대신 상태 기계 경로를 쓰도록
+        바꾸는 작업이 남아 있음을 나타냅니다. `isRunning()`이 참이면 `d->isAccessAllowed(Private::CameraRunning)`를
+        호출하고, 결과가 음수이면 `stop()`은 그 값을 그대로 반환합니다. `isAccessAllowed`는 `disconnected_`가
+        참이고 `allowDisconnected`가 거짓이면 `-ENODEV`를, 현재 상태가 요청한 상태와 다르면 `-EACCES`를 반환합니다.'
+      evidence:
+      - stop
+      - running
+      - access
+      covers:
+      - stopping
+      kind: behavior
+      quote: "/*\n\t * \\todo Make calling stop() when not in 'Running' part of the\
+        \ state\n\t * machine rather than take this shortcut\n\t */\n\tif (!d->isRunning())\n\
+        \t\treturn 0;"
+      part_id: answer
+    - text: '`isRunning()`과 접근 검사를 통과하면 `d->setState(Private::CameraStopping)`으로 상태를
+        `CameraStopping`으로 설정합니다. 이어서 `d->pipe_->invokeMethod(&PipelineHandler::stop,
+        ConnectionTypeBlocking, this)`로 `PipelineHandler::stop`을 호출하고, `ASSERT(!d->pipe_->hasPendingRequests(this))`로
+        대기 요청이 없는지 검사합니다. `ASSERT`는 `log.h`를 포함하기 전에 `NDEBUG`가 정의되면 코드를 생성하지 않으며,
+        조건이 거짓이면 Fatal 로그를 남기고 프로그램 실행을 중단합니다. 검사가 끝나면 `d->setState(Private::CameraConfigured)`로
+        상태를 `CameraConfigured`로 설정하고 `return 0;`으로 정상 종료합니다.'
+      evidence:
+      - stop
+      - logging
+      covers:
+      - stopping
+      kind: behavior
+      quote: ASSERT(!d->pipe_->hasPendingRequests(this));
+      part_id: answer
+    cancellation:
+    - text: '`PipelineHandler::stop`은 문서 주석상 `CameraManager` 스레드에서 호출됩니다. 이 함수는 `camera->_d()`의
+        `waitingRequests_`를 지역 변수 `waitingRequests`로 `swap`으로 옮긴 뒤 `stopDevice(camera)`를
+        호출합니다. 주석에 따르면 대기 요청을 먼저 옮기는 이유는 `stopDevice()` 안의 `completeRequest()` 호출로
+        요청이 다시 큐에 들어가지 않도록 하기 위함이고, 대기 요청은 장치를 멈춘 뒤에 취소해 순서를 유지합니다.'
+      evidence:
+      - pipeline-stop
+      covers:
+      - cancellation
+      kind: behavior
+      quote: "\\brief Stop capturing from all running streams and cancel pending requests\n\
+        \ * \\param[in] camera The camera to stop\n *\n * This function stops capturing\
+        \ and processing requests immediately. All\n * pending requests are cancelled\
+        \ and complete immediately in an error state.\n *\n * \\context This function\
+        \ is called from the CameraManager thread.\n */\nvoid PipelineHandler::stop(Camera\
+        \ *camera)\n{\n\t/*\n\t * Take all waiting requests so that they are not requeued\
+        \ in response\n\t * to completeRequest() being called inside stopDevice().\
+        \ Cancel them\n\t * after the device to keep them in order.\n\t */\n\tCamera::Private\
+        \ *data = camera->_d();\n\tstd::queue<Request *> waitingRequests;\n\twaitingRequests.swap(data->waitingRequests_);"
+      part_id: answer
+    - text: '`stop`의 반복문은 `waitingRequests`에서 요청을 하나씩 꺼내 `Request::Private::cancel()`을
+        호출한 뒤 `doQueueRequest()`를 호출합니다. `cancel()`은 `doCancelRequest()`를 호출하고, 이
+        함수는 pending 버퍼마다 버퍼를 취소하고 `bufferCompleted` 신호를 내보낸 뒤 `cancelled_`를 `true`로
+        설정하고 `pending_`, `notifiers_`, `timer_`를 정리합니다. `doQueueRequest()`는 `camera->_d()`의
+        `queuedRequests_`에 요청을 넣고, `requestSequence_` 값을 요청의 `sequence_`에 부여한 뒤 카운터를
+        1 올립니다. `cancelled_`가 `true`이면 `queueRequestDevice()`를 호출하지 않고 `completeRequest()`를
+        호출한 뒤 반환하며, `cancelled_`가 `false`일 때만 `queueRequestDevice()`를 호출하고 반환값이 0이
+        아니면 `cancelRequest()`를 호출합니다.'
+      evidence:
+      - device
+      - cancel
+      - pipeline-stop
+      covers:
+      - cancellation
+      kind: behavior
+      quote: "if (request->_d()->cancelled_) {\n\t\tcompleteRequest(request);\n\t\t\
+        return;\n\t}"
+      part_id: answer
+    - text: 주석에 따르면 `cancelRequest()` 대신 `doQueueRequest()`를 쓰는 이유는 요청에 sequence 번호를
+        부여하고 `queuedRequests_`에 임시로 넣어 `completeRequest()`에서 올바르게 완료되도록 하기 위함입니다.
+        반복문 뒤의 두 `ASSERT`는 주석에 따르면 대기 중인 요청이 없는지 `queuedRequests_`와 `waitingRequests_`로
+        확인하며, 마지막으로 `data->requestSequence_`를 `0`으로 초기화합니다.
+      evidence:
+      - pipeline-stop
+      covers:
+      - cancellation
+      kind: behavior
+      quote: "/*\n\t\t * Cancel all requests by marking them as cancelled and calling\n\
+        \t\t * doQueueRequest() instead of cancelRequest(). This ensures\n\t\t * that\
+        \ the requests get a sequence number and are temporarily\n\t\t * added to\
+        \ queuedRequests_ so they can be properly completed in\n\t\t * completeRequest().\n\
+        \t\t */\n\t\trequest->_d()->cancel();\n\t\tdoQueueRequest(request);\n\t}"
+      part_id: answer
+  topic_inputs:
+    stopping: 3457d04ab6ffdc9b11150b6c631de1161fbe8dd9adc8e67966e3957ae870fb5a
+    cancellation: d64d9d760d80b71f617927c326fae9bdc0020da4e2f0fb5d13a86cfb233c5c77
+  reused_topics: []
+  replayed_units: []
+  generated_topics:
+  - stopping
+  - cancellation
+  topic_agents:
+    stopping: cli/claude/claude-haiku-5-5
+    cancellation: cli/claude/claude-haiku-5-5
+  grounding_review: passed
+  grounding_policy: 3c9673abb403dee9aa554ee5b3c549ebfe95bb18ec0e9cd7bf6e495e060439c2
+  validation_policy:
+    manuscript: e0c429a5c80a01c34563ce00a616df89d8f75c735f8669bcbd1f75d84cce82a6
+    semantic: 571896e4854c21322a1ce4580107c235cae5a9f94e71adc8c97a7e2897405968
+    duplicates: 281d217a1d4a212dd56cdb3ce61e9fae7a4622099962c1beee847a57866e83e0
+    design_contracts: 9f54ecddce57c7a9caa6c02af77904b57eff2471f2a052951c1cffd18256a4f0
+    validate: 78d29ffd1bf6235067edf5a0c7d9b1290f1f11e90599605a0e192e90be5f3372
+    reader_profiles: ad9005d08295212371f59e8934ace86786c0683f7a4c416301ee0e0cadc8b797
+    contract_schema: fecc4ee78a481139776e562c164c0da9a3e5edf0a64a72be1d1c8feddee3cd08
+    answer_contracts: 1e0d24e0cf26ded53ecec2e5a6fbc51836bac6e17530318a9fa7cffaa936c00b
+    reader_scope: 1b9c26b10b74ae8cf034f5863cbac2114e1d844e5d8332eb1f10562a18371782
+    product_context: 9db4d42a710b4a71a7d2bb16f69db06926409281dc1a200c796e77d5deaa25a0
+    design_response: 74ebb2d21768d6bdd4ef7611c1c539526a7e72e6a58604c82e8305003d24f8b7
+    design_validation: b8133c78a8eb42fd5194c2756bb649b396ec54b40c49b72544bdbbcaf3366c57
+  validation_model: bf7c671c2ded32908672c0f92d106c624236506d332c3e4befe65123ac580a96
+  style_policy:
+    fluent-korean.md: ce5aa71e58371e3fc02ff8cb165e07c9234f5166f6541423a91cc4cb40878975
+    i-have-adhd.md: 3170b16ace00aecb0dd7feb54c0b5aa642e7502acda06ecd24fd89a11c7127e9
+    README.md: f8fd5a3d8041c23fc68b93ff32b8727e98393383b5099032eb00ad0013e7611c
+  checkpoint_units:
+  - checkpoint: b0e8d2fcb59f0901bec53e71f077860991afaaaf888a2fb1aae65e427b74cd3d.json
+    topic: cancellation
+    part: answer
+    subpart: null
+    revalidated: true
+    new_grounding_review: false
+    receipts:
+    - cf1a7569d0c640e2894bff6b88ab0472/010.receipt.json
+    - cf1a7569d0c640e2894bff6b88ab0472/011.receipt.json
+  body_sha256: d3793b3c12c1b7e646620a4ccb4e5f0cbdc112b7d0ca4dd075d9e14264a41d98
 revalidated_from: 212c689fcf2450bbfbaab25c7472895ac277b5d6
+managed_format_refresh:
+- source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
+  previous_body_sha256: 8d550ca7935d1ff3cb8e4d78825636706d8c81ae9e43e1e455f905cd8fa347fb
+  body_sha256: d3793b3c12c1b7e646620a4ccb4e5f0cbdc112b7d0ca4dd075d9e14264a41d98
+  previous_overview_sha256: 6700a8223aee3b857ed62f567fccba2efdb54fff3a49fb4512547a0d49d0444a
+  overview_sha256: 13aff4a03354e679eafa31fbb1382831567022ee2edbc73a3924edc1b5d83dd3
+  change: Mermaid literal encoding only
+  new_inference: false
+  human_review: unchanged
 ---
 
 # 캡처 종료 요청
@@ -341,9 +498,9 @@ flowchart LR
   p0["Camera"]
   p1["PipelineHandler"]
   p2["Private"]
-  p0 -->|"setState()"| p2
-  p0 -.->|"stop() · 예약된 호출, 실행 순서는 정적으로 확인 불가"| p1
-  p0 -->|"hasPendingRequests()"| p1
+  p0 -->|"setState#40;#41;"| p2
+  p0 -.->|"stop#40;#41; · 예약된 호출, 실행 순서는 정적으로 확인 불가"| p1
+  p0 -->|"hasPendingRequests#40;#41;"| p1
 ```
 
 ## 추적 범위와 경계

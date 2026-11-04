@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-11-02T17:10:25+00:00
+generated_at: 2026-11-02 17:10:25+00:00
 source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
 status: ok
 section: scenario-queue_request
@@ -10,7 +10,190 @@ scenario_fingerprint: 1a24d5b555055d2168511b1cf3bb737eb47a69d159ab3ec336c65612fd
 evidence_fingerprint: 22a2f672b92c11ad15d7459e3aa242a854751f3cd5f98508ae2ead17da961613
 semantic_review: human-review-required
 agent: cli/claude/claude-haiku-5-5
-generated_design: {"schema": 1, "input_fingerprint": "22a2f672b92c11ad15d7459e3aa242a854751f3cd5f98508ae2ead17da961613", "answers": {"dispatch": [{"text": "`Camera::queueRequest()`는 `patchControlList(request->controls())`를 호출해 주석대로 `AeEnable`을 전처리한 뒤, `d->pipe_->invokeMethod()`에 `ConnectionTypeQueued`를 지정해 `PipelineHandler::queueRequest`에 `request`를 넘깁니다. 요청 검사 사이의 주석은 카메라 상태가 함수가 끝날 때까지 바뀔 수 있다고 적고 있으며, 잠금이 필요하지 않은 이유로 상태 변경을 `PipelineHandler::queueRequest()`가 처리한다고 설명합니다.", "evidence": ["queue"], "covers": ["dispatch"], "kind": "behavior", "quote": "/* Pre-process AeEnable. */\n\tpatchControlList(request->controls());\n\n\td->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t       ConnectionTypeQueued, request);\n\n\treturn 0;\n}", "part_id": "transfer"}, {"text": "주석에 따르면 이 함수는 `CameraManager` 스레드에서 호출됩니다. `PipelineHandler::queueRequest`는 `camera->_d()`의 `waitingRequests_`에 `request`를 넣은 뒤, `request->_d()->prepare(300ms)`를 호출해 준비를 시작합니다. 주석은 준비 단계에서 `Request`가 실패하거나 파이프라인 핸들러가 하드웨어 큐잉에 실패하면 요청이 취소된다고 적고 있습니다.", "evidence": ["prepare"], "covers": ["dispatch"], "kind": "behavior", "quote": "\\fn PipelineHandler::queueRequest()\n * \\brief Queue a request\n * \\param[in] request The request to queue\n *\n * This function queues a capture request to the pipeline handler for\n * processing. The request is first added to the internal list of waiting\n * requests which have to be prepared to make sure they are ready for being\n * queued to the pipeline handler.\n *\n * The queue of waiting requests is iterated and up to \\a\n * maxQueuedRequestsDevice_ prepared requests are passed to the pipeline handler\n * in the same order they have been queued by calling this function.\n *\n * If a Request fails during the preparation phase or if the pipeline handler\n * fails in queuing the request to the hardware the request is cancelled.\n *\n * Keeping track of queued requests ensures automatic completion of all requests\n * when the pipeline handler is stopped with stop(). Request completion shall be\n * signalled by the pipeline handler using the completeRequest() function.\n *\n * \\context This function is called from the CameraManager thread.\n */\nvoid PipelineHandler::queueRequest(Request *request)\n{\n\tLIBCAMERA_TRACEPOINT(request_queue, request);", "part_id": "transfer"}, {"text": "`doQueueRequests`는 `waitingRequests_`가 빌 때까지 반복합니다. `queuedRequests_`의 크기가 `maxQueuedRequestsDevice_`와 같으면 반복을 중단하고, 맨 앞 요청의 `prepared_`가 거짓이면 그 요청을 꺼내지 않고 중단합니다. 조건을 통과한 요청은 `pop()`으로 꺼낸 뒤 `doQueueRequest`에 넘기며, 주석에 따르면 먼저 꺼내는 이유는 `doQueueRequest()` 안에서 `doQueueRequests()`가 재귀 호출될 수 있기 때문입니다.", "evidence": ["waiting"], "covers": ["dispatch"], "kind": "behavior", "quote": "void PipelineHandler::doQueueRequests(Camera *camera)\n{\n\tCamera::Private *data = camera->_d();\n\twhile (!data->waitingRequests_.empty()) {\n\t\tif (data->queuedRequests_.size() == maxQueuedRequestsDevice_)\n\t\t\tbreak;", "part_id": "device"}, {"text": "`doQueueRequest`는 `camera->_d()`로 얻은 `Camera::Private` 데이터의 `queuedRequests_` 끝에 요청을 추가합니다. 이어서 요청의 `sequence_`에 현재 `requestSequence_` 값을 할당한 뒤 `requestSequence_`를 1 증가시킵니다. 요청의 `cancelled_`가 참이면 `completeRequest(request)`를 호출하고 바로 반환하여 `queueRequestDevice`를 호출하지 않습니다. 그렇지 않으면 `queueRequestDevice(camera, request)`를 호출하고, 반환값이 0이 아니면 `cancelRequest(request)`로 요청을 취소합니다.", "evidence": ["device"], "covers": ["dispatch"], "kind": "behavior", "quote": "int ret = queueRequestDevice(camera, request);\n\tif (ret)\n\t\tcancelRequest(request);\n}", "part_id": "device"}], "acceptance": [{"text": "`Camera::queueRequest()`는 thread-safe로 표시된 함수이며, 캡처용 요청을 접수하기 전에 `d->isAccessAllowed(Private::CameraRunning)`을 호출해 카메라가 Running 상태인지 확인합니다. `isAccessAllowed()`는 `allowDisconnected`가 거짓이고 `disconnected_`가 참이면 상태를 비교하기 전에 `-ENODEV`를 먼저 반환합니다. 연결 검사를 통과한 뒤 현재 상태가 요구 상태와 다르면 `-EACCES`를 반환하며, `queueRequest()`는 이 값을 그대로 돌려줍니다. 두 조건이 겹치면 연결 끊김을 뜻하는 `-ENODEV`가 `-EACCES`보다 우선하며, 호출하는 쪽은 카메라가 Running 상태일 때만 `queueRequest()`를 호출해야 합니다.", "evidence": ["queue", "access"], "covers": ["acceptance"], "kind": "behavior", "quote": "int ret = d->isAccessAllowed(Private::CameraRunning);\n\tif (ret < 0)\n\t\treturn ret;", "part_id": "answer"}, {"text": "`request->_d()->camera()`가 `this`와 다르면 `-EXDEV`를 반환하고 파이프라인 호출로 넘어가지 않습니다. 이 검사 뒤에는 `request->status()`가 `Request::RequestPending`이 아니거나 `request->controls().infoMap()`이 `&controls()`와 다르면 `-EINVAL`을 반환합니다. 또한 `request->buffers()`가 비어 있거나 그 안의 stream 중 하나라도 `d->activeStreams_`에 없으면 `-EINVAL`을 반환합니다.", "evidence": ["queue"], "covers": ["acceptance"], "kind": "behavior", "quote": "/* Requests can only be queued to the camera that created them. */\n\tif (request->_d()->camera() != this) {\n\t\tLOG(Camera, Error) << \"Request was not created by this camera\";\n\t\treturn -EXDEV;\n\t}", "part_id": "answer"}, {"text": "모든 검사를 통과하면 `Camera::queueRequest()`는 `pipe_->invokeMethod(&PipelineHandler::queueRequest, ConnectionTypeQueued, request)`를 호출한 뒤 `0`을 반환합니다. 따라서 반환값 `0`은 요청이 파이프라인 쪽으로 넘겨졌다는 뜻이며, 요청 완료를 뜻하지는 않습니다. 요청이 큐에 들어간 뒤 카메라는 `requestCompleted` 신호로 완료를 알립니다.", "evidence": ["queue"], "covers": ["acceptance"], "kind": "behavior", "quote": "d->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t       ConnectionTypeQueued, request);", "part_id": "answer"}]}, "topic_inputs": {"acceptance": "f024225d1442c701f82cc662096ff04eac98dcf61650cc1c5b6f0e0e8d27000a", "dispatch": "d3e240c0086aa01196469d32dd70591db3adaad828865346071546e95e028361"}, "reused_topics": ["dispatch"], "replayed_units": [], "generated_topics": ["acceptance"], "topic_agents": {"acceptance": "cli/claude/claude-haiku-5-5", "dispatch": "cli/claude/claude-haiku-5-5"}, "grounding_review": "passed", "grounding_policy": "3c9673abb403dee9aa554ee5b3c549ebfe95bb18ec0e9cd7bf6e495e060439c2", "validation_policy": {"manuscript": "e0c429a5c80a01c34563ce00a616df89d8f75c735f8669bcbd1f75d84cce82a6", "semantic": "571896e4854c21322a1ce4580107c235cae5a9f94e71adc8c97a7e2897405968", "duplicates": "281d217a1d4a212dd56cdb3ce61e9fae7a4622099962c1beee847a57866e83e0", "design_contracts": "9f54ecddce57c7a9caa6c02af77904b57eff2471f2a052951c1cffd18256a4f0", "validate": "78d29ffd1bf6235067edf5a0c7d9b1290f1f11e90599605a0e192e90be5f3372", "reader_profiles": "ad9005d08295212371f59e8934ace86786c0683f7a4c416301ee0e0cadc8b797", "contract_schema": "fecc4ee78a481139776e562c164c0da9a3e5edf0a64a72be1d1c8feddee3cd08", "answer_contracts": "1e0d24e0cf26ded53ecec2e5a6fbc51836bac6e17530318a9fa7cffaa936c00b", "reader_scope": "1b9c26b10b74ae8cf034f5863cbac2114e1d844e5d8332eb1f10562a18371782", "product_context": "9db4d42a710b4a71a7d2bb16f69db06926409281dc1a200c796e77d5deaa25a0", "design_response": "74ebb2d21768d6bdd4ef7611c1c539526a7e72e6a58604c82e8305003d24f8b7", "design_validation": "b8133c78a8eb42fd5194c2756bb649b396ec54b40c49b72544bdbbcaf3366c57"}, "validation_model": "bf7c671c2ded32908672c0f92d106c624236506d332c3e4befe65123ac580a96", "style_policy": {"fluent-korean.md": "ce5aa71e58371e3fc02ff8cb165e07c9234f5166f6541423a91cc4cb40878975", "i-have-adhd.md": "3170b16ace00aecb0dd7feb54c0b5aa642e7502acda06ecd24fd89a11c7127e9", "README.md": "f8fd5a3d8041c23fc68b93ff32b8727e98393383b5099032eb00ad0013e7611c"}, "checkpoint_units": [{"checkpoint": "ab0fe66e02aae39e77539f55e3d007d443d873e69d9d4582cd481705f3b8191e.json", "topic": "acceptance", "part": "answer", "subpart": null, "revalidated": false, "new_grounding_review": false, "receipts": ["cf1a7569d0c640e2894bff6b88ab0472/001.receipt.json", "cf1a7569d0c640e2894bff6b88ab0472/002.receipt.json", "cf1a7569d0c640e2894bff6b88ab0472/003.receipt.json"]}, {"checkpoint": "5e5e9296e74005eb45a5314e562735e136cf85a970df224ceef37fb1d14e7b06.json", "topic": "dispatch", "part": "device", "subpart": null, "revalidated": true, "new_grounding_review": false, "receipts": ["10ec20f1b60c4df883d5ba943e927c09/019.receipt.json", "10ec20f1b60c4df883d5ba943e927c09/020.receipt.json"]}], "body_sha256": "ba35652ebff85ad98c688917d181d9547e4854597e98c7372aaef5b7fee39de2", "followup_generation": {"selected_unit": "acceptance/answer", "native_checkpoint": {"checkpoint": "5e07b6b54d81fbc061d20b1423b7198169cacc84f20d5c5206f4eaf8b9ce8ba7.json", "receipts": ["a8cee8980a8344e99bb9ded81d5221da/001.receipt.json", "a8cee8980a8344e99bb9ded81d5221da/002.receipt.json"], "reassembly_new_calls": 0}, "current_grounding_policy": "3c9673abb403dee9aa554ee5b3c549ebfe95bb18ec0e9cd7bf6e495e060439c2", "historical_dispatch": "Original topic_inputs, agent and grounding_policy retained; source/contract revalidated, not new generation or human approval."}}
+generated_design:
+  schema: 1
+  input_fingerprint: 22a2f672b92c11ad15d7459e3aa242a854751f3cd5f98508ae2ead17da961613
+  answers:
+    dispatch:
+    - text: '`Camera::queueRequest()`는 `patchControlList(request->controls())`를 호출해
+        주석대로 `AeEnable`을 전처리한 뒤, `d->pipe_->invokeMethod()`에 `ConnectionTypeQueued`를
+        지정해 `PipelineHandler::queueRequest`에 `request`를 넘깁니다. 요청 검사 사이의 주석은 카메라 상태가
+        함수가 끝날 때까지 바뀔 수 있다고 적고 있으며, 잠금이 필요하지 않은 이유로 상태 변경을 `PipelineHandler::queueRequest()`가
+        처리한다고 설명합니다.'
+      evidence:
+      - queue
+      covers:
+      - dispatch
+      kind: behavior
+      quote: "/* Pre-process AeEnable. */\n\tpatchControlList(request->controls());\n\
+        \n\td->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t       ConnectionTypeQueued,\
+        \ request);\n\n\treturn 0;\n}"
+      part_id: transfer
+    - text: 주석에 따르면 이 함수는 `CameraManager` 스레드에서 호출됩니다. `PipelineHandler::queueRequest`는
+        `camera->_d()`의 `waitingRequests_`에 `request`를 넣은 뒤, `request->_d()->prepare(300ms)`를
+        호출해 준비를 시작합니다. 주석은 준비 단계에서 `Request`가 실패하거나 파이프라인 핸들러가 하드웨어 큐잉에 실패하면 요청이 취소된다고
+        적고 있습니다.
+      evidence:
+      - prepare
+      covers:
+      - dispatch
+      kind: behavior
+      quote: "\\fn PipelineHandler::queueRequest()\n * \\brief Queue a request\n *\
+        \ \\param[in] request The request to queue\n *\n * This function queues a\
+        \ capture request to the pipeline handler for\n * processing. The request\
+        \ is first added to the internal list of waiting\n * requests which have to\
+        \ be prepared to make sure they are ready for being\n * queued to the pipeline\
+        \ handler.\n *\n * The queue of waiting requests is iterated and up to \\\
+        a\n * maxQueuedRequestsDevice_ prepared requests are passed to the pipeline\
+        \ handler\n * in the same order they have been queued by calling this function.\n\
+        \ *\n * If a Request fails during the preparation phase or if the pipeline\
+        \ handler\n * fails in queuing the request to the hardware the request is\
+        \ cancelled.\n *\n * Keeping track of queued requests ensures automatic completion\
+        \ of all requests\n * when the pipeline handler is stopped with stop(). Request\
+        \ completion shall be\n * signalled by the pipeline handler using the completeRequest()\
+        \ function.\n *\n * \\context This function is called from the CameraManager\
+        \ thread.\n */\nvoid PipelineHandler::queueRequest(Request *request)\n{\n\t\
+        LIBCAMERA_TRACEPOINT(request_queue, request);"
+      part_id: transfer
+    - text: '`doQueueRequests`는 `waitingRequests_`가 빌 때까지 반복합니다. `queuedRequests_`의
+        크기가 `maxQueuedRequestsDevice_`와 같으면 반복을 중단하고, 맨 앞 요청의 `prepared_`가 거짓이면 그
+        요청을 꺼내지 않고 중단합니다. 조건을 통과한 요청은 `pop()`으로 꺼낸 뒤 `doQueueRequest`에 넘기며, 주석에 따르면
+        먼저 꺼내는 이유는 `doQueueRequest()` 안에서 `doQueueRequests()`가 재귀 호출될 수 있기 때문입니다.'
+      evidence:
+      - waiting
+      covers:
+      - dispatch
+      kind: behavior
+      quote: "void PipelineHandler::doQueueRequests(Camera *camera)\n{\n\tCamera::Private\
+        \ *data = camera->_d();\n\twhile (!data->waitingRequests_.empty()) {\n\t\t\
+        if (data->queuedRequests_.size() == maxQueuedRequestsDevice_)\n\t\t\tbreak;"
+      part_id: device
+    - text: '`doQueueRequest`는 `camera->_d()`로 얻은 `Camera::Private` 데이터의 `queuedRequests_`
+        끝에 요청을 추가합니다. 이어서 요청의 `sequence_`에 현재 `requestSequence_` 값을 할당한 뒤 `requestSequence_`를
+        1 증가시킵니다. 요청의 `cancelled_`가 참이면 `completeRequest(request)`를 호출하고 바로 반환하여 `queueRequestDevice`를
+        호출하지 않습니다. 그렇지 않으면 `queueRequestDevice(camera, request)`를 호출하고, 반환값이 0이 아니면
+        `cancelRequest(request)`로 요청을 취소합니다.'
+      evidence:
+      - device
+      covers:
+      - dispatch
+      kind: behavior
+      quote: "int ret = queueRequestDevice(camera, request);\n\tif (ret)\n\t\tcancelRequest(request);\n\
+        }"
+      part_id: device
+    acceptance:
+    - text: '`Camera::queueRequest()`는 thread-safe로 표시된 함수이며, 캡처용 요청을 접수하기 전에 `d->isAccessAllowed(Private::CameraRunning)`을
+        호출해 카메라가 Running 상태인지 확인합니다. `isAccessAllowed()`는 `allowDisconnected`가 거짓이고
+        `disconnected_`가 참이면 상태를 비교하기 전에 `-ENODEV`를 먼저 반환합니다. 연결 검사를 통과한 뒤 현재 상태가
+        요구 상태와 다르면 `-EACCES`를 반환하며, `queueRequest()`는 이 값을 그대로 돌려줍니다. 두 조건이 겹치면 연결
+        끊김을 뜻하는 `-ENODEV`가 `-EACCES`보다 우선하며, 호출하는 쪽은 카메라가 Running 상태일 때만 `queueRequest()`를
+        호출해야 합니다.'
+      evidence:
+      - queue
+      - access
+      covers:
+      - acceptance
+      kind: behavior
+      quote: "int ret = d->isAccessAllowed(Private::CameraRunning);\n\tif (ret < 0)\n\
+        \t\treturn ret;"
+      part_id: answer
+    - text: '`request->_d()->camera()`가 `this`와 다르면 `-EXDEV`를 반환하고 파이프라인 호출로 넘어가지
+        않습니다. 이 검사 뒤에는 `request->status()`가 `Request::RequestPending`이 아니거나 `request->controls().infoMap()`이
+        `&controls()`와 다르면 `-EINVAL`을 반환합니다. 또한 `request->buffers()`가 비어 있거나 그 안의
+        stream 중 하나라도 `d->activeStreams_`에 없으면 `-EINVAL`을 반환합니다.'
+      evidence:
+      - queue
+      covers:
+      - acceptance
+      kind: behavior
+      quote: "/* Requests can only be queued to the camera that created them. */\n\
+        \tif (request->_d()->camera() != this) {\n\t\tLOG(Camera, Error) << \"Request\
+        \ was not created by this camera\";\n\t\treturn -EXDEV;\n\t}"
+      part_id: answer
+    - text: 모든 검사를 통과하면 `Camera::queueRequest()`는 `pipe_->invokeMethod(&PipelineHandler::queueRequest,
+        ConnectionTypeQueued, request)`를 호출한 뒤 `0`을 반환합니다. 따라서 반환값 `0`은 요청이 파이프라인
+        쪽으로 넘겨졌다는 뜻이며, 요청 완료를 뜻하지는 않습니다. 요청이 큐에 들어간 뒤 카메라는 `requestCompleted` 신호로
+        완료를 알립니다.
+      evidence:
+      - queue
+      covers:
+      - acceptance
+      kind: behavior
+      quote: "d->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t     \
+        \  ConnectionTypeQueued, request);"
+      part_id: answer
+  topic_inputs:
+    acceptance: f024225d1442c701f82cc662096ff04eac98dcf61650cc1c5b6f0e0e8d27000a
+    dispatch: d3e240c0086aa01196469d32dd70591db3adaad828865346071546e95e028361
+  reused_topics:
+  - dispatch
+  replayed_units: []
+  generated_topics:
+  - acceptance
+  topic_agents:
+    acceptance: cli/claude/claude-haiku-5-5
+    dispatch: cli/claude/claude-haiku-5-5
+  grounding_review: passed
+  grounding_policy: 3c9673abb403dee9aa554ee5b3c549ebfe95bb18ec0e9cd7bf6e495e060439c2
+  validation_policy:
+    manuscript: e0c429a5c80a01c34563ce00a616df89d8f75c735f8669bcbd1f75d84cce82a6
+    semantic: 571896e4854c21322a1ce4580107c235cae5a9f94e71adc8c97a7e2897405968
+    duplicates: 281d217a1d4a212dd56cdb3ce61e9fae7a4622099962c1beee847a57866e83e0
+    design_contracts: 9f54ecddce57c7a9caa6c02af77904b57eff2471f2a052951c1cffd18256a4f0
+    validate: 78d29ffd1bf6235067edf5a0c7d9b1290f1f11e90599605a0e192e90be5f3372
+    reader_profiles: ad9005d08295212371f59e8934ace86786c0683f7a4c416301ee0e0cadc8b797
+    contract_schema: fecc4ee78a481139776e562c164c0da9a3e5edf0a64a72be1d1c8feddee3cd08
+    answer_contracts: 1e0d24e0cf26ded53ecec2e5a6fbc51836bac6e17530318a9fa7cffaa936c00b
+    reader_scope: 1b9c26b10b74ae8cf034f5863cbac2114e1d844e5d8332eb1f10562a18371782
+    product_context: 9db4d42a710b4a71a7d2bb16f69db06926409281dc1a200c796e77d5deaa25a0
+    design_response: 74ebb2d21768d6bdd4ef7611c1c539526a7e72e6a58604c82e8305003d24f8b7
+    design_validation: b8133c78a8eb42fd5194c2756bb649b396ec54b40c49b72544bdbbcaf3366c57
+  validation_model: bf7c671c2ded32908672c0f92d106c624236506d332c3e4befe65123ac580a96
+  style_policy:
+    fluent-korean.md: ce5aa71e58371e3fc02ff8cb165e07c9234f5166f6541423a91cc4cb40878975
+    i-have-adhd.md: 3170b16ace00aecb0dd7feb54c0b5aa642e7502acda06ecd24fd89a11c7127e9
+    README.md: f8fd5a3d8041c23fc68b93ff32b8727e98393383b5099032eb00ad0013e7611c
+  checkpoint_units:
+  - checkpoint: ab0fe66e02aae39e77539f55e3d007d443d873e69d9d4582cd481705f3b8191e.json
+    topic: acceptance
+    part: answer
+    subpart: null
+    revalidated: false
+    new_grounding_review: false
+    receipts:
+    - cf1a7569d0c640e2894bff6b88ab0472/001.receipt.json
+    - cf1a7569d0c640e2894bff6b88ab0472/002.receipt.json
+    - cf1a7569d0c640e2894bff6b88ab0472/003.receipt.json
+  - checkpoint: 5e5e9296e74005eb45a5314e562735e136cf85a970df224ceef37fb1d14e7b06.json
+    topic: dispatch
+    part: device
+    subpart: null
+    revalidated: true
+    new_grounding_review: false
+    receipts:
+    - 10ec20f1b60c4df883d5ba943e927c09/019.receipt.json
+    - 10ec20f1b60c4df883d5ba943e927c09/020.receipt.json
+  body_sha256: 62d0eaa510d76a7365b4675795de2fbd0dbaf1c26524076bbd290ef1273c9b12
+  followup_generation:
+    selected_unit: acceptance/answer
+    native_checkpoint:
+      checkpoint: 5e07b6b54d81fbc061d20b1423b7198169cacc84f20d5c5206f4eaf8b9ce8ba7.json
+      receipts:
+      - a8cee8980a8344e99bb9ded81d5221da/001.receipt.json
+      - a8cee8980a8344e99bb9ded81d5221da/002.receipt.json
+      reassembly_new_calls: 0
+    current_grounding_policy: 3c9673abb403dee9aa554ee5b3c549ebfe95bb18ec0e9cd7bf6e495e060439c2
+    historical_dispatch: Original topic_inputs, agent and grounding_policy retained;
+      source/contract revalidated, not new generation or human approval.
+managed_format_refresh:
+- source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
+  previous_body_sha256: ba35652ebff85ad98c688917d181d9547e4854597e98c7372aaef5b7fee39de2
+  body_sha256: 62d0eaa510d76a7365b4675795de2fbd0dbaf1c26524076bbd290ef1273c9b12
+  previous_overview_sha256: c7ae40b1649db7c9b9fd57a074842f04dac24c00a614022e74dc898240b901d6
+  overview_sha256: c104f156a7b917cf3e9ea0ac72acaa20f5dcc836e5eac8af0848f59cd94ffc88
+  change: Mermaid literal encoding only
+  new_inference: false
+  human_review: unchanged
 ---
 
 # 요청 제출
@@ -302,8 +485,8 @@ flowchart LR
   p0["Camera"]
   p1["PipelineHandler"]
   p2["Request"]
-  p0 -->|"status()"| p2
-  p0 -.->|"queueRequest() · 예약된 호출, 실행 순서는 정적으로 확인 불가"| p1
+  p0 -->|"status#40;#41;"| p2
+  p0 -.->|"queueRequest#40;#41; · 예약된 호출, 실행 순서는 정적으로 확인 불가"| p1
 ```
 
 ## 추적 범위와 경계
