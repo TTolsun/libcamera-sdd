@@ -1,12 +1,12 @@
 ---
 generated_at: 2026-10-30T17:20:44+00:00
-source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
+source_commit: be7e83e91348250c015aad6d6f59f1468555bae8
 status: ok
 section: scenarios
 generation_method: deterministic
 scenario_index_fingerprint: 911dedbcdc3ecbb5a97dbb746a1cda781743a19d9b1587295b92fbe8bff9d29f
 scenario_index_body_sha256: 5f5a05fccd457f0094c17b57e4d73a5afc1ee0c714d0d87c37c0d43ef52d551e
-revalidated_from: 212c689fcf2450bbfbaab25c7472895ac277b5d6
+revalidated_from: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
 ---
 
 # 핵심 시나리오

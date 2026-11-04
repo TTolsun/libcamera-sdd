@@ -1,6 +1,6 @@
 ---
 generated_at: 2026-10-30 16:34:59+00:00
-source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
+source_commit: be7e83e91348250c015aad6d6f59f1468555bae8
 status: ok
 section: scenario-camera_stop
 generation_method: facts-and-llm
@@ -159,7 +159,6 @@ generated_design:
     - cf1a7569d0c640e2894bff6b88ab0472/010.receipt.json
     - cf1a7569d0c640e2894bff6b88ab0472/011.receipt.json
   body_sha256: d3793b3c12c1b7e646620a4ccb4e5f0cbdc112b7d0ca4dd075d9e14264a41d98
-revalidated_from: 212c689fcf2450bbfbaab25c7472895ac277b5d6
 managed_format_refresh:
 - source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
   previous_body_sha256: 8d550ca7935d1ff3cb8e4d78825636706d8c81ae9e43e1e455f905cd8fa347fb
@@ -169,6 +168,7 @@ managed_format_refresh:
   change: Mermaid literal encoding only
   new_inference: false
   human_review: unchanged
+revalidated_from: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
 ---
 
 # 캡처 종료 요청

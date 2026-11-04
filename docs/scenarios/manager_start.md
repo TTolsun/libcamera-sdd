@@ -1,6 +1,6 @@
 ---
 generated_at: 2026-10-30 17:13:30+00:00
-source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
+source_commit: be7e83e91348250c015aad6d6f59f1468555bae8
 status: ok
 section: scenario-manager_start
 generation_method: facts-and-llm
@@ -124,7 +124,6 @@ generated_design:
     - 10ec20f1b60c4df883d5ba943e927c09/003.receipt.json
     - 10ec20f1b60c4df883d5ba943e927c09/004.receipt.json
   body_sha256: aae8238214954fc152cea15bd638ab980a9535f6c3cafe43aec99823226d15ac
-revalidated_from: 212c689fcf2450bbfbaab25c7472895ac277b5d6
 managed_format_refresh:
 - source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
   previous_body_sha256: fa478acdc749baddf2793c52787c87d8636b8b5595260920c2c7c455d522122a
@@ -134,6 +133,7 @@ managed_format_refresh:
   change: Mermaid literal encoding only
   new_inference: false
   human_review: unchanged
+revalidated_from: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
 ---
 
 # 카메라 탐색

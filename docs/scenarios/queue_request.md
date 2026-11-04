@@ -1,6 +1,6 @@
 ---
 generated_at: 2026-11-02 17:10:25+00:00
-source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
+source_commit: be7e83e91348250c015aad6d6f59f1468555bae8
 status: ok
 section: scenario-queue_request
 generation_method: facts-and-llm
@@ -194,6 +194,7 @@ managed_format_refresh:
   change: Mermaid literal encoding only
   new_inference: false
   human_review: unchanged
+revalidated_from: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
 ---
 
 # 요청 제출
