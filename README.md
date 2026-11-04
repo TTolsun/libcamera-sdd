@@ -11,3 +11,4 @@ Analysis and original trial:293d751a814e0d4c34e85ad457ccd9d5eefd1a61. Official u
 
 - [Request submission diagnosis evidence](publication/submission-diagnosis/README.md)
 - [Issue242: receipt-linked reuse decisions, native CLI sample and publication verification](publication/issue242/README.md)
+- [Issue243: causal repair, native evidence and publication checkpoint](publication/issue243/README.md)
