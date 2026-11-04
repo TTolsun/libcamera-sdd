@@ -1,6 +1,8 @@
 # #243 반복 지적의 원인과 실제 보정 증거
 
-현재 상태는 **생성기 병합·소스 대조·정적 빌드 완료, 화면 검증·공개 배포 미완료**입니다. [생성기 PR #258](https://github.com/TTolsun/camera-hal-sdd-generator/pull/258)은 `41c4ba2a9d85b8566c13605b902e2147b6bca8df`로 병합됐습니다. [원래 이슈 #243](https://github.com/TTolsun/camera-hal-sdd-generator/issues/243)은 모든 완료 조건을 충족한 뒤 닫습니다.
+현재 상태는 **생성기·공개 SDD 병합, Pages 배포·공개 330개 산출물 대조·한영 화면 검증 완료**입니다. [생성기 PR #258](https://github.com/TTolsun/camera-hal-sdd-generator/pull/258)은 `41c4ba2`로, [공개 SDD PR #85](https://github.com/TTolsun/libcamera-sdd/pull/85)는 `0f8e6e4`로 병합됐습니다. [Pages 실행](https://github.com/TTolsun/libcamera-sdd/actions/runs/41908523413)의 세 job이 성공했습니다. [공개 한국어](https://ttolsun.github.io/libcamera-sdd/vendor-assurance.html)·[영어 페이지](https://ttolsun.github.io/libcamera-sdd/en/vendor-assurance.html)를 확인했습니다. 최종 범위·완료 조건·한계는 [final-publication.json](final-publication.json), 실제 UI 관측과 화면은 [browser-final](browser-final/verification.json)에 있습니다.
+
+`selected-page-validation.json`, `package.json` 및 archive는 당시 화면·배포 미완료 체크포인트 그대로 보존합니다. 이 최종 기록은 이후 완료한 화면·배포 상태를 추가하며 원본 실패·근거 부족 판정·사람 검토 상태를 변경하지 않습니다. [원래 이슈 #243](https://github.com/TTolsun/camera-hal-sdd-generator/issues/243)의 최종 대조 기록에서 닫힘 여부를 확인합니다.
 
 ## 반복 원인과 확인한 효과
 
@@ -41,7 +43,7 @@
 - 정상 export 두 번의 manifest와 330개 소유 산출물이 같고, 62페이지·끊어진 내부 링크 0개·manifest 검사를 통과했습니다. HTML을 직접 수정하지 않았습니다.
 - 분석 기준은 공개 libcamera `293d751a814e0d4c34e85ad457ccd9d5eefd1a61`입니다. 공식 upstream과 공개 mirror는 `be7e83e91348250c015aad6d6f59f1468555bae8`로 일치합니다. 이후 변경 세 파일은 기존 42개 소스 근거 파일과 겹치지 않으며 새 전체 추출·장치 실행·사내 검증을 뜻하지 않습니다.
 - 기존 공통 계약의 자동 `insufficient-evidence` 두 건과 사람 검토 전 상태는 보존합니다. #215 전체 그림 보완과 #163 전체 독자 평가는 이 작업의 완료로 간주하지 않습니다.
-- 이번 턴에는 Windows의 현재 URL을 검증하지 못해 Computer Use가 종료됐습니다. 새 산출물의 데스크톱·모바일·확대 동작, Pages와 공개 산출물 대조는 미완료이며 다른 UI 제어로 우회하지 않았습니다.
+- 이전 턴의 Windows URL 확인 중단과 이번 로컬 주소 시간 초과는 실패 기록으로 남습니다. 이후 같은 Computer Use의 공개 IAB에서 데스크톱·390×844 반응형 화면의 한영 Mermaid 렌더링, 요소 검색, 가로 이동, 명시적 화면 맞춤, Escape·초점·원래 SVG 스타일 복귀, 영어 문서 검색을 확인했습니다. 물리 휴대전화·터치 시험으로 표시하지 않습니다.
 
 생성기 [최종 CI](https://github.com/TTolsun/camera-hal-sdd-generator/actions/runs/41899270217)는 Linux 3.11·3.14 각각 2,720개 통과, Windows 3.11·3.14 각각 2,719개 통과·1개 생략입니다. 병합 트리의 `src/sdd` 및 #243 시험은 검증한 헤드와 같고, 동시 병합된 평가 도구의 7개 시험도 로컬에서 통과했습니다. 실패했던 이전 CI와 중단한 중복 로컬 전체 실행은 성공으로 세지 않습니다.
 
@@ -52,3 +54,9 @@
 `facts293.json.gz`, archive의 `operation/config`·집필 규칙·프로필·카탈로그와 새 원고는 실제 입력 스냅샷입니다. 원래 경로·모델·인자를 보존했으므로 다른 환경에서는 입력 설정의 경로만 명시적으로 재배치해야 합니다. 과거 원본은 [#211 통합 archive](../issue211-virtual/integration), [#242 복원 기록](../issue242/README.md), [기존 반환 진단 입력](../submission-diagnosis/README.md)을 참조합니다. CLI 영수증·과거 프로필을 현재 값으로 다시 쓰지 마세요. 기본 생성·번역과 별도 검토는 모두 Codex CLI / `gpt-6.1-terra` / high였고, 역사적 Claude 등의 프로필은 원고 인증에만 사용했습니다.
 
 검토·실행 전후와 미완료 상태는 표·원본 기록으로 직접 비교할 수 있으므로 이 증거 설명의 별도 그림은 생략합니다.
+
+## 최종 공개 확인
+
+정상 export 두 번과 실제 공개 산출물 330개는 build `9d1838449623639b698d377feea05bc79198c1a0a1b586e9c28584450cb6dbf7`, manifest SHA-256 `b5c79015178dd13587efd6db2c22130854731bea1b830d33adbf3e2feea9ec6a`로 일치합니다. 원격 전체 대조는 99.3824초였습니다. 생성기는 검증한 `41c4ba2`에서 실행했으며 이후 main의 #241 선택적 작업 계약·#261 갱신·#248 선택적 독자 질문 변경도 읽고 적용 경계를 확인했습니다. 완료한 입력과 판정을 새 main 실행으로 바꾸지 않습니다. 이 최종 증거 추가에는 생성·번역·사이트 재빌드가 없고 `docs/` 바이트가 그대로이므로 별도 빈 배포 커밋을 만들지 않습니다.
+
+![공개 역할별 반환 계약 — 명시적 화면 맞춤](browser-final/ko-desktop-overview.jpg)
