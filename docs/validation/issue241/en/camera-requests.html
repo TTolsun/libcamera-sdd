@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>addBuffer publication contract verification sample · libcamera publication contract verification sample</title><link rel="stylesheet" href="../assets/reading.css?v=f85b002ed1"><link rel="alternate" hreflang="ko" href="../camera-requests.html"><link rel="alternate" hreflang="en" href="camera-requests.html"></head>
+<body><a class="skip" href="#main">Skip to content</a>
+<header class="site-header"><a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">◉</span> libcamera publication contract verification sample</a>
+<div class="header-actions"><details class="language-selector"><summary aria-label="Choose language">English ▾</summary><nav><a lang="ko" hreflang="ko" href="../camera-requests.html">한국어</a><a lang="en" hreflang="en" href="camera-requests.html" aria-current="true">English</a></nav></details><button id="search-open" hidden>Find documents <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button></div></header>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Document menu"><details class="nav-group" data-nav-id="group-eb5fc4597bcab08dd609eb65" open><summary>Getting started</summary><a href="index.html">Document guide</a></details><details class="nav-group" data-nav-id="group-8c6df661e792ad45c78bb2ef" open><summary>For Developer</summary><details class="nav-section" data-nav-id="task-99be7fb5d49c7ce6147f371a"><summary>Understanding the structure</summary><a href="camera-requests.html" aria-current="page">addBuffer publication contract verification sample</a></details></details></nav><p class="sidebar-note">Extract the structure from the code and<br>review it together with the evidence.</p></aside>
+<main id="main"><p class="breadcrumb">For Developer <span>/</span> addBuffer publication contract verification sample</p><h1>addBuffer publication contract verification sample</h1><div class="page-state"><span class="review-state">Before human review</span><span>Automated checks passed</span><span class="generation-method">Created from: extracted structure and a draft written by the model</span><a class="state-help" href="#page-evidence">Status description ↓</a></div>
+<details class="mobile-toc"><summary>Table of contents for this page</summary><div class="toc">
+<ul>
+<li><a href="#addbuffer의-검사-순서와-연결-경계">addBuffer check order and linking boundary</a><ul>
+<li><a href="#세-거절-검사와-요청-연결">Three rejection checks and request linking</a></li>
+</ul>
+</li>
+<li><a href="#소스-근거">Source evidence</a></li>
+</ul>
+</div>
+</details><p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p><strong>Examines addBuffer rejection conditions and the boundary for linking requests and buffers.</strong></p><details class="note">
+<summary>Design questions and validation scope</summary>
+<p>The links between each question's answer and its evidence were checked. The meaning and execution results require human review.</p>
+<ul class="coverage-links"><li><p>Explain the order in which the Request::addBuffer() implementation checks for an empty stream, a fence remaining on the buffer, and an already registered stream, and the return value for each check. Associate -EINVAL and the two -EEXIST conditions with their respective checks, and explain the boundary involving setRequest(this) and pending_.insert(buffer) after all three checks pass. Exclude the transfer of the received fence and ownership on failure from the scope of this sample.</p><p><a href="#addbuffer의-검사-순서와-연결-경계">addBuffer check order and linking boundary</a></p></li></ul><p><span>Scope of verification</span>: <span>Linking code evidence and explanations</span></p>
+</details>
+<h2 id="addbuffer의-검사-순서와-연결-경계">addBuffer check order and linking boundary</h2>
+<p data-sdd-evidence="[[&quot;src/libcamera/request.cpp:475&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/request.cpp#L475\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:475&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/request.cpp:475&quot;: [&quot;#source-605100b059a6864d&quot;]}"><code>Request::addBuffer()</code> first returns <code>-EINVAL</code> if <code>stream</code> is null. Next, if a <code>fence</code> remains in the buffer, Request::addBuffer() returns <code>-EEXIST</code>; then, if <code>stream</code> is already registered, Request::addBuffer() returns <code>-EEXIST</code>. If all three checks pass, Request::addBuffer() calls <code>buffer-&gt;_d()-&gt;setRequest(this)</code> and then executes <code>pending_.insert(buffer)</code>.</p>
+<!-- sdd:visual:buffer-rejection -->
+<h3 id="세-거절-검사와-요청-연결">Three rejection checks and request linking</h3>
+<pre class="mermaid">flowchart TB
+
+  v_stream{"Is stream null?"}
+  v_invalid["Reject with -EINVAL"]
+  v_fence{"Does buffer retain a fence?"}
+  v_stale["Retained fence: -EEXIST"]
+  v_duplicate{"Is the stream already &lt;br/&gt;registered?"}
+  v_exists["Duplicate stream: -EEXIST"]
+  v_linked["Bind with setRequest and &lt;br/&gt;pending#95;"]
+  v_stream --&gt;|"Yes"| v_invalid
+  v_stream --&gt;|"No"| v_fence
+  v_fence --&gt;|"Yes"| v_stale
+  v_fence --&gt;|"No"| v_duplicate
+  v_duplicate --&gt;|"Yes"| v_exists
+  v_duplicate --&gt;|"No"| v_linked</pre>
+<p><a href="camera-requests.buffer-rejection.mmd">Original Mermaid</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>Covers only the stream, remaining fence, and duplicate stream checks through linking the request, and excludes the subsequent transfer of the received fence.</p>
+<p>This is a design interpretation linked to the source. Automated link checks do not constitute semantic approval or verification through execution on a device.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Is stream null?">Is stream null?</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Reject with -EINVAL">Reject with -EINVAL</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Does buffer retain a fence?">Does buffer retain a fence?</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Retained fence: -EEXIST">Retained fence: -EEXIST</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is the stream already registered?">Is the stream already registered?</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Duplicate stream: -EEXIST">Duplicate stream: -EEXIST</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Bind with setRequest and pending_">Bind with setRequest and pending_</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes">Yes</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No">No</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes">Yes</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No">No</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes">Yes</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No">No</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:buffer-rejection -->
+
+
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>1</span> item(s)</summary><ul><li><code>src/libcamera/request.cpp</code><span class="evidence-lines"><a href="#source-605100b059a6864d" aria-label="src/libcamera/request.cpp:475 excerpt"><code>L475</code> excerpt</a> · <a aria-label="src/libcamera/request.cpp:475" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/request.cpp#L475">Full source <code>L475</code></a></span></li></ul></details><h2 id="소스-근거">Source evidence</h2>
+<details class="source-excerpts"><summary><span>1</span> source excerpts</summary>
+<p>The same excerpt is included only once. Expand the source text you need to compare it with the explanation.</p>
+<p><a id="source-605100b059a6864d"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/request.cpp:475</summary>
+<p>This excerpt starts at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/293d751a814e0d4c34e85ad457ccd9d5eefd1a61/src/libcamera/request.cpp#L475"><code>src/libcamera/request.cpp:475</code></a> and ends at line 505. You can compare the source text below with the explanation.</p>
+<p>SHA-256: <code>c1c0b55f2925856df843fa155a14bb07eb616f52b6bde75cd3b0b5a4ab03b64a</code></p>
+<div class="highlight"><pre><span></span><code>int Request::addBuffer(const Stream *stream, FrameBuffer *buffer,
+               std::unique_ptr&lt;Fence&gt; &amp;&amp;fence)
+{
+    if (!stream) {
+        LOG(Request, Error) &lt;&lt; "Invalid stream reference";
+        return -EINVAL;
+    }
+
+    /*
+     * Make sure the fence has been extracted from the buffer
+     * to avoid waiting on a stale fence.
+     */
+    if (buffer-&gt;_d()-&gt;fence()) {
+        LOG(Request, Error) &lt;&lt; "Can't add buffer that still references a fence";
+        return -EEXIST;
+    }
+
+    auto [it, inserted] = bufferMap_.try_emplace(stream, buffer);
+    if (!inserted) {
+        LOG(Request, Error) &lt;&lt; "FrameBuffer already set for stream";
+        return -EEXIST;
+    }
+
+    buffer-&gt;_d()-&gt;setRequest(this);
+    _d()-&gt;pending_.insert(buffer);
+
+    if (fence &amp;&amp; fence-&gt;isValid())
+        buffer-&gt;_d()-&gt;setFence(std::move(fence));
+
+    return 0;
+}
+</code></pre></div>
+</details>
+</details>
+</article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanations</dd><dt>Verification scope</dt><dd>Tables and figures are created from facts, and the LLM writes the explanation. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated checks</dt><dd>Passed (<code>ok</code>). The items checked are listed in the validation scope. A person checks whether the explanation is correct.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Commit used as the basis for analysis</dt><dd><code>293d751a814e0d4c34e85ad457ccd9d5eefd1a61</code></dd><dt>Document generation time</dt><dd><code>2026-11-04 21:50:17+00:00</code></dd><dt>Text generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Inter-document contracts</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from the time of writing</summary><p>This is the record saved in the manuscript at the time of writing. It may differ from the standards of the current document.</p><ul><li>Evidence file: <code>src/libcamera/request.cpp</code></li><li>Evidence level: code verified (static analysis, simple_compdb configuration, commit <code>293d751a81</code>)</li><li>Automated checks (citation, sentence, and configured structure checks): Passed</li><li>Review status recorded on: 2026-11-05 · Awaiting human review</li></ul></details><a href="../camera-requests.md">Original Markdown ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="index.html"><small>Previous</small> document guide ←</a></nav>
+<footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
+<aside class="page-toc"><nav aria-label="Current page table of contents"><p>On this page</p><div class="toc">
+<ul>
+<li><a href="#addbuffer의-검사-순서와-연결-경계">addBuffer check order and linking boundary</a><ul>
+<li><a href="#세-거절-검사와-요청-연결">Three rejection checks and request linking</a></li>
+</ul>
+</li>
+<li><a href="#소스-근거">Source evidence</a></li>
+</ul>
+</div>
+</nav></aside></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find documents</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search documents, sections, terms, and code elements</label><input id="search-input" type="search" autocomplete="off" placeholder="e.g., Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Diagram elements · function names"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Zoom out">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to screen</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">The image can be moved by dragging with a mouse or swiping on a touchscreen. 'Fit to screen' is an overview that shows the entire image.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="Enlarged diagram"><div id="diagram-canvas"></div></div></dialog>
+<script id="site-config" type="application/json">{"root": "./", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "language": "en"}</script><script defer src="../assets/site.js?v=f85b002ed1"></script><script defer src="../assets/reader-tools.js?v=f85b002ed1"></script></body></html>

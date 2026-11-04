@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "baseline": "293d751a814e0d4c34e85ad457ccd9d5eefd1a61",
+  "section": "camera-requests",
+  "topic": "request",
+  "question": "Request::addBuffer() 구현에서 빈 stream, 버퍼에 남은 fence, 이미 등록한 stream을 검사하는 순서와 각 반환값을 설명하세요. -EINVAL과 두 -EEXIST 조건을 각각 연결하고, 세 검사를 통과한 뒤의 setRequest(this)와 pending_.insert(buffer) 경계를 설명하세요. 전달받은 fence의 이동과 실패 시 소유권은 이 표본 범위에서 제외하세요.",
+  "source": {
+    "commit": "293d751a814e0d4c34e85ad457ccd9d5eefd1a61",
+    "selector": {
+      "id": "buffer-code",
+      "file": "src/libcamera/request.cpp",
+      "start": "int Request::addBuffer(const Stream *stream, FrameBuffer *buffer,",
+      "end": "return 0;\n}"
+    },
+    "status": "available",
+    "file": "src/libcamera/request.cpp",
+    "line": 475,
+    "end_line": 505,
+    "text": "int Request::addBuffer(const Stream *stream, FrameBuffer *buffer,\n\t\t       std::unique_ptr<Fence> &&fence)\n{\n\tif (!stream) {\n\t\tLOG(Request, Error) << \"Invalid stream reference\";\n\t\treturn -EINVAL;\n\t}\n\n\t/*\n\t * Make sure the fence has been extracted from the buffer\n\t * to avoid waiting on a stale fence.\n\t */\n\tif (buffer->_d()->fence()) {\n\t\tLOG(Request, Error) << \"Can't add buffer that still references a fence\";\n\t\treturn -EEXIST;\n\t}\n\n\tauto [it, inserted] = bufferMap_.try_emplace(stream, buffer);\n\tif (!inserted) {\n\t\tLOG(Request, Error) << \"FrameBuffer already set for stream\";\n\t\treturn -EEXIST;\n\t}\n\n\tbuffer->_d()->setRequest(this);\n\t_d()->pending_.insert(buffer);\n\n\tif (fence && fence->isValid())\n\t\tbuffer->_d()->setFence(std::move(fence));\n\n\treturn 0;\n}",
+    "sha256": "c1c0b55f2925856df843fa155a14bb07eb616f52b6bde75cd3b0b5a4ab03b64a",
+    "whole_file": false
+  },
+  "profiles": {
+    "generation": {
+      "kind": "cli",
+      "runner": "codex",
+      "model": "gpt-6.1-terra",
+      "command": [],
+      "args": [
+        "-c",
+        "model_reasoning_effort=\"high\""
+      ]
+    },
+    "translation": {
+      "kind": "cli",
+      "runner": "codex",
+      "model": "gpt-6.1-terra",
+      "command": [],
+      "args": [
+        "-c",
+        "model_reasoning_effort=\"high\""
+      ]
+    },
+    "review": {
+      "kind": "cli",
+      "runner": "codex",
+      "model": "gpt-6.1-terra",
+      "command": [],
+      "args": [
+        "-c",
+        "model_reasoning_effort=\"high\""
+      ]
+    }
+  },
+  "facts_archive_sha256": "940bc881d4193172c1aacf4e756adce5d4e33d3f33578cb01c5a33ff56a42099",
+  "comparison": [
+    "prerequisite-missing",
+    "first-execution",
+    "same-basis-resume",
+    "reasoned-revision"
+  ],
+  "collection": "generation-runs, immutable publication plans and original CLI receipts",
+  "limits": "Existing public profile limits only; no new work-wide token/time/call limits.",
+  "scope": "Isolated fixed reader question, not completion of the whole published handbook.",
+  "deployment": "Dedicated source-bound validation site under docs/validation/issue241; main handbook and its review claims retained.",
+  "pre_inference_adjustment": "Before successful adoption/native drafting: remove dangling separate-topic reference, retain rejection/linking scope, bind bilingual contract and local Mermaid assets.",
+  "excluded": [
+    "Main handbook-wide regeneration and review.",
+    "Whole #215/#163 audit.",
+    "Passed-fence failure ownership."
+  ],
+  "measurement": "Compare preregistered plan with actual first execution and identical resume. Prerequisite/mutation refusals count actual calls only. No unobserved baseline time or prevented call total inferred."
+}
