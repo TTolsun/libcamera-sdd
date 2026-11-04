@@ -1,0 +1,132 @@
+{
+  "schema": 1,
+  "source_commit": "293d751a814e0d4c34e85ad457ccd9d5eefd1a61",
+  "generator_head": "a1c4e2ded82628b1c72d837bd55e33c13a4974f5",
+  "public_base": "9056546f920c78a28b9992484008a79871752a00",
+  "targets": [
+    {
+      "contract": "callbacks-synchronization",
+      "claim_id": "catalog/1627ee523ce59b5e/en",
+      "text": "When processing a request containing a set of buffers associated with streams and a set of parameters, the queueRequestDevice implementer must configure the device so that the parameters are applied to the frames captured in the buffers provided in the request. The queueRequestDevice implementer must return 0 on success and a negative error code on failure. PipelineHandler::queueRequestDevice() is called from the CameraManager thread.",
+      "attached_sources": {
+        "vendor-integration/request/device-result": {
+          "file": "src/libcamera/pipeline_handler.cpp",
+          "line": 530,
+          "text": "\\fn PipelineHandler::queueRequestDevice()\n * \\brief Queue a request to the device\n * \\param[in] camera The camera to queue the request to\n * \\param[in] request The request to queue\n *\n * This function queues a capture request to the device for processing. The\n * request contains a set of buffers associated with streams and a set of\n * parameters. The pipeline handler shall program the device to ensure that the\n * parameters will be applied to the frames captured in the buffers provided in\n * the request.\n *\n * \\context This function is called from the CameraManager thread.\n *\n * \\return 0 on success or a negative error code otherwise\n */",
+          "sha256": "18f697dba5bc979e14125471abadb8a7ecccef4de79e75e1f385e2c6ee044df2"
+        }
+      }
+    },
+    {
+      "contract": "scenario-analysis",
+      "claim_id": "catalog/6786e86300a109c3",
+      "text": "Camera::queueRequest()는 thread-safe로 표시된 함수이며, 캡처용 요청을 접수하기 전에 d->isAccessAllowed(Private::CameraRunning)을 호출해 카메라가 Running 상태인지 확인합니다. isAccessAllowed()는 allowDisconnected가 거짓이고 disconnected_가 참이면 상태를 비교하기 전에 -ENODEV를 먼저 반환합니다. 연결 검사를 통과한 뒤 현재 상태가 요구 상태와 다르면 -EACCES를 반환하며, queueRequest()는 이 값을 그대로 돌려줍니다. 두 조건이 겹치면 연결 끊김을 뜻하는 -ENODEV가 -EACCES보다 우선하며, 호출하는 쪽은 카메라가 Running 상태일 때만 queueRequest()를 호출해야 합니다.",
+      "attached_sources": {
+        "scenario-queue_request/acceptance/queue": {
+          "file": "src/libcamera/camera.cpp",
+          "line": 1308,
+          "text": "\\brief Queue a request to the camera\n * \\param[in] request The request to queue to the camera\n *\n * This function queues a \\a request to the camera for capture.\n *\n * After allocating the request with createRequest(), the application shall\n * fill it with at least one capture buffer before queuing it. Requests that\n * contain no buffers are invalid and are rejected without being queued.\n *\n * Once the request has been queued, the camera will notify its completion\n * through the \\ref requestCompleted signal.\n *\n * \\context This function is \\threadsafe. It may only be called when the camera\n * is in the Running state as defined in \\ref camera_operation.\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not running so requests can't be queued\n * \\retval -EXDEV The request does not belong to this camera\n * \\retval -EINVAL The request is invalid\n * \\retval -ENOMEM No buffer memory was available to handle the request\n */\nint Camera::queueRequest(Request *request)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\tif (ret < 0)\n\t\treturn ret;\n\n\t/* Requests can only be queued to the camera that created them. */\n\tif (request->_d()->camera() != this) {\n\t\tLOG(Camera, Error) << \"Request was not created by this camera\";\n\t\treturn -EXDEV;\n\t}\n\n\tif (request->status() != Request::RequestPending) {\n\t\tLOG(Camera, Error) << request->toString() << \" is not valid\";\n\t\treturn -EINVAL;\n\t}\n\n\t/* Make sure the Request has a valid control list. */\n\tif (request->controls().infoMap() != &controls()) {\n\t\tLOG(Camera, Error) << \"Overwriting Request::controls() is not allowed\";\n\t\treturn -EINVAL;\n\t}\n\n\t/*\n\t * The camera state may change until the end of the function. No locking\n\t * is however needed as PipelineHandler::queueRequest() will handle\n\t * this.\n\t */\n\n\tif (request->buffers().empty()) {\n\t\tLOG(Camera, Error) << \"Request contains no buffers\";\n\t\treturn -EINVAL;\n\t}\n\n\tfor (const auto &[stream, buffer] : request->buffers()) {\n\t\tif (d->activeStreams_.find(stream) == d->activeStreams_.end()) {\n\t\t\tLOG(Camera, Error) << \"Invalid request\";\n\t\t\treturn -EINVAL;\n\t\t}\n\t}\n\n\t/* Pre-process AeEnable. */\n\tpatchControlList(request->controls());\n\n\td->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t       ConnectionTypeQueued, request);\n\n\treturn 0;\n}",
+          "sha256": "7f775e92fe4ad43798ec85c6dba7e2b8bba7d189e554cb9300d2475891a1764a"
+        },
+        "scenario-queue_request/acceptance/access": {
+          "file": "src/libcamera/camera.cpp",
+          "line": 690,
+          "text": "int Camera::Private::isAccessAllowed(State state, bool allowDisconnected,\n\t\t\t\t     const char *from) const\n{\n\tif (!allowDisconnected && disconnected_)\n\t\treturn -ENODEV;\n\n\tState currentState = state_.load(std::memory_order_acquire);\n\tif (currentState == state)\n\t\treturn 0;\n\n\tASSERT(static_cast<unsigned int>(state) < std::size(camera_state_names));\n\n\tLOG(Camera, Error) << \"Camera in \" << camera_state_names[currentState]\n\t\t\t   << \" state trying \" << from << \"() requiring state \"\n\t\t\t   << camera_state_names[state];\n\n\treturn -EACCES;\n}",
+          "sha256": "eda58d39ca207e5943afd21f4d2439316a5afdb0d3d19c7a40800658db295899"
+        },
+        "scenario-queue_request/dispatch/prepare": {
+          "file": "src/libcamera/pipeline_handler.cpp",
+          "line": 447,
+          "text": "\\fn PipelineHandler::queueRequest()\n * \\brief Queue a request\n * \\param[in] request The request to queue\n *\n * This function queues a capture request to the pipeline handler for\n * processing. The request is first added to the internal list of waiting\n * requests which have to be prepared to make sure they are ready for being\n * queued to the pipeline handler.\n *\n * The queue of waiting requests is iterated and up to \\a\n * maxQueuedRequestsDevice_ prepared requests are passed to the pipeline handler\n * in the same order they have been queued by calling this function.\n *\n * If a Request fails during the preparation phase or if the pipeline handler\n * fails in queuing the request to the hardware the request is cancelled.\n *\n * Keeping track of queued requests ensures automatic completion of all requests\n * when the pipeline handler is stopped with stop(). Request completion shall be\n * signalled by the pipeline handler using the completeRequest() function.\n *\n * \\context This function is called from the CameraManager thread.\n */\nvoid PipelineHandler::queueRequest(Request *request)\n{\n\tLIBCAMERA_TRACEPOINT(request_queue, request);\n\n\tCamera *camera = request->_d()->camera();\n\tCamera::Private *data = camera->_d();\n\tdata->waitingRequests_.push(request);\n\n\trequest->_d()->prepare(300ms);\n}",
+          "sha256": "7bc050721f49ab7e95fd95627a35b21026512d193d48bf886273b1ac0dc1b7ab"
+        }
+      }
+    }
+  ],
+  "source_windows": [
+    {
+      "file": "include/libcamera/internal/camera.h",
+      "line": 48,
+      "end_line": 66,
+      "text": "private:\n\tenum State {\n\t\tCameraAvailable,\n\t\tCameraAcquired,\n\t\tCameraConfigured,\n\t\tCameraStopping,\n\t\tCameraRunning,\n\t};\n\n\tbool isAcquired() const;\n\tbool isRunning() const;\n\tint isAccessAllowed(State state, bool allowDisconnected = false,\n\t\t\t    const char *from = __builtin_FUNCTION()) const;\n\tint isAccessAllowed(State low, State high,\n\t\t\t    bool allowDisconnected = false,\n\t\t\t    const char *from = __builtin_FUNCTION()) const;\n\n\tvoid disconnect();\n\tvoid setState(State state);\n",
+      "sha256": "4ecf1f5b2eb745d7c242f5225b8105ffa4046a4a581d9a5f1106b8b7fb527ec8",
+      "file_sha256": "a07b1d3b6d2bbe26dfee46e50c431a018112bbf236b60399d806213b55d44d7d",
+      "commit": "293d751a814e0d4c34e85ad457ccd9d5eefd1a61"
+    },
+    {
+      "file": "src/libcamera/camera.cpp",
+      "line": 690,
+      "end_line": 708,
+      "text": "int Camera::Private::isAccessAllowed(State state, bool allowDisconnected,\n\t\t\t\t     const char *from) const\n{\n\tif (!allowDisconnected && disconnected_)\n\t\treturn -ENODEV;\n\n\tState currentState = state_.load(std::memory_order_acquire);\n\tif (currentState == state)\n\t\treturn 0;\n\n\tASSERT(static_cast<unsigned int>(state) < std::size(camera_state_names));\n\n\tLOG(Camera, Error) << \"Camera in \" << camera_state_names[currentState]\n\t\t\t   << \" state trying \" << from << \"() requiring state \"\n\t\t\t   << camera_state_names[state];\n\n\treturn -EACCES;\n}\n\n",
+      "sha256": "aee5a680485bc4a024c4b919a613cae4eb71d55f22ca82d695bed209e4365f4c",
+      "file_sha256": "1aa9746b202ca505a0dd4d872f4c3c2e08f07c073028101ac414681a1c0322e8",
+      "commit": "293d751a814e0d4c34e85ad457ccd9d5eefd1a61"
+    },
+    {
+      "file": "src/libcamera/camera.cpp",
+      "line": 1308,
+      "end_line": 1378,
+      "text": " * \\brief Queue a request to the camera\n * \\param[in] request The request to queue to the camera\n *\n * This function queues a \\a request to the camera for capture.\n *\n * After allocating the request with createRequest(), the application shall\n * fill it with at least one capture buffer before queuing it. Requests that\n * contain no buffers are invalid and are rejected without being queued.\n *\n * Once the request has been queued, the camera will notify its completion\n * through the \\ref requestCompleted signal.\n *\n * \\context This function is \\threadsafe. It may only be called when the camera\n * is in the Running state as defined in \\ref camera_operation.\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not running so requests can't be queued\n * \\retval -EXDEV The request does not belong to this camera\n * \\retval -EINVAL The request is invalid\n * \\retval -ENOMEM No buffer memory was available to handle the request\n */\nint Camera::queueRequest(Request *request)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\tif (ret < 0)\n\t\treturn ret;\n\n\t/* Requests can only be queued to the camera that created them. */\n\tif (request->_d()->camera() != this) {\n\t\tLOG(Camera, Error) << \"Request was not created by this camera\";\n\t\treturn -EXDEV;\n\t}\n\n\tif (request->status() != Request::RequestPending) {\n\t\tLOG(Camera, Error) << request->toString() << \" is not valid\";\n\t\treturn -EINVAL;\n\t}\n\n\t/* Make sure the Request has a valid control list. */\n\tif (request->controls().infoMap() != &controls()) {\n\t\tLOG(Camera, Error) << \"Overwriting Request::controls() is not allowed\";\n\t\treturn -EINVAL;\n\t}\n\n\t/*\n\t * The camera state may change until the end of the function. No locking\n\t * is however needed as PipelineHandler::queueRequest() will handle\n\t * this.\n\t */\n\n\tif (request->buffers().empty()) {\n\t\tLOG(Camera, Error) << \"Request contains no buffers\";\n\t\treturn -EINVAL;\n\t}\n\n\tfor (const auto &[stream, buffer] : request->buffers()) {\n\t\tif (d->activeStreams_.find(stream) == d->activeStreams_.end()) {\n\t\t\tLOG(Camera, Error) << \"Invalid request\";\n\t\t\treturn -EINVAL;\n\t\t}\n\t}\n\n\t/* Pre-process AeEnable. */\n\tpatchControlList(request->controls());\n\n\td->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t       ConnectionTypeQueued, request);\n\n",
+      "sha256": "f429f42f3c0bed8f0e10f72b946c86b3f7bcc22a150dd513eb259c29b74cc920",
+      "file_sha256": "1aa9746b202ca505a0dd4d872f4c3c2e08f07c073028101ac414681a1c0322e8",
+      "commit": "293d751a814e0d4c34e85ad457ccd9d5eefd1a61"
+    }
+  ],
+  "source_gap": "The current scenario audit omits the declaration default. Review explicitly with this literal declaration; do not promote old verdicts.",
+  "expected_changes": {
+    "english_claim": "retain already repaired current text",
+    "queue_claim": "retain if declaration + helper + call site support it",
+    "probe_glossary": "define API and LLM; retain fail policy"
+  },
+  "original_native_hashes": {
+    "build/prompts/calls/6dc6f3ba1a234c95b84d6996f6397e1e/001.receipt.json": "91ed9094aa67064e75e89e9e65abe78f619db4c94b536a80bc38a9c4396b2b59",
+    "build/prompts/calls/6dc6f3ba1a234c95b84d6996f6397e1e/001.request.json": "aa6a12d5eae076aa865ec01f9d6d78586c70ecc0e141571be9fb2edd8bb795e8",
+    "build/prompts/calls/6dc6f3ba1a234c95b84d6996f6397e1e/001.response.txt": "bf9e9577df375d1ec946797dfacbf1a231ce44e04615dce156a89c3d48062088",
+    "build/prompts/calls/6dc6f3ba1a234c95b84d6996f6397e1e/002.receipt.json": "344ace654617f7505a947018ce6f95549c1bc1bd5e2c1dc2d4906fe935f45ba4",
+    "build/prompts/calls/6dc6f3ba1a234c95b84d6996f6397e1e/002.request.json": "0bf8d1010b0a72f2a98249590f02afed31595c3f55ddbf2278782942636867e1",
+    "build/prompts/calls/6dc6f3ba1a234c95b84d6996f6397e1e/002.response.txt": "ec432d3ada3ae8d3849019f4828e7770809ba6b8ae95152697bf8f3c86ba0fa8",
+    "build/prompts/calls/e321e9897bb34feeaf07c871a8d2ebcd/001.receipt.json": "84ab01eaff295c34aa3fe52f464d460b2fe929b3cf80d2493824863034df046f",
+    "build/prompts/calls/e321e9897bb34feeaf07c871a8d2ebcd/001.request.json": "3f27866823a62ce06932adba0f5616ab87aa2cf2517a0fe8f64c2560ba7e2504",
+    "build/prompts/calls/e321e9897bb34feeaf07c871a8d2ebcd/001.response.txt": "444b26c8bff3f434417b12d9f146932b24236a8c4a8386113f508825ffd79e63",
+    "build/prompts/calls/e321e9897bb34feeaf07c871a8d2ebcd/002.receipt.json": "ee72953634110951c7b90ab9bb9cc1fe92cff2f2ffdf68e461c50434473844cf",
+    "build/prompts/calls/e321e9897bb34feeaf07c871a8d2ebcd/002.request.json": "6a0f83a031bbfd9fc8ab098bbd1ce169a9ecdb269f45f67c058b6bbdd9a952b6",
+    "build/prompts/calls/e321e9897bb34feeaf07c871a8d2ebcd/002.response.txt": "bbfa9662fc12f940535e27a619f6ce6b4a7dfca5f694e25462cd0076752af8f2",
+    "build/prompts/calls/e321e9897bb34feeaf07c871a8d2ebcd/003.receipt.json": "34b1ade2c483a83dbcc41dd0901401d051fe41c75ad57e1e461d7e68228dfbb8",
+    "build/prompts/calls/e321e9897bb34feeaf07c871a8d2ebcd/003.request.json": "41dec78fc29d95e980e65b63ca958dcbabc8bbdf8b90d152687ddef33ef5d5e7",
+    "build/prompts/calls/e321e9897bb34feeaf07c871a8d2ebcd/003.response.txt": "58f6f6d05466aa2202e268daa003fdce1c30d3b78ef4cca67784dd3ebaff5cd6",
+    "build/prompts/calls/e321e9897bb34feeaf07c871a8d2ebcd/004.receipt.json": "de3fac2ec51ca9260dfe75cd1ac83a1db74a3b73e42c088287935fdfafd6e456",
+    "build/prompts/calls/e321e9897bb34feeaf07c871a8d2ebcd/004.request.json": "0435bb7ae3d3680f6dd640e972ee6c85befd4ae8c959aad433ffbdc90751a352",
+    "build/prompts/calls/e321e9897bb34feeaf07c871a8d2ebcd/004.response.txt": "e36fb53bc759b994af8254a1bca2b2a3008f442b2f19555ad4e7a4017aa4f7bc",
+    "build/prompts/cli/call-2rp9h5v8.stderr.txt": "3e75d28a6681c31400a3f0fcb564c7613fd42796fb83294e4d53fea86bcbd401",
+    "build/prompts/cli/call-2rp9h5v8.stdout.txt": "ecac3ea8d188785e560e4f73276ebd62bf3bd8f134c97a6401b6f3f9f90f3c5d",
+    "build/prompts/cli/call-84ff32va.stderr.txt": "3e75d28a6681c31400a3f0fcb564c7613fd42796fb83294e4d53fea86bcbd401",
+    "build/prompts/cli/call-84ff32va.stdout.txt": "03e853ecc49ca43699020655ab7f605ed8dfe21aec685660eb80d1add529dbb1",
+    "build/prompts/cli/call-de3hy4u2.stderr.txt": "3e75d28a6681c31400a3f0fcb564c7613fd42796fb83294e4d53fea86bcbd401",
+    "build/prompts/cli/call-de3hy4u2.stdout.txt": "f9f93ab757f3d98c44f95c9f82b7fb56c141daceb77b439a4c9bbf64b5461b62",
+    "build/prompts/cli/call-q4kiy3lz.stderr.txt": "3e75d28a6681c31400a3f0fcb564c7613fd42796fb83294e4d53fea86bcbd401",
+    "build/prompts/cli/call-q4kiy3lz.stdout.txt": "5e60feea5de877d17afd1b16f53da8df3ca956ee77d4c2d5068a3b351ef33975",
+    "build/prompts/cli/call-ygsbz2q9.stderr.txt": "3e75d28a6681c31400a3f0fcb564c7613fd42796fb83294e4d53fea86bcbd401",
+    "build/prompts/cli/call-ygsbz2q9.stdout.txt": "10c783f6bf29b909b2908a7fe96d96f4040255bd65544864ec09f603d390ddd9",
+    "build/prompts/cli/call-_ir2fdc7.stderr.txt": "3e75d28a6681c31400a3f0fcb564c7613fd42796fb83294e4d53fea86bcbd401",
+    "build/prompts/cli/call-_ir2fdc7.stdout.txt": "7580c355f02f9eab70dc09ff3e7bd1f6fc810715ac768135c30c41d0dec5a3f5",
+    "independent-prompts/001_issue242_public_probe_independent.md": "094711c9382eb5b2b7c3217249ee0114c4e1f50a8539ea758a497d189969f2c7",
+    "independent-prompts/001_issue242_public_probe_independent.response.md": "ba44c11e195cfca8a3415a10ae6955565413e54a01fad49e53986d73834e4569",
+    "independent-prompts/001_issue242_public_probe_independent.schema.json": "2760ad6afa0d53cc87938de59cf1781ad55a260b941a1f4081f0e916c7844288",
+    "independent-prompts/cli/call-h4dyw75n.stderr.txt": "3e75d28a6681c31400a3f0fcb564c7613fd42796fb83294e4d53fea86bcbd401",
+    "independent-prompts/cli/call-h4dyw75n.stdout.txt": "f7960e74007e0d077b40e391c5164f58d4e8eb8c3edbd2c95d798794389d1f25",
+    "independent-prompts/calls/f0e0b7191ee8457388bb1dbb5d27131c/001.receipt.json": "6b3d3a9724df439de24672dc7246364c8da5759e841930ffe0a3a6b23179acb6",
+    "independent-prompts/calls/f0e0b7191ee8457388bb1dbb5d27131c/001.request.json": "d3df72f18140d9fd38e8aec21a3e6ac6cbeee46c4416dbb16c08f46e10290d9b",
+    "independent-prompts/calls/f0e0b7191ee8457388bb1dbb5d27131c/001.response.txt": "48ec5f84d2d23c4d123c10f2548e658680fe5bca8a8af9f58c2178ba239adcb8"
+  },
+  "original_manuscript_sha256": "4b26e05b3e0c4aa8a6286b7f32cdb65accae93ee9210fff47eaf7e1ab4a4de6c",
+  "human_review": "pending",
+  "revision": 2,
+  "previous_sha256": "88dfffeababb8aa017c16f8deafaf23040c84288ec69c08355abec3341418af4",
+  "excluded_sources": [
+    {
+      "source_id": "@analysis/scenario/queue_request",
+      "reason": "Extractor representation; not evidence of the product API claim. Original full report and plan retain this peer context."
+    }
+  ],
+  "change_reason": "Use exact source-attached windows; exclude analysis representation from the targeted product API check. Original report and full plan are preserved. Preflight attempt treated an analysis pseudo-path as a Git file and stopped before any model call."
+}

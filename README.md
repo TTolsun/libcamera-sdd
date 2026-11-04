@@ -17,3 +17,5 @@ Analysis and original trial:293d751a814e0d4c34e85ad457ccd9d5eefd1a61. Official u
 - [Reader task and resumption study — human evaluation pending](publication/issue248/README.md)
 
 공통 근거에서 작업·의사결정을 찾는 공개 사례와 대리 평가·사람 평가의 경계는 [#250 검증 기록](publication/issue250/README.md)에 있습니다.
+
+- [Issue242 follow-up: verified source defaults and defined probe terms](publication/review-followup-242/README.md)
