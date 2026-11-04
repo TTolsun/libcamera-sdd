@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-10-30T17:20:43+00:00
+generated_at: 2026-10-30 17:20:43+00:00
 source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
 status: ok
 section: scenario-camera_start
@@ -10,8 +10,152 @@ scenario_fingerprint: 32f0d03b3491b90ffb0736a642fac9e6a9d8a5ad23bf22f4fa5d67ba9f
 evidence_fingerprint: 9b88c4cce5298ba7054b8518bcf99ef2da0d6d6ddb7c5aa8c24a4b3d6cc1bb9d
 semantic_review: human-review-required
 agent: cli/claude/claude-haiku-5-5
-generated_design: {"schema": 1, "input_fingerprint": "9b88c4cce5298ba7054b8518bcf99ef2da0d6d6ddb7c5aa8c24a4b3d6cc1bb9d", "answers": {"session": [{"text": "`Camera::start()`는 카메라 캡처 세션을 시작하며, 선택적으로 `controls` 목록을 전달할 수 있습니다. 전달된 `controls`는 카메라를 시작하기 전에 적용됩니다. 시작한 뒤에는 애플리케이션이 요청을 카메라에 큐에 넣어 처리하게 할 수 있으며, 처리된 요청은 애플리케이션으로 반환됩니다. 캡처 세션은 `stop()`으로 종료될 때까지 이어집니다.", "evidence": ["start"], "covers": ["session"], "kind": "behavior", "quote": "\\brief Start capture from camera\n * \\param[in] controls Controls to be applied before starting the Camera\n *\n * Start the camera capture session, optionally providing a list of controls to\n * apply before starting. Once the camera is started the application can queue\n * requests to the camera to process and return to the application until the\n * capture session is terminated with \\a stop().\n *\n * \\context This function may only be called when the camera is in the\n * Configured state as defined in \\ref camera_operation, and shall be\n * synchronized by the caller with other functions that affect the camera\n * state.\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not in a state where it can be started\n */", "part_id": "answer"}, {"text": "`start()`는 `camera_operation`에 정의된 `Configured` 상태에서만 호출할 수 있습니다. 호출자는 `start()`를 카메라 상태에 영향을 주는 다른 함수와 동기화해야 합니다. 카메라가 시스템에서 분리된 경우 `-ENODEV`를 반환하며, 카메라가 시작할 수 있는 상태가 아니면 `-EACCES`를 반환합니다.", "evidence": ["start"], "covers": ["session"], "kind": "behavior", "quote": "\\brief Start capture from camera\n * \\param[in] controls Controls to be applied before starting the Camera\n *\n * Start the camera capture session, optionally providing a list of controls to\n * apply before starting. Once the camera is started the application can queue\n * requests to the camera to process and return to the application until the\n * capture session is terminated with \\a stop().\n *\n * \\context This function may only be called when the camera is in the\n * Configured state as defined in \\ref camera_operation, and shall be\n * synchronized by the caller with other functions that affect the camera\n * state.\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not in a state where it can be started\n */", "part_id": "answer"}], "activation": [{"text": "`Camera::start`는 `controls`가 있으면 `ControlList copy(*controls);`로 만든 복사본 `copy`를 `patchControlList(copy)`로 전처리하고, 이 복사본을 `invokeMethod`에 전달합니다. `controls`가 `nullptr`이면 복사나 전처리 없이 `nullptr`를 전달합니다. 두 분기 모두 `invokeMethod`로 `PipelineHandler::start`를 `ConnectionTypeBlocking` 연결 타입으로 호출합니다. `PipelineHandler::start` 문서는 이 함수가 `CameraManager` 스레드에서 호출되며, 의도된 호출자는 `Camera` 클래스라고 설명합니다.", "evidence": ["start", "pipeline-start"], "covers": ["activation"], "kind": "behavior", "quote": "if (controls) {\n\t\tControlList copy(*controls);\n\t\tpatchControlList(copy);\n\t\tret = d->pipe_->invokeMethod(&PipelineHandler::start,\n\t\t\t\t\t     ConnectionTypeBlocking, this, &copy);\n\t} else {\n\t\tret = d->pipe_->invokeMethod(&PipelineHandler::start,\n\t\t\t\t\t     ConnectionTypeBlocking, this, nullptr);\n\t}", "part_id": "answer"}, {"text": "`Camera::start`에서 `ret`이 0이 아니면 `if (ret) return ret;`에 따라 `ret`을 그대로 반환하고 `d->setState(Private::CameraRunning)`에 도달하지 않습니다. `ret`이 0이면 `d->setState(Private::CameraRunning)`을 호출해 `CameraRunning` 상태로 갱신한 뒤 `return 0;`에 도달합니다.", "evidence": ["start"], "covers": ["activation"], "kind": "behavior", "quote": "if (ret)\n\t\treturn ret;", "part_id": "answer"}, {"text": "`ASSERT(d->requestSequence_ == 0);`는 `isAccessAllowed` 검사 블록 뒤, `controls` 분기 앞에서 실행됩니다. 검사식이 거짓이면 `ASSERT`는 Fatal 레벨 오류 메시지를 기록하고 프로그램 실행을 중단하며, `ret`처럼 오류 코드를 반환하는 경로와 다릅니다. `log.h`를 포함하기 전에 `NDEBUG`가 정의되어 있으면 `ASSERT()`는 코드를 생성하지 않습니다.", "evidence": ["start", "logging"], "covers": ["activation"], "kind": "behavior", "quote": "/**\n * \\def ASSERT(condition)\n * \\hideinitializer\n * \\brief Abort program execution if assertion fails\n *\n * If \\a condition is false, ASSERT() logs an error message with the Fatal log\n * level and aborts program execution.\n *\n * If the macro NDEBUG is defined before including log.h, ASSERT() generates no\n * code.\n *\n * Using conditions that have side effects with ASSERT() is not recommended, as\n * these effects would depend on whether NDEBUG is defined or not. Similarly,\n * ASSERT() should not be used to check for errors that can occur under normal\n * conditions as those checks would then be removed when compiling with NDEBUG.\n */", "part_id": "answer"}]}, "topic_inputs": {"session": "0296894408fc123e0f1b7d34b9dfe79a8fda6b3ba8f32b942a7c5253900ad68e", "activation": "cf2c1620ec2d4c303eca5b3a09a594d3c3f918dde4ed3b73936210622078155a"}, "reused_topics": [], "replayed_units": [], "generated_topics": ["session", "activation"], "topic_agents": {"session": "cli/claude/claude-haiku-5-5", "activation": "cli/claude/claude-haiku-5-5"}, "grounding_review": "passed", "grounding_policy": "3c9673abb403dee9aa554ee5b3c549ebfe95bb18ec0e9cd7bf6e495e060439c2", "validation_policy": {"manuscript": "e0c429a5c80a01c34563ce00a616df89d8f75c735f8669bcbd1f75d84cce82a6", "semantic": "571896e4854c21322a1ce4580107c235cae5a9f94e71adc8c97a7e2897405968", "duplicates": "281d217a1d4a212dd56cdb3ce61e9fae7a4622099962c1beee847a57866e83e0", "design_contracts": "9f54ecddce57c7a9caa6c02af77904b57eff2471f2a052951c1cffd18256a4f0", "validate": "78d29ffd1bf6235067edf5a0c7d9b1290f1f11e90599605a0e192e90be5f3372", "reader_profiles": "ad9005d08295212371f59e8934ace86786c0683f7a4c416301ee0e0cadc8b797", "contract_schema": "fecc4ee78a481139776e562c164c0da9a3e5edf0a64a72be1d1c8feddee3cd08", "answer_contracts": "1e0d24e0cf26ded53ecec2e5a6fbc51836bac6e17530318a9fa7cffaa936c00b", "reader_scope": "1b9c26b10b74ae8cf034f5863cbac2114e1d844e5d8332eb1f10562a18371782", "product_context": "9db4d42a710b4a71a7d2bb16f69db06926409281dc1a200c796e77d5deaa25a0", "design_response": "74ebb2d21768d6bdd4ef7611c1c539526a7e72e6a58604c82e8305003d24f8b7", "design_validation": "b8133c78a8eb42fd5194c2756bb649b396ec54b40c49b72544bdbbcaf3366c57"}, "validation_model": "bf7c671c2ded32908672c0f92d106c624236506d332c3e4befe65123ac580a96", "style_policy": {"fluent-korean.md": "ce5aa71e58371e3fc02ff8cb165e07c9234f5166f6541423a91cc4cb40878975", "i-have-adhd.md": "3170b16ace00aecb0dd7feb54c0b5aa642e7502acda06ecd24fd89a11c7127e9", "README.md": "f8fd5a3d8041c23fc68b93ff32b8727e98393383b5099032eb00ad0013e7611c"}, "checkpoint_units": [{"checkpoint": "e1a027ba77afa740388fd77756b080de655655e357a507e472824b52f42a436f.json", "topic": "session", "part": "answer", "subpart": null, "revalidated": false, "new_grounding_review": false, "receipts": ["10ec20f1b60c4df883d5ba943e927c09/011.receipt.json", "10ec20f1b60c4df883d5ba943e927c09/012.receipt.json"]}], "body_sha256": "1fc6b5468f0c94368196f2bd2437e315ac08089615bdbe4105ec2bad6a8e34a5"}
+generated_design:
+  schema: 1
+  input_fingerprint: 9b88c4cce5298ba7054b8518bcf99ef2da0d6d6ddb7c5aa8c24a4b3d6cc1bb9d
+  answers:
+    session:
+    - text: '`Camera::start()`는 카메라 캡처 세션을 시작하며, 선택적으로 `controls` 목록을 전달할 수 있습니다.
+        전달된 `controls`는 카메라를 시작하기 전에 적용됩니다. 시작한 뒤에는 애플리케이션이 요청을 카메라에 큐에 넣어 처리하게 할
+        수 있으며, 처리된 요청은 애플리케이션으로 반환됩니다. 캡처 세션은 `stop()`으로 종료될 때까지 이어집니다.'
+      evidence:
+      - start
+      covers:
+      - session
+      kind: behavior
+      quote: "\\brief Start capture from camera\n * \\param[in] controls Controls\
+        \ to be applied before starting the Camera\n *\n * Start the camera capture\
+        \ session, optionally providing a list of controls to\n * apply before starting.\
+        \ Once the camera is started the application can queue\n * requests to the\
+        \ camera to process and return to the application until the\n * capture session\
+        \ is terminated with \\a stop().\n *\n * \\context This function may only\
+        \ be called when the camera is in the\n * Configured state as defined in \\\
+        ref camera_operation, and shall be\n * synchronized by the caller with other\
+        \ functions that affect the camera\n * state.\n *\n * \\return 0 on success\
+        \ or a negative error code otherwise\n * \\retval -ENODEV The camera has been\
+        \ disconnected from the system\n * \\retval -EACCES The camera is not in a\
+        \ state where it can be started\n */"
+      part_id: answer
+    - text: '`start()`는 `camera_operation`에 정의된 `Configured` 상태에서만 호출할 수 있습니다. 호출자는
+        `start()`를 카메라 상태에 영향을 주는 다른 함수와 동기화해야 합니다. 카메라가 시스템에서 분리된 경우 `-ENODEV`를 반환하며,
+        카메라가 시작할 수 있는 상태가 아니면 `-EACCES`를 반환합니다.'
+      evidence:
+      - start
+      covers:
+      - session
+      kind: behavior
+      quote: "\\brief Start capture from camera\n * \\param[in] controls Controls\
+        \ to be applied before starting the Camera\n *\n * Start the camera capture\
+        \ session, optionally providing a list of controls to\n * apply before starting.\
+        \ Once the camera is started the application can queue\n * requests to the\
+        \ camera to process and return to the application until the\n * capture session\
+        \ is terminated with \\a stop().\n *\n * \\context This function may only\
+        \ be called when the camera is in the\n * Configured state as defined in \\\
+        ref camera_operation, and shall be\n * synchronized by the caller with other\
+        \ functions that affect the camera\n * state.\n *\n * \\return 0 on success\
+        \ or a negative error code otherwise\n * \\retval -ENODEV The camera has been\
+        \ disconnected from the system\n * \\retval -EACCES The camera is not in a\
+        \ state where it can be started\n */"
+      part_id: answer
+    activation:
+    - text: '`Camera::start`는 `controls`가 있으면 `ControlList copy(*controls);`로 만든 복사본
+        `copy`를 `patchControlList(copy)`로 전처리하고, 이 복사본을 `invokeMethod`에 전달합니다. `controls`가
+        `nullptr`이면 복사나 전처리 없이 `nullptr`를 전달합니다. 두 분기 모두 `invokeMethod`로 `PipelineHandler::start`를
+        `ConnectionTypeBlocking` 연결 타입으로 호출합니다. `PipelineHandler::start` 문서는 이 함수가
+        `CameraManager` 스레드에서 호출되며, 의도된 호출자는 `Camera` 클래스라고 설명합니다.'
+      evidence:
+      - start
+      - pipeline-start
+      covers:
+      - activation
+      kind: behavior
+      quote: "if (controls) {\n\t\tControlList copy(*controls);\n\t\tpatchControlList(copy);\n\
+        \t\tret = d->pipe_->invokeMethod(&PipelineHandler::start,\n\t\t\t\t\t    \
+        \ ConnectionTypeBlocking, this, &copy);\n\t} else {\n\t\tret = d->pipe_->invokeMethod(&PipelineHandler::start,\n\
+        \t\t\t\t\t     ConnectionTypeBlocking, this, nullptr);\n\t}"
+      part_id: answer
+    - text: '`Camera::start`에서 `ret`이 0이 아니면 `if (ret) return ret;`에 따라 `ret`을 그대로
+        반환하고 `d->setState(Private::CameraRunning)`에 도달하지 않습니다. `ret`이 0이면 `d->setState(Private::CameraRunning)`을
+        호출해 `CameraRunning` 상태로 갱신한 뒤 `return 0;`에 도달합니다.'
+      evidence:
+      - start
+      covers:
+      - activation
+      kind: behavior
+      quote: "if (ret)\n\t\treturn ret;"
+      part_id: answer
+    - text: '`ASSERT(d->requestSequence_ == 0);`는 `isAccessAllowed` 검사 블록 뒤, `controls`
+        분기 앞에서 실행됩니다. 검사식이 거짓이면 `ASSERT`는 Fatal 레벨 오류 메시지를 기록하고 프로그램 실행을 중단하며, `ret`처럼
+        오류 코드를 반환하는 경로와 다릅니다. `log.h`를 포함하기 전에 `NDEBUG`가 정의되어 있으면 `ASSERT()`는 코드를
+        생성하지 않습니다.'
+      evidence:
+      - start
+      - logging
+      covers:
+      - activation
+      kind: behavior
+      quote: "/**\n * \\def ASSERT(condition)\n * \\hideinitializer\n * \\brief Abort\
+        \ program execution if assertion fails\n *\n * If \\a condition is false,\
+        \ ASSERT() logs an error message with the Fatal log\n * level and aborts program\
+        \ execution.\n *\n * If the macro NDEBUG is defined before including log.h,\
+        \ ASSERT() generates no\n * code.\n *\n * Using conditions that have side\
+        \ effects with ASSERT() is not recommended, as\n * these effects would depend\
+        \ on whether NDEBUG is defined or not. Similarly,\n * ASSERT() should not\
+        \ be used to check for errors that can occur under normal\n * conditions as\
+        \ those checks would then be removed when compiling with NDEBUG.\n */"
+      part_id: answer
+  topic_inputs:
+    session: 0296894408fc123e0f1b7d34b9dfe79a8fda6b3ba8f32b942a7c5253900ad68e
+    activation: cf2c1620ec2d4c303eca5b3a09a594d3c3f918dde4ed3b73936210622078155a
+  reused_topics: []
+  replayed_units: []
+  generated_topics:
+  - session
+  - activation
+  topic_agents:
+    session: cli/claude/claude-haiku-5-5
+    activation: cli/claude/claude-haiku-5-5
+  grounding_review: passed
+  grounding_policy: 3c9673abb403dee9aa554ee5b3c549ebfe95bb18ec0e9cd7bf6e495e060439c2
+  validation_policy:
+    manuscript: e0c429a5c80a01c34563ce00a616df89d8f75c735f8669bcbd1f75d84cce82a6
+    semantic: 571896e4854c21322a1ce4580107c235cae5a9f94e71adc8c97a7e2897405968
+    duplicates: 281d217a1d4a212dd56cdb3ce61e9fae7a4622099962c1beee847a57866e83e0
+    design_contracts: 9f54ecddce57c7a9caa6c02af77904b57eff2471f2a052951c1cffd18256a4f0
+    validate: 78d29ffd1bf6235067edf5a0c7d9b1290f1f11e90599605a0e192e90be5f3372
+    reader_profiles: ad9005d08295212371f59e8934ace86786c0683f7a4c416301ee0e0cadc8b797
+    contract_schema: fecc4ee78a481139776e562c164c0da9a3e5edf0a64a72be1d1c8feddee3cd08
+    answer_contracts: 1e0d24e0cf26ded53ecec2e5a6fbc51836bac6e17530318a9fa7cffaa936c00b
+    reader_scope: 1b9c26b10b74ae8cf034f5863cbac2114e1d844e5d8332eb1f10562a18371782
+    product_context: 9db4d42a710b4a71a7d2bb16f69db06926409281dc1a200c796e77d5deaa25a0
+    design_response: 74ebb2d21768d6bdd4ef7611c1c539526a7e72e6a58604c82e8305003d24f8b7
+    design_validation: b8133c78a8eb42fd5194c2756bb649b396ec54b40c49b72544bdbbcaf3366c57
+  validation_model: bf7c671c2ded32908672c0f92d106c624236506d332c3e4befe65123ac580a96
+  style_policy:
+    fluent-korean.md: ce5aa71e58371e3fc02ff8cb165e07c9234f5166f6541423a91cc4cb40878975
+    i-have-adhd.md: 3170b16ace00aecb0dd7feb54c0b5aa642e7502acda06ecd24fd89a11c7127e9
+    README.md: f8fd5a3d8041c23fc68b93ff32b8727e98393383b5099032eb00ad0013e7611c
+  checkpoint_units:
+  - checkpoint: e1a027ba77afa740388fd77756b080de655655e357a507e472824b52f42a436f.json
+    topic: session
+    part: answer
+    subpart: null
+    revalidated: false
+    new_grounding_review: false
+    receipts:
+    - 10ec20f1b60c4df883d5ba943e927c09/011.receipt.json
+    - 10ec20f1b60c4df883d5ba943e927c09/012.receipt.json
+  body_sha256: e1c314f9f30c60f5cf82e4280c620599b432fed240f574517a2563f7b863a8c4
 revalidated_from: 212c689fcf2450bbfbaab25c7472895ac277b5d6
+managed_format_refresh:
+- source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
+  previous_body_sha256: 1fc6b5468f0c94368196f2bd2437e315ac08089615bdbe4105ec2bad6a8e34a5
+  body_sha256: e1c314f9f30c60f5cf82e4280c620599b432fed240f574517a2563f7b863a8c4
+  previous_overview_sha256: e83f2800ff3fcf6e4b5ed4d18aa4bfa7dfef752a96c1f560b13e60afaaae956f
+  overview_sha256: 733f48329efc454d68a148385979da7cd15db8f47e40746b80e8c48f1110f30c
+  change: Mermaid literal encoding only
+  new_inference: false
+  human_review: unchanged
 ---
 
 # 캡처 시작
@@ -209,8 +353,8 @@ flowchart LR
   p0["Camera"]
   p1["PipelineHandler"]
   p2["Private"]
-  p0 -.->|"start() · 예약된 호출, 실행 순서는 정적으로 확인 불가"| p1
-  p0 -->|"setState()"| p2
+  p0 -.->|"start#40;#41; · 예약된 호출, 실행 순서는 정적으로 확인 불가"| p1
+  p0 -->|"setState#40;#41;"| p2
 ```
 
 ## 추적 범위와 경계

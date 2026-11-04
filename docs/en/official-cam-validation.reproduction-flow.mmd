@@ -1,14 +1,16 @@
 flowchart TB
 
-  v_kconfig_survey["Survey Kconfig and <br/>allocator candidates; no <br/>host change"]
-  v_wsl_plan["Write WSL host change plan <br/>(impact, backup path, <br/>recovery)"]
-  v_host_approval["Separate host approval, <br/>obtained immediately before <br/>host change"]
-  v_docker_decide{"Check whether approved plan <br/>requires Docker stop"}
-  v_docker_stop["After approval, stop Docker <br/>only if plan requires"]
-  v_kernel_prep["Install and boot test <br/>kernel per plan (shared <br/>kernel reboot)"]
-  v_device_verify{"Checks 6–11 all pass? <br/>Recorded kernel, root <br/>/dev/udmabuf, Virtual2 400 <br/>x 300 NV12, YAML lines"}
-  v_run_cam["Run official cam 3 times <br/>independently; records <br/>split in one new dir"]
-  v_mismatch_stop["If any differs, do not <br/>capture"]
+  v_kconfig_survey["Survey Kconfig and <br/>allocator candidates <br/>without host change; choose <br/>one"]
+  v_wsl_plan["Plan impact, exact backup, <br/>recovery; no Docker/WSL <br/>stop before approval"]
+  v_host_approval["Separate approval <br/>immediately before host <br/>change; PR/Pages not enough"]
+  v_docker_decide{"Check whether the approved <br/>plan requires a Docker stop"}
+  v_docker_stop["After approval, stop Docker <br/>only if the plan requires it"]
+  v_kernel_prep["Install, boot test kernel <br/>only per approved plan; <br/>shared reboot"]
+  v_device_verify{"Checks 6–7: running kernel <br/>matches recorded, root <br/>opens /dev/udmabuf?"}
+  v_yaml_check{"Does Virtual2 YAML match <br/>400 × 300 size and lines <br/>pattern?"}
+  v_cam_check{"Does cam command match <br/>Virtual2, 400 × 300 NV12, <br/>cam capture limit 3?"}
+  v_run_cam["Run official cam 3 times; <br/>records go to a new dir <br/>that must not exist"]
+  v_mismatch_stop["If any check differs, do <br/>not capture"]
   v_result_verify["Verify new result: camera, <br/>applied config, 3 frames, <br/>exit code 0"]
   v_kconfig_survey -->|"Plan after survey"| v_wsl_plan
   v_wsl_plan -->|"Request approval"| v_host_approval
@@ -17,6 +19,10 @@ flowchart TB
   v_docker_decide -->|"If not needed, skip"| v_kernel_prep
   v_docker_stop -->|"Then install, boot"| v_kernel_prep
   v_kernel_prep -->|"Check after boot"| v_device_verify
-  v_device_verify -->|"Only if all match"| v_run_cam
+  v_device_verify -->|"If all pass, next"| v_yaml_check
+  v_yaml_check -->|"If config matches"| v_cam_check
+  v_cam_check -->|"If all pass, run"| v_run_cam
   v_device_verify -->|"If any differs"| v_mismatch_stop
+  v_yaml_check -->|"If any differs"| v_mismatch_stop
+  v_cam_check -->|"If any differs"| v_mismatch_stop
   v_run_cam -->|"Verify after 3 runs"| v_result_verify

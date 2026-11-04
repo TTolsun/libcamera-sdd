@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-10-30T16:34:57+00:00
+generated_at: 2026-10-30 16:34:57+00:00
 source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
 status: ok
 section: scenario-complete_request
@@ -10,8 +10,166 @@ scenario_fingerprint: cd861883aaa4fa13d5e12af7800b8d3eca0fb9fbf81fdb726d2a03f57c
 evidence_fingerprint: 7df37fd57ace87aa637a9f84cc30838bad127147c5087b1caf136c8efdebebbc
 semantic_review: human-review-required
 agent: cli/claude/claude-haiku-5-5
-generated_design: {"schema": 1, "input_fingerprint": "7df37fd57ace87aa637a9f84cc30838bad127147c5087b1caf136c8efdebebbc", "answers": {"responsibility": [{"text": "`completeRequest`는 파이프라인 핸들러가 완료된 `request`를 `camera`에 알릴 때 쓰는 함수입니다. 핸들러는 이 함수를 `CameraManager` 스레드에서 호출해야 합니다. 함수가 반환된 뒤에는 핸들러가 해당 `request`를 더 이상 관리하지 않으며, 그 `request`에 접근해서는 안 됩니다.", "evidence": ["complete"], "covers": ["responsibility"], "kind": "behavior", "quote": "\\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */", "part_id": "answer"}, {"text": "`completeBuffer`로 요청의 마지막 버퍼를 완료해도 요청은 자동으로 완료되지 않습니다. 요청은 `completeRequest()`로 명시적으로 완료해야 합니다. 핸들러는 완료된 요청을 순서 제약 없이 임의의 순서로 `completeRequest`에 전달할 수 있으며, 이때도 앱에 반환되는 요청 순서는 제출 순서로 보장됩니다.", "evidence": ["buffer", "complete"], "covers": ["responsibility"], "kind": "behavior", "quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)\n{\n\tCamera *camera = request->_d()->camera();\n\tcamera->bufferCompleted.emit(request, buffer);\n\treturn request->_d()->completeBuffer(buffer);\n}", "part_id": "answer"}], "delivery": [{"text": "`Request::Private::complete()`는 먼저 `ASSERT(request->status() == RequestPending)`와 `ASSERT(!hasPendingBuffers())`로 요청이 `RequestPending` 상태이고 대기 버퍼가 없는지 확인합니다. 그다음 `request->status_`를 `cancelled_`가 참이면 `RequestCancelled`로, 거짓이면 `RequestComplete`로 설정합니다. 이 `ASSERT`는 `log.h`를 포함하기 전에 `NDEBUG`가 정의되면 코드를 생성하지 않으므로, 그런 빌드에서는 이 검사가 수행되지 않습니다.", "evidence": ["request", "logging"], "covers": ["delivery"], "kind": "behavior", "quote": "request->status_ = cancelled_ ? RequestCancelled : RequestComplete;", "part_id": "answer"}, {"text": "`PipelineHandler::completeRequest()`는 `queuedRequests_`가 빌 때까지 반복하며 맨 앞 요청을 `front()`로 확인합니다. 맨 앞 요청의 `status()`가 `RequestPending`이면 `break`로 반복문을 빠져나가고 `pop_front()`를 호출하지 않으며 `camera->requestComplete()`도 호출하지 않습니다. `RequestPending`이 아니면 `ASSERT(!req->hasPendingBuffers())`를 확인한 뒤 `data->queuedRequests_.pop_front()`로 요청을 큐에서 제거하고 `camera->requestComplete(req)`를 호출합니다. 여기서 `break`는 요청을 취소하지 않고 반복문만 빠져나갑니다.", "evidence": ["complete"], "covers": ["delivery"], "kind": "behavior", "quote": "while (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;", "part_id": "answer"}, {"text": "`Camera::requestComplete()`는 `_d()->isAccessAllowed(Private::CameraStopping, Private::CameraRunning, true)`를 호출해 현재 상태가 `CameraStopping`부터 `CameraRunning` 사이인지 검사합니다. `allowDisconnected` 인자가 `true`이므로 연결이 끊긴 카메라도 `-ENODEV` 검사로 막지 않으며, 상태가 범위 안이면 `0`을, 범위 밖이면 `-EACCES`를 반환합니다. 반환값이 0이 아니면 `LOG(Camera, Fatal)`이 `Trying to complete a request when stopped`를 출력하고, Fatal 로그는 실행을 중단합니다. 반환값이 0이면 `requestCompleted.emit(request)`로 완료된 요청을 애플리케이션에 알립니다.", "evidence": ["notification", "state", "logging"], "covers": ["delivery"], "kind": "behavior", "quote": "\\brief Handle request completion and notify application\n * \\param[in] request The request that has completed\n *\n * This function is called by the pipeline handler to notify the camera that\n * the request has completed. It emits the requestCompleted signal.\n */\nvoid Camera::requestComplete(Request *request)\n{\n\t/* Disconnected cameras are still able to complete requests. */\n\tif (_d()->isAccessAllowed(Private::CameraStopping, Private::CameraRunning,\n\t\t\t\t  true))\n\t\tLOG(Camera, Fatal) << \"Trying to complete a request when stopped\";", "part_id": "answer"}, {"text": "반복문이 끝난 뒤 `PipelineHandler::completeRequest()`는 `doQueueRequests(camera)`를 무조건 호출합니다. 이 호출은 `break`로 반복문을 빠져나간 경우에도 실행되며, 주석에 따르면 대기 중인 요청을 파이프라인에 큐잉하도록 허용하는 역할을 합니다.", "evidence": ["complete"], "covers": ["delivery"], "kind": "behavior", "quote": "/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}", "part_id": "answer"}]}, "topic_inputs": {"responsibility": "0311cdfde088fbc6b862bc12755cba6e036fbd7b4e19e28c17524e9430f5c016", "delivery": "b11ebefc9244b757b160ad83f1469fdb9e23447c5ed603fe6d71a196406a79cf"}, "reused_topics": [], "replayed_units": [], "generated_topics": ["responsibility", "delivery"], "topic_agents": {"responsibility": "cli/claude/claude-haiku-5-5", "delivery": "cli/claude/claude-haiku-5-5"}, "grounding_review": "passed", "grounding_policy": "3c9673abb403dee9aa554ee5b3c549ebfe95bb18ec0e9cd7bf6e495e060439c2", "validation_policy": {"manuscript": "e0c429a5c80a01c34563ce00a616df89d8f75c735f8669bcbd1f75d84cce82a6", "semantic": "571896e4854c21322a1ce4580107c235cae5a9f94e71adc8c97a7e2897405968", "duplicates": "281d217a1d4a212dd56cdb3ce61e9fae7a4622099962c1beee847a57866e83e0", "design_contracts": "9f54ecddce57c7a9caa6c02af77904b57eff2471f2a052951c1cffd18256a4f0", "validate": "78d29ffd1bf6235067edf5a0c7d9b1290f1f11e90599605a0e192e90be5f3372", "reader_profiles": "ad9005d08295212371f59e8934ace86786c0683f7a4c416301ee0e0cadc8b797", "contract_schema": "fecc4ee78a481139776e562c164c0da9a3e5edf0a64a72be1d1c8feddee3cd08", "answer_contracts": "1e0d24e0cf26ded53ecec2e5a6fbc51836bac6e17530318a9fa7cffaa936c00b", "reader_scope": "1b9c26b10b74ae8cf034f5863cbac2114e1d844e5d8332eb1f10562a18371782", "product_context": "9db4d42a710b4a71a7d2bb16f69db06926409281dc1a200c796e77d5deaa25a0", "design_response": "74ebb2d21768d6bdd4ef7611c1c539526a7e72e6a58604c82e8305003d24f8b7", "design_validation": "b8133c78a8eb42fd5194c2756bb649b396ec54b40c49b72544bdbbcaf3366c57"}, "validation_model": "bf7c671c2ded32908672c0f92d106c624236506d332c3e4befe65123ac580a96", "style_policy": {"fluent-korean.md": "ce5aa71e58371e3fc02ff8cb165e07c9234f5166f6541423a91cc4cb40878975", "i-have-adhd.md": "3170b16ace00aecb0dd7feb54c0b5aa642e7502acda06ecd24fd89a11c7127e9", "README.md": "f8fd5a3d8041c23fc68b93ff32b8727e98393383b5099032eb00ad0013e7611c"}, "checkpoint_units": [{"checkpoint": "726063d50eaa20f2953b552a9a71540e70027a920f8db0ebb16c86ebd99b1fb0.json", "topic": "responsibility", "part": "answer", "subpart": null, "revalidated": true, "new_grounding_review": false, "receipts": ["10ec20f1b60c4df883d5ba943e927c09/021.receipt.json", "10ec20f1b60c4df883d5ba943e927c09/022.receipt.json"]}], "body_sha256": "6cefd895c58787fd8fd04aa1efded92c4d1d0f1314a6f08eb264e9308921c6fd"}
+generated_design:
+  schema: 1
+  input_fingerprint: 7df37fd57ace87aa637a9f84cc30838bad127147c5087b1caf136c8efdebebbc
+  answers:
+    responsibility:
+    - text: '`completeRequest`는 파이프라인 핸들러가 완료된 `request`를 `camera`에 알릴 때 쓰는 함수입니다.
+        핸들러는 이 함수를 `CameraManager` 스레드에서 호출해야 합니다. 함수가 반환된 뒤에는 핸들러가 해당 `request`를
+        더 이상 관리하지 않으며, 그 `request`에 접근해서는 안 됩니다.'
+      evidence:
+      - complete
+      covers:
+      - responsibility
+      kind: behavior
+      quote: "\\brief Signal request completion\n * \\param[in] request The request\
+        \ that has completed\n *\n * The pipeline handler shall call this function\
+        \ to notify the \\a camera that\n * the request has completed. The request\
+        \ is no longer managed by the pipeline\n * handler and shall not be accessed\
+        \ once this function returns.\n *\n * This function ensures that requests\
+        \ will be returned to the application in\n * submission order, the pipeline\
+        \ handler may call it on any complete request\n * without any ordering constraint.\n\
+        \ *\n * \\context This function shall be called from the CameraManager thread.\n\
+        \ */"
+      part_id: answer
+    - text: '`completeBuffer`로 요청의 마지막 버퍼를 완료해도 요청은 자동으로 완료되지 않습니다. 요청은 `completeRequest()`로
+        명시적으로 완료해야 합니다. 핸들러는 완료된 요청을 순서 제약 없이 임의의 순서로 `completeRequest`에 전달할 수 있으며,
+        이때도 앱에 반환되는 요청 순서는 제출 순서로 보장됩니다.'
+      evidence:
+      - buffer
+      - complete
+      covers:
+      - responsibility
+      kind: behavior
+      quote: "\\brief Complete a buffer for a request\n * \\param[in] request The\
+        \ request the buffer belongs to\n * \\param[in] buffer The buffer that has\
+        \ completed\n *\n * This function shall be called by pipeline handlers to\
+        \ signal completion of\n * the \\a buffer part of the \\a request. It notifies\
+        \ applications of buffer\n * completion and updates the request's internal\
+        \ buffer tracking. The request\n * is not completed automatically when the\
+        \ last buffer completes to give\n * pipeline handlers a chance to perform\
+        \ any operation that may still be\n * needed. They shall complete requests\
+        \ explicitly with completeRequest().\n *\n * \\context This function shall\
+        \ be called from the CameraManager thread.\n *\n * \\return True if all buffers\
+        \ contained in the request have completed, false\n * otherwise\n */\nbool\
+        \ PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)\n\
+        {\n\tCamera *camera = request->_d()->camera();\n\tcamera->bufferCompleted.emit(request,\
+        \ buffer);\n\treturn request->_d()->completeBuffer(buffer);\n}"
+      part_id: answer
+    delivery:
+    - text: '`Request::Private::complete()`는 먼저 `ASSERT(request->status() == RequestPending)`와
+        `ASSERT(!hasPendingBuffers())`로 요청이 `RequestPending` 상태이고 대기 버퍼가 없는지 확인합니다.
+        그다음 `request->status_`를 `cancelled_`가 참이면 `RequestCancelled`로, 거짓이면 `RequestComplete`로
+        설정합니다. 이 `ASSERT`는 `log.h`를 포함하기 전에 `NDEBUG`가 정의되면 코드를 생성하지 않으므로, 그런 빌드에서는
+        이 검사가 수행되지 않습니다.'
+      evidence:
+      - request
+      - logging
+      covers:
+      - delivery
+      kind: behavior
+      quote: 'request->status_ = cancelled_ ? RequestCancelled : RequestComplete;'
+      part_id: answer
+    - text: '`PipelineHandler::completeRequest()`는 `queuedRequests_`가 빌 때까지 반복하며 맨
+        앞 요청을 `front()`로 확인합니다. 맨 앞 요청의 `status()`가 `RequestPending`이면 `break`로 반복문을
+        빠져나가고 `pop_front()`를 호출하지 않으며 `camera->requestComplete()`도 호출하지 않습니다. `RequestPending`이
+        아니면 `ASSERT(!req->hasPendingBuffers())`를 확인한 뒤 `data->queuedRequests_.pop_front()`로
+        요청을 큐에서 제거하고 `camera->requestComplete(req)`를 호출합니다. 여기서 `break`는 요청을 취소하지
+        않고 반복문만 빠져나갑니다.'
+      evidence:
+      - complete
+      covers:
+      - delivery
+      kind: behavior
+      quote: "while (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\
+        \t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;"
+      part_id: answer
+    - text: '`Camera::requestComplete()`는 `_d()->isAccessAllowed(Private::CameraStopping,
+        Private::CameraRunning, true)`를 호출해 현재 상태가 `CameraStopping`부터 `CameraRunning`
+        사이인지 검사합니다. `allowDisconnected` 인자가 `true`이므로 연결이 끊긴 카메라도 `-ENODEV` 검사로 막지
+        않으며, 상태가 범위 안이면 `0`을, 범위 밖이면 `-EACCES`를 반환합니다. 반환값이 0이 아니면 `LOG(Camera, Fatal)`이
+        `Trying to complete a request when stopped`를 출력하고, Fatal 로그는 실행을 중단합니다. 반환값이
+        0이면 `requestCompleted.emit(request)`로 완료된 요청을 애플리케이션에 알립니다.'
+      evidence:
+      - notification
+      - state
+      - logging
+      covers:
+      - delivery
+      kind: behavior
+      quote: "\\brief Handle request completion and notify application\n * \\param[in]\
+        \ request The request that has completed\n *\n * This function is called by\
+        \ the pipeline handler to notify the camera that\n * the request has completed.\
+        \ It emits the requestCompleted signal.\n */\nvoid Camera::requestComplete(Request\
+        \ *request)\n{\n\t/* Disconnected cameras are still able to complete requests.\
+        \ */\n\tif (_d()->isAccessAllowed(Private::CameraStopping, Private::CameraRunning,\n\
+        \t\t\t\t  true))\n\t\tLOG(Camera, Fatal) << \"Trying to complete a request\
+        \ when stopped\";"
+      part_id: answer
+    - text: 반복문이 끝난 뒤 `PipelineHandler::completeRequest()`는 `doQueueRequests(camera)`를
+        무조건 호출합니다. 이 호출은 `break`로 반복문을 빠져나간 경우에도 실행되며, 주석에 따르면 대기 중인 요청을 파이프라인에 큐잉하도록
+        허용하는 역할을 합니다.
+      evidence:
+      - complete
+      covers:
+      - delivery
+      kind: behavior
+      quote: "/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n\
+        }"
+      part_id: answer
+  topic_inputs:
+    responsibility: 0311cdfde088fbc6b862bc12755cba6e036fbd7b4e19e28c17524e9430f5c016
+    delivery: b11ebefc9244b757b160ad83f1469fdb9e23447c5ed603fe6d71a196406a79cf
+  reused_topics: []
+  replayed_units: []
+  generated_topics:
+  - responsibility
+  - delivery
+  topic_agents:
+    responsibility: cli/claude/claude-haiku-5-5
+    delivery: cli/claude/claude-haiku-5-5
+  grounding_review: passed
+  grounding_policy: 3c9673abb403dee9aa554ee5b3c549ebfe95bb18ec0e9cd7bf6e495e060439c2
+  validation_policy:
+    manuscript: e0c429a5c80a01c34563ce00a616df89d8f75c735f8669bcbd1f75d84cce82a6
+    semantic: 571896e4854c21322a1ce4580107c235cae5a9f94e71adc8c97a7e2897405968
+    duplicates: 281d217a1d4a212dd56cdb3ce61e9fae7a4622099962c1beee847a57866e83e0
+    design_contracts: 9f54ecddce57c7a9caa6c02af77904b57eff2471f2a052951c1cffd18256a4f0
+    validate: 78d29ffd1bf6235067edf5a0c7d9b1290f1f11e90599605a0e192e90be5f3372
+    reader_profiles: ad9005d08295212371f59e8934ace86786c0683f7a4c416301ee0e0cadc8b797
+    contract_schema: fecc4ee78a481139776e562c164c0da9a3e5edf0a64a72be1d1c8feddee3cd08
+    answer_contracts: 1e0d24e0cf26ded53ecec2e5a6fbc51836bac6e17530318a9fa7cffaa936c00b
+    reader_scope: 1b9c26b10b74ae8cf034f5863cbac2114e1d844e5d8332eb1f10562a18371782
+    product_context: 9db4d42a710b4a71a7d2bb16f69db06926409281dc1a200c796e77d5deaa25a0
+    design_response: 74ebb2d21768d6bdd4ef7611c1c539526a7e72e6a58604c82e8305003d24f8b7
+    design_validation: b8133c78a8eb42fd5194c2756bb649b396ec54b40c49b72544bdbbcaf3366c57
+  validation_model: bf7c671c2ded32908672c0f92d106c624236506d332c3e4befe65123ac580a96
+  style_policy:
+    fluent-korean.md: ce5aa71e58371e3fc02ff8cb165e07c9234f5166f6541423a91cc4cb40878975
+    i-have-adhd.md: 3170b16ace00aecb0dd7feb54c0b5aa642e7502acda06ecd24fd89a11c7127e9
+    README.md: f8fd5a3d8041c23fc68b93ff32b8727e98393383b5099032eb00ad0013e7611c
+  checkpoint_units:
+  - checkpoint: 726063d50eaa20f2953b552a9a71540e70027a920f8db0ebb16c86ebd99b1fb0.json
+    topic: responsibility
+    part: answer
+    subpart: null
+    revalidated: true
+    new_grounding_review: false
+    receipts:
+    - 10ec20f1b60c4df883d5ba943e927c09/021.receipt.json
+    - 10ec20f1b60c4df883d5ba943e927c09/022.receipt.json
+  body_sha256: e5e3e7e3ce255f3958e7da43bad5f4c691472b9e2a35f6493421da8364c30c40
 revalidated_from: 212c689fcf2450bbfbaab25c7472895ac277b5d6
+managed_format_refresh:
+- source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
+  previous_body_sha256: 6cefd895c58787fd8fd04aa1efded92c4d1d0f1314a6f08eb264e9308921c6fd
+  body_sha256: e5e3e7e3ce255f3958e7da43bad5f4c691472b9e2a35f6493421da8364c30c40
+  previous_overview_sha256: e7c2d4001d75d8dd66fae7e24eb5cb0f50afc1ae236de59a4390d966f4c7eaf2
+  overview_sha256: 8e1a2c5bade42c18a873a43ddacd2a2e44bf87b0eeb03843d310cfdbf9687d45
+  change: Mermaid literal encoding only
+  new_inference: false
+  human_review: unchanged
 ---
 
 # 요청 완료 통지
@@ -298,18 +456,18 @@ flowchart LR
   p9["PipelineHandlerVirtual"]
   p10["Private"]
   p11["SimplePipelineHandler"]
-  p1 -->|"complete()"| p10
-  p1 -->|"requestComplete()"| p0
-  p1 -->|"doQueueRequests()"| p1
-  p1 -.->|"queueRequestDevice() · virtual 후보"| p4
-  p1 -.->|"queueRequestDevice() · virtual 후보"| p3
-  p1 -.->|"queueRequestDevice() · virtual 후보"| p5
-  p1 -.->|"queueRequestDevice() · virtual 후보"| p6
-  p1 -.->|"queueRequestDevice() · virtual 후보"| p2
-  p1 -.->|"queueRequestDevice() · virtual 후보"| p11
-  p1 -.->|"queueRequestDevice() · virtual 후보"| p7
-  p1 -.->|"queueRequestDevice() · virtual 후보"| p8
-  p1 -.->|"queueRequestDevice() · virtual 후보"| p9
+  p1 -->|"complete#40;#41;"| p10
+  p1 -->|"requestComplete#40;#41;"| p0
+  p1 -->|"doQueueRequests#40;#41;"| p1
+  p1 -.->|"queueRequestDevice#40;#41; · virtual 후보"| p4
+  p1 -.->|"queueRequestDevice#40;#41; · virtual 후보"| p3
+  p1 -.->|"queueRequestDevice#40;#41; · virtual 후보"| p5
+  p1 -.->|"queueRequestDevice#40;#41; · virtual 후보"| p6
+  p1 -.->|"queueRequestDevice#40;#41; · virtual 후보"| p2
+  p1 -.->|"queueRequestDevice#40;#41; · virtual 후보"| p11
+  p1 -.->|"queueRequestDevice#40;#41; · virtual 후보"| p7
+  p1 -.->|"queueRequestDevice#40;#41; · virtual 후보"| p8
+  p1 -.->|"queueRequestDevice#40;#41; · virtual 후보"| p9
 ```
 
 ## 추적 범위와 경계

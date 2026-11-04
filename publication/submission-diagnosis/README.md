@@ -1,0 +1,11 @@
+# Request submission diagnosis follow-up
+
+Public libcamera only. One existing document gains source-bound submission checks and ten question-specific diagrams. The other 28 manuscripts exactly preserve merged public PR79. Unmerged PR78 is outside this baseline. The original 293 structural facts/runtime remain; upstream df8 changes only the release version. This is not hardware/internal HAL validation or completion of #215/#163.
+
+`scope.json` records reviewed literal windows and exclusions. `reviews`, `per-item-visualization.json` and `consistency-review.json` retain automatic findings and per-question omission reasons. Human approval remains pending; unresolved informational/insufficient-evidence findings are not erased. `attempts` and the native archive retain rejected and interrupted attempts, including stale visual excerpts fixed after browser inspection. The inherited `performance.json` is historical, not a newly measured benchmark.
+
+`profiles`, `config`, `manuscripts`, `facts293.json.gz`, `english.json`, styles/templates/prompts and `cli-evidence.zip` reproduce the inputs with the generator merge and locked dependencies. Restore facts to run/facts/facts.json, manuscripts to run/manuscripts, english.json to run/english.json, and extract the indexed archive at the work root. Relocate paths in all profiles consistently, retain authentication profiles and historical identity, and use a 293 source checkout. Historical compile database paths document the original extraction; re-export is not a new build or extraction. Path relocation changes the configuration hash/build ID. Verify the relocated manifest separately.
+
+Fresh execution uses independent native Codex CLI gpt-6.1-terra with model_reasoning_effort="high". Missing or failed selected CLI execution must be reported; saved responses, another CLI, direct APIs or manual manuscripts do not substitute for a new successful run. Existing checkpoint revalidation is explicitly counted as reuse.
+
+`native-call-verification.json` checks original request/response/stdout and selected arguments. `two-exports.json` records two normal exports with identical complete manifests; `ui-verification.json` records the actually inspected browser views. Live manifest and all output hashes are checked after Pages deployment and recorded in the publication PR.

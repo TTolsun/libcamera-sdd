@@ -1,21 +1,18 @@
 flowchart TB
 
-  v_n0{"Did the buffer allocation <br/>call fail?"}
-  v_n1{"Did request creation fail?"}
-  v_n2{"Did attaching the buffer <br/>fail?"}
-  v_n3{"Has the configured submit <br/>limit already been reached?"}
-  v_n4["Camera queue call"]
-  v_n5["Preparation failure: return <br/>error value"]
-  v_n6["Capture limit reached: <br/>return 0, no submit"]
-  v_n7["On validation pass, camera <br/>call dispatches request <br/>async"]
-  v_n8["Increment submit attempt <br/>count"]
-  v_n0 -->|"Failed: return error [true]"| v_n5
-  v_n0 -->|"OK: create request [false]"| v_n1
-  v_n1 -->|"Create fail: return [true]"| v_n5
-  v_n1 -->|"Created: add buffer [false]"| v_n2
-  v_n2 -->|"Attach fail: return [true]"| v_n5
-  v_n2 -->|"After attach, submit [false]"| v_n3
-  v_n3 -->|"Limit hit: no submit [true]"| v_n6
-  v_n3 -->|"Unset/below: count [false]"| v_n8
-  v_n8 -->|"Then camera call"| v_n4
-  v_n4 -->|"Pass: dispatch async"| v_n7
+  v_alloc_check{"Did the stream buffer <br/>allocation call fail?"}
+  v_err_return["Return the error value and <br/>end before camera start"]
+  v_more_requests{"Are there initial requests <br/>left to prepare?"}
+  v_create_req{"Did request creation fail?"}
+  v_attach_buf{"Did attaching the buffer <br/>fail?"}
+  v_store_req["After all streams attach, <br/>keep the current request"]
+  v_ready_done["All initial requests and <br/>buffers ready before camera <br/>start"]
+  v_alloc_check -->|"Alloc error #91;true#93;"| v_err_return
+  v_alloc_check -->|"Alloc OK #91;false#93;"| v_more_requests
+  v_more_requests -->|"Requests left"| v_create_req
+  v_more_requests -->|"No requests left"| v_ready_done
+  v_create_req -->|"Create error #91;true#93;"| v_err_return
+  v_create_req -->|"Create OK #91;false#93;"| v_attach_buf
+  v_attach_buf -->|"Attach error #91;true#93;"| v_err_return
+  v_attach_buf -->|"Attach OK #91;false#93;"| v_store_req
+  v_store_req -->|"Stored: recheck left"| v_more_requests

@@ -1,17 +1,12 @@
-# libcamera-sdd
+# libcamera SDD
 
-This repository publishes public libcamera source-history records and the design documents (SDD) generated from them. The generator tool is in the separate repository TTolsun/camera-hal-sdd-generator.
+Public source-bound design documents and generator validation evidence.
 
-## Contents
-- publication/issue211/ and publication/issue211-reader/: original records, unchanged by the latest update.
-- publication/issue211-virtual/: virtual-principle update with config, manuscripts, profiles, reviews, native-call-verification.json, evidence-index.json, and an indexed cli-evidence.zip.
-- Previous root README, run, and receipts: kept in the previous-release directory.
+- [Public site](https://ttolsun.github.io/libcamera-sdd/)
+- [Issue214 release evidence](publication/issue214/README.md)
+- [Seven automatic findings: source review and minimal correction](publication/issue214-unresolved/README.md)
+- [Original official cam reader/runtime evidence](publication/issue211-reader/README.md)
 
-## Public pages
-- Korean: https://ttolsun.github.io/libcamera-sdd/official-cam-validation.html
-- English: https://ttolsun.github.io/libcamera-sdd/en/official-cam-validation.html
+Analysis and original trial:293d751a814e0d4c34e85ad457ccd9d5eefd1a61. Official upstream mirror:df8e348d64b4932a0676256ed24f0da3ee9438bc(version-only change). Automatic checks remain separate from human approval and hardware/internal HAL validation.
 
-## Scope
-- Baseline: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61. Upstream recorded separately as df8e348d64b4932a0676256ed24f0da3ee9438bc, not identical to the baseline.
-- Fresh writing and translation used Claude CLI claude-haiku-5-5. Independent grounding used Codex CLI gpt-6.1-terra. No alternate model, API, or manual prose fallback was used.
-- Automatic checks are not human approval. Hardware, sensor, ISP, physical DMA, product-app, and internal-HAL validation are not established.
+- [Request submission diagnosis evidence](publication/submission-diagnosis/README.md)

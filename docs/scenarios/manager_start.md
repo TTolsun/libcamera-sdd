@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-10-30T17:13:30+00:00
+generated_at: 2026-10-30 17:13:30+00:00
 source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
 status: ok
 section: scenario-manager_start
@@ -10,8 +10,130 @@ scenario_fingerprint: cd1259592467fd5fcd35810d789ea55d2db35418700286e14384affaab
 evidence_fingerprint: 96768021b81c45cf9702e847c3ac2a9e1ea375c7203052c86a594f0bb9c32555
 semantic_review: human-review-required
 agent: cli/claude/claude-haiku-5-5
-generated_design: {"schema": 1, "input_fingerprint": "96768021b81c45cf9702e847c3ac2a9e1ea375c7203052c86a594f0bb9c32555", "answers": {"discovery": [{"text": "`CameraManager::start()`은 카메라 관리자를 시작하고 시스템에 있는 모든 장치를 열거합니다.", "evidence": ["api"], "covers": ["discovery"], "kind": "behavior", "quote": "\\brief Start the camera manager\n *\n * Start the camera manager and enumerate all devices in the system. Once\n * the start has been confirmed the user is free to list and otherwise\n * interact with cameras in the system until either the camera manager\n * is stopped or the camera is unplugged from the system.\n *\n * \\return 0 on success or a negative error code otherwise\n */", "part_id": "answer"}, {"text": "시작이 확인된 뒤에는 사용자가 시스템의 카메라 목록을 조회하고 카메라와 상호작용할 수 있습니다. 이 사용 가능 범위는 카메라 관리자가 중지되거나 카메라가 시스템에서 분리될 때까지 유지됩니다.", "evidence": ["api"], "covers": ["discovery"], "kind": "behavior", "quote": "\\brief Start the camera manager\n *\n * Start the camera manager and enumerate all devices in the system. Once\n * the start has been confirmed the user is free to list and otherwise\n * interact with cameras in the system until either the camera manager\n * is stopped or the camera is unplugged from the system.\n *\n * \\return 0 on success or a negative error code otherwise\n */", "part_id": "answer"}], "initialization": [{"text": "`CameraManager::Private::start()`은 먼저 `Thread::start()`로 스레드를 시작합니다. `MutexLocker`로 `mutex_`를 잠근 블록에서 `initialized_`가 참이 될 때까지 `cv_.wait`로 기다린 뒤 `status_` 값을 `status`에 복사합니다. `status`가 0보다 작으면 `exit()`과 `wait()`를 차례로 호출한 뒤 `status`를 반환하고, 그렇지 않으면 `0`을 반환합니다.", "evidence": ["start"], "covers": ["initialization"], "kind": "behavior", "quote": "/* If a failure happened during initialization, stop the thread. */\n\tif (status < 0) {\n\t\texit();\n\t\twait();\n\t\treturn status;\n\t}", "part_id": "answer"}, {"text": "`CameraManager::Private::run()`은 먼저 `init()`을 호출하고 반환값을 `ret`에 저장합니다. `mutex_`를 잠근 뒤 `status_`에 `ret`을 쓰고 `initialized_`를 `true`로 설정한 다음 `mutex_.unlock()`으로 잠금을 해제합니다. `mutex_.unlock()`이 끝난 뒤 `cv_.notify_one()`을 호출하며, 이 알림은 잠금 구간에 포함되지 않습니다. `ret`이 0보다 작으면 `cleanup()`을 호출하고 반환하며, 그렇지 않으면 `exec()`을 호출한 뒤 `cleanup()`을 호출합니다.", "evidence": ["run"], "covers": ["initialization"], "kind": "behavior", "quote": "mutex_.lock();\n\tstatus_ = ret;\n\tinitialized_ = true;\n\tmutex_.unlock();\n\tcv_.notify_one();", "part_id": "answer"}, {"text": "`CameraManager::Private::init()`은 `DeviceEnumerator::create()`로 `enumerator_`를 만듭니다. `enumerator_`가 없거나 `enumerator_->enumerate()`의 결과가 0이 아니면 `-ENODEV`를 반환합니다. 그렇지 않으면 `createPipelineHandlers()`를 호출하고, `enumerator_->devicesAdded`에 `Private::createPipelineHandlers`를 연결한 뒤 `0`을 반환합니다.", "evidence": ["init"], "covers": ["initialization"], "kind": "behavior", "quote": "enumerator_ = DeviceEnumerator::create();\n\tif (!enumerator_ || enumerator_->enumerate())\n\t\treturn -ENODEV;", "part_id": "answer"}]}, "topic_inputs": {"discovery": "e495f1b55df7e0e19559b615f003e68a338d8f612d25bc9add960a7dfcd41438", "initialization": "340ad6d3989a74f18ece793055a674aef40e17058044678b890e8eb154d39718"}, "reused_topics": [], "replayed_units": [], "generated_topics": ["discovery", "initialization"], "topic_agents": {"discovery": "cli/claude/claude-haiku-5-5", "initialization": "cli/claude/claude-haiku-5-5"}, "grounding_review": "passed", "grounding_policy": "3c9673abb403dee9aa554ee5b3c549ebfe95bb18ec0e9cd7bf6e495e060439c2", "validation_policy": {"manuscript": "e0c429a5c80a01c34563ce00a616df89d8f75c735f8669bcbd1f75d84cce82a6", "semantic": "571896e4854c21322a1ce4580107c235cae5a9f94e71adc8c97a7e2897405968", "duplicates": "281d217a1d4a212dd56cdb3ce61e9fae7a4622099962c1beee847a57866e83e0", "design_contracts": "9f54ecddce57c7a9caa6c02af77904b57eff2471f2a052951c1cffd18256a4f0", "validate": "78d29ffd1bf6235067edf5a0c7d9b1290f1f11e90599605a0e192e90be5f3372", "reader_profiles": "ad9005d08295212371f59e8934ace86786c0683f7a4c416301ee0e0cadc8b797", "contract_schema": "fecc4ee78a481139776e562c164c0da9a3e5edf0a64a72be1d1c8feddee3cd08", "answer_contracts": "1e0d24e0cf26ded53ecec2e5a6fbc51836bac6e17530318a9fa7cffaa936c00b", "reader_scope": "1b9c26b10b74ae8cf034f5863cbac2114e1d844e5d8332eb1f10562a18371782", "product_context": "9db4d42a710b4a71a7d2bb16f69db06926409281dc1a200c796e77d5deaa25a0", "design_response": "74ebb2d21768d6bdd4ef7611c1c539526a7e72e6a58604c82e8305003d24f8b7", "design_validation": "b8133c78a8eb42fd5194c2756bb649b396ec54b40c49b72544bdbbcaf3366c57"}, "validation_model": "bf7c671c2ded32908672c0f92d106c624236506d332c3e4befe65123ac580a96", "style_policy": {"fluent-korean.md": "ce5aa71e58371e3fc02ff8cb165e07c9234f5166f6541423a91cc4cb40878975", "i-have-adhd.md": "3170b16ace00aecb0dd7feb54c0b5aa642e7502acda06ecd24fd89a11c7127e9", "README.md": "f8fd5a3d8041c23fc68b93ff32b8727e98393383b5099032eb00ad0013e7611c"}, "checkpoint_units": [{"checkpoint": "8fec0390c91355a14de905ead49c1ee761ddba64a3c32dae7075af789acb6f78.json", "topic": "discovery", "part": "answer", "subpart": null, "revalidated": true, "new_grounding_review": false, "receipts": ["10ec20f1b60c4df883d5ba943e927c09/001.receipt.json", "10ec20f1b60c4df883d5ba943e927c09/002.receipt.json", "10ec20f1b60c4df883d5ba943e927c09/003.receipt.json", "10ec20f1b60c4df883d5ba943e927c09/004.receipt.json"]}], "body_sha256": "fa478acdc749baddf2793c52787c87d8636b8b5595260920c2c7c455d522122a"}
+generated_design:
+  schema: 1
+  input_fingerprint: 96768021b81c45cf9702e847c3ac2a9e1ea375c7203052c86a594f0bb9c32555
+  answers:
+    discovery:
+    - text: '`CameraManager::start()`은 카메라 관리자를 시작하고 시스템에 있는 모든 장치를 열거합니다.'
+      evidence:
+      - api
+      covers:
+      - discovery
+      kind: behavior
+      quote: "\\brief Start the camera manager\n *\n * Start the camera manager and\
+        \ enumerate all devices in the system. Once\n * the start has been confirmed\
+        \ the user is free to list and otherwise\n * interact with cameras in the\
+        \ system until either the camera manager\n * is stopped or the camera is unplugged\
+        \ from the system.\n *\n * \\return 0 on success or a negative error code\
+        \ otherwise\n */"
+      part_id: answer
+    - text: 시작이 확인된 뒤에는 사용자가 시스템의 카메라 목록을 조회하고 카메라와 상호작용할 수 있습니다. 이 사용 가능 범위는 카메라
+        관리자가 중지되거나 카메라가 시스템에서 분리될 때까지 유지됩니다.
+      evidence:
+      - api
+      covers:
+      - discovery
+      kind: behavior
+      quote: "\\brief Start the camera manager\n *\n * Start the camera manager and\
+        \ enumerate all devices in the system. Once\n * the start has been confirmed\
+        \ the user is free to list and otherwise\n * interact with cameras in the\
+        \ system until either the camera manager\n * is stopped or the camera is unplugged\
+        \ from the system.\n *\n * \\return 0 on success or a negative error code\
+        \ otherwise\n */"
+      part_id: answer
+    initialization:
+    - text: '`CameraManager::Private::start()`은 먼저 `Thread::start()`로 스레드를 시작합니다.
+        `MutexLocker`로 `mutex_`를 잠근 블록에서 `initialized_`가 참이 될 때까지 `cv_.wait`로 기다린
+        뒤 `status_` 값을 `status`에 복사합니다. `status`가 0보다 작으면 `exit()`과 `wait()`를 차례로
+        호출한 뒤 `status`를 반환하고, 그렇지 않으면 `0`을 반환합니다.'
+      evidence:
+      - start
+      covers:
+      - initialization
+      kind: behavior
+      quote: "/* If a failure happened during initialization, stop the thread. */\n\
+        \tif (status < 0) {\n\t\texit();\n\t\twait();\n\t\treturn status;\n\t}"
+      part_id: answer
+    - text: '`CameraManager::Private::run()`은 먼저 `init()`을 호출하고 반환값을 `ret`에 저장합니다.
+        `mutex_`를 잠근 뒤 `status_`에 `ret`을 쓰고 `initialized_`를 `true`로 설정한 다음 `mutex_.unlock()`으로
+        잠금을 해제합니다. `mutex_.unlock()`이 끝난 뒤 `cv_.notify_one()`을 호출하며, 이 알림은 잠금 구간에
+        포함되지 않습니다. `ret`이 0보다 작으면 `cleanup()`을 호출하고 반환하며, 그렇지 않으면 `exec()`을 호출한 뒤
+        `cleanup()`을 호출합니다.'
+      evidence:
+      - run
+      covers:
+      - initialization
+      kind: behavior
+      quote: "mutex_.lock();\n\tstatus_ = ret;\n\tinitialized_ = true;\n\tmutex_.unlock();\n\
+        \tcv_.notify_one();"
+      part_id: answer
+    - text: '`CameraManager::Private::init()`은 `DeviceEnumerator::create()`로 `enumerator_`를
+        만듭니다. `enumerator_`가 없거나 `enumerator_->enumerate()`의 결과가 0이 아니면 `-ENODEV`를
+        반환합니다. 그렇지 않으면 `createPipelineHandlers()`를 호출하고, `enumerator_->devicesAdded`에
+        `Private::createPipelineHandlers`를 연결한 뒤 `0`을 반환합니다.'
+      evidence:
+      - init
+      covers:
+      - initialization
+      kind: behavior
+      quote: "enumerator_ = DeviceEnumerator::create();\n\tif (!enumerator_ || enumerator_->enumerate())\n\
+        \t\treturn -ENODEV;"
+      part_id: answer
+  topic_inputs:
+    discovery: e495f1b55df7e0e19559b615f003e68a338d8f612d25bc9add960a7dfcd41438
+    initialization: 340ad6d3989a74f18ece793055a674aef40e17058044678b890e8eb154d39718
+  reused_topics: []
+  replayed_units: []
+  generated_topics:
+  - discovery
+  - initialization
+  topic_agents:
+    discovery: cli/claude/claude-haiku-5-5
+    initialization: cli/claude/claude-haiku-5-5
+  grounding_review: passed
+  grounding_policy: 3c9673abb403dee9aa554ee5b3c549ebfe95bb18ec0e9cd7bf6e495e060439c2
+  validation_policy:
+    manuscript: e0c429a5c80a01c34563ce00a616df89d8f75c735f8669bcbd1f75d84cce82a6
+    semantic: 571896e4854c21322a1ce4580107c235cae5a9f94e71adc8c97a7e2897405968
+    duplicates: 281d217a1d4a212dd56cdb3ce61e9fae7a4622099962c1beee847a57866e83e0
+    design_contracts: 9f54ecddce57c7a9caa6c02af77904b57eff2471f2a052951c1cffd18256a4f0
+    validate: 78d29ffd1bf6235067edf5a0c7d9b1290f1f11e90599605a0e192e90be5f3372
+    reader_profiles: ad9005d08295212371f59e8934ace86786c0683f7a4c416301ee0e0cadc8b797
+    contract_schema: fecc4ee78a481139776e562c164c0da9a3e5edf0a64a72be1d1c8feddee3cd08
+    answer_contracts: 1e0d24e0cf26ded53ecec2e5a6fbc51836bac6e17530318a9fa7cffaa936c00b
+    reader_scope: 1b9c26b10b74ae8cf034f5863cbac2114e1d844e5d8332eb1f10562a18371782
+    product_context: 9db4d42a710b4a71a7d2bb16f69db06926409281dc1a200c796e77d5deaa25a0
+    design_response: 74ebb2d21768d6bdd4ef7611c1c539526a7e72e6a58604c82e8305003d24f8b7
+    design_validation: b8133c78a8eb42fd5194c2756bb649b396ec54b40c49b72544bdbbcaf3366c57
+  validation_model: bf7c671c2ded32908672c0f92d106c624236506d332c3e4befe65123ac580a96
+  style_policy:
+    fluent-korean.md: ce5aa71e58371e3fc02ff8cb165e07c9234f5166f6541423a91cc4cb40878975
+    i-have-adhd.md: 3170b16ace00aecb0dd7feb54c0b5aa642e7502acda06ecd24fd89a11c7127e9
+    README.md: f8fd5a3d8041c23fc68b93ff32b8727e98393383b5099032eb00ad0013e7611c
+  checkpoint_units:
+  - checkpoint: 8fec0390c91355a14de905ead49c1ee761ddba64a3c32dae7075af789acb6f78.json
+    topic: discovery
+    part: answer
+    subpart: null
+    revalidated: true
+    new_grounding_review: false
+    receipts:
+    - 10ec20f1b60c4df883d5ba943e927c09/001.receipt.json
+    - 10ec20f1b60c4df883d5ba943e927c09/002.receipt.json
+    - 10ec20f1b60c4df883d5ba943e927c09/003.receipt.json
+    - 10ec20f1b60c4df883d5ba943e927c09/004.receipt.json
+  body_sha256: aae8238214954fc152cea15bd638ab980a9535f6c3cafe43aec99823226d15ac
 revalidated_from: 212c689fcf2450bbfbaab25c7472895ac277b5d6
+managed_format_refresh:
+- source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
+  previous_body_sha256: fa478acdc749baddf2793c52787c87d8636b8b5595260920c2c7c455d522122a
+  body_sha256: aae8238214954fc152cea15bd638ab980a9535f6c3cafe43aec99823226d15ac
+  previous_overview_sha256: f98d6fca1e7c58f837bc496acd9101f8da34187f52ff9d052f8131dac65cf099
+  overview_sha256: 7d59cd9fdb0722338717c492c7cbbc9194d4b2b9ec9e0956101747797843e797
+  change: Mermaid literal encoding only
+  new_inference: false
+  human_review: unchanged
 ---
 
 # 카메라 탐색
@@ -175,7 +297,7 @@ revalidated_from: 212c689fcf2450bbfbaab25c7472895ac277b5d6
 flowchart LR
   p0["CameraManager"]
   p1["Private"]
-  p0 -->|"start()"| p1
+  p0 -->|"start#40;#41;"| p1
 ```
 
 ## 추적 범위와 경계

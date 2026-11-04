@@ -1,0 +1,1 @@
+{"verdict":"pass","findings":[],"scope":"제공된 구현을 기준으로 변경된 max_edge_label_chars 설명과 YAML 예시를 검토했습니다."}

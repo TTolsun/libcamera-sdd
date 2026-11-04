@@ -1,20 +1,20 @@
 flowchart TB
 
-  v_n0["PipelineHandler receives <br/>request and starts preparing"]
-  v_n1{"Is the prepared request at <br/>its turn cancelled?"}
-  v_n2["Cancelled completion in <br/>order; hold if prior <br/>RequestPending"]
-  v_n3["Virtual device schedules <br/>frames via queued connection"]
-  v_n4["VirtualCameraData::<br/>processRequest waits until <br/>target time"]
-  v_n5["Inside CPU write sync, <br/>tries mapping buffer for <br/>write"]
-  v_n6["For NV12, CPU tries <br/>Virtual2 lines conversion, <br/>mapped write"]
+  v_n0["PipelineHandler::<br/>queueRequest adds request; <br/>tries preparation"]
+  v_n1{"Is the prepared request <br/>cancelled at its turn?"}
+  v_n2["Set RequestCancelled; <br/>notify queue front; halt at <br/>RequestPending"]
+  v_n3["Virtual handler queues <br/>request; target time is an <br/>argument"]
+  v_n4["Receiver <br/>VirtualCameraData::<br/>processRequest waits until <br/>target"]
+  v_n5["Pre-gen FrameSuccess; in <br/>CPU write sync, tries <br/>DMA-BUF write map"]
+  v_n6["For NV12: CPU tries <br/>Virtual2 lines conversion <br/>and mapped write"]
   v_n7{"Is the frame generation <br/>result an error?"}
-  v_n8["Emits buffer-complete <br/>signal regardless of frame <br/>status"]
-  v_n0 -->|"After prepared, wait"| v_n1
-  v_n1 -->|"If cancelled, notify [true]"| v_n2
-  v_n1 -->|"If not cancelled [false]"| v_n3
-  v_n3 -->|"Queued connection"| v_n4
+  v_n8["Both emit buffer <br/>completion; request <br/>completion separate"]
+  v_n0 -->|"Once prepared"| v_n1
+  v_n1 -->|"Cancelled #91;true#93;"| v_n2
+  v_n1 -->|"Not cancelled #91;false#93;"| v_n3
+  v_n3 -->|"Queued call + target"| v_n4
   v_n4 -->|"Matching stream only"| v_n5
-  v_n5 -->|"Within write sync"| v_n6
+  v_n5 -->|"To conversion step"| v_n6
   v_n6 -->|"Return frame result"| v_n7
-  v_n7 -->|"On error: FrameError [true]"| v_n8
-  v_n7 -->|"Keep FrameSuccess [false]"| v_n8
+  v_n7 -->|"Becomes FrameError #91;true#93;"| v_n8
+  v_n7 -->|"Keeps FrameSuccess #91;false#93;"| v_n8
