@@ -1503,11 +1503,11 @@
             "catalog/d9c04a66aff286fe/en"
           ],
           "status": "compatible",
-          "condition": "The last buffer of a request completes.",
-          "actor": "The pipeline handler.",
-          "timing": "After buffer completion and any operation still needed.",
-          "scope": "Explicit request completion; distinct from buffer completion.",
-          "reason": "The source supports both the absence of automatic request completion and the handler's obligation to complete it explicitly. The peers agree.",
+          "condition": "The last buffer completes through the buffer-completion path.",
+          "actor": "The pipeline handler must explicitly complete the request.",
+          "timing": "Buffer completion precedes explicit request completion, allowing any remaining processing.",
+          "scope": "The claim distinguishes buffer completion from request completion; it does not assert an observed callback.",
+          "reason": "The source expressly states that the last buffer does not automatically complete the request and requires an explicit completeRequest call. The relevant peers agree.",
           "sources": [
             {
               "source_id": "onboarding/why/buffer",
@@ -1531,14 +1531,16 @@
             "catalog/8118138bc41cdedf",
             "catalog/8118138bc41cdedf/en",
             "catalog/40aeaa4fe33cebc7",
-            "catalog/40aeaa4fe33cebc7/en"
+            "catalog/40aeaa4fe33cebc7/en",
+            "catalog/7d7fadfae6ffc192",
+            "catalog/7d7fadfae6ffc192/en"
           ],
           "status": "compatible",
-          "condition": "The handler calls completeRequest on a complete request.",
-          "actor": "The pipeline handler calls the function; requests are returned to the application.",
-          "timing": "Calls need not follow submission order; application returns follow submission order.",
-          "scope": "The documented completeRequest ordering guarantee.",
-          "reason": "The claim preserves the distinction between call order and application return order. Its translation and the relevant primary-document peers agree.",
+          "condition": "The pipeline handler calls completeRequest on a completed request.",
+          "actor": "The handler calls completeRequest; requests are returned to the application.",
+          "timing": "Calls may occur without an ordering constraint, while application returns follow submission order.",
+          "scope": "The ordering guarantee concerns returned requests, not the order of completeRequest calls.",
+          "reason": "The source explicitly provides both the submission-order return guarantee and the handler's freedom to call on any complete request. The translation and relevant peers agree.",
           "sources": [
             {
               "source_id": "onboarding/why/order",
@@ -1562,14 +1564,16 @@
             "catalog/8118138bc41cdedf",
             "catalog/8118138bc41cdedf/en",
             "catalog/40aeaa4fe33cebc7",
-            "catalog/40aeaa4fe33cebc7/en"
+            "catalog/40aeaa4fe33cebc7/en",
+            "catalog/7d7fadfae6ffc192",
+            "catalog/7d7fadfae6ffc192/en"
           ],
           "status": "compatible",
-          "condition": "The handler calls completeRequest on a complete request.",
-          "actor": "The pipeline handler calls the function; requests are returned to the application.",
-          "timing": "Calls need not follow submission order; application returns follow submission order.",
-          "scope": "The documented completeRequest ordering guarantee.",
-          "reason": "The English and Korean claims preserve the same distinction between call order and application return order, consistent with the source and peers.",
+          "condition": "The pipeline handler calls completeRequest on a completed request.",
+          "actor": "The handler calls completeRequest; requests are returned to the application.",
+          "timing": "Calls may occur without an ordering constraint, while application returns follow submission order.",
+          "scope": "The API guarantee concerns returned requests, not the order of completeRequest calls.",
+          "reason": "The translation preserves both source-supported ordering statements and agrees with the Korean claim and relevant peers.",
           "sources": [
             {
               "source_id": "onboarding/why/order",
@@ -1595,11 +1599,11 @@
             "catalog/16ab8d53401a5f0b/en"
           ],
           "status": "compatible",
-          "condition": "A request is queued to the device and its buffers complete.",
-          "actor": "The pipeline handler; queueRequestDevice and completeBuffer have CameraManager thread context.",
-          "timing": "Buffer completion is signalled before explicit request completion; the last buffer does not automatically complete the request.",
-          "scope": "Source API duties and buffer notification, not proof of the application's callback execution thread.",
-          "reason": "The source supports the stated thread context, buffer notification and tracking, and explicit completion obligation. The translation and relevant peers agree.",
+          "condition": "A request is passed to the device and its buffers complete.",
+          "actor": "queueRequestDevice is called on the CameraManager thread; the pipeline handler calls completeBuffer and completeRequest.",
+          "timing": "completeBuffer signals a buffer and updates tracking; the last buffer alone does not automatically complete the request.",
+          "scope": "The stated thread obligation applies to the completeBuffer call; it does not establish the application's callback execution thread.",
+          "reason": "The source supports the named function's thread, the buffer notification and tracking effects, and the explicit request-completion obligation. The translation and relevant peers agree.",
           "sources": [
             {
               "source_id": "vendor-integration/request/device-result",
@@ -1610,8 +1614,8 @@
               "source_quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer"
             },
             {
-              "source_id": "request-lifecycle/journey/request-notice",
-              "source_quote": "\\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}\n\n/**\n * \\brief Cancel request and signal its completion"
+              "source_id": "request-lifecycle/journey/completion",
+              "source_quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)\n{\n\tCamera *camera = request->_d()->camera();\n\tcamera->bufferCompleted.emit(request, buffer);\n\treturn request->_d()->completeBuffer(buffer);\n}\n\n/**\n * \\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}\n\n/**\n * \\brief Cancel request and signal its completion\n * \\param[in] request The request to cancel\n *\n * This function cancels and completes the request. The same rules as for\n * completeRequest() apply.\n */\nvoid PipelineHandler::cancelRequest(Request *request)\n{\n\trequest->_d()->cancel();\n\tcompleteRequest(request);\n}\n\n/**\n * \\brief Retrieve the absolute path to a platform configuration file"
             }
           ],
           "claim_quote": "PipelineHandler::queueRequestDevice()는 CameraManager 스레드에서 호출됩니다. 파이프라인 핸들러는 요청의 버퍼 완료를 알리기 위해 CameraManager 스레드에서 completeBuffer()를 호출해야 합니다. 이 함수는 애플리케이션에 버퍼 완료를 통지하고 요청 내부의 버퍼 추적 정보를 갱신합니다. 마지막 버퍼가 완료되어도 요청은 자동으로 완료되지 않으므로 파이프라인 핸들러는 completeRequest()를 명시적으로 호출해 요청을 완료해야 합니다."
@@ -1629,11 +1633,11 @@
             "catalog/16ab8d53401a5f0b/en"
           ],
           "status": "compatible",
-          "condition": "A request is queued to the device and its buffers complete.",
-          "actor": "The pipeline handler; queueRequestDevice and completeBuffer have CameraManager thread context.",
-          "timing": "Buffer completion is signalled before explicit request completion; the last buffer does not automatically complete the request.",
-          "scope": "Source API duties and buffer notification, not proof of the application's callback execution thread.",
-          "reason": "The English and Korean claims agree, and the source supports their stated thread context, notification, tracking and completion duties.",
+          "condition": "A request is passed to the device and its buffers complete.",
+          "actor": "queueRequestDevice is called on the CameraManager thread; the pipeline handler calls completeBuffer and completeRequest.",
+          "timing": "completeBuffer signals a buffer and updates tracking; the last buffer alone does not automatically complete the request.",
+          "scope": "The stated thread obligation applies to the completeBuffer call; it does not establish the application's callback execution thread.",
+          "reason": "The translation preserves the source-supported actions, obligations and thread scope and agrees with the Korean claim and relevant peers.",
           "sources": [
             {
               "source_id": "vendor-integration/request/device-result",
@@ -1644,8 +1648,8 @@
               "source_quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer"
             },
             {
-              "source_id": "request-lifecycle/journey/request-notice",
-              "source_quote": "\\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}\n\n/**\n * \\brief Cancel request and signal its completion"
+              "source_id": "request-lifecycle/journey/completion",
+              "source_quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)\n{\n\tCamera *camera = request->_d()->camera();\n\tcamera->bufferCompleted.emit(request, buffer);\n\treturn request->_d()->completeBuffer(buffer);\n}\n\n/**\n * \\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}\n\n/**\n * \\brief Cancel request and signal its completion\n * \\param[in] request The request to cancel\n *\n * This function cancels and completes the request. The same rules as for\n * completeRequest() apply.\n */\nvoid PipelineHandler::cancelRequest(Request *request)\n{\n\trequest->_d()->cancel();\n\tcompleteRequest(request);\n}\n\n/**\n * \\brief Retrieve the absolute path to a platform configuration file"
             }
           ],
           "claim_quote": "PipelineHandler::queueRequestDevice() is called from the CameraManager thread. The pipeline handler must call completeBuffer() from the CameraManager thread to signal completion of a buffer in the request. This function notifies the application of buffer completion and updates the request's internal buffer tracking information. The request is not completed automatically even when the last buffer completes, so the pipeline handler must explicitly call completeRequest() to complete the request."
@@ -1661,11 +1665,11 @@
             "catalog/acf9fa6c63d9152f/en"
           ],
           "status": "compatible",
-          "condition": "PipelineHandler::stop is stopping the specified camera and separates its waiting requests before stopping the device.",
-          "actor": "PipelineHandler::stop moves the waiting requests; stopDevice is responsible for stopping capture and processing.",
-          "timing": "The swap precedes stopDevice; waiting requests are subsequently cancelled and completed.",
-          "scope": "The stop path and its pending-request cancellation contract.",
-          "reason": "The named local queue and member resolve to the same objects and swap shown in the source. The stated rationale and immediate error completion match the stopDevice contract; the cancellation peers describe compatible paths.",
+          "condition": "PipelineHandler::stop is invoked for the camera and stopDevice handles its pending requests.",
+          "actor": "PipelineHandler::stop moves waiting requests; the stopDevice implementation stops capture and processing and completes pending requests in error.",
+          "timing": "The swap precedes stopDevice; pending device requests are cancelled and complete immediately.",
+          "scope": "The swap concerns the camera's waiting queue; stopDevice concerns pending requests for the device. The shortened member call identifies the same swap and objects as the source.",
+          "reason": "The source supports the call order, the prevention of requeueing during stopDevice, and the stopDevice cancellation contract. The peers describe compatible cancellation and dispatch paths.",
           "sources": [
             {
               "source_id": "vendor-integration/shutdown/stop-rationale",
@@ -13664,11 +13668,11 @@
             "catalog/16ab8d53401a5f0b/en"
           ],
           "status": "compatible",
-          "condition": "버퍼 완료와 요청 완료는 별개의 단계입니다.",
-          "actor": "파이프라인 핸들러가 두 완료 함수를 호출합니다.",
-          "timing": "마지막 버퍼가 완료되어도 요청 완료를 별도로 통지해야 합니다.",
-          "scope": "함수 호출 스레드에 관한 계약이며 실제 애플리케이션 콜백 실행 스레드의 보장은 아닙니다.",
-          "reason": "장치 큐 함수의 호출 스레드, 버퍼 완료의 효과와 명시적 요청 완료 의무가 출처 및 관련 문장과 일치합니다.",
+          "condition": "A pipeline handler completes a buffer belonging to a request.",
+          "actor": "The pipeline handler calls queueRequestDevice, completeBuffer and completeRequest.",
+          "timing": "The last buffer completing does not automatically complete the request.",
+          "scope": "CameraManager is the required calling thread; this does not establish the application callback execution thread.",
+          "reason": "The source supports the calling contexts, buffer notification and tracking, and explicit request completion. The relevant peers preserve the same distinction.",
           "sources": [
             {
               "source_id": "vendor-integration/request/device-result",
@@ -13691,11 +13695,11 @@
             "catalog/db69e50714c5c5b8/en"
           ],
           "status": "compatible",
-          "condition": "모듈을 찾은 뒤 서명과 생성된 프록시의 유효성을 검사하는 경로입니다.",
-          "actor": "createIPA의 내부 람다가 프록시를 생성하고 createIPA가 결과를 반환합니다.",
-          "timing": "서명 검사 후 객체를 생성하고 유효성 검사 후 반환합니다.",
-          "scope": "프록시 종류와 유효성 검사 결과에 관한 소스 계약입니다.",
-          "reason": "분기, 실패 로그와 반환값이 출처 및 영어 문장과 일치합니다. 모듈을 찾지 못하는 별도 경로를 생략한 것은 기술된 분기와 충돌하지 않습니다.",
+          "condition": "A module has been found and the proxy has been created.",
+          "actor": "The createIPA lambda selects the proxy type; createIPA checks and returns the proxy.",
+          "timing": "Signature validation determines construction; proxy validity is checked afterwards.",
+          "scope": "The assertion concerns proxy selection and validity, not callback or device behavior.",
+          "reason": "The source supports both branches and the validity outcomes. The English translation preserves them. The separate missing-module return is outside the stated proxy-created condition.",
           "sources": [
             {
               "source_id": "vendor-integration/algorithm/proxy-kind",
@@ -13710,11 +13714,11 @@
             "catalog/db69e50714c5c5b8"
           ],
           "status": "compatible",
-          "condition": "모듈을 찾은 뒤 서명과 생성된 프록시의 유효성을 검사하는 경로입니다.",
-          "actor": "createIPA의 내부 람다가 프록시를 생성하고 createIPA가 결과를 반환합니다.",
-          "timing": "서명 검사 후 객체를 생성하고 유효성 검사 후 반환합니다.",
-          "scope": "프록시 종류와 유효성 검사 결과에 관한 소스 계약입니다.",
-          "reason": "분기, 실패 로그와 반환값이 출처 및 한국어 문장과 일치합니다. 모듈을 찾지 못하는 별도 경로를 생략한 것은 기술된 분기와 충돌하지 않습니다.",
+          "condition": "A module has been found and the proxy has been created.",
+          "actor": "The createIPA lambda selects the proxy type; createIPA checks and returns the proxy.",
+          "timing": "Signature validation determines construction; proxy validity is checked afterwards.",
+          "scope": "The assertion concerns proxy selection and validity, not callback or device behavior.",
+          "reason": "The source supports both branches and the validity outcomes. The Korean counterpart preserves them. The separate missing-module return is outside the stated proxy-created condition.",
           "sources": [
             {
               "source_id": "vendor-integration/algorithm/proxy-kind",
@@ -13729,37 +13733,28 @@
             "catalog/3f9cc2d54c6ee372/en",
             "request-lifecycle.md/journey/1",
             "request-lifecycle.md/resources/2",
-            "request-lifecycle.md/resources/3",
-            "request-lifecycle.md/resources/5",
             "request-lifecycle.md/resources/7",
-            "request-lifecycle.md/resources/13",
             "catalog/8118138bc41cdedf",
             "catalog/8118138bc41cdedf/en",
             "catalog/65bdfc66c5e02cad",
             "catalog/65bdfc66c5e02cad/en",
-            "catalog/d9c04a66aff286fe",
-            "catalog/d9c04a66aff286fe/en",
-            "catalog/fab2c4dc077f9b38",
-            "catalog/fab2c4dc077f9b38/en",
             "catalog/7d7fadfae6ffc192",
-            "catalog/7d7fadfae6ffc192/en",
-            "catalog/16ab8d53401a5f0b",
-            "catalog/16ab8d53401a5f0b/en"
+            "catalog/7d7fadfae6ffc192/en"
           ],
           "status": "compatible",
-          "condition": "파이프라인 핸들러가 완료된 요청을 completeRequest에 전달하는 경우입니다.",
-          "actor": "파이프라인 핸들러가 CameraManager 스레드에서 함수를 호출합니다.",
-          "timing": "함수 반환 후 해당 요청에 접근하지 않아야 합니다.",
-          "scope": "호출 순서에는 제약이 없고 애플리케이션으로 반환되는 요청에는 제출 순서가 보장됩니다.",
-          "reason": "접근 금지, 호출 스레드와 두 종류의 순서가 출처 및 관련 한영 문장과 일치합니다. 이 호출 스레드 의무는 콜백 실행 스레드를 확정하지 않습니다.",
+          "condition": "The pipeline handler passes a completed request to completeRequest.",
+          "actor": "The pipeline handler calls the function and must cease accessing that request after it returns.",
+          "timing": "Calls on completed requests have no ordering constraint; requests are returned to the application in submission order.",
+          "scope": "The CameraManager requirement applies to the function call, and the ordering guarantee applies to returned requests.",
+          "reason": "The source explicitly supports the access prohibition, call context and ordering guarantee. The English translation and relevant peers are consistent.",
           "sources": [
             {
               "source_id": "overview/boundary/completion",
               "source_quote": "\\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest"
             },
             {
-              "source_id": "request-lifecycle/journey/queued-connection",
-              "source_quote": "\\enum ConnectionType\n * \\brief Connection type for asynchronous communication\n *\n * This enumeration describes the possible types of asynchronous communication\n * between a sender and a receiver. It applies to Signal::emit() and\n * Object::invokeMethod().\n *\n * \\var ConnectionTypeAuto\n * \\brief If the sender and the receiver live in the same thread,\n * ConnectionTypeDirect is used. Otherwise ConnectionTypeQueued is used.\n *\n * \\var ConnectionTypeDirect\n * \\brief The receiver is invoked immediately and synchronously in the sender's\n * thread.\n *\n * \\var ConnectionTypeQueued\n * \\brief The receiver is invoked asynchronously\n *\n * Invoke the receiver asynchronously in its thread when control returns to the\n * thread's event loop. The sender proceeds without waiting for the invocation\n * to complete.\n *\n * \\var ConnectionTypeBlocking\n * \\brief The receiver is invoked synchronously\n *\n * If the sender and the receiver live in the same thread, this is equivalent to\n * ConnectionTypeDirect. Otherwise, the receiver is invoked asynchronously in\n * its thread when control returns to the thread's event loop. The sender\n * blocks until the receiver signals the completion of the invocation.\n */\n\n/**\n * \\brief Invoke the bound method with packed arguments\n * \\param[in] pack Packed arguments\n * \\param[in] deleteMethod True to delete \\a this bound method instance when\n * method invocation completes\n *\n * The bound method stores its return value, if any, in the arguments \\a pack.\n * For direct and blocking invocations, this is performed synchronously, and\n * the return value contained in the pack may be used. For queued invocations,\n * the return value is stored at an undefined point of time and shall thus not\n * be used by the caller.\n *\n * \\return True if the return value contained in the \\a pack may be used by the\n * caller, false otherwise\n */\nbool BoundMethodBase::activatePack(std::shared_ptr<BoundMethodPackBase> pack,\n\t\t\t\t   bool deleteMethod)\n{\n\tConnectionType type = connectionType_;\n\tif (type == ConnectionTypeAuto) {\n\t\tif (Thread::current() == object_->thread())\n\t\t\ttype = ConnectionTypeDirect;\n\t\telse\n\t\t\ttype = ConnectionTypeQueued;\n\t} else if (type == ConnectionTypeBlocking) {\n\t\tif (Thread::current() == object_->thread())\n\t\t\ttype = ConnectionTypeDirect;\n\t}\n\n\tswitch (type) {\n\tcase ConnectionTypeDirect:\n\tdefault:\n\t\tinvokePack(pack.get());\n\t\tif (deleteMethod)\n\t\t\tdelete this;\n\t\treturn true;\n\n\tcase ConnectionTypeQueued: {\n\t\tstd::unique_ptr<Message> msg =\n\t\t\tstd::make_unique<InvokeMessage>(this, pack, nullptr, deleteMethod);\n\t\tobject_->postMessage(std::move(msg));\n\t\treturn false;\n\t}\n\n\tcase ConnectionTypeBlocking: {\n\t\tSemaphore semaphore;\n\n\t\tstd::unique_ptr<Message> msg =\n\t\t\tstd::make_unique<InvokeMessage>(this, pack, &semaphore, deleteMethod);\n\t\tobject_->postMessage(std::move(msg));\n\n\t\tsemaphore.acquire();\n\t\treturn true;\n\t}\n\t}\n}"
+              "source_id": "request-lifecycle/journey/completed-head",
+              "source_quote": "void PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}"
             }
           ],
           "claim_quote": "파이프라인 핸들러는 completeRequest가 반환된 뒤에는 더 이상 관리하지 않는 해당 요청에 접근해서는 안 됩니다. 파이프라인 핸들러는 완료된 요청을 순서 제약 없이 completeRequest에 전달할 수 있으며, 이 함수는 요청을 제출 순서대로 애플리케이션에 반환합니다. 파이프라인 핸들러는 completeRequest를 CameraManager 스레드에서 호출해야 합니다."
@@ -13770,37 +13765,28 @@
             "catalog/3f9cc2d54c6ee372",
             "request-lifecycle.md/journey/1",
             "request-lifecycle.md/resources/2",
-            "request-lifecycle.md/resources/3",
-            "request-lifecycle.md/resources/5",
             "request-lifecycle.md/resources/7",
-            "request-lifecycle.md/resources/13",
             "catalog/8118138bc41cdedf",
             "catalog/8118138bc41cdedf/en",
             "catalog/65bdfc66c5e02cad",
             "catalog/65bdfc66c5e02cad/en",
-            "catalog/d9c04a66aff286fe",
-            "catalog/d9c04a66aff286fe/en",
-            "catalog/fab2c4dc077f9b38",
-            "catalog/fab2c4dc077f9b38/en",
             "catalog/7d7fadfae6ffc192",
-            "catalog/7d7fadfae6ffc192/en",
-            "catalog/16ab8d53401a5f0b",
-            "catalog/16ab8d53401a5f0b/en"
+            "catalog/7d7fadfae6ffc192/en"
           ],
           "status": "compatible",
-          "condition": "파이프라인 핸들러가 완료된 요청을 completeRequest에 전달하는 경우입니다.",
-          "actor": "파이프라인 핸들러가 CameraManager 스레드에서 함수를 호출합니다.",
-          "timing": "함수 반환 후 해당 요청에 접근하지 않아야 합니다.",
-          "scope": "호출 순서에는 제약이 없고 애플리케이션으로 반환되는 요청에는 제출 순서가 보장됩니다.",
-          "reason": "접근 금지, 호출 스레드와 두 종류의 순서가 출처 및 관련 한영 문장과 일치합니다. 이 호출 스레드 의무는 콜백 실행 스레드를 확정하지 않습니다.",
+          "condition": "The pipeline handler passes a completed request to completeRequest.",
+          "actor": "The pipeline handler calls the function and must cease accessing that request after it returns.",
+          "timing": "Calls on completed requests have no ordering constraint; requests are returned to the application in submission order.",
+          "scope": "The CameraManager requirement applies to the function call, and the ordering guarantee applies to returned requests.",
+          "reason": "The source explicitly supports the access prohibition, call context and ordering guarantee. The Korean counterpart and relevant peers are consistent.",
           "sources": [
             {
               "source_id": "overview/boundary/completion",
               "source_quote": "\\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest"
             },
             {
-              "source_id": "request-lifecycle/journey/queued-connection",
-              "source_quote": "\\enum ConnectionType\n * \\brief Connection type for asynchronous communication\n *\n * This enumeration describes the possible types of asynchronous communication\n * between a sender and a receiver. It applies to Signal::emit() and\n * Object::invokeMethod().\n *\n * \\var ConnectionTypeAuto\n * \\brief If the sender and the receiver live in the same thread,\n * ConnectionTypeDirect is used. Otherwise ConnectionTypeQueued is used.\n *\n * \\var ConnectionTypeDirect\n * \\brief The receiver is invoked immediately and synchronously in the sender's\n * thread.\n *\n * \\var ConnectionTypeQueued\n * \\brief The receiver is invoked asynchronously\n *\n * Invoke the receiver asynchronously in its thread when control returns to the\n * thread's event loop. The sender proceeds without waiting for the invocation\n * to complete.\n *\n * \\var ConnectionTypeBlocking\n * \\brief The receiver is invoked synchronously\n *\n * If the sender and the receiver live in the same thread, this is equivalent to\n * ConnectionTypeDirect. Otherwise, the receiver is invoked asynchronously in\n * its thread when control returns to the thread's event loop. The sender\n * blocks until the receiver signals the completion of the invocation.\n */\n\n/**\n * \\brief Invoke the bound method with packed arguments\n * \\param[in] pack Packed arguments\n * \\param[in] deleteMethod True to delete \\a this bound method instance when\n * method invocation completes\n *\n * The bound method stores its return value, if any, in the arguments \\a pack.\n * For direct and blocking invocations, this is performed synchronously, and\n * the return value contained in the pack may be used. For queued invocations,\n * the return value is stored at an undefined point of time and shall thus not\n * be used by the caller.\n *\n * \\return True if the return value contained in the \\a pack may be used by the\n * caller, false otherwise\n */\nbool BoundMethodBase::activatePack(std::shared_ptr<BoundMethodPackBase> pack,\n\t\t\t\t   bool deleteMethod)\n{\n\tConnectionType type = connectionType_;\n\tif (type == ConnectionTypeAuto) {\n\t\tif (Thread::current() == object_->thread())\n\t\t\ttype = ConnectionTypeDirect;\n\t\telse\n\t\t\ttype = ConnectionTypeQueued;\n\t} else if (type == ConnectionTypeBlocking) {\n\t\tif (Thread::current() == object_->thread())\n\t\t\ttype = ConnectionTypeDirect;\n\t}\n\n\tswitch (type) {\n\tcase ConnectionTypeDirect:\n\tdefault:\n\t\tinvokePack(pack.get());\n\t\tif (deleteMethod)\n\t\t\tdelete this;\n\t\treturn true;\n\n\tcase ConnectionTypeQueued: {\n\t\tstd::unique_ptr<Message> msg =\n\t\t\tstd::make_unique<InvokeMessage>(this, pack, nullptr, deleteMethod);\n\t\tobject_->postMessage(std::move(msg));\n\t\treturn false;\n\t}\n\n\tcase ConnectionTypeBlocking: {\n\t\tSemaphore semaphore;\n\n\t\tstd::unique_ptr<Message> msg =\n\t\t\tstd::make_unique<InvokeMessage>(this, pack, &semaphore, deleteMethod);\n\t\tobject_->postMessage(std::move(msg));\n\n\t\tsemaphore.acquire();\n\t\treturn true;\n\t}\n\t}\n}"
+              "source_id": "request-lifecycle/journey/completed-head",
+              "source_quote": "void PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}"
             }
           ],
           "claim_quote": "After completeRequest returns, the pipeline handler must not access the request it no longer manages. The pipeline handler may pass a completed request to completeRequest without any ordering constraint, and this function returns requests to the application in submission order. The pipeline handler must call completeRequest from the CameraManager thread."
@@ -13810,16 +13796,14 @@
           "peers": [
             "request-lifecycle.md/resources/0",
             "catalog/d978c8b30a4e498d",
-            "catalog/d978c8b30a4e498d/en",
-            "catalog/8118138bc41cdedf",
-            "catalog/8118138bc41cdedf/en"
+            "catalog/d978c8b30a4e498d/en"
           ],
           "status": "compatible",
-          "condition": "요청은 큐에 넣기 전 최소 한 개의 캡처 버퍼가 필요하며 queueRequest는 Running 상태에서만 호출할 수 있습니다.",
-          "actor": "애플리케이션이 버퍼를 연결하고 요청을 제출하며 카메라가 완료를 통지합니다.",
-          "timing": "버퍼 연결은 제출 전이고 완료 통지는 요청이 큐에 들어간 뒤입니다.",
-          "scope": "queueRequest의 소스 수준 API 계약이며 콜백 실행 스레드나 실제 장치 검증에 관한 주장은 아닙니다.",
-          "reason": "버퍼 의무, 상태 제한 및 완료 신호는 출처와 일치합니다. 관련 문장의 성공 반환과 별도 완료 통지도 이 계약과 양립합니다.",
+          "condition": "The application prepares a request before queueing it, and queueRequest may be called only in Running state.",
+          "actor": "The application supplies at least one capture buffer; the camera signals completion of a queued request.",
+          "timing": "Buffer attachment precedes queueing; completion notification follows a successful queue.",
+          "scope": "This summarizes the queueRequest API contract and does not establish a callback execution thread or device verification.",
+          "reason": "The source supports the buffer obligation, Running-state restriction and completion signal. The peers describe the successful queueing path without conflicting with those obligations.",
           "sources": [
             {
               "source_id": "overview/request/queue",
@@ -18637,11 +18621,11 @@
           "claim_id": "catalog/b5a61ce80ffb71e5/en",
           "peers": [],
           "status": "compatible",
-          "condition": "The requested roles either can or cannot be satisfied.",
-          "actor": "The caller supplies roles; the pipeline handler generates the configuration.",
+          "condition": "The return depends on whether the requested roles can be satisfied.",
+          "actor": "The caller populates roles; the pipeline handler implements generateConfiguration().",
           "timing": "The function may be called from any thread.",
-          "scope": "Default configuration generation and its return contract.",
-          "reason": "The roles, returned information, conditional result, and thread-safety requirement match the source.",
+          "scope": "Default configuration generation and its API contract.",
+          "reason": "The stated caller obligation, return values, configuration contents and thread-safety requirement are supported.",
           "sources": [
             {
               "source_id": "vendor-integration/configuration/generate-context",
@@ -18658,9 +18642,9 @@
           "status": "compatible",
           "condition": "The return value depends on success or failure.",
           "actor": "The pipeline handler implements configure().",
-          "timing": "The function is called on the CameraManager thread.",
+          "timing": "The function is called from the CameraManager thread.",
           "scope": "The configure() invocation and return contract.",
-          "reason": "The Korean claim and English peer agree with the source on thread and return values.",
+          "reason": "The source supports both the thread and return-value statements; the English peer conveys the same contract.",
           "sources": [
             {
               "source_id": "vendor-integration/configuration/configure-result",
@@ -18677,9 +18661,9 @@
           "status": "compatible",
           "condition": "The return value depends on success or failure.",
           "actor": "The pipeline handler implements configure().",
-          "timing": "The function is called on the CameraManager thread.",
+          "timing": "The function is called from the CameraManager thread.",
           "scope": "The configure() invocation and return contract.",
-          "reason": "The English claim and Korean peer agree with the source on thread and return values.",
+          "reason": "The source supports both the thread and return-value statements; the Korean peer conveys the same contract.",
           "sources": [
             {
               "source_id": "vendor-integration/configuration/configure-result",
@@ -18693,21 +18677,18 @@
           "peers": [
             "catalog/c53fec53340dcd88/en",
             "scenarios/queue_request.md/dispatch/1",
-            "scenarios/queue_request.md/acceptance/2",
-            "scenarios/queue_request.md/paragraph/37",
             "catalog/3aa798dfe8267bfb",
             "catalog/3aa798dfe8267bfb/en",
+            "scenarios/queue_request.md/acceptance/2",
             "catalog/fb3bc3d5471a7641",
-            "catalog/fb3bc3d5471a7641/en",
-            "catalog/2eace40003f58d25",
-            "catalog/2eace40003f58d25/en"
+            "catalog/fb3bc3d5471a7641/en"
           ],
           "status": "compatible",
-          "condition": "Buffer completion is signalled for a request; even its last buffer does not automatically complete the request.",
+          "condition": "Buffer completion does not itself complete the request, including when the last buffer completes.",
           "actor": "The pipeline handler signals buffer and request completion.",
-          "timing": "queueRequestDevice() is called on the CameraManager thread; completeBuffer() must be called there.",
-          "scope": "Source-level device dispatch and completion contracts, not an observed callback execution.",
-          "reason": "The Korean and English claims match the source. The dispatch peers describe a separate queueRequest() invocation, while the acceptance peers address request completion. The analysis peers limit what the static call list establishes and do not contradict the separate source contracts.",
+          "timing": "queueRequestDevice() is called on the CameraManager thread, and completeBuffer() must be called there.",
+          "scope": "Device queuing and the separate buffer and request completion contracts; not proof of a device callback execution.",
+          "reason": "The source supports the stated thread, notification, tracking and explicit request-completion requirements. The English peer agrees; the scenario peers describe separate queuing and preparation events.",
           "sources": [
             {
               "source_id": "vendor-integration/request/device-result",
@@ -18724,10 +18705,6 @@
             {
               "source_id": "scenario-queue_request/acceptance/queue",
               "source_quote": "\\brief Queue a request to the camera\n * \\param[in] request The request to queue to the camera\n *\n * This function queues a \\a request to the camera for capture.\n *\n * After allocating the request with createRequest(), the application shall\n * fill it with at least one capture buffer before queuing it. Requests that\n * contain no buffers are invalid and are rejected without being queued.\n *\n * Once the request has been queued, the camera will notify its completion\n * through the \\ref requestCompleted signal.\n *\n * \\context This function is \\threadsafe. It may only be called when the camera\n * is in the Running state as defined in \\ref camera_operation.\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not running so requests can't be queued\n * \\retval -EXDEV The request does not belong to this camera\n * \\retval -EINVAL The request is invalid\n * \\retval -ENOMEM No buffer memory was available to handle the request\n */\nint Camera::queueRequest(Request *request)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\tif (ret < 0)\n\t\treturn ret;\n\n\t/* Requests can only be queued to the camera that created them. */\n\tif (request->_d()->camera() != this) {\n\t\tLOG(Camera, Error) << \"Request was not created by this camera\";\n\t\treturn -EXDEV;\n\t}\n\n\tif (request->status() != Request::RequestPending) {\n\t\tLOG(Camera, Error) << request->toString() << \" is not valid\";\n\t\treturn -EINVAL;\n\t}\n\n\t/* Make sure the Request has a valid control list. */\n\tif (request->controls().infoMap() != &controls()) {\n\t\tLOG(Camera, Error) << \"Overwriting Request::controls() is not allowed\";\n\t\treturn -EINVAL;\n\t}\n\n\t/*\n\t * The camera state may change until the end of the function. No locking\n\t * is however needed as PipelineHandler::queueRequest() will handle\n\t * this.\n\t */\n\n\tif (request->buffers().empty()) {\n\t\tLOG(Camera, Error) << \"Request contains no buffers\";\n\t\treturn -EINVAL;\n\t}\n\n\tfor (const auto &[stream, buffer] : request->buffers()) {\n\t\tif (d->activeStreams_.find(stream) == d->activeStreams_.end()) {\n\t\t\tLOG(Camera, Error) << \"Invalid request\";\n\t\t\treturn -EINVAL;\n\t\t}\n\t}\n\n\t/* Pre-process AeEnable. */\n\tpatchControlList(request->controls());\n\n\td->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t       ConnectionTypeQueued, request);\n\n\treturn 0;\n}"
-            },
-            {
-              "source_id": "@analysis/scenario/queue_request",
-              "source_quote": "{\"generator_definitions\": [{\"file\": \"src/sdd/facts/model.py\", \"line\": 73, \"name\": \"Message\", \"sha256\": \"4e0b4766c0d7eab15773e8a9349e6cd49ebd08cc52dfe7b2fba49616d03c1648\", \"text\": \"@dataclass\\nclass Message:\\n    src: str                       # participant display name\\n    dst: str\\n    name: str                      # 호출된 함수 이름\\n    loc: Location | None = None    # 호출 지점\\n    note: str = \\\"\\\"                 # 예: \\\"virtual 후보\\\" (정적으로 확정되지 않은 호출)\"}, {\"file\": \"src/sdd/facts/model.py\", \"line\": 82, \"name\": \"Scenario\", \"sha256\": \"b1f6188925808def6094453b5159214d8be4a2e398d299600b8d190e8236a6e3\", \"text\": \"@dataclass\\nclass Scenario:\\n    id: str\\n    title: str\\n    entry: str                     # from 함수 시그니처\\n    participants: list[str] = field(default_factory=list)\\n    messages: list[Message] = field(default_factory=list)\\n    mermaid: str = \\\"\\\"              # clang-uml 이 만든 Mermaid 본문\\n    unresolved: int = 0            # 정적으로 끊긴 호출 수 (virtual / function pointer)\\n    # 인자로 넘어간 메서드 수. 대상은 알지만 실행 시점과 스레드는 큐·신호 구현이 정한다.\\n    deferred: int = 0\"}, {\"file\": \"src/sdd/facts/callgraph.py\", \"line\": 148, \"name\": \"_deferred_targets\", \"sha256\": \"0b7c4a80ddd83f08782249229a78f9a878bb234dad15ca69fa24966428904a56\", \"text\": \"def _deferred_targets(node: cindex.Cursor, scope: SourceScope, callee_usr: str) -> list[cindex.Cursor]:\\n    \\\"\\\"\\\"호출 인자로 넘어간 메서드·함수 선언을 모은다.\\n\\n    `invokeMethod(&PipelineHandler::queueRequest, ...)` 나 `connect(&Class::slot)` 처럼 메서드를\\n    값으로 넘기면, 그 메서드는 이 호출 자리에서 실행되지 않는다. 실행 시점과 스레드는 큐나 신호\\n    구현이 정하므로 정적 추적으로는 순서를 알 수 없다. 대상 이름은 알 수 있으므로 경계로 기록한다.\\n    중첩된 호출 표현식은 바깥 순회가 따로 보기 때문에 여기서는 들어가지 않는다.\\n    \\\"\\\"\\\"\\n    found: list[cindex.Cursor] = []\\n    seen: set[str] = set()\\n\\n    def walk(n: cindex.Cursor) -> None:\\n        for child in n.get_children():\\n            if child.kind == cindex.CursorKind.CALL_EXPR:\\n                continue\\n            if child.kind == cindex.CursorKind.DECL_REF_EXPR:\\n                target = child.referenced\\n                if (target is not None and target.kind in (METHOD_KINDS | FUNCTION_KINDS)\\n                        and scope.contains(target)):\\n                    usr = target.get_usr()\\n                    if usr and usr != callee_usr and usr not in seen:\\n                        seen.add(usr)\\n                        found.append(target)\\n            walk(child)\\n\\n    walk(node)\\n    return found\"}, {\"file\": \"src/sdd/facts/callgraph.py\", \"line\": 292, \"name\": \"trace\", \"sha256\": \"8769562486ac0baeb37bf1c6d844cc8d2fd1d5c4eefb3e424e21f9e5c68a0ec8\", \"text\": \"def trace(g: Graph, entry: FuncDef, depth: int) -> tuple[list[Message], int, int]:\\n    messages: list[Message] = []\\n    unresolved = 0\\n    deferred = 0\\n\\n    def visit(fd: FuncDef, level: int, path: set[str]) -> None:\\n        nonlocal unresolved, deferred\\n        if level >= depth or len(messages) >= _MAX_MESSAGES:\\n            return\\n        for call in fd.calls:\\n            if call.kind == \\\"deferred\\\":\\n                # 대상은 알지만 이 자리에서 실행되지 않는다. 따라 들어가면 없는 순서를 만들게 된다.\\n                deferred += 1\\n                target = g.defs.get(call.callee_usr)\\n                messages.append(Message(src=fd.owner, dst=(target.owner if target else call.callee_owner),\\n                                        name=call.callee_name, loc=call.loc,\\n                                        note=\\\"예약된 호출, 실행 순서는 정적으로 확인 불가\\\"))\\n                continue\\n            if call.kind in (\\\"pointer\\\", \\\"callable\\\", \\\"unresolved\\\"):\\n                unresolved += 1\\n                label = {\\\"pointer\\\": \\\"함수 포인터, 정적 추적 불가\\\", \\\"callable\\\": \\\"콜백 객체, 정적 추적 불가\\\",\\n                         \\\"unresolved\\\": \\\"정적 추적 불가\\\"}[call.kind]\\n                messages.append(Message(src=fd.owner, dst=call.callee_owner, name=call.callee_name,\\n                                        loc=call.loc, note=label))\\n                continue\\n            targets = [call.callee_usr]\\n            note = \\\"\\\"\\n            if call.kind == \\\"virtual\\\":\\n                over = g.overrides.get(call.callee_usr, [])\\n                # 기반 구현이 있으면(순수 가상이 아니면) 그것도 후보다.\\n                base_def = g.defs.get(call.callee_usr)\\n                targets = ([call.callee_usr] if base_def else []) + over\\n                if len(targets) > 1:\\n                    note = \\\"virtual 후보\\\"\\n                elif targets:\\n                    note = \\\"virtual, 현재 구현 하나\\\"   # 지금은 하나지만 동적 디스패치라는 사실은 남긴다.\\n                else:\\n                    unresolved += 1\\n                    messages.append(Message(src=fd.owner, dst=call.callee_owner, name=call.callee_name,\\n                                            loc=call.loc, note=\\\"virtual, override 없음\\\"))\\n                    continue\\n            for t_usr in targets:\\n                t = g.defs.get(t_usr)\\n                owner = t.owner if t else call.callee_owner\\n                messages.append(Message(src=fd.owner, dst=owner, name=call.callee_name, loc=call.loc, note=note))\\n                if t and t_usr not in path:\\n                    visit(t, level + 1, path | {t_usr})\\n\\n    visit(entry, 0, {entry.usr})\\n    return messages, unresolved, deferred\"}, {\"file\": \"src/sdd/scenario_document.py\", \"line\": 62, \"name\": \"build\", \"sha256\": \"23bf4f1fe1e5c07cf6ab5972431d49b5b0fb800d8197d655d580c851bb886f96\", \"text\": \"    \\\"\\\"\\\"Focus rules select evidence, not prose assertions or execution stages.\\n\\n    Legacy flat facts do not carry branch ancestry. Draw a call *map*, not a\\n    sequence across candidates. The full extracted trace stays in this page.\\n    \\\"\\\"\\\"\"}], \"kind\": \"analysis-definition\", \"project_source_commit\": \"be7e83e91348250c015aad6d6f59f1468555bae8\", \"scenario\": {\"annotated_messages\": [{\"dst\": \"PipelineHandler\", \"loc\": {\"file\": \"src/libcamera/camera.cpp\", \"line\": 1376}, \"name\": \"queueRequest\", \"note\": \"예약된 호출, 실행 순서는 정적으로 확인 불가\", \"src\": \"Camera\"}], \"deferred\": 1, \"entry\": \"Camera::queueRequest(Request *)\", \"id\": \"queue_request\", \"messages_total\": 80, \"unresolved\": 0}, \"scope\": \"Analysis representation only; not product runtime, hardware or callback-thread evidence.\"}"
             }
           ],
           "claim_quote": "PipelineHandler::queueRequestDevice()는 CameraManager 스레드에서 호출됩니다. 파이프라인 핸들러는 요청의 버퍼 완료를 알리기 위해 CameraManager 스레드에서 completeBuffer()를 호출해야 합니다. 이 함수는 애플리케이션에 버퍼 완료를 통지하고 요청 내부의 버퍼 추적 정보를 갱신합니다. 마지막 버퍼가 완료되어도 요청은 자동으로 완료되지 않으므로 파이프라인 핸들러는 completeRequest()를 명시적으로 호출해 요청을 완료해야 합니다."
@@ -18737,21 +18714,18 @@
           "peers": [
             "catalog/c53fec53340dcd88",
             "scenarios/queue_request.md/dispatch/1",
-            "scenarios/queue_request.md/acceptance/2",
-            "scenarios/queue_request.md/paragraph/37",
             "catalog/3aa798dfe8267bfb",
             "catalog/3aa798dfe8267bfb/en",
+            "scenarios/queue_request.md/acceptance/2",
             "catalog/fb3bc3d5471a7641",
-            "catalog/fb3bc3d5471a7641/en",
-            "catalog/2eace40003f58d25",
-            "catalog/2eace40003f58d25/en"
+            "catalog/fb3bc3d5471a7641/en"
           ],
           "status": "compatible",
-          "condition": "Buffer completion is signalled for a request; even its last buffer does not automatically complete the request.",
+          "condition": "Buffer completion does not itself complete the request, including when the last buffer completes.",
           "actor": "The pipeline handler signals buffer and request completion.",
-          "timing": "queueRequestDevice() is called on the CameraManager thread; completeBuffer() must be called there.",
-          "scope": "Source-level device dispatch and completion contracts, not an observed callback execution.",
-          "reason": "The English and Korean claims match the source. The dispatch peers describe a separate queueRequest() invocation, while the acceptance peers address request completion. The analysis peers limit what the static call list establishes and do not contradict the separate source contracts.",
+          "timing": "queueRequestDevice() is called on the CameraManager thread, and completeBuffer() must be called there.",
+          "scope": "Device queuing and the separate buffer and request completion contracts; not proof of a device callback execution.",
+          "reason": "The source supports the stated thread, notification, tracking and explicit request-completion requirements. The Korean peer agrees; the scenario peers describe separate queuing and preparation events.",
           "sources": [
             {
               "source_id": "vendor-integration/request/device-result",
@@ -18768,10 +18742,6 @@
             {
               "source_id": "scenario-queue_request/acceptance/queue",
               "source_quote": "\\brief Queue a request to the camera\n * \\param[in] request The request to queue to the camera\n *\n * This function queues a \\a request to the camera for capture.\n *\n * After allocating the request with createRequest(), the application shall\n * fill it with at least one capture buffer before queuing it. Requests that\n * contain no buffers are invalid and are rejected without being queued.\n *\n * Once the request has been queued, the camera will notify its completion\n * through the \\ref requestCompleted signal.\n *\n * \\context This function is \\threadsafe. It may only be called when the camera\n * is in the Running state as defined in \\ref camera_operation.\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not running so requests can't be queued\n * \\retval -EXDEV The request does not belong to this camera\n * \\retval -EINVAL The request is invalid\n * \\retval -ENOMEM No buffer memory was available to handle the request\n */\nint Camera::queueRequest(Request *request)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\tif (ret < 0)\n\t\treturn ret;\n\n\t/* Requests can only be queued to the camera that created them. */\n\tif (request->_d()->camera() != this) {\n\t\tLOG(Camera, Error) << \"Request was not created by this camera\";\n\t\treturn -EXDEV;\n\t}\n\n\tif (request->status() != Request::RequestPending) {\n\t\tLOG(Camera, Error) << request->toString() << \" is not valid\";\n\t\treturn -EINVAL;\n\t}\n\n\t/* Make sure the Request has a valid control list. */\n\tif (request->controls().infoMap() != &controls()) {\n\t\tLOG(Camera, Error) << \"Overwriting Request::controls() is not allowed\";\n\t\treturn -EINVAL;\n\t}\n\n\t/*\n\t * The camera state may change until the end of the function. No locking\n\t * is however needed as PipelineHandler::queueRequest() will handle\n\t * this.\n\t */\n\n\tif (request->buffers().empty()) {\n\t\tLOG(Camera, Error) << \"Request contains no buffers\";\n\t\treturn -EINVAL;\n\t}\n\n\tfor (const auto &[stream, buffer] : request->buffers()) {\n\t\tif (d->activeStreams_.find(stream) == d->activeStreams_.end()) {\n\t\t\tLOG(Camera, Error) << \"Invalid request\";\n\t\t\treturn -EINVAL;\n\t\t}\n\t}\n\n\t/* Pre-process AeEnable. */\n\tpatchControlList(request->controls());\n\n\td->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t       ConnectionTypeQueued, request);\n\n\treturn 0;\n}"
-            },
-            {
-              "source_id": "@analysis/scenario/queue_request",
-              "source_quote": "{\"generator_definitions\": [{\"file\": \"src/sdd/facts/model.py\", \"line\": 73, \"name\": \"Message\", \"sha256\": \"4e0b4766c0d7eab15773e8a9349e6cd49ebd08cc52dfe7b2fba49616d03c1648\", \"text\": \"@dataclass\\nclass Message:\\n    src: str                       # participant display name\\n    dst: str\\n    name: str                      # 호출된 함수 이름\\n    loc: Location | None = None    # 호출 지점\\n    note: str = \\\"\\\"                 # 예: \\\"virtual 후보\\\" (정적으로 확정되지 않은 호출)\"}, {\"file\": \"src/sdd/facts/model.py\", \"line\": 82, \"name\": \"Scenario\", \"sha256\": \"b1f6188925808def6094453b5159214d8be4a2e398d299600b8d190e8236a6e3\", \"text\": \"@dataclass\\nclass Scenario:\\n    id: str\\n    title: str\\n    entry: str                     # from 함수 시그니처\\n    participants: list[str] = field(default_factory=list)\\n    messages: list[Message] = field(default_factory=list)\\n    mermaid: str = \\\"\\\"              # clang-uml 이 만든 Mermaid 본문\\n    unresolved: int = 0            # 정적으로 끊긴 호출 수 (virtual / function pointer)\\n    # 인자로 넘어간 메서드 수. 대상은 알지만 실행 시점과 스레드는 큐·신호 구현이 정한다.\\n    deferred: int = 0\"}, {\"file\": \"src/sdd/facts/callgraph.py\", \"line\": 148, \"name\": \"_deferred_targets\", \"sha256\": \"0b7c4a80ddd83f08782249229a78f9a878bb234dad15ca69fa24966428904a56\", \"text\": \"def _deferred_targets(node: cindex.Cursor, scope: SourceScope, callee_usr: str) -> list[cindex.Cursor]:\\n    \\\"\\\"\\\"호출 인자로 넘어간 메서드·함수 선언을 모은다.\\n\\n    `invokeMethod(&PipelineHandler::queueRequest, ...)` 나 `connect(&Class::slot)` 처럼 메서드를\\n    값으로 넘기면, 그 메서드는 이 호출 자리에서 실행되지 않는다. 실행 시점과 스레드는 큐나 신호\\n    구현이 정하므로 정적 추적으로는 순서를 알 수 없다. 대상 이름은 알 수 있으므로 경계로 기록한다.\\n    중첩된 호출 표현식은 바깥 순회가 따로 보기 때문에 여기서는 들어가지 않는다.\\n    \\\"\\\"\\\"\\n    found: list[cindex.Cursor] = []\\n    seen: set[str] = set()\\n\\n    def walk(n: cindex.Cursor) -> None:\\n        for child in n.get_children():\\n            if child.kind == cindex.CursorKind.CALL_EXPR:\\n                continue\\n            if child.kind == cindex.CursorKind.DECL_REF_EXPR:\\n                target = child.referenced\\n                if (target is not None and target.kind in (METHOD_KINDS | FUNCTION_KINDS)\\n                        and scope.contains(target)):\\n                    usr = target.get_usr()\\n                    if usr and usr != callee_usr and usr not in seen:\\n                        seen.add(usr)\\n                        found.append(target)\\n            walk(child)\\n\\n    walk(node)\\n    return found\"}, {\"file\": \"src/sdd/facts/callgraph.py\", \"line\": 292, \"name\": \"trace\", \"sha256\": \"8769562486ac0baeb37bf1c6d844cc8d2fd1d5c4eefb3e424e21f9e5c68a0ec8\", \"text\": \"def trace(g: Graph, entry: FuncDef, depth: int) -> tuple[list[Message], int, int]:\\n    messages: list[Message] = []\\n    unresolved = 0\\n    deferred = 0\\n\\n    def visit(fd: FuncDef, level: int, path: set[str]) -> None:\\n        nonlocal unresolved, deferred\\n        if level >= depth or len(messages) >= _MAX_MESSAGES:\\n            return\\n        for call in fd.calls:\\n            if call.kind == \\\"deferred\\\":\\n                # 대상은 알지만 이 자리에서 실행되지 않는다. 따라 들어가면 없는 순서를 만들게 된다.\\n                deferred += 1\\n                target = g.defs.get(call.callee_usr)\\n                messages.append(Message(src=fd.owner, dst=(target.owner if target else call.callee_owner),\\n                                        name=call.callee_name, loc=call.loc,\\n                                        note=\\\"예약된 호출, 실행 순서는 정적으로 확인 불가\\\"))\\n                continue\\n            if call.kind in (\\\"pointer\\\", \\\"callable\\\", \\\"unresolved\\\"):\\n                unresolved += 1\\n                label = {\\\"pointer\\\": \\\"함수 포인터, 정적 추적 불가\\\", \\\"callable\\\": \\\"콜백 객체, 정적 추적 불가\\\",\\n                         \\\"unresolved\\\": \\\"정적 추적 불가\\\"}[call.kind]\\n                messages.append(Message(src=fd.owner, dst=call.callee_owner, name=call.callee_name,\\n                                        loc=call.loc, note=label))\\n                continue\\n            targets = [call.callee_usr]\\n            note = \\\"\\\"\\n            if call.kind == \\\"virtual\\\":\\n                over = g.overrides.get(call.callee_usr, [])\\n                # 기반 구현이 있으면(순수 가상이 아니면) 그것도 후보다.\\n                base_def = g.defs.get(call.callee_usr)\\n                targets = ([call.callee_usr] if base_def else []) + over\\n                if len(targets) > 1:\\n                    note = \\\"virtual 후보\\\"\\n                elif targets:\\n                    note = \\\"virtual, 현재 구현 하나\\\"   # 지금은 하나지만 동적 디스패치라는 사실은 남긴다.\\n                else:\\n                    unresolved += 1\\n                    messages.append(Message(src=fd.owner, dst=call.callee_owner, name=call.callee_name,\\n                                            loc=call.loc, note=\\\"virtual, override 없음\\\"))\\n                    continue\\n            for t_usr in targets:\\n                t = g.defs.get(t_usr)\\n                owner = t.owner if t else call.callee_owner\\n                messages.append(Message(src=fd.owner, dst=owner, name=call.callee_name, loc=call.loc, note=note))\\n                if t and t_usr not in path:\\n                    visit(t, level + 1, path | {t_usr})\\n\\n    visit(entry, 0, {entry.usr})\\n    return messages, unresolved, deferred\"}, {\"file\": \"src/sdd/scenario_document.py\", \"line\": 62, \"name\": \"build\", \"sha256\": \"23bf4f1fe1e5c07cf6ab5972431d49b5b0fb800d8197d655d580c851bb886f96\", \"text\": \"    \\\"\\\"\\\"Focus rules select evidence, not prose assertions or execution stages.\\n\\n    Legacy flat facts do not carry branch ancestry. Draw a call *map*, not a\\n    sequence across candidates. The full extracted trace stays in this page.\\n    \\\"\\\"\\\"\"}], \"kind\": \"analysis-definition\", \"project_source_commit\": \"be7e83e91348250c015aad6d6f59f1468555bae8\", \"scenario\": {\"annotated_messages\": [{\"dst\": \"PipelineHandler\", \"loc\": {\"file\": \"src/libcamera/camera.cpp\", \"line\": 1376}, \"name\": \"queueRequest\", \"note\": \"예약된 호출, 실행 순서는 정적으로 확인 불가\", \"src\": \"Camera\"}], \"deferred\": 1, \"entry\": \"Camera::queueRequest(Request *)\", \"id\": \"queue_request\", \"messages_total\": 80, \"unresolved\": 0}, \"scope\": \"Analysis representation only; not product runtime, hardware or callback-thread evidence.\"}"
             }
           ],
           "claim_quote": "PipelineHandler::queueRequestDevice() is called from the CameraManager thread. The pipeline handler must call completeBuffer() from the CameraManager thread to signal completion of a buffer in the request. This function notifies the application of buffer completion and updates the request's internal buffer tracking information. The request is not completed automatically even when the last buffer completes, so the pipeline handler must explicitly call completeRequest() to complete the request."
@@ -18780,11 +18750,11 @@
           "claim_id": "catalog/db69e50714c5c5b8",
           "peers": [],
           "status": "compatible",
-          "condition": "A module was found; proxy construction depends on signature validity, and return depends on proxy validity.",
-          "actor": "createIPA() constructs and checks the proxy.",
-          "timing": "The validity check follows construction.",
-          "scope": "Proxy selection and return within createIPA().",
-          "reason": "The stated branches and invalid-proxy error handling match the source. The separate early return when no module is found is outside the stated proxy-construction condition.",
+          "condition": "The lambda runs after a module is found; proxy return depends on its validity check.",
+          "actor": "createIPA() and its internal lambda construct and return the proxy.",
+          "timing": "Signature selection precedes proxy validation and return.",
+          "scope": "Proxy selection and validation in createIPA(); no runtime callback or device-performance claim.",
+          "reason": "The source supports the signature-dependent proxy types and both outcomes of the validity check. The separate no-module return does not conflict with the stated proxy conditions.",
           "sources": [
             {
               "source_id": "vendor-integration/algorithm/proxy-kind",
