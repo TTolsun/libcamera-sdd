@@ -488,7 +488,7 @@ generated_design:
     new_grounding_review: false
     receipts:
     - 562d555c2e27403989f61a2e37f86fc0/001.receipt.json
-  body_sha256: 0f94d78bd38aa58f3fe21c29c08cd65ecf0d0ff5b1631034b7ec83efeb32c021
+  body_sha256: d2f8848283a5cbbc57bdbbbc55a8b535143260665e6b0b30120a17b282b1a9b6
 generated_visuals:
   schema: 1
   records:
@@ -1770,121 +1770,117 @@ generated_visuals:
       citation_binding_policy: identifier-boundaries-v1
       reused: true
     input-search-loops:
-      input_fingerprint: dd91735290c28aca8684d5a3b0b084615d8498111540e9499abcfbbd5b11f922
+      input_fingerprint: 833d0379ecb8b12e490dcdb2c39e790f4116475a5504a76488af5172d9beddbe
       draft:
         nodes:
         - id: first_width
           symbol: ifWidth
-          label: 첫 번째 탐색의 바깥 반복은 ifWidth가 minIfWidth 이상인 동안 계속합니다. 안쪽 반복이 끝나면 ifWidth를
-            ImgUDevice::kIFAlignWidth만큼 줄입니다.
-          label_en: The outer loop of the first search continues while ifWidth is
-            at least minIfWidth. After the inner loop ends, it decreases ifWidth by
-            ImgUDevice::kIFAlignWidth.
+          label: 첫 탐색의 바깥 반복은 ifWidth가 minIfWidth 이상인 동안 진행하며, 안쪽 반복 뒤에 ifWidth를 ImgUDevice::kIFAlignWidth만큼
+            줄입니다.
+          label_en: The first search's outer loop runs while ifWidth is at least minIfWidth
+            and subtracts ImgUDevice::kIFAlignWidth from ifWidth after the inner loop.
           shape: process
           quote_ids:
           - search:1
           - search:2
         - id: first_height
           symbol: ifHeight
-          label: 첫 번째 탐색의 안쪽 반복은 ifHeight가 minIfHeight 이상인 동안 계속합니다. calculateBDS
-            호출 뒤에 ifHeight를 ImgUDevice::kIFAlignHeight만큼 줄입니다.
-          label_en: The inner loop of the first search continues while ifHeight is
-            at least minIfHeight. After the calculateBDS call, it decreases ifHeight
-            by ImgUDevice::kIFAlignHeight.
+          label: 첫 탐색의 안쪽 반복은 ifHeight가 minIfHeight 이상인 동안 진행하며, 각 반복에서 ifHeight를
+            ImgUDevice::kIFAlignHeight만큼 줄입니다.
+          label_en: The first search's inner loop runs while ifHeight is at least
+            minIfHeight and subtracts ImgUDevice::kIFAlignHeight from ifHeight on
+            each iteration.
           shape: process
           quote_ids:
           - search:1
         - id: reset
-          symbol: Repeat
-          label: 첫 번째 탐색이 모두 끝난 뒤 두 번째 탐색 전에 ifWidth와 ifHeight를 각각 입력 폭과 높이에서 utils::alignUp으로
-            다시 설정합니다. 안쪽 반복이 끝날 때마다 다시 설정하지는 않습니다.
-          label_en: After the entire first search and before the second search, ifWidth
-            and ifHeight are reset from the input width and height, respectively,
-            using utils::alignUp. They are not reset after each inner-loop completion.
+          symbol: ifWidth
+          label: 첫 탐색 전체가 끝난 뒤 ifWidth와 ifHeight를 각각 정렬된 입력 폭과 높이로 다시 초기화합니다.
+          label_en: After the entire first search finishes, ifWidth and ifHeight are
+            reinitialized to the aligned input width and height, respectively.
           shape: process
           quote_ids:
-          - search:1
           - search:2
           - search:3
         - id: second_height
           symbol: ifHeight
-          label: 두 번째 탐색의 바깥 반복은 ifHeight가 minIfHeight 이상인 동안 계속합니다. 안쪽 반복이 끝나면 ifHeight를
-            ImgUDevice::kIFAlignHeight만큼 줄입니다. 주석은 이 절차가 아마 잘못되었다고 말합니다.
-          label_en: The outer loop of the second search continues while ifHeight is
-            at least minIfHeight. After the inner loop ends, it decreases ifHeight
-            by ImgUDevice::kIFAlignHeight. A comment says the procedure is probably
-            broken.
+          label: 두 번째 탐색의 바깥 반복은 ifHeight가 minIfHeight 이상인 동안 진행하며, 안쪽 반복 뒤에 ifHeight를
+            ImgUDevice::kIFAlignHeight만큼 줄입니다.
+          label_en: The second search's outer loop runs while ifHeight is at least
+            minIfHeight and subtracts ImgUDevice::kIFAlignHeight from ifHeight after
+            the inner loop.
           shape: process
           quote_ids:
           - search:3
           - search:4
         - id: second_width
           symbol: ifWidth
-          label: 두 번째 탐색의 안쪽 반복은 ifWidth가 minIfWidth 이상인 동안 계속합니다. calculateBDS 호출
-            뒤에 ifWidth를 ImgUDevice::kIFAlignWidth만큼 줄입니다.
-          label_en: The inner loop of the second search continues while ifWidth is
-            at least minIfWidth. After the calculateBDS call, it decreases ifWidth
-            by ImgUDevice::kIFAlignWidth.
+          label: 두 번째 탐색의 안쪽 반복은 ifWidth가 minIfWidth 이상인 동안 진행하며, 각 반복에서 ifWidth를
+            ImgUDevice::kIFAlignWidth만큼 줄입니다. 소스는 이 절차가 아마 잘못되었다고 표시합니다.
+          label_en: The second search's inner loop runs while ifWidth is at least
+            minIfWidth and subtracts ImgUDevice::kIFAlignWidth from ifWidth on each
+            iteration. The source marks this procedure as probably broken.
           shape: process
           quote_ids:
           - search:3
-        - id: search_min_height
-          symbol: minIfHeight
-          label: 탐색의 minIfHeight는 in.height에서 ImgUDevice::kIFMaxCropHeight를 뺀 값과 ImgUDevice::kIFMaxCropHeight
-            중 큰 값입니다.
-          label_en: The search's minIfHeight is the greater of in.height minus ImgUDevice::kIFMaxCropHeight
-            and ImgUDevice::kIFMaxCropHeight.
-          shape: box
-          quote_ids:
-          - search:1
-        - id: height_bound
-          symbol: minIFHeight
-          label: 별도의 calculateBDSHeight 높이 계산에서 unsigned int minIFHeight는 iif.height에서
-            ImgUDevice::kIFMaxCropHeight를 직접 뺀 값입니다. 주석은 입력 포매터의 최소 높이가 되감기지 않도록 크롭
-            한도 아래로 내려가지 말라고 설명합니다.
-          label_en: In the separate calculateBDSHeight calculation, unsigned int minIFHeight
-            is iif.height minus ImgUDevice::kIFMaxCropHeight directly. A comment says
-            not to go below the crop limit so that the minimum input formatter height
-            does not wrap.
-          shape: box
-          quote_ids:
-          - search:1
-          - height-bound:0
         - id: input_height
           symbol: iif
-          label: 별도의 높이 차감식은 iif.height를 사용합니다.
-          label_en: The separate height subtraction expression uses iif.height.
+          label: 별도 높이 계산은 iif.height를 사용합니다.
+          label_en: The separate height calculation uses iif.height.
           shape: box
           quote_ids:
           - height-bound:0
+        - id: minimum_height
+          symbol: minIFHeight
+          label: 입력 포매터의 최소 높이 minIFHeight는 unsigned int이며, iif.height에서 ImgUDevice::kIFMaxCropHeight를
+            뺀 값입니다. 소스 주석은 최소 높이가 언더플로로 순환할 수 있다고 경고합니다.
+          label_en: The minimum input formatter height minIFHeight is an unsigned
+            int calculated by subtracting ImgUDevice::kIFMaxCropHeight from iif.height.
+            The source comment warns that the minimum height can wrap on underflow.
+          shape: process
+          quote_ids:
+          - height-bound:0
+          - search:1
         edges:
         - from: first_width
           to: first_height
-          label: 첫 번째 탐색에서 ifWidth 바깥 반복이 ifHeight 안쪽 반복을 포함합니다.
-          label_en: In the first search, the ifWidth outer loop contains the ifHeight
-            inner loop.
+          label: 첫 탐색에서 ifHeight 반복은 ifWidth 반복 안에 있습니다.
+          label_en: In the first search, the ifHeight loop is nested inside the ifWidth
+            loop.
           condition_ref: always
           quote_ids:
           - search:1
-        - from: second_height
-          to: second_width
-          label: 두 번째 탐색에서 ifHeight 바깥 반복이 ifWidth 안쪽 반복을 포함합니다.
-          label_en: In the second search, the ifHeight outer loop contains the ifWidth
-            inner loop.
+        - from: first_width
+          to: reset
+          label: 첫 탐색의 바깥 ifWidth 반복과 그 안의 ifHeight 반복이 모두 종료된 뒤 재초기화합니다.
+          label_en: Reinitialization occurs after the first search's outer ifWidth
+            loop and its nested ifHeight loop have both finished.
           condition_ref: always
           quote_ids:
+          - search:1
+          - search:2
           - search:3
         - from: reset
           to: second_height
-          label: 두 번째 탐색의 바깥 반복은 다시 설정된 ifHeight를 사용합니다.
-          label_en: The outer loop of the second search uses the reset ifHeight.
+          label: 두 변수의 재초기화 뒤에 두 번째 탐색의 ifHeight 반복이 나옵니다.
+          label_en: The second search's ifHeight loop follows the reinitialization
+            of both variables.
+          condition_ref: always
+          quote_ids:
+          - search:3
+        - from: second_height
+          to: second_width
+          label: 두 번째 탐색에서 ifWidth 반복은 ifHeight 반복 안에 있습니다.
+          label_en: In the second search, the ifWidth loop is nested inside the ifHeight
+            loop.
           condition_ref: always
           quote_ids:
           - search:3
         - from: input_height
-          to: height_bound
-          label: minIFHeight 차감식은 iif.height를 사용합니다.
-          label_en: The minIFHeight subtraction expression uses iif.height.
+          to: minimum_height
+          label: iif.height에서 ImgUDevice::kIFMaxCropHeight를 빼서 minIFHeight를 계산합니다.
+          label_en: minIFHeight is calculated by subtracting ImgUDevice::kIFMaxCropHeight
+            from iif.height.
           condition_ref: always
           quote_ids:
           - height-bound:0
@@ -1897,11 +1893,10 @@ generated_visuals:
           식은 어떻게 구분됩니까?
         nodes:
         - id: first_width
-          label: 첫 번째 탐색의 바깥 반복은 ifWidth가 minIfWidth 이상인 동안 계속합니다. 안쪽 반복이 끝나면 ifWidth를
-            ImgUDevice::kIFAlignWidth만큼 줄입니다.
-          label_en: The outer loop of the first search continues while ifWidth is
-            at least minIfWidth. After the inner loop ends, it decreases ifWidth by
-            ImgUDevice::kIFAlignWidth.
+          label: 첫 탐색의 바깥 반복은 ifWidth가 minIfWidth 이상인 동안 진행하며, 안쪽 반복 뒤에 ifWidth를 ImgUDevice::kIFAlignWidth만큼
+            줄입니다.
+          label_en: The first search's outer loop runs while ifWidth is at least minIfWidth
+            and subtracts ImgUDevice::kIFAlignWidth from ifWidth after the inner loop.
           shape: box
           evidence:
           - source: input-search-boundary/search
@@ -1922,11 +1917,11 @@ generated_visuals:
             sha256: dff1dd0c4b791141aa7e60ba45e759e6cb4c6e69877280a629dc9250cf9b42dd
             quote: "ifWidth -= ImgUDevice::kIFAlignWidth;\n\t}"
         - id: first_height
-          label: 첫 번째 탐색의 안쪽 반복은 ifHeight가 minIfHeight 이상인 동안 계속합니다. calculateBDS
-            호출 뒤에 ifHeight를 ImgUDevice::kIFAlignHeight만큼 줄입니다.
-          label_en: The inner loop of the first search continues while ifHeight is
-            at least minIfHeight. After the calculateBDS call, it decreases ifHeight
-            by ImgUDevice::kIFAlignHeight.
+          label: 첫 탐색의 안쪽 반복은 ifHeight가 minIfHeight 이상인 동안 진행하며, 각 반복에서 ifHeight를
+            ImgUDevice::kIFAlignHeight만큼 줄입니다.
+          label_en: The first search's inner loop runs while ifHeight is at least
+            minIfHeight and subtracts ImgUDevice::kIFAlignHeight from ifHeight on
+            each iteration.
           shape: box
           evidence:
           - source: input-search-boundary/search
@@ -1944,27 +1939,11 @@ generated_visuals:
               \ ifHeight };\n\t\t\tcalculateBDS(pipe, iif, gdc, sf);\n\t\t\tifHeight\
               \ -= ImgUDevice::kIFAlignHeight;\n\t\t}"
         - id: reset
-          label: 첫 번째 탐색이 모두 끝난 뒤 두 번째 탐색 전에 ifWidth와 ifHeight를 각각 입력 폭과 높이에서 utils::alignUp으로
-            다시 설정합니다. 안쪽 반복이 끝날 때마다 다시 설정하지는 않습니다.
-          label_en: After the entire first search and before the second search, ifWidth
-            and ifHeight are reset from the input width and height, respectively,
-            using utils::alignUp. They are not reset after each inner-loop completion.
+          label: 첫 탐색 전체가 끝난 뒤 ifWidth와 ifHeight를 각각 정렬된 입력 폭과 높이로 다시 초기화합니다.
+          label_en: After the entire first search finishes, ifWidth and ifHeight are
+            reinitialized to the aligned input width and height, respectively.
           shape: box
           evidence:
-          - source: input-search-boundary/search
-            sha256: dff1dd0c4b791141aa7e60ba45e759e6cb4c6e69877280a629dc9250cf9b42dd
-            quote: "/*\n\t * Populate the configurations vector by scaling width and\
-              \ height.\n\t *\n\t * calculateBDSHeight() crops up to kIFMaxCropHeight\
-              \ lines from the IF\n\t * height, so don't go below that, or its minimum\
-              \ IF height wraps.\n\t */\n\tunsigned int ifWidth = utils::alignUp(in.width,\
-              \ ImgUDevice::kIFAlignWidth);\n\tunsigned int ifHeight = utils::alignUp(in.height,\
-              \ ImgUDevice::kIFAlignHeight);\n\tunsigned int minIfWidth = std::max(in.width\
-              \ - ImgUDevice::kIFMaxCropWidth,\n\t\t\t\t\t   ImgUDevice::kIFMaxCropWidth);\n\
-              \tunsigned int minIfHeight = std::max(in.height - ImgUDevice::kIFMaxCropHeight,\n\
-              \t\t\t\t\t    ImgUDevice::kIFMaxCropHeight);\n\twhile (ifWidth >= minIfWidth)\
-              \ {\n\t\twhile (ifHeight >= minIfHeight) {\n\t\t\tSize iif{ ifWidth,\
-              \ ifHeight };\n\t\t\tcalculateBDS(pipe, iif, gdc, sf);\n\t\t\tifHeight\
-              \ -= ImgUDevice::kIFAlignHeight;\n\t\t}"
           - source: input-search-boundary/search
             sha256: dff1dd0c4b791141aa7e60ba45e759e6cb4c6e69877280a629dc9250cf9b42dd
             quote: "ifWidth -= ImgUDevice::kIFAlignWidth;\n\t}"
@@ -1978,12 +1957,11 @@ generated_visuals:
               \ ifHeight };\n\t\t\tcalculateBDS(pipe, iif, gdc, sf);\n\t\t\tifWidth\
               \ -= ImgUDevice::kIFAlignWidth;\n\t\t}"
         - id: second_height
-          label: 두 번째 탐색의 바깥 반복은 ifHeight가 minIfHeight 이상인 동안 계속합니다. 안쪽 반복이 끝나면 ifHeight를
-            ImgUDevice::kIFAlignHeight만큼 줄입니다. 주석은 이 절차가 아마 잘못되었다고 말합니다.
-          label_en: The outer loop of the second search continues while ifHeight is
-            at least minIfHeight. After the inner loop ends, it decreases ifHeight
-            by ImgUDevice::kIFAlignHeight. A comment says the procedure is probably
-            broken.
+          label: 두 번째 탐색의 바깥 반복은 ifHeight가 minIfHeight 이상인 동안 진행하며, 안쪽 반복 뒤에 ifHeight를
+            ImgUDevice::kIFAlignHeight만큼 줄입니다.
+          label_en: The second search's outer loop runs while ifHeight is at least
+            minIfHeight and subtracts ImgUDevice::kIFAlignHeight from ifHeight after
+            the inner loop.
           shape: box
           evidence:
           - source: input-search-boundary/search
@@ -1999,11 +1977,11 @@ generated_visuals:
             sha256: dff1dd0c4b791141aa7e60ba45e759e6cb4c6e69877280a629dc9250cf9b42dd
             quote: "ifHeight -= ImgUDevice::kIFAlignHeight;\n\t}"
         - id: second_width
-          label: 두 번째 탐색의 안쪽 반복은 ifWidth가 minIfWidth 이상인 동안 계속합니다. calculateBDS 호출
-            뒤에 ifWidth를 ImgUDevice::kIFAlignWidth만큼 줄입니다.
-          label_en: The inner loop of the second search continues while ifWidth is
-            at least minIfWidth. After the calculateBDS call, it decreases ifWidth
-            by ImgUDevice::kIFAlignWidth.
+          label: 두 번째 탐색의 안쪽 반복은 ifWidth가 minIfWidth 이상인 동안 진행하며, 각 반복에서 ifWidth를
+            ImgUDevice::kIFAlignWidth만큼 줄입니다. 소스는 이 절차가 아마 잘못되었다고 표시합니다.
+          label_en: The second search's inner loop runs while ifWidth is at least
+            minIfWidth and subtracts ImgUDevice::kIFAlignWidth from ifWidth on each
+            iteration. The source marks this procedure as probably broken.
           shape: box
           evidence:
           - source: input-search-boundary/search
@@ -2015,59 +1993,9 @@ generated_visuals:
               \t\t */\n\t\twhile (ifWidth >= minIfWidth) {\n\t\t\tSize iif{ ifWidth,\
               \ ifHeight };\n\t\t\tcalculateBDS(pipe, iif, gdc, sf);\n\t\t\tifWidth\
               \ -= ImgUDevice::kIFAlignWidth;\n\t\t}"
-        - id: search_min_height
-          label: 탐색의 minIfHeight는 in.height에서 ImgUDevice::kIFMaxCropHeight를 뺀 값과 ImgUDevice::kIFMaxCropHeight
-            중 큰 값입니다.
-          label_en: The search's minIfHeight is the greater of in.height minus ImgUDevice::kIFMaxCropHeight
-            and ImgUDevice::kIFMaxCropHeight.
-          shape: box
-          evidence:
-          - source: input-search-boundary/search
-            sha256: dff1dd0c4b791141aa7e60ba45e759e6cb4c6e69877280a629dc9250cf9b42dd
-            quote: "/*\n\t * Populate the configurations vector by scaling width and\
-              \ height.\n\t *\n\t * calculateBDSHeight() crops up to kIFMaxCropHeight\
-              \ lines from the IF\n\t * height, so don't go below that, or its minimum\
-              \ IF height wraps.\n\t */\n\tunsigned int ifWidth = utils::alignUp(in.width,\
-              \ ImgUDevice::kIFAlignWidth);\n\tunsigned int ifHeight = utils::alignUp(in.height,\
-              \ ImgUDevice::kIFAlignHeight);\n\tunsigned int minIfWidth = std::max(in.width\
-              \ - ImgUDevice::kIFMaxCropWidth,\n\t\t\t\t\t   ImgUDevice::kIFMaxCropWidth);\n\
-              \tunsigned int minIfHeight = std::max(in.height - ImgUDevice::kIFMaxCropHeight,\n\
-              \t\t\t\t\t    ImgUDevice::kIFMaxCropHeight);\n\twhile (ifWidth >= minIfWidth)\
-              \ {\n\t\twhile (ifHeight >= minIfHeight) {\n\t\t\tSize iif{ ifWidth,\
-              \ ifHeight };\n\t\t\tcalculateBDS(pipe, iif, gdc, sf);\n\t\t\tifHeight\
-              \ -= ImgUDevice::kIFAlignHeight;\n\t\t}"
-        - id: height_bound
-          label: 별도의 calculateBDSHeight 높이 계산에서 unsigned int minIFHeight는 iif.height에서
-            ImgUDevice::kIFMaxCropHeight를 직접 뺀 값입니다. 주석은 입력 포매터의 최소 높이가 되감기지 않도록 크롭
-            한도 아래로 내려가지 말라고 설명합니다.
-          label_en: In the separate calculateBDSHeight calculation, unsigned int minIFHeight
-            is iif.height minus ImgUDevice::kIFMaxCropHeight directly. A comment says
-            not to go below the crop limit so that the minimum input formatter height
-            does not wrap.
-          shape: box
-          evidence:
-          - source: input-search-boundary/search
-            sha256: dff1dd0c4b791141aa7e60ba45e759e6cb4c6e69877280a629dc9250cf9b42dd
-            quote: "/*\n\t * Populate the configurations vector by scaling width and\
-              \ height.\n\t *\n\t * calculateBDSHeight() crops up to kIFMaxCropHeight\
-              \ lines from the IF\n\t * height, so don't go below that, or its minimum\
-              \ IF height wraps.\n\t */\n\tunsigned int ifWidth = utils::alignUp(in.width,\
-              \ ImgUDevice::kIFAlignWidth);\n\tunsigned int ifHeight = utils::alignUp(in.height,\
-              \ ImgUDevice::kIFAlignHeight);\n\tunsigned int minIfWidth = std::max(in.width\
-              \ - ImgUDevice::kIFMaxCropWidth,\n\t\t\t\t\t   ImgUDevice::kIFMaxCropWidth);\n\
-              \tunsigned int minIfHeight = std::max(in.height - ImgUDevice::kIFMaxCropHeight,\n\
-              \t\t\t\t\t    ImgUDevice::kIFMaxCropHeight);\n\twhile (ifWidth >= minIfWidth)\
-              \ {\n\t\twhile (ifHeight >= minIfHeight) {\n\t\t\tSize iif{ ifWidth,\
-              \ ifHeight };\n\t\t\tcalculateBDS(pipe, iif, gdc, sf);\n\t\t\tifHeight\
-              \ -= ImgUDevice::kIFAlignHeight;\n\t\t}"
-          - source: input-search-boundary/height-bound
-            sha256: 095e890fbc9265784421e7c5bffa38c5c482fbea73289f56889e877d24b817c3
-            quote: "unsigned int minIFHeight = iif.height - ImgUDevice::kIFMaxCropHeight;\n\
-              \tunsigned int minBDSHeight = gdc.height + ImgUDevice::kFilterHeight\
-              \ * 2;"
         - id: input_height
-          label: 별도의 높이 차감식은 iif.height를 사용합니다.
-          label_en: The separate height subtraction expression uses iif.height.
+          label: 별도 높이 계산은 iif.height를 사용합니다.
+          label_en: The separate height calculation uses iif.height.
           shape: box
           evidence:
           - source: input-search-boundary/height-bound
@@ -2075,12 +2003,39 @@ generated_visuals:
             quote: "unsigned int minIFHeight = iif.height - ImgUDevice::kIFMaxCropHeight;\n\
               \tunsigned int minBDSHeight = gdc.height + ImgUDevice::kFilterHeight\
               \ * 2;"
+        - id: minimum_height
+          label: 입력 포매터의 최소 높이 minIFHeight는 unsigned int이며, iif.height에서 ImgUDevice::kIFMaxCropHeight를
+            뺀 값입니다. 소스 주석은 최소 높이가 언더플로로 순환할 수 있다고 경고합니다.
+          label_en: The minimum input formatter height minIFHeight is an unsigned
+            int calculated by subtracting ImgUDevice::kIFMaxCropHeight from iif.height.
+            The source comment warns that the minimum height can wrap on underflow.
+          shape: box
+          evidence:
+          - source: input-search-boundary/height-bound
+            sha256: 095e890fbc9265784421e7c5bffa38c5c482fbea73289f56889e877d24b817c3
+            quote: "unsigned int minIFHeight = iif.height - ImgUDevice::kIFMaxCropHeight;\n\
+              \tunsigned int minBDSHeight = gdc.height + ImgUDevice::kFilterHeight\
+              \ * 2;"
+          - source: input-search-boundary/search
+            sha256: dff1dd0c4b791141aa7e60ba45e759e6cb4c6e69877280a629dc9250cf9b42dd
+            quote: "/*\n\t * Populate the configurations vector by scaling width and\
+              \ height.\n\t *\n\t * calculateBDSHeight() crops up to kIFMaxCropHeight\
+              \ lines from the IF\n\t * height, so don't go below that, or its minimum\
+              \ IF height wraps.\n\t */\n\tunsigned int ifWidth = utils::alignUp(in.width,\
+              \ ImgUDevice::kIFAlignWidth);\n\tunsigned int ifHeight = utils::alignUp(in.height,\
+              \ ImgUDevice::kIFAlignHeight);\n\tunsigned int minIfWidth = std::max(in.width\
+              \ - ImgUDevice::kIFMaxCropWidth,\n\t\t\t\t\t   ImgUDevice::kIFMaxCropWidth);\n\
+              \tunsigned int minIfHeight = std::max(in.height - ImgUDevice::kIFMaxCropHeight,\n\
+              \t\t\t\t\t    ImgUDevice::kIFMaxCropHeight);\n\twhile (ifWidth >= minIfWidth)\
+              \ {\n\t\twhile (ifHeight >= minIfHeight) {\n\t\t\tSize iif{ ifWidth,\
+              \ ifHeight };\n\t\t\tcalculateBDS(pipe, iif, gdc, sf);\n\t\t\tifHeight\
+              \ -= ImgUDevice::kIFAlignHeight;\n\t\t}"
         edges:
         - from: first_width
           to: first_height
-          label: 첫 번째 탐색에서 ifWidth 바깥 반복이 ifHeight 안쪽 반복을 포함합니다.
-          label_en: In the first search, the ifWidth outer loop contains the ifHeight
-            inner loop.
+          label: 첫 탐색에서 ifHeight 반복은 ifWidth 반복 안에 있습니다.
+          label_en: In the first search, the ifHeight loop is nested inside the ifWidth
+            loop.
           evidence:
           - source: input-search-boundary/search
             sha256: dff1dd0c4b791141aa7e60ba45e759e6cb4c6e69877280a629dc9250cf9b42dd
@@ -2096,12 +2051,29 @@ generated_visuals:
               \ {\n\t\twhile (ifHeight >= minIfHeight) {\n\t\t\tSize iif{ ifWidth,\
               \ ifHeight };\n\t\t\tcalculateBDS(pipe, iif, gdc, sf);\n\t\t\tifHeight\
               \ -= ImgUDevice::kIFAlignHeight;\n\t\t}"
-        - from: second_height
-          to: second_width
-          label: 두 번째 탐색에서 ifHeight 바깥 반복이 ifWidth 안쪽 반복을 포함합니다.
-          label_en: In the second search, the ifHeight outer loop contains the ifWidth
-            inner loop.
+        - from: first_width
+          to: reset
+          label: 첫 탐색의 바깥 ifWidth 반복과 그 안의 ifHeight 반복이 모두 종료된 뒤 재초기화합니다.
+          label_en: Reinitialization occurs after the first search's outer ifWidth
+            loop and its nested ifHeight loop have both finished.
           evidence:
+          - source: input-search-boundary/search
+            sha256: dff1dd0c4b791141aa7e60ba45e759e6cb4c6e69877280a629dc9250cf9b42dd
+            quote: "/*\n\t * Populate the configurations vector by scaling width and\
+              \ height.\n\t *\n\t * calculateBDSHeight() crops up to kIFMaxCropHeight\
+              \ lines from the IF\n\t * height, so don't go below that, or its minimum\
+              \ IF height wraps.\n\t */\n\tunsigned int ifWidth = utils::alignUp(in.width,\
+              \ ImgUDevice::kIFAlignWidth);\n\tunsigned int ifHeight = utils::alignUp(in.height,\
+              \ ImgUDevice::kIFAlignHeight);\n\tunsigned int minIfWidth = std::max(in.width\
+              \ - ImgUDevice::kIFMaxCropWidth,\n\t\t\t\t\t   ImgUDevice::kIFMaxCropWidth);\n\
+              \tunsigned int minIfHeight = std::max(in.height - ImgUDevice::kIFMaxCropHeight,\n\
+              \t\t\t\t\t    ImgUDevice::kIFMaxCropHeight);\n\twhile (ifWidth >= minIfWidth)\
+              \ {\n\t\twhile (ifHeight >= minIfHeight) {\n\t\t\tSize iif{ ifWidth,\
+              \ ifHeight };\n\t\t\tcalculateBDS(pipe, iif, gdc, sf);\n\t\t\tifHeight\
+              \ -= ImgUDevice::kIFAlignHeight;\n\t\t}"
+          - source: input-search-boundary/search
+            sha256: dff1dd0c4b791141aa7e60ba45e759e6cb4c6e69877280a629dc9250cf9b42dd
+            quote: "ifWidth -= ImgUDevice::kIFAlignWidth;\n\t}"
           - source: input-search-boundary/search
             sha256: dff1dd0c4b791141aa7e60ba45e759e6cb4c6e69877280a629dc9250cf9b42dd
             quote: "/* Repeat search by scaling width first. */\n\tifWidth = utils::alignUp(in.width,\
@@ -2113,8 +2085,24 @@ generated_visuals:
               \ -= ImgUDevice::kIFAlignWidth;\n\t\t}"
         - from: reset
           to: second_height
-          label: 두 번째 탐색의 바깥 반복은 다시 설정된 ifHeight를 사용합니다.
-          label_en: The outer loop of the second search uses the reset ifHeight.
+          label: 두 변수의 재초기화 뒤에 두 번째 탐색의 ifHeight 반복이 나옵니다.
+          label_en: The second search's ifHeight loop follows the reinitialization
+            of both variables.
+          evidence:
+          - source: input-search-boundary/search
+            sha256: dff1dd0c4b791141aa7e60ba45e759e6cb4c6e69877280a629dc9250cf9b42dd
+            quote: "/* Repeat search by scaling width first. */\n\tifWidth = utils::alignUp(in.width,\
+              \ ImgUDevice::kIFAlignWidth);\n\tifHeight = utils::alignUp(in.height,\
+              \ ImgUDevice::kIFAlignHeight);\n\twhile (ifHeight >= minIfHeight) {\n\
+              \t\t/*\n\t\t * \\todo This procedure is probably broken:\n\t\t * https://github.com/intel/intel-ipu3-pipecfg/issues/2\n\
+              \t\t */\n\t\twhile (ifWidth >= minIfWidth) {\n\t\t\tSize iif{ ifWidth,\
+              \ ifHeight };\n\t\t\tcalculateBDS(pipe, iif, gdc, sf);\n\t\t\tifWidth\
+              \ -= ImgUDevice::kIFAlignWidth;\n\t\t}"
+        - from: second_height
+          to: second_width
+          label: 두 번째 탐색에서 ifWidth 반복은 ifHeight 반복 안에 있습니다.
+          label_en: In the second search, the ifWidth loop is nested inside the ifHeight
+            loop.
           evidence:
           - source: input-search-boundary/search
             sha256: dff1dd0c4b791141aa7e60ba45e759e6cb4c6e69877280a629dc9250cf9b42dd
@@ -2126,9 +2114,10 @@ generated_visuals:
               \ ifHeight };\n\t\t\tcalculateBDS(pipe, iif, gdc, sf);\n\t\t\tifWidth\
               \ -= ImgUDevice::kIFAlignWidth;\n\t\t}"
         - from: input_height
-          to: height_bound
-          label: minIFHeight 차감식은 iif.height를 사용합니다.
-          label_en: The minIFHeight subtraction expression uses iif.height.
+          to: minimum_height
+          label: iif.height에서 ImgUDevice::kIFMaxCropHeight를 빼서 minIFHeight를 계산합니다.
+          label_en: minIFHeight is calculated by subtracting ImgUDevice::kIFMaxCropHeight
+            from iif.height.
           evidence:
           - source: input-search-boundary/height-bound
             sha256: 095e890fbc9265784421e7c5bffa38c5c482fbea73289f56889e877d24b817c3
@@ -2137,9 +2126,9 @@ generated_visuals:
               \ * 2;"
         producer: cli/codex/gpt-6.1-terra
       producer: cli/codex/gpt-6.1-terra
-      generation_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
+      generation_commit: be7e83e91348250c015aad6d6f59f1468555bae8
       citation_binding_policy: identifier-boundaries-v1
-      reused: true
+      reused: false
     normal-dispatch-and-stop:
       input_fingerprint: 7528f0bfad232c8c10d5fca11f6c897a157e3bb5292e3d6080a72d26c9ca2bc9
       draft:
@@ -2522,8 +2511,56 @@ generated_visuals:
       generation_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
       citation_binding_policy: identifier-boundaries-v1
       reused: true
-  body_sha256: 0f94d78bd38aa58f3fe21c29c08cd65ecf0d0ff5b1631034b7ec83efeb32c021
+  body_sha256: d2f8848283a5cbbc57bdbbbc55a8b535143260665e6b0b30120a17b282b1a9b6
 revalidated_from: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
+managed_visual_refresh:
+- schema: 2
+  source_commit: be7e83e91348250c015aad6d6f59f1468555bae8
+  original_manuscript_sha256: a007a66f5c3f49353ee27bda4b10282e2ce250c2f7b0b3c00b8a094fa4aacca9
+  previous_body_sha256: 0f94d78bd38aa58f3fe21c29c08cd65ecf0d0ff5b1631034b7ec83efeb32c021
+  body_sha256: d2f8848283a5cbbc57bdbbbc55a8b535143260665e6b0b30120a17b282b1a9b6
+  visual_definitions_sha256: dd5079daa3619f4ede51f4413f4f1db05914eab0db1194d419f355a0ed70a719
+  preserved_outside_body_sha256: 4b38b76892113ad2fe8433ebf6507b43b7e23a550e3b690a66b970e5685cd5a8
+  owned_edit_regions:
+  - original_start_byte: 2025
+    original_end_byte: 14987
+    original_sha256: 0f1821e25de54c35225eff563cc6d0b314bb3d9c7864575f6e87e1a7a6241aff
+    replacement_sha256: 0f1821e25de54c35225eff563cc6d0b314bb3d9c7864575f6e87e1a7a6241aff
+    visual_ids:
+    - handler-device-ownership
+  - original_start_byte: 14991
+    original_end_byte: 27798
+    original_sha256: 2c1b47704dbacbb9c4a0ab7fc1f9831c18b2fc088a2ddbd6982c72be3ce00b04
+    replacement_sha256: 2c1b47704dbacbb9c4a0ab7fc1f9831c18b2fc088a2ddbd6982c72be3ce00b04
+    visual_ids:
+    - acquire-release-locks
+  - original_start_byte: 29650
+    original_end_byte: 42000
+    original_sha256: c25dd3e7b37d1095ee3a27357694875c455c9d1c81c6988b38287fdf4c9b5f00
+    replacement_sha256: c25dd3e7b37d1095ee3a27357694875c455c9d1c81c6988b38287fdf4c9b5f00
+    visual_ids:
+    - configuration-contracts
+  - original_start_byte: 43395
+    original_end_byte: 57037
+    original_sha256: 0ea1a5d5226ccde5fcd22ba3a69b9fc0b93a567df67ae27122300e1a98b72fce
+    replacement_sha256: 0ea1a5d5226ccde5fcd22ba3a69b9fc0b93a567df67ae27122300e1a98b72fce
+    visual_ids:
+    - normal-dispatch-and-stop
+  - original_start_byte: 58876
+    original_end_byte: 71049
+    original_sha256: 11a747592140e2a177efad88ce23e21e0443495903ada6132b9306c7eae49b22
+    replacement_sha256: 225bb17cd21a96bb52f185fb9d7b2e915c8c364251818b51ff76ecf524cf0611
+    visual_ids:
+    - input-search-loops
+  added_visuals: []
+  scope: Separately generated native graph replacement; original prose/authorship
+    retained
+  new_inference: false
+  semantic_approval: false
+  human_review: unchanged
+  graph_records_replaced: true
+  previous_native_records_sha256: 03f56e98b6855fab4dbcf6e7d5ec04f9bf81473980489dbd469aefab65302af6
+  current_native_records_sha256: ac99f967d945bb3386c932399be7c6c2cee066f917a92989df3541f02663be64
 ---
 
 # Pipeline Handler
@@ -2764,19 +2801,19 @@ minIfWidth는 std::max(in.width - `ImgUDevice::kIFMaxCropWidth`, `ImgUDevice::kI
 
 ```mermaid
 flowchart TB
-%% sdd:translations {"minIFHeight 차감식은 <br/>iif.height를 사용합니다.": "The minIFHeight subtraction <br/>expression uses iif.height.", "두 번째 탐색에서 ifHeight <br/>바깥 반복이 ifWidth 안쪽 <br/>반복을 포함합니다.": "In the second search, the <br/>ifHeight outer loop <br/>contains the ifWidth inner <br/>loop.", "두 번째 탐색의 바깥 반복은 <br/>ifHeight가 minIfHeight <br/>이상인 동안 계속합니다. <br/>안쪽 반복이 끝나면 <br/>ifHeight를 <br/>ImgUDevice::<br/>kIFAlignHeight만큼 <br/>줄입니다. 주석은 이 절차가 <br/>아마 잘못되었다고 말합니다.": "The outer loop of the <br/>second search continues <br/>while ifHeight is at least <br/>minIfHeight. After the <br/>inner loop ends, it <br/>decreases ifHeight by <br/>ImgUDevice::kIFAlignHeight. <br/>A comment says the <br/>procedure is probably <br/>broken.", "두 번째 탐색의 바깥 반복은 <br/>다시 설정된 ifHeight를 <br/>사용합니다.": "The outer loop of the <br/>second search uses the <br/>reset ifHeight.", "두 번째 탐색의 안쪽 반복은 <br/>ifWidth가 minIfWidth 이상인 <br/>동안 계속합니다. <br/>calculateBDS 호출 뒤에 <br/>ifWidth를 <br/>ImgUDevice::<br/>kIFAlignWidth만큼 줄입니다.": "The inner loop of the <br/>second search continues <br/>while ifWidth is at least <br/>minIfWidth. After the <br/>calculateBDS call, it <br/>decreases ifWidth by <br/>ImgUDevice::kIFAlignWidth.", "별도의 calculateBDSHeight <br/>높이 계산에서 unsigned int <br/>minIFHeight는 <br/>iif.height에서 <br/>ImgUDevice::<br/>kIFMaxCropHeight를 직접 뺀 <br/>값입니다. 주석은 입력 <br/>포매터의 최소 높이가 <br/>되감기지 않도록 크롭 한도 <br/>아래로 내려가지 말라고 <br/>설명합니다.": "In the separate <br/>calculateBDSHeight <br/>calculation, unsigned int <br/>minIFHeight is iif.height <br/>minus <br/>ImgUDevice::<br/>kIFMaxCropHeight directly. <br/>A comment says not to go <br/>below the crop limit so <br/>that the minimum input <br/>formatter height does not <br/>wrap.", "별도의 높이 차감식은 <br/>iif.height를 사용합니다.": "The separate height <br/>subtraction expression uses <br/>iif.height.", "첫 번째 탐색에서 ifWidth <br/>바깥 반복이 ifHeight 안쪽 <br/>반복을 포함합니다.": "In the first search, the <br/>ifWidth outer loop contains <br/>the ifHeight inner loop.", "첫 번째 탐색의 바깥 반복은 <br/>ifWidth가 minIfWidth 이상인 <br/>동안 계속합니다. 안쪽 <br/>반복이 끝나면 ifWidth를 <br/>ImgUDevice::<br/>kIFAlignWidth만큼 줄입니다.": "The outer loop of the first <br/>search continues while <br/>ifWidth is at least <br/>minIfWidth. After the inner <br/>loop ends, it decreases <br/>ifWidth by <br/>ImgUDevice::kIFAlignWidth.", "첫 번째 탐색의 안쪽 반복은 <br/>ifHeight가 minIfHeight <br/>이상인 동안 계속합니다. <br/>calculateBDS 호출 뒤에 <br/>ifHeight를 <br/>ImgUDevice::<br/>kIFAlignHeight만큼 줄입니다.": "The inner loop of the first <br/>search continues while <br/>ifHeight is at least <br/>minIfHeight. After the <br/>calculateBDS call, it <br/>decreases ifHeight by <br/>ImgUDevice::kIFAlignHeight.", "첫 번째 탐색이 모두 끝난 뒤 <br/>두 번째 탐색 전에 ifWidth와 <br/>ifHeight를 각각 입력 폭과 <br/>높이에서 utils::alignUp으로 <br/>다시 설정합니다. 안쪽 <br/>반복이 끝날 때마다 다시 <br/>설정하지는 않습니다.": "After the entire first <br/>search and before the <br/>second search, ifWidth and <br/>ifHeight are reset from the <br/>input width and height, <br/>respectively, using <br/>utils::alignUp. They are <br/>not reset after each <br/>inner-loop completion.", "탐색의 minIfHeight는 <br/>in.height에서 <br/>ImgUDevice::<br/>kIFMaxCropHeight를 뺀 값과 <br/>ImgUDevice::<br/>kIFMaxCropHeight 중 큰 <br/>값입니다.": "The search#39;s minIfHeight is <br/>the greater of in.height <br/>minus <br/>ImgUDevice::<br/>kIFMaxCropHeight and <br/>ImgUDevice::<br/>kIFMaxCropHeight."}
-  v_first_width["첫 번째 탐색의 바깥 반복은 <br/>ifWidth가 minIfWidth 이상인 <br/>동안 계속합니다. 안쪽 <br/>반복이 끝나면 ifWidth를 <br/>ImgUDevice::<br/>kIFAlignWidth만큼 줄입니다."]
-  v_first_height["첫 번째 탐색의 안쪽 반복은 <br/>ifHeight가 minIfHeight <br/>이상인 동안 계속합니다. <br/>calculateBDS 호출 뒤에 <br/>ifHeight를 <br/>ImgUDevice::<br/>kIFAlignHeight만큼 줄입니다."]
-  v_reset["첫 번째 탐색이 모두 끝난 뒤 <br/>두 번째 탐색 전에 ifWidth와 <br/>ifHeight를 각각 입력 폭과 <br/>높이에서 utils::alignUp으로 <br/>다시 설정합니다. 안쪽 <br/>반복이 끝날 때마다 다시 <br/>설정하지는 않습니다."]
-  v_second_height["두 번째 탐색의 바깥 반복은 <br/>ifHeight가 minIfHeight <br/>이상인 동안 계속합니다. <br/>안쪽 반복이 끝나면 <br/>ifHeight를 <br/>ImgUDevice::<br/>kIFAlignHeight만큼 <br/>줄입니다. 주석은 이 절차가 <br/>아마 잘못되었다고 말합니다."]
-  v_second_width["두 번째 탐색의 안쪽 반복은 <br/>ifWidth가 minIfWidth 이상인 <br/>동안 계속합니다. <br/>calculateBDS 호출 뒤에 <br/>ifWidth를 <br/>ImgUDevice::<br/>kIFAlignWidth만큼 줄입니다."]
-  v_search_min_height["탐색의 minIfHeight는 <br/>in.height에서 <br/>ImgUDevice::<br/>kIFMaxCropHeight를 뺀 값과 <br/>ImgUDevice::<br/>kIFMaxCropHeight 중 큰 <br/>값입니다."]
-  v_height_bound["별도의 calculateBDSHeight <br/>높이 계산에서 unsigned int <br/>minIFHeight는 <br/>iif.height에서 <br/>ImgUDevice::<br/>kIFMaxCropHeight를 직접 뺀 <br/>값입니다. 주석은 입력 <br/>포매터의 최소 높이가 <br/>되감기지 않도록 크롭 한도 <br/>아래로 내려가지 말라고 <br/>설명합니다."]
-  v_input_height["별도의 높이 차감식은 <br/>iif.height를 사용합니다."]
-  v_first_width -->|"첫 번째 탐색에서 ifWidth <br/>바깥 반복이 ifHeight 안쪽 <br/>반복을 포함합니다."| v_first_height
-  v_second_height -->|"두 번째 탐색에서 ifHeight <br/>바깥 반복이 ifWidth 안쪽 <br/>반복을 포함합니다."| v_second_width
-  v_reset -->|"두 번째 탐색의 바깥 반복은 <br/>다시 설정된 ifHeight를 <br/>사용합니다."| v_second_height
-  v_input_height -->|"minIFHeight 차감식은 <br/>iif.height를 사용합니다."| v_height_bound
+%% sdd:translations {"iif.height에서 <br/>ImgUDevice::<br/>kIFMaxCropHeight를 빼서 <br/>minIFHeight를 계산합니다.": "minIFHeight is calculated <br/>by subtracting <br/>ImgUDevice::<br/>kIFMaxCropHeight from <br/>iif.height.", "두 번째 탐색에서 ifWidth <br/>반복은 ifHeight 반복 안에 <br/>있습니다.": "In the second search, the <br/>ifWidth loop is nested <br/>inside the ifHeight loop.", "두 번째 탐색의 바깥 반복은 <br/>ifHeight가 minIfHeight <br/>이상인 동안 진행하며, 안쪽 <br/>반복 뒤에 ifHeight를 <br/>ImgUDevice::<br/>kIFAlignHeight만큼 줄입니다.": "The second search#39;s outer <br/>loop runs while ifHeight is <br/>at least minIfHeight and <br/>subtracts <br/>ImgUDevice::kIFAlignHeight <br/>from ifHeight after the <br/>inner loop.", "두 번째 탐색의 안쪽 반복은 <br/>ifWidth가 minIfWidth 이상인 <br/>동안 진행하며, 각 반복에서 <br/>ifWidth를 <br/>ImgUDevice::<br/>kIFAlignWidth만큼 줄입니다. <br/>소스는 이 절차가 아마 <br/>잘못되었다고 표시합니다.": "The second search#39;s inner <br/>loop runs while ifWidth is <br/>at least minIfWidth and <br/>subtracts <br/>ImgUDevice::kIFAlignWidth <br/>from ifWidth on each <br/>iteration. The source marks <br/>this procedure as probably <br/>broken.", "두 변수의 재초기화 뒤에 두 <br/>번째 탐색의 ifHeight 반복이 <br/>나옵니다.": "The second search#39;s <br/>ifHeight loop follows the <br/>reinitialization of both <br/>variables.", "별도 높이 계산은 <br/>iif.height를 사용합니다.": "The separate height <br/>calculation uses iif.height.", "입력 포매터의 최소 높이 <br/>minIFHeight는 unsigned <br/>int이며, iif.height에서 <br/>ImgUDevice::<br/>kIFMaxCropHeight를 뺀 <br/>값입니다. 소스 주석은 최소 <br/>높이가 언더플로로 순환할 수 <br/>있다고 경고합니다.": "The minimum input formatter <br/>height minIFHeight is an <br/>unsigned int calculated by <br/>subtracting <br/>ImgUDevice::<br/>kIFMaxCropHeight from <br/>iif.height. The source <br/>comment warns that the <br/>minimum height can wrap on <br/>underflow.", "첫 탐색 전체가 끝난 뒤 <br/>ifWidth와 ifHeight를 각각 <br/>정렬된 입력 폭과 높이로 <br/>다시 초기화합니다.": "After the entire first <br/>search finishes, ifWidth <br/>and ifHeight are <br/>reinitialized to the <br/>aligned input width and <br/>height, respectively.", "첫 탐색에서 ifHeight 반복은 <br/>ifWidth 반복 안에 있습니다.": "In the first search, the <br/>ifHeight loop is nested <br/>inside the ifWidth loop.", "첫 탐색의 바깥 ifWidth <br/>반복과 그 안의 ifHeight <br/>반복이 모두 종료된 뒤 <br/>재초기화합니다.": "Reinitialization occurs <br/>after the first search#39;s <br/>outer ifWidth loop and its <br/>nested ifHeight loop have <br/>both finished.", "첫 탐색의 바깥 반복은 <br/>ifWidth가 minIfWidth 이상인 <br/>동안 진행하며, 안쪽 반복 <br/>뒤에 ifWidth를 <br/>ImgUDevice::<br/>kIFAlignWidth만큼 줄입니다.": "The first search#39;s outer <br/>loop runs while ifWidth is <br/>at least minIfWidth and <br/>subtracts <br/>ImgUDevice::kIFAlignWidth <br/>from ifWidth after the <br/>inner loop.", "첫 탐색의 안쪽 반복은 <br/>ifHeight가 minIfHeight <br/>이상인 동안 진행하며, 각 <br/>반복에서 ifHeight를 <br/>ImgUDevice::<br/>kIFAlignHeight만큼 줄입니다.": "The first search#39;s inner <br/>loop runs while ifHeight is <br/>at least minIfHeight and <br/>subtracts <br/>ImgUDevice::kIFAlignHeight <br/>from ifHeight on each <br/>iteration."}
+  v_first_width["첫 탐색의 바깥 반복은 <br/>ifWidth가 minIfWidth 이상인 <br/>동안 진행하며, 안쪽 반복 <br/>뒤에 ifWidth를 <br/>ImgUDevice::<br/>kIFAlignWidth만큼 줄입니다."]
+  v_first_height["첫 탐색의 안쪽 반복은 <br/>ifHeight가 minIfHeight <br/>이상인 동안 진행하며, 각 <br/>반복에서 ifHeight를 <br/>ImgUDevice::<br/>kIFAlignHeight만큼 줄입니다."]
+  v_reset["첫 탐색 전체가 끝난 뒤 <br/>ifWidth와 ifHeight를 각각 <br/>정렬된 입력 폭과 높이로 <br/>다시 초기화합니다."]
+  v_second_height["두 번째 탐색의 바깥 반복은 <br/>ifHeight가 minIfHeight <br/>이상인 동안 진행하며, 안쪽 <br/>반복 뒤에 ifHeight를 <br/>ImgUDevice::<br/>kIFAlignHeight만큼 줄입니다."]
+  v_second_width["두 번째 탐색의 안쪽 반복은 <br/>ifWidth가 minIfWidth 이상인 <br/>동안 진행하며, 각 반복에서 <br/>ifWidth를 <br/>ImgUDevice::<br/>kIFAlignWidth만큼 줄입니다. <br/>소스는 이 절차가 아마 <br/>잘못되었다고 표시합니다."]
+  v_input_height["별도 높이 계산은 <br/>iif.height를 사용합니다."]
+  v_minimum_height["입력 포매터의 최소 높이 <br/>minIFHeight는 unsigned <br/>int이며, iif.height에서 <br/>ImgUDevice::<br/>kIFMaxCropHeight를 뺀 <br/>값입니다. 소스 주석은 최소 <br/>높이가 언더플로로 순환할 수 <br/>있다고 경고합니다."]
+  v_first_width -->|"첫 탐색에서 ifHeight 반복은 <br/>ifWidth 반복 안에 있습니다."| v_first_height
+  v_first_width -->|"첫 탐색의 바깥 ifWidth <br/>반복과 그 안의 ifHeight <br/>반복이 모두 종료된 뒤 <br/>재초기화합니다."| v_reset
+  v_reset -->|"두 변수의 재초기화 뒤에 두 <br/>번째 탐색의 ifHeight 반복이 <br/>나옵니다."| v_second_height
+  v_second_height -->|"두 번째 탐색에서 ifWidth <br/>반복은 ifHeight 반복 안에 <br/>있습니다."| v_second_width
+  v_input_height -->|"iif.height에서 <br/>ImgUDevice::<br/>kIFMaxCropHeight를 빼서 <br/>minIFHeight를 계산합니다."| v_minimum_height
 ```
 
 [Mermaid 원문](pipeline-handler.input-search-loops.mmd)
@@ -2792,18 +2829,18 @@ flowchart TB
     
     | 요소·전이 | 소스 근거 |
     |---|---|
-    | <span data-sdd-label-en="The outer loop of the first search continues while ifWidth is at least minIfWidth. After the inner loop ends, it decreases ifWidth by ImgUDevice::kIFAlignWidth.">첫 번째 탐색의 바깥 반복은 ifWidth가 minIfWidth 이상인 동안 계속합니다. 안쪽 반복이 끝나면 ifWidth를 ImgUDevice::kIFAlignWidth만큼 줄입니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:407](#source-2494b74f28e1b200) |
-    | <span data-sdd-label-en="The inner loop of the first search continues while ifHeight is at least minIfHeight. After the calculateBDS call, it decreases ifHeight by ImgUDevice::kIFAlignHeight.">첫 번째 탐색의 안쪽 반복은 ifHeight가 minIfHeight 이상인 동안 계속합니다. calculateBDS 호출 뒤에 ifHeight를 ImgUDevice::kIFAlignHeight만큼 줄입니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:407](#source-2494b74f28e1b200) |
-    | <span data-sdd-label-en="After the entire first search and before the second search, ifWidth and ifHeight are reset from the input width and height, respectively, using utils::alignUp. They are not reset after each inner-loop completion.">첫 번째 탐색이 모두 끝난 뒤 두 번째 탐색 전에 ifWidth와 ifHeight를 각각 입력 폭과 높이에서 utils::alignUp으로 다시 설정합니다. 안쪽 반복이 끝날 때마다 다시 설정하지는 않습니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:407](#source-2494b74f28e1b200) |
-    | <span data-sdd-label-en="The outer loop of the second search continues while ifHeight is at least minIfHeight. After the inner loop ends, it decreases ifHeight by ImgUDevice::kIFAlignHeight. A comment says the procedure is probably broken.">두 번째 탐색의 바깥 반복은 ifHeight가 minIfHeight 이상인 동안 계속합니다. 안쪽 반복이 끝나면 ifHeight를 ImgUDevice::kIFAlignHeight만큼 줄입니다. 주석은 이 절차가 아마 잘못되었다고 말합니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:407](#source-2494b74f28e1b200) |
-    | <span data-sdd-label-en="The inner loop of the second search continues while ifWidth is at least minIfWidth. After the calculateBDS call, it decreases ifWidth by ImgUDevice::kIFAlignWidth.">두 번째 탐색의 안쪽 반복은 ifWidth가 minIfWidth 이상인 동안 계속합니다. calculateBDS 호출 뒤에 ifWidth를 ImgUDevice::kIFAlignWidth만큼 줄입니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:407](#source-2494b74f28e1b200) |
-    | <span data-sdd-label-en="The search&#x27;s minIfHeight is the greater of in.height minus ImgUDevice::kIFMaxCropHeight and ImgUDevice::kIFMaxCropHeight.">탐색의 minIfHeight는 in.height에서 ImgUDevice::kIFMaxCropHeight를 뺀 값과 ImgUDevice::kIFMaxCropHeight 중 큰 값입니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:407](#source-2494b74f28e1b200) |
-    | <span data-sdd-label-en="In the separate calculateBDSHeight calculation, unsigned int minIFHeight is iif.height minus ImgUDevice::kIFMaxCropHeight directly. A comment says not to go below the crop limit so that the minimum input formatter height does not wrap.">별도의 calculateBDSHeight 높이 계산에서 unsigned int minIFHeight는 iif.height에서 ImgUDevice::kIFMaxCropHeight를 직접 뺀 값입니다. 주석은 입력 포매터의 최소 높이가 되감기지 않도록 크롭 한도 아래로 내려가지 말라고 설명합니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:407](#source-2494b74f28e1b200) · [src/libcamera/pipeline/ipu3/imgu.cpp:111](#source-e95802b61093a795) |
-    | <span data-sdd-label-en="The separate height subtraction expression uses iif.height.">별도의 높이 차감식은 iif.height를 사용합니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:111](#source-e95802b61093a795) |
-    | <span data-sdd-label-en="In the first search, the ifWidth outer loop contains the ifHeight inner loop.">첫 번째 탐색에서 ifWidth 바깥 반복이 ifHeight 안쪽 반복을 포함합니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:407](#source-2494b74f28e1b200) |
-    | <span data-sdd-label-en="In the second search, the ifHeight outer loop contains the ifWidth inner loop.">두 번째 탐색에서 ifHeight 바깥 반복이 ifWidth 안쪽 반복을 포함합니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:407](#source-2494b74f28e1b200) |
-    | <span data-sdd-label-en="The outer loop of the second search uses the reset ifHeight.">두 번째 탐색의 바깥 반복은 다시 설정된 ifHeight를 사용합니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:407](#source-2494b74f28e1b200) |
-    | <span data-sdd-label-en="The minIFHeight subtraction expression uses iif.height.">minIFHeight 차감식은 iif.height를 사용합니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:111](#source-e95802b61093a795) |
+    | <span data-sdd-label-en="The first search&#x27;s outer loop runs while ifWidth is at least minIfWidth and subtracts ImgUDevice::kIFAlignWidth from ifWidth after the inner loop.">첫 탐색의 바깥 반복은 ifWidth가 minIfWidth 이상인 동안 진행하며, 안쪽 반복 뒤에 ifWidth를 ImgUDevice::kIFAlignWidth만큼 줄입니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:407](#source-2494b74f28e1b200) |
+    | <span data-sdd-label-en="The first search&#x27;s inner loop runs while ifHeight is at least minIfHeight and subtracts ImgUDevice::kIFAlignHeight from ifHeight on each iteration.">첫 탐색의 안쪽 반복은 ifHeight가 minIfHeight 이상인 동안 진행하며, 각 반복에서 ifHeight를 ImgUDevice::kIFAlignHeight만큼 줄입니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:407](#source-2494b74f28e1b200) |
+    | <span data-sdd-label-en="After the entire first search finishes, ifWidth and ifHeight are reinitialized to the aligned input width and height, respectively.">첫 탐색 전체가 끝난 뒤 ifWidth와 ifHeight를 각각 정렬된 입력 폭과 높이로 다시 초기화합니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:407](#source-2494b74f28e1b200) |
+    | <span data-sdd-label-en="The second search&#x27;s outer loop runs while ifHeight is at least minIfHeight and subtracts ImgUDevice::kIFAlignHeight from ifHeight after the inner loop.">두 번째 탐색의 바깥 반복은 ifHeight가 minIfHeight 이상인 동안 진행하며, 안쪽 반복 뒤에 ifHeight를 ImgUDevice::kIFAlignHeight만큼 줄입니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:407](#source-2494b74f28e1b200) |
+    | <span data-sdd-label-en="The second search&#x27;s inner loop runs while ifWidth is at least minIfWidth and subtracts ImgUDevice::kIFAlignWidth from ifWidth on each iteration. The source marks this procedure as probably broken.">두 번째 탐색의 안쪽 반복은 ifWidth가 minIfWidth 이상인 동안 진행하며, 각 반복에서 ifWidth를 ImgUDevice::kIFAlignWidth만큼 줄입니다. 소스는 이 절차가 아마 잘못되었다고 표시합니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:407](#source-2494b74f28e1b200) |
+    | <span data-sdd-label-en="The separate height calculation uses iif.height.">별도 높이 계산은 iif.height를 사용합니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:111](#source-e95802b61093a795) |
+    | <span data-sdd-label-en="The minimum input formatter height minIFHeight is an unsigned int calculated by subtracting ImgUDevice::kIFMaxCropHeight from iif.height. The source comment warns that the minimum height can wrap on underflow.">입력 포매터의 최소 높이 minIFHeight는 unsigned int이며, iif.height에서 ImgUDevice::kIFMaxCropHeight를 뺀 값입니다. 소스 주석은 최소 높이가 언더플로로 순환할 수 있다고 경고합니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:111](#source-e95802b61093a795) · [src/libcamera/pipeline/ipu3/imgu.cpp:407](#source-2494b74f28e1b200) |
+    | <span data-sdd-label-en="In the first search, the ifHeight loop is nested inside the ifWidth loop.">첫 탐색에서 ifHeight 반복은 ifWidth 반복 안에 있습니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:407](#source-2494b74f28e1b200) |
+    | <span data-sdd-label-en="Reinitialization occurs after the first search&#x27;s outer ifWidth loop and its nested ifHeight loop have both finished.">첫 탐색의 바깥 ifWidth 반복과 그 안의 ifHeight 반복이 모두 종료된 뒤 재초기화합니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:407](#source-2494b74f28e1b200) |
+    | <span data-sdd-label-en="The second search&#x27;s ifHeight loop follows the reinitialization of both variables.">두 변수의 재초기화 뒤에 두 번째 탐색의 ifHeight 반복이 나옵니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:407](#source-2494b74f28e1b200) |
+    | <span data-sdd-label-en="In the second search, the ifWidth loop is nested inside the ifHeight loop.">두 번째 탐색에서 ifWidth 반복은 ifHeight 반복 안에 있습니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:407](#source-2494b74f28e1b200) |
+    | <span data-sdd-label-en="minIFHeight is calculated by subtracting ImgUDevice::kIFMaxCropHeight from iif.height.">iif.height에서 ImgUDevice::kIFMaxCropHeight를 빼서 minIFHeight를 계산합니다.</span> | [src/libcamera/pipeline/ipu3/imgu.cpp:111](#source-e95802b61093a795) |
 <!-- /sdd:visual:input-search-loops -->
 
 첫 탐색은 입력 포매터 폭을 바깥쪽, 높이를 안쪽에 두고 각각 minIfWidth와 minIfHeight 이상에서 반복하는 반면, 두 번째 탐색은 높이를 바깥쪽, 폭을 안쪽에 두고 각각 minIfHeight와 minIfWidth 이상에서 반복합니다. 첫 탐색에서는 안쪽 높이를 kIFAlignHeight만큼, 바깥 폭을 kIFAlignWidth만큼 줄이고, 두 번째 탐색에서는 안쪽 폭을 kIFAlignWidth만큼, 바깥 높이를 kIFAlignHeight만큼 줄입니다. 두 번째 탐색 전에만 두 값을 alignUp으로 재초기화하며, 바깥 반복마다 안쪽 변수를 재초기화하지 않습니다. 탐색 부분의 주석은 calculateBDSHeight가 입력 포매터 높이에서 최대 kIFMaxCropHeight줄을 자르므로 그 아래로 내려가면 최소 높이가 감긴다고 설명하며, `unsigned int minIFHeight = iif.height - ImgUDevice::kIFMaxCropHeight;`에서 iif.height가 kIFMaxCropHeight보다 작으면 차감 결과가 감깁니다. `src/libcamera/pipeline/ipu3/imgu.cpp:407`, `src/libcamera/pipeline/ipu3/imgu.cpp:111`
