@@ -1,5 +1,7 @@
 # libcamera SDD
 
+- [Supplied-fence condition and pretranslation/pre-merge validation evidence](publication/publication-preflight/README.md)
+
 Public source-bound design documents and generator validation evidence.
 
 - [Public site](https://ttolsun.github.io/libcamera-sdd/)
