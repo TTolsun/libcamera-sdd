@@ -1,0 +1,158 @@
+{
+  "task_id": "D1",
+  "condition": "B",
+  "kind": "automated_subagent",
+  "disclosure_at": "2026-11-05T04:07:23Z",
+  "started_at": "2026-11-05T04:08:00Z",
+  "first_evidence_at": "2026-11-05T04:08:30Z",
+  "ended_at": "2026-11-05T04:11:06Z",
+  "publication_git": "499465da2dc50feded066ee956de1ee166e7667f",
+  "publication_build": "e8630fb5243aa28ef74d2c58fed7778d2040f246f77cff3405083bf6835a70f3",
+  "answer": {
+    "initial_interpretation": "원래 Camera::queueRequest 호출의 호출 위치·요청 식별·반환값을 보존한다. 0은 PipelineHandler::queueRequest를 ConnectionTypeQueued로 예약한 접수 성공이다. 장치 전달 성공이나 촬영 완료를 뜻하지 않는다. 지금 주어진 사실만으로 원인은 확정할 수 없다.",
+    "checkpoints": [
+      {
+        "stage": "준비 대기",
+        "first": "PipelineHandler::queueRequest와 Request::Private::prepare의 기존 실행",
+        "values": "waitingRequests_ 진입 여부, prepare의 300ms 인자, pending_ 버퍼의 acquire fence, notifiers_, prepared_와 cancelled_, prepared 신호 발생",
+        "branch": "대기할 fence가 없으면 emitPrepareCompleted 뒤 즉시 반환한다. fence가 있으면 notifierActivated를 기다린다. 모두 올바르게 신호되지 않은 채 timeout이면 취소되고 prepared 신호가 발생한다. prepared 신호에 연결된 람다는 doQueueRequests를 호출한다.",
+        "next": "준비 시작·각 fence 알림·타이머 만료·prepared 신호와 그 뒤 doQueueRequests 진입의 시각을 같은 제출 회차로 연결한다. 300ms는 전달된 timeout 인자이며 현재 실행에서 실제 만료됐다는 뜻은 아니다."
+      },
+      {
+        "stage": "큐 제한",
+        "first": "PipelineHandler::doQueueRequests의 while 분기",
+        "values": "waitingRequests_의 비어 있음·선두 요청, queuedRequests_.size(), 실제 maxQueuedRequestsDevice_, 선두의 prepared_",
+        "branch": "waitingRequests_가 비면 전달할 항목이 없다. queuedRequests_.size() == maxQueuedRequestsDevice_이면 break한다. 그 다음 선두 prepared_가 false여도 pop 전 break하므로 뒤의 준비된 요청까지 전달되지 않는다. 두 조건을 통과하면 먼저 pop하고 doQueueRequest(request)를 호출한다.",
+        "next": "선두 요청과 크기·한도·선택된 break를 함께 기록한다. 한도에 걸렸다면 queuedRequests_의 선두 완료/제거와 completeRequest 끝의 doQueueRequests 재진입을 관찰한다. 생성자 기본 한도는 32지만 실제 값을 확인한다. 소프트웨어 queuedRequests_ 크기만으로 물리 장치 내부 상태를 확정하지 않는다."
+      },
+      {
+        "stage": "장치 전달",
+        "first": "void PipelineHandler::doQueueRequest와 그 안의 원래 queueRequestDevice 호출",
+        "values": "queuedRequests_ 추가, sequence_와 requestSequence_, cancelled_, 구체 queueRequestDevice 구현과 기존 호출의 ret",
+        "branch": "이미 cancelled_이면 completeRequest(request) 후 return하여 장치 함수를 건너뛴다. 아니면 queueRequestDevice(camera, request)를 호출한다. ret == 0은 장치 제출 성공이고, ret != 0이면 cancelRequest를 호출한다. 장치 함수 계약의 오류는 음수다. doQueueRequest 자체에는 정수 반환값이 없다.",
+        "next": "취소 선행 분기와 장치 실패 후 취소를 구분한다. 장치 함수가 호출되지 않았다면 앞 단계에서 멈춘 곳을 찾고, 호출됐으면 실제 구현·ret 및 뒤의 버퍼 완료 통지 경로를 추적한다."
+      },
+      {
+        "stage": "버퍼 완료와 요청 완료",
+        "first": "기존 PipelineHandler::completeBuffer의 반환값과 completeRequest의 명시적 호출",
+        "values": "버퍼별 completeBuffer 호출·반환, 요청별 남은 버퍼 추적, completeRequest 진입과 스레드",
+        "branch": "completeBuffer는 먼저 bufferCompleted를 emit하고 내부 버퍼 추적을 갱신한다. false면 남은 버퍼가 있고 true면 모든 버퍼가 완료됐다. true여도 요청은 자동 완료되지 않으며 핸들러의 필요한 작업 뒤 명시적 completeRequest가 필요하다. 버퍼 알림만 보고 추적 갱신 또는 completeRequest가 아직 남았다고 단정하지 않는다.",
+        "next": "마지막 버퍼 알림이 아니라 기존 함수의 반환까지 관찰한다. false면 미완료 버퍼의 통지를, true인데 completeRequest가 관측되지 않으면 핸들러의 남은 처리와 완료 호출 지점을 조사한다. completeBuffer와 completeRequest는 CameraManager 스레드에서 호출되어야 한다."
+      },
+      {
+        "stage": "제출 순서 반환과 앱 콜백",
+        "first": "completeRequest 내부의 queuedRequests_ 선두 검사와 camera->requestComplete(req) 통지 호출",
+        "values": "현재 요청 완료 처리, 큐 선두 req->status(), hasPendingBuffers 단언 위치, pop_front 및 통지 호출, 앱 requestCompleted 연결 방식·수신 객체 스레드·콜백 진입",
+        "branch": "현재 요청이 완료돼도 선두가 RequestPending이면 반환 루프가 break한다. 뒤의 완료 요청은 그 선두 뒤에서 대기할 수 있다. 선두가 Pending이 아니면 ASSERT(!req->hasPendingBuffers()) 뒤 pop_front하고 camera->requestComplete(req)를 호출하며 다음 선두를 검사한다. 반환 루프 후 doQueueRequests(camera)가 호출된다.",
+        "next": "completeRequest 진입과 실제 requestComplete 통지를 별도 기록하며 일대일로 가정하지 않는다. 앞선 요청들 중 어느 Pending에서 막혔는지 확인한다. 통지 호출까지 있는데 앱 콜백이 없으면 실제 앱의 연결 위치·방식, 수신 스레드와 콜백 진입/복귀 근처 시각을 확인한다. 공개 가상 프로브의 연결별 결과를 이 앱에 그대로 적용하지 않는다."
+      }
+    ],
+    "observation_safety": "모든 관측은 원래 실행의 추적·중단점·기록으로 수행하는 계획이다. prepare, doQueueRequests, doQueueRequest, queueRequestDevice, completeBuffer, completeRequest, cancelRequest, stop 등을 상태 확인용으로 재호출하지 않는다. 요청이 유효할 때 논리적 제출 회차 식별과 필요한 값을 보관한다. 재사용된 주소·cookie만으로 회차를 구분하지 않는다. completeRequest 반환 뒤 핸들러가 요청 필드를 읽지 않으며 보관 기록을 비교한다. 버퍼는 요청 완료 콜백까지 유효하게 유지한다."
+  },
+  "evidence": [
+    {
+      "file": "request-lifecycle.html",
+      "anchor": "source-28d007de6ad1a8a5",
+      "source": "src/libcamera/camera.cpp:1308-1383",
+      "supports": "ConnectionTypeQueued 예약 뒤 0 반환과 requestCompleted 완료 알림"
+    },
+    {
+      "file": "request-lifecycle.html",
+      "anchor": "source-789eafedfaa7f3c5",
+      "source": "src/libcamera/pipeline_handler.cpp:428-547",
+      "supports": "prepared 신호 연결, waitingRequests_, prepare(300ms), 큐·준비 break, void 전달 함수의 취소와 ret 분기"
+    },
+    {
+      "file": "pipeline-requests.html",
+      "anchor": "source-4f52447929ee8da9",
+      "source": "src/libcamera/request.cpp:199-263",
+      "supports": "acquire fence notifier와 선택적 timeout, 동기·비동기 prepared 신호"
+    },
+    {
+      "file": "pipeline-requests.html",
+      "anchor": "source-0cf3f7eced88f3df",
+      "source": "include/libcamera/internal/pipeline_handler.h:38-40",
+      "supports": "생성자 기본 장치 요청 한도 32"
+    },
+    {
+      "file": "pipeline-requests.html",
+      "anchor": "source-bf25a409490e6fa9",
+      "source": "src/libcamera/pipeline_handler.cpp:805-819",
+      "supports": "maxQueuedRequestsDevice_와 내부 waiting queue의 구분"
+    },
+    {
+      "file": "request-lifecycle.html",
+      "anchor": "source-01ad7c6605c3296a",
+      "source": "src/libcamera/pipeline_handler.cpp:547-620",
+      "supports": "bufferCompleted emit 뒤 추적 갱신, 명시적 요청 완료 의무, 선두 Pending break, 실제 통지와 대기 전달 재개, 수명 경계"
+    },
+    {
+      "file": "request-lifecycle.html",
+      "anchor": "버퍼-알림에서-요청-반환까지",
+      "supports": "마지막 버퍼 알림만으로 미완료 단계를 단정하지 않는 조사 계획"
+    },
+    {
+      "file": "request-lifecycle.html",
+      "anchor": "제출-회차별-완료-기록의-비교-계획",
+      "supports": "완료 진입과 통지의 별도 기록, 논리 제출 회차, 앱 연결 방식·스레드 관측과 통지 뒤 접근 경계"
+    },
+    {
+      "file": "request-diagnosis.html",
+      "anchor": "실패-위치별-확인-순서",
+      "supports": "원래 queueRequest 호출 위치·반환값부터 확인하고 접수와 완료 구분"
+    }
+  ],
+  "visited": [
+    {
+      "file": "index.html",
+      "scope": "main 본문 전체를 첫 자료로 열었다. 최초 출력의 한국어 인코딩이 깨져 다음 호출에서 같은 main의 링크를 UTF-8로 추출했다."
+    },
+    {
+      "file": "index.html",
+      "scope": "main의 a href 목록. request-lifecycle.html 링크로 이동했다."
+    },
+    {
+      "file": "request-lifecycle.html",
+      "scope": "main 본문을 열었다. 긴 출력이 잘려 이후 필요한 본문 앵커·소스 발췌를 선택해 다시 열었다."
+    },
+    {
+      "file": "request-lifecycle.html",
+      "scope": "접수 반환, 선두 전달 조건, 두 취소 경로, 버퍼/요청 경계, 제출 큐 반환 순서 및 관련 소스 앵커"
+    },
+    {
+      "file": "request-diagnosis.html",
+      "scope": "main 앞부분과 실패 위치별 확인 순서까지. 연결된 pipeline-requests.html의 준비 대기 절로 이동했다."
+    },
+    {
+      "file": "pipeline-requests.html",
+      "scope": "main의 요청 준비·장치 큐, 버퍼 완료·반환, 한도 절. main 텍스트에서 prepare/timeout/prepared_/notifiers_/waitingRequest 검색"
+    },
+    {
+      "file": "pipeline-requests.html",
+      "scope": "source-4f52447929ee8da9, source-0cf3f7eced88f3df, source-bf25a409490e6fa9 발췌"
+    },
+    {
+      "file": "request-lifecycle.html",
+      "scope": "버퍼 알림에서 반환, 완료 상태와 반환의 차이, 완료 호출자 의무, 제출 회차별 완료 기록 비교 계획"
+    }
+  ],
+  "queries": [
+    "index.html main의 a href 추출",
+    "request-lifecycle.html main의 앵커: 접수-반환과-완료-알림 / 선두-요청을-전달하거나-반복을-멈추는-조건 / void-전달-함수의-두-취소-경로 / 버퍼-완료와-명시적-요청-완료의-경계 / 제출-큐의-선두-상태와-반환-순서",
+    "request-lifecycle.html main의 source-789eafedfaa7f3c5 / source-95ae69eeb085e3b1 / source-c05f8214908fe4fe / source-ab8710f8a8a7905d / source-01ad7c6605c3296a / source-28d007de6ad1a8a5",
+    "pipeline-requests.html main 텍스트: prepare / timeout / prepared_ / notifiers_ / waitingRequest",
+    "pipeline-requests.html main의 source-4f52447929ee8da9 / source-0cf3f7eced88f3df / source-bf25a409490e6fa9",
+    "request-lifecycle.html main의 버퍼-알림에서-요청-반환까지 / 완료-상태와-애플리케이션-반환의-차이 / 완료-통지의-호출자-의무와-반환-뒤-경계 / 제출-회차별-완료-기록의-비교-계획"
+  ],
+  "help_count": 0,
+  "missing": [
+    "대상 요청의 실제 실행 추적·타임스탬프·큐 스냅샷은 제공되지 않아 지연의 실제 원인은 미확정이다.",
+    "대상 Pipeline Handler의 구체 queueRequestDevice 구현과 실제 maxQueuedRequestsDevice_ 값은 확인하지 않았다.",
+    "대상 애플리케이션의 requestCompleted 연결 위치·방식·수신 객체 스레드와 콜백 실행 기록은 확인하지 않았다."
+  ],
+  "reading_ease_1_to_5": null,
+  "human_active_review_seconds": null,
+  "environment_delay_seconds": null,
+  "timeout": false,
+  "timestamp_note": "도구의 UTC 시각을 사용했다. started_at은 첫 자료 열기 직전, first_evidence_at은 최초 관련 본문 request-lifecycle.html 열기 직전에 같은 도구 호출에서 채집했다."
+}

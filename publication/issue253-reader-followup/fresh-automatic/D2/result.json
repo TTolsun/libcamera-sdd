@@ -1,0 +1,239 @@
+{
+  "task_id": "D2",
+  "condition": "B",
+  "kind": "automated_subagent",
+  "disclosure_at": "2026-11-05T04:07:44Z",
+  "started_at": "2026-11-05T04:08:27Z",
+  "first_evidence_at": "2026-11-05T04:08:50Z",
+  "ended_at": "2026-11-05T04:13:37Z",
+  "publication_git": "499465da2dc50feded066ee956de1ee166e7667f",
+  "publication_build": "e8630fb5243aa28ef74d2c58fed7778d2040f246f77cff3405083bf6835a70f3",
+  "answer": {
+    "modification_location": "중심 수정·대조 위치는 src/libcamera/pipeline_handler.cpp의 PipelineHandler::stop(Camera *) L359–414입니다. 공개본 발췌에는 이미 대기열 선분리가 구현되어 있으므로 현재 결함이라고 단정하지 않고 변경 대상에 이 순서와 계약을 보존·적용하도록 정합니다. 실제 선택된 핸들러의 stopDevice 구현도 별도로 식별하여 취소·완료 경로를 검토합니다. [E1]",
+    "queue_order": [
+      "Camera::stop은 비실행 상태면 0으로 즉시 반환하고, 실행 중 접근 검사 실패는 음수 그대로 반환합니다. 정상 경로는 CameraStopping → ConnectionTypeBlocking으로 PipelineHandler::stop 호출입니다. [E3]",
+      "stop은 data->waitingRequests_를 지역 FIFO로 swap하여 먼저 격리합니다. stopDevice 내부 completeRequest가 끝에서 doQueueRequests를 호출하므로 이 분리가 정지 도중 대기 요청의 장치 재제출을 막습니다. [E1,E2]",
+      "그 다음 stopDevice(camera)로 이미 진행 중인 요청을 정지·취소·완료시킵니다. 대기 요청은 장치 정지 뒤 취소하여 제출 순서를 유지합니다. [E1]",
+      "지역 FIFO의 요청을 front/pop한 뒤 request->_d()->cancel(); doQueueRequest(request); 순서로 처리합니다. 직접 cancelRequest만 호출하는 방식으로 바꾸지 않습니다. doQueueRequest는 queuedRequests_에 임시 등록하고 sequence_를 부여하며 cancelled_가 참이면 completeRequest로 가고 실제 queueRequestDevice는 호출하지 않습니다. [E1,E2]",
+      "Request::Private::cancel은 pending 버퍼마다 취소·bufferCompleted 발행 후 cancelled_=true, pending_·notifiers_·timer_ 정리를 합니다. completeRequest는 요청 상태를 완료로 바꾸고 queuedRequests_의 완료된 선두만 제거·앱 통지하며 Pending 선두에서는 멈춥니다. 호출 한 번과 앱 통지 한 번을 일대일로 가정하지 않습니다. [E2,E4]",
+      "핸들러의 queuedRequests_·waitingRequests_가 비었는지 확인한 뒤 requestSequence_=0으로 초기화합니다. Blocking 호출 복귀 후 Camera::stop의 !hasPendingRequests → CameraConfigured → 0 반환을 확인합니다. ASSERT는 NDEBUG에서 빠질 수 있어 검증을 ASSERT에만 의존하지 않습니다. [E1,E3,E4]"
+    ],
+    "callers_threads_lifetime": [
+      "함께 확인할 호출자는 Camera::stop → PipelineHandler::stop → 실제 stopDevice, registerRequest의 prepared 신호 → doQueueRequests, queueRequest/prepare, completeBuffer·completeRequest·cancelRequest, 앱 requestCompleted 연결 및 reuse/재제출 경로입니다. doQueueRequests는 재진입에 대비해 pop한 뒤 doQueueRequest를 호출합니다. [E2]",
+      "상태 변경 함수 사이 동기화는 Camera 호출자 책임입니다. stop·queueRequest·queueRequestDevice는 CameraManager 문맥이고 completeBuffer·completeRequest도 CameraManager 스레드에서 호출해야 합니다. Blocking 호출이나 이 호출 의무만으로 앱 콜백 실행 스레드·stop 반환 전 콜백 완료를 판단하지 않습니다. 실제 연결 위치·Auto/Direct/Queued 및 수신 객체 affinity를 조사합니다. [E2,E3,E5,E9]",
+      "Request 소유권과 삭제 책임은 createRequest 호출자에게 있으며 완료 핸들러에서 삭제하거나 reuse 후 재사용할 수 있습니다. addBuffer 호출자는 자기 요청의 완료 콜백이 호출될 때까지 버퍼 유효성을 유지합니다. 파이프라인 핸들러는 completeRequest/cancelRequest 반환 뒤 해당 요청에 접근하지 않습니다. 계측용 식별·상태는 유효할 때 복사해 보관하고 통지 뒤 요청 필드를 읽지 않습니다. 재사용 주소·cookie만으로 제출 회차를 구분하지 않습니다. [E2,E5]",
+      "미신호 fence·타임아웃과 정지의 경계도 확인합니다. 타임아웃 뒤 남은 fence는 다른 요청에서 버퍼 재사용 전 releaseFence로 회수해야 하며 ReuseBuffers는 fence까지 재사용하지 않습니다. Camera::disconnect의 Running 중 pending 처리 TODO는 stop의 보장과 별개입니다. [E5,E7]"
+    ],
+    "verification_plan": [
+      "고정 소스·빌드·선택 pipeline·장치·앱·입력·재현 순서를 기록하고 변경 전후 같은 조건을 비교합니다. 준비 미완료 또는 fence 미신호의 대기 요청과 장치에 이미 전달된 진행 요청이 함께 있는 정지 조건을 구성합니다.",
+      "swap 직후, stopDevice 호출 직전, 실제 구현 진입·복귀, 호출 뒤를 각각 계측합니다. 대기 요청이 정지 중 실제 queueRequestDevice에 들어가지 않는지 확인합니다. doQueueRequest의 request_device_queue tracepoint는 cancelled_ 검사보다 앞에 있으므로 그 표식만으로 실제 장치 제출이라 판정하지 않습니다. 호출 전 로그만으로 구현 진입·복귀를 판단하지 않으며 관찰 창에서 복귀가 없으면 원인은 미확정으로 남깁니다. [E1,E2,E5]",
+      "논리적 제출 회차별로 대기/진행 출처, sequence, 취소, completeRequest 진입, camera->requestComplete 통지, 버퍼 상태와 pending 수, 앱 콜백 진입·복귀 근처 표식·스레드를 별도로 기록합니다. 중복·누락 통지와 제출 순서, 두 큐의 공백, sequence 초기화, 상태 복귀·반환값을 비교합니다. 관측 함수를 재호출해 상태를 바꾸지 않습니다. [E5]",
+      "정상 완료, 준비 실패/미신호 타임아웃, queueRequestDevice 실패, Pending 선두 뒤 완료 요청, 대기+진행 혼합 정지, 비실행 stop 및 접근 오류를 확인합니다. 앱의 reuse·재제출과 stop 뒤 콜백까지의 수명을 대조하고 재시작 뒤 sequence도 확인합니다. [E2,E3,E5]",
+      "공개 CPU 가상 콜백 프로브와 공식 cam 문서를 재현 경로로 참고하되 실제 대상·변경 빌드는 별도 검증합니다. 공식 cam의 기존 cancelled_callbacks=0은 취소 분기 동적 실행 증거가 아니므로 이 과업의 취소 검증을 대신하지 않습니다. [E6,E8]"
+    ],
+    "actually_executed": "이번 과업은 지정 HTML main의 파싱·읽기와 발췌 대조만 실행했습니다. 소스 수정, 빌드, 캡처, 콜백 프로브나 장치 시험은 실행하지 않았습니다. 아래는 문서에 실린 과거 결과이며 이번 변경의 실행 결과가 아닙니다.",
+    "recorded_prior_results": "문서의 공개 CPU 가상 프로브는 소스 293d751a, Ubuntu WSL2 Virtual2, CPU memfd/eventfd 시험 입력에서 3회 실행하여 회당 완료 4개·취소 4개, 콜백 24회(총 72회)를 기록했습니다. Auto/Queued의 취소 콜백 진입·복귀 근처 표식은 수신/main 스레드에서 stop-return 뒤, Direct는 main과 다른 스레드에서 stop-enter/stop-return 사이였습니다. 이 표식은 카운터 증가·지역 객체 소멸보다 앞서 실제 C++ 반환 완료를 증명하지 않습니다. DMA 오류가 보존되었으며 DMA·물리 촬영·제품 앱·사내 HAL 검증이 아닙니다. 별도 공식 cam 시험은 시험 커널의 Virtual2 400x300 NV12에서 3개 프로세스 각각 3프레임을 처리했지만 취소 분기는 실행하지 않았고 현재 기본 커널로 원복되어 그대로 재실행할 수 없습니다. 정적 발췌의 분석 커밋 be7e83e913과 과거 실행 커밋 293d751a도 구분합니다. [E6,E8]"
+  },
+  "evidence": [
+    {
+      "id": "E1",
+      "file": "request-lifecycle.html",
+      "anchor": "source-eefd1bbecb1aad0a",
+      "source_lines": "src/libcamera/pipeline_handler.cpp:359–414",
+      "supports": "정지·대기 격리·장치 정지 후 취소·sequence"
+    },
+    {
+      "id": "E2",
+      "file": "request-lifecycle.html",
+      "anchors": [
+        "source-789eafedfaa7f3c5",
+        "source-01ad7c6605c3296a"
+      ],
+      "source_lines": [
+        "src/libcamera/pipeline_handler.cpp:428–547",
+        "src/libcamera/pipeline_handler.cpp:547–620"
+      ],
+      "supports": "준비 신호, 큐·취소 분기, 완료·반환·재진입 경로"
+    },
+    {
+      "id": "E3",
+      "file": "request-lifecycle.html",
+      "anchor": "source-e09324743def3f09",
+      "source_lines": "src/libcamera/camera.cpp:1431–1475",
+      "supports": "stop 분기·호출자 동기화·Blocking·상태"
+    },
+    {
+      "id": "E4",
+      "file": "scenarios/camera_stop.html",
+      "anchors": [
+        "장치-종료-뒤-대기-요청을-취소하는-순서",
+        "source-3ebd0788c14a6f51",
+        "source-47a6ef3943a7b53c"
+      ],
+      "source_lines": [
+        "src/libcamera/request.cpp:139–170",
+        "src/libcamera/base/log.cpp:1022–1060"
+      ],
+      "supports": "cancel의 버퍼·notifier·timer 정리, ASSERT 제한"
+    },
+    {
+      "id": "E5",
+      "file": "request-lifecycle.html",
+      "anchors": [
+        "소유권과-두-완료-경계",
+        "완료-책임을-변경하기-전에",
+        "stopdevice-호출-구간의-관찰-계획",
+        "제출-회차별-완료-기록의-비교-계획",
+        "변경-검토와-실행-확인",
+        "타임아웃-뒤-펜스-회수"
+      ],
+      "supports": "소유권·스레드·수명·식별·관찰 계획"
+    },
+    {
+      "id": "E6",
+      "file": "request-lifecycle.html",
+      "anchors": [
+        "공개-가상-카메라의-콜백-관찰",
+        "반환-근처-표시로-알-수-있는-범위",
+        "source-54dc055eafaa8a99"
+      ],
+      "supports": "과거 공개 CPU 프로브의 실제 관찰과 범위 제한"
+    },
+    {
+      "id": "E7",
+      "file": "request-lifecycle.html",
+      "anchors": [
+        "정지-api-계약과-연결-해제-todo",
+        "source-2758e9ddd31ad41d"
+      ],
+      "source_lines": "src/libcamera/camera.cpp:944–963",
+      "supports": "disconnect pending TODO"
+    },
+    {
+      "id": "E8",
+      "file": "official-cam-validation.html",
+      "anchors": [
+        "할당기를-준비하자-공식-cam-캡처가-완료됐습니다",
+        "source-5a006a90fe9f46ad",
+        "source-6b5bd0b09b7f63ff",
+        "source-009073d2370150c1"
+      ],
+      "supports": "공식 cam 기존 실행·취소 분기 미실행·앱 완료/재사용 경로"
+    },
+    {
+      "id": "E9",
+      "file": "overview.html",
+      "anchor": "스레드-경계와-동기화",
+      "supports": "호출자 동기화와 CameraManager 완료 호출"
+    }
+  ],
+  "visited": [
+    {
+      "order": 1,
+      "file": "index.html",
+      "scope": "main 첫 자료",
+      "at": "2026-11-05T04:08:27Z",
+      "note": "초기 main 한국어 출력 인코딩 깨짐"
+    },
+    {
+      "order": 2,
+      "file": "index.html",
+      "scope": "main 안 a href 별도 추출"
+    },
+    {
+      "order": 3,
+      "file": "reader-work.html",
+      "scope": "main",
+      "at": "2026-11-05T04:08:50Z",
+      "note": "첫 관련 근거 열기 직전 도구 UTC 기록"
+    },
+    {
+      "order": 4,
+      "file": "request-lifecycle.html",
+      "scope": "main 전체 추출 시도",
+      "note": "출력 절단, 이후 관련 절 재열람"
+    },
+    {
+      "order": 5,
+      "file": "request-lifecycle.html",
+      "scope": "정지와-연결-해제를-구분하기부터 소스-근거 직전"
+    },
+    {
+      "order": 6,
+      "file": "request-lifecycle.html",
+      "scope": "source-789eafedfaa7f3c5, source-01ad7c6605c3296a, source-eefd1bbecb1aad0a, source-e09324743def3f09, source-c05f8214908fe4fe"
+    },
+    {
+      "order": 7,
+      "file": "scenarios/camera_stop.html",
+      "scope": "main, 종료 순서·발췌·확인 지점"
+    },
+    {
+      "order": 8,
+      "file": "official-cam-validation.html",
+      "scope": "main 추출 시도",
+      "note": "출력 절단, 보인 재현절차·CameraSession 발췌 열람"
+    },
+    {
+      "order": 9,
+      "file": "request-lifecycle.html",
+      "scope": "요청버퍼fence의-수명부터 정지와-연결-해제를-구분하기 직전"
+    },
+    {
+      "order": 10,
+      "file": "official-cam-validation.html",
+      "scope": "main 앵커 목록"
+    },
+    {
+      "order": 11,
+      "file": "overview.html",
+      "scope": "스레드-경계와-동기화 및 이어진 정적 근거·클래스 관계"
+    },
+    {
+      "order": 12,
+      "file": "official-cam-validation.html",
+      "scope": "할당기를-준비하자-공식-cam-캡처가-완료됐습니다 절 재열람"
+    }
+  ],
+  "queries": [
+    {
+      "file": "index.html",
+      "query": "HTML main 안 a href 추출"
+    },
+    {
+      "file": "request-lifecycle.html",
+      "query": "main 앵커 정지와-연결-해제를-구분하기 → 소스-근거"
+    },
+    {
+      "file": "request-lifecycle.html",
+      "query": "main source-789eafedfaa7f3c5 / source-01ad7c6605c3296a / source-eefd1bbecb1aad0a / source-e09324743def3f09 / source-c05f8214908fe4fe"
+    },
+    {
+      "file": "request-lifecycle.html",
+      "query": "main 요청버퍼fence의-수명 → 정지와-연결-해제를-구분하기"
+    },
+    {
+      "file": "official-cam-validation.html",
+      "query": "main id 앵커 목록"
+    },
+    {
+      "file": "overview.html",
+      "query": "main 스레드-경계와-동기화"
+    },
+    {
+      "file": "official-cam-validation.html",
+      "query": "main 할당기를-준비하자-공식-cam-캡처가-완료됐습니다"
+    }
+  ],
+  "help_count": 0,
+  "missing": [
+    "구체적인 대상 PipelineHandler/stopDevice 구현 및 실제 앱 구성은 특정·검토하지 못했습니다.",
+    "변경 전후 재제출 방지·실제 stopDevice 복귀·제출 회차별 완료·두 큐 공백·sequence·상태를 측정한 새 실행 결과가 없습니다.",
+    "실제 앱 콜백 연결·수신 스레드·종료 후 수명, 물리 DMA·카메라·사내 HAL은 미확인입니다.",
+    "큰 main 출력 두 건이 절단되어 모든 main 내용을 읽었다고 주장하지 않습니다. 관련 절은 별도 재열람했습니다."
+  ],
+  "reading_ease_1_to_5": null,
+  "human_active_review_seconds": null,
+  "environment_delay_seconds": null,
+  "timeout": false
+}

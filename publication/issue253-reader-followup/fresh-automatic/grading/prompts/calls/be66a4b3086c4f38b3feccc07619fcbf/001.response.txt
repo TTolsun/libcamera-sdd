@@ -1,0 +1,36 @@
+{
+  "grades": [
+    {
+      "task_id": "T2",
+      "correct": true,
+      "independent": true,
+      "reason": "The answer distinguishes the common Camera API and shared request handling from device-specific PipelineHandler configuration and execution. It uses the documented platform scope to explain why support for every device and its performance cannot be guaranteed. No help is reported.",
+      "missing_conditions": []
+    },
+    {
+      "task_id": "D1",
+      "correct": true,
+      "independent": true,
+      "reason": "The answer separates submission from completion and covers preparation and fences, the prepared_ gate, queue limits, device submission and cancellation branches, explicit buffer and request completion, ordered notification, and an observational plan. It distinguishes pending buffer tracking from readiness and does not propose recalling state-changing functions for observation. No help is reported.",
+      "missing_conditions": []
+    },
+    {
+      "task_id": "D2",
+      "correct": true,
+      "independent": true,
+      "reason": "The answer identifies the stop path and caller, describes swapping out waiting requests before stopDevice, then cancelling them through doQueueRequest with sequence and queuedRequests_ handling. It covers queue clearing, sequence reset, thread and lifetime concerns, and a verification plan for ordering, duplicate completion and callback timing. It separates the work actually performed from planned tests and prior results. No help is reported.",
+      "missing_conditions": []
+    }
+  ],
+  "protocol_findings": [
+    "These are three B-only automatic regression trials, not a new full A/B study or human evaluation. The original 24 trials were not graded or recomputed.",
+    "The submitted publication commit and build differ from the frozen B publication and build. The supplied source windows are stated to be byte-identical, but the full publication versions differ; these trials must remain a separately identified versioned regression and must not be mixed with the frozen comparison.",
+    "All three rows report help_count 0 and timeout false. The reported disclosure-to-end intervals are below the 600-second limit.",
+    "D1 and D2 record first-evidence timestamps immediately before opening the relevant material, rather than establishing when the evidence was actually opened; those timestamps have limited precision for the protocol's first-evidence measure."
+  ],
+  "limitations": [
+    "Grades assess only the submitted answers and supplied evidence; they do not establish human success, device support, or an A/B improvement.",
+    "The supplied Camera::stop source window is empty. D2 identifies and cites the caller path in its submitted evidence, but the detailed Camera::stop claims cannot be independently checked against that empty window here.",
+    "The trials report observation and verification plans, not new execution results for the target device or application."
+  ]
+}
