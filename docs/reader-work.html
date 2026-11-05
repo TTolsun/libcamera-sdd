@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>파트원 · 다음 구현·디버깅 작업 찾기 · libcamera 설계 문서</title><link rel="stylesheet" href="./assets/reading.css?v=f85b002ed1"><link rel="alternate" hreflang="ko" href="reader-work.html"><link rel="alternate" hreflang="en" href="en/reader-work.html"></head>
+<title>파트원 · 다음 구현·디버깅 작업 찾기 · libcamera 설계 문서</title><link rel="stylesheet" href="./assets/reading.css?v=ec0bab9d92"><link rel="alternate" hreflang="ko" href="reader-work.html"><link rel="alternate" hreflang="en" href="en/reader-work.html"></head>
 <body><a class="skip" href="#main">본문으로 이동</a>
 <header class="site-header"><a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera 설계 문서</a>
 <div class="header-actions"><details class="language-selector"><summary aria-label="언어 선택">한국어 ▾</summary><nav><a lang="ko" hreflang="ko" href="reader-work.html" aria-current="true">한국어</a><a lang="en" hreflang="en" href="en/reader-work.html">English</a></nav></details><button id="search-open" hidden>문서 찾기 <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>메뉴</button></div></header>
@@ -45,8 +45,7 @@
 <p><strong>관측된 사실 · 정적 소스 설명</strong></p>
 <p><strong>적용 조건·한계: 분석 커밋의 공통 요청 경로에 대한 설명입니다. 특정 장치의 정상 촬영·완료 시간·오류 복구를 보증하지 않습니다.</strong></p>
 <blockquote>
-<p>queueRequest가 0을 반환하는 것은 파이프라인 대상의 queued 호출이 예약되었다는 성공을 뜻하며, 요청의 완료를 뜻하지 않습니다.</p>
-<p>completeRequest는 이미 완료된 요청을 카메라에 알리며, 파이프라인 핸들러는 순서 제약 없이 이를 호출할 수 있고 요청은 제출 순서대로 애플리케이션에 반환됩니다.</p>
+<p>요청을 파이프라인에 비동기로 전달하도록 예약하면 queueRequest는 0을 반환하며, 이는 요청 완료를 뜻하지 않습니다. 파이프라인 핸들러는 이미 완료된 요청을 completeRequest로 카메라에 알려야 하며, 완료된 요청은 제출 순서대로 애플리케이션에 반환됩니다.</p>
 </blockquote>
 <p><a href="request-lifecycle.html#%EC%A0%9C%EC%B6%9C%EC%97%90%EC%84%9C-%EC%99%84%EB%A3%8C%EA%B9%8C%EC%A7%80">전체 조건·상세 근거</a></p>
 <h3 id="claim-trial">완료 누락의 조사와 수정 후 확인 계획</h3>
@@ -86,7 +85,7 @@
 <p><strong>적용 조건·한계: 구현 책임은 코드 객체와 호출자의 계약입니다. 특정 사내 부서·담당자에게 수정 책임을 배정한 것이 아닙니다.</strong></p>
 <blockquote>
 <p><code>Camera::createRequest()</code>가 반환한 <code>Request</code>의 소유권은 호출자에게 넘어가며, 호출자는 이를 삭제할 책임이 있습니다. 호출자는 완료 핸들러에서 요청을 삭제하거나 <code>Request::reuse()</code>로 상태를 초기화한 뒤 재사용할 수 있습니다.</p>
-<p><code>Request::addBuffer()</code>는 요청에 버퍼 참조를 저장하며, 호출자는 요청 완료 콜백이 호출될 때까지 버퍼가 유효하도록 해야 합니다. 파이프라인 핸들러는 <code>completeRequest()</code> 또는 <code>cancelRequest()</code>가 반환된 뒤 해당 요청에 접근해서는 안 됩니다.</p>
+<p><code>Request::addBuffer()</code>는 버퍼의 참조를 요청에 저장하며, 호출자는 요청 완료 콜백이 호출될 때까지 버퍼를 유효하게 유지해야 합니다. 파이프라인 핸들러는 <code>completeRequest()</code> 또는 <code>cancelRequest()</code>가 반환된 뒤 해당 요청에 접근해서는 안 됩니다.</p>
 </blockquote>
 <p><a href="request-lifecycle.html#%EC%9A%94%EC%B2%AD%EB%B2%84%ED%8D%BCfence%EC%9D%98-%EC%88%98%EB%AA%85">전체 조건·상세 근거</a></p>
 <h3 id="claim-stopping">정지와 연결 해제의 차이</h3>
@@ -94,7 +93,7 @@
 <p><strong>적용 조건·한계: 아래 요약의 즉시 오류 완료를 모든 애플리케이션 콜백의 실행과 반환이 끝났다는 보장으로 읽지 말고, 콜백 연결 방식과 수신 객체 스레드 및 관찰 범위는 정지의 공통 상세 설명에서 확인하세요.</strong></p>
 <p>조건을 확인할 상세 설명: <a href="request-lifecycle.html#%EC%99%84%EB%A3%8C-%ED%86%B5%EC%A7%80%EC%9D%98-%ED%98%B8%EC%B6%9C%EC%9E%90-%EC%9D%98%EB%AC%B4%EC%99%80-%EB%B0%98%ED%99%98-%EB%92%A4-%EA%B2%BD%EA%B3%84">완료 통지의 호출자 의무와 반환 뒤 경계</a> · <a href="request-lifecycle.html#%EA%B0%80%EC%83%81-cpu-%ED%94%84%EB%A1%9C%EB%B8%8C%EC%9D%98-%EC%97%B0%EA%B2%B0%EB%B3%84-%EC%B7%A8%EC%86%8C-%EC%BD%9C%EB%B0%B1-%ED%91%9C%EC%8B%9C">가상 CPU 프로브의 연결별 취소 콜백 표시</a> · <a href="request-lifecycle.html#%EB%B0%98%ED%99%98-%EA%B7%BC%EC%B2%98-%ED%91%9C%EC%8B%9C%EB%A1%9C-%EC%95%8C-%EC%88%98-%EC%9E%88%EB%8A%94-%EB%B2%94%EC%9C%84">반환 근처 표시로 알 수 있는 범위</a></p>
 <blockquote>
-<p><code>PipelineHandler::stop</code>은 모든 실행 중 스트림의 캡처를 정지하는 함수이며, 문서에 따르면 모든 대기 요청을 취소하고 즉시 오류 상태로 완료합니다. 반면 <code>Camera::disconnect</code>에는 실행 중 카메라의 연결 해제 시 대기 요청을 처리하는 것에 관한 TODO만 있으며, 그 처리 방식은 원문에 명시되어 있지 않습니다.</p>
+<p>정지할 때 모든 대기 요청을 취소하고 즉시 오류 상태로 완료하는 것이 <code>PipelineHandler::stop</code>의 계약입니다. 실행 중 연결 해제 시 대기 요청 처리는 <code>Camera::disconnect</code>에 TODO로 남아 있습니다.</p>
 </blockquote>
 <p><a href="request-lifecycle.html#%EC%A0%95%EC%A7%80%EC%99%80-%EC%97%B0%EA%B2%B0-%ED%95%B4%EC%A0%9C%EB%A5%BC-%EA%B5%AC%EB%B6%84%ED%95%98%EA%B8%B0">전체 조건·상세 근거</a></p>
 <h2 id="question-verification">무엇을 확인해야 수정 결과를 판단할 수 있나요?</h2>
@@ -153,4 +152,4 @@
 </nav></aside></div>
 <dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">문서 찾기</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><label for="search-input">문서·절·용어·코드 요소 검색</label><input id="search-input" type="search" autocomplete="off" placeholder="예: Pipeline, IPA, 클래스 관계"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
 <dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">클래스 관계</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">요소 찾기</label><input id="node-search" type="search" placeholder="그림 요소·함수 이름"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="축소">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="확대">+</button><button id="zoom-fit">화면에 맞춤</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">마우스로 끌거나 터치로 밀어서 그림을 이동합니다. '화면에 맞춤'은 그림 전체를 보는 개요 보기입니다.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="확대된 다이어그램"><div id="diagram-canvas"></div></div></dialog>
-<script id="site-config" type="application/json">{"root": "./", "mermaid": "assets/mermaid/mermaid.esm.min.mjs", "terms": "0c4c51ad91"}</script><script defer src="./assets/site.js?v=f85b002ed1"></script><script defer src="./assets/reader-tools.js?v=f85b002ed1"></script></body></html>
+<script id="site-config" type="application/json">{"root": "./", "mermaid": "assets/mermaid/mermaid.esm.min.mjs", "terms": "0c4c51ad91"}</script><script defer src="./assets/site.js?v=ec0bab9d92"></script><script defer src="./assets/reader-tools.js?v=ec0bab9d92"></script></body></html>

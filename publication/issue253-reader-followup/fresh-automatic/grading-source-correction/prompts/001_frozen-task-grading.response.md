@@ -1,0 +1,35 @@
+{
+  "grades": [
+    {
+      "task_id": "T2",
+      "correct": true,
+      "independent": true,
+      "reason": "The answer distinguishes the common Camera API and shared framework processing from device-specific PipelineHandler configuration and execution. It identifies the documented platform scope and does not claim universal device support or performance. The submitted record reports no help.",
+      "missing_conditions": []
+    },
+    {
+      "task_id": "D1",
+      "correct": true,
+      "independent": true,
+      "reason": "The answer separates submission acceptance, preparation and fence waiting, queue limits, device submission and cancellation branches, buffer completion, ordered request return, and application notification. It distinguishes prepared_ from pending-buffer completion checks and proposes observing the original execution without re-calling state-changing functions. The submitted record reports no help.",
+      "missing_conditions": []
+    },
+    {
+      "task_id": "D2",
+      "correct": true,
+      "independent": true,
+      "reason": "The answer identifies the stop and stopDevice contracts and Camera::stop caller. It preserves the required waiting-queue swap, device-stop, cancellation and ordered completion sequence, queue checks, and sequence reset. It addresses thread, callback and object-lifetime boundaries and provides a verification plan while distinguishing that plan from work executed and prior results. The submitted record reports no help.",
+      "missing_conditions": []
+    }
+  ],
+  "protocol_findings": [
+    "All three supplied B-only trials are included; none is marked as a timeout, and each reports zero help.",
+    "The trials use publication 499465da2dc50feded066ee956de1ee166e7667f and build e8630fb5243aa28ef74d2c58fed7778d2040f246f77cff3405083bf6835a70f3, which differ from the frozen protocol's B publication and build. These results must remain a separate focused regression and must not be mixed with the frozen original trials.",
+    "The recorded start times follow disclosure rather than immediately preceding it. D1 and D2 also describe their first-evidence timestamps as recorded just before opening the relevant evidence, so those timestamps do not establish the exact first-evidence arrival time."
+  ],
+  "limitations": [
+    "These grades assess only the submitted answers and supplied source windows; they do not establish human success or device validation.",
+    "The source windows are stated to be byte-identical in source293 and be7, but the full publication versions differ. Claims outside the supplied windows cannot be independently verified here.",
+    "This B-only regression does not support a new A/B comparison, a human-effect conclusion, or recomputation of the original 24 trials."
+  ]
+}

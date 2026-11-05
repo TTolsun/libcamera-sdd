@@ -1,0 +1,189 @@
+{
+  "task_id": "T2",
+  "condition": "B",
+  "kind": "automated_subagent",
+  "disclosure_at": "2026-11-05T04:07:00Z",
+  "started_at": "2026-11-05T04:07:37Z",
+  "first_evidence_at": "2026-11-05T04:07:47Z",
+  "ended_at": "2026-11-05T04:10:47Z",
+  "publication_git": "499465da2dc50feded066ee956de1ee166e7667f",
+  "build": "e8630fb5243aa28ef74d2c58fed7778d2040f246f77cff3405083bf6835a70f3",
+  "answer": "공통 프레임워크는 상위 계층에 Camera 중심의 구성·제어·캡처 API를 제공하고, PipelineHandler 기반 클래스에서 요청 준비·대기열·완료 통지 순서 같은 공통 처리를 재사용하게 합니다. 커널 드라이버는 하드웨어를 제어하고 Media Controller·V4L2 저수준 인터페이스를 노출하며, 어댑테이션은 libcamera를 GStreamer·Android HAL 등 다른 프레임워크에 연결합니다. 애플리케이션과 상위 프레임워크는 프로젝트 범위 밖입니다. [vendor-overview.html#카메라-스택의-네-계층, #장치-구현자가-공통-계층에서-얻는-것]\n\n장치별 구현자는 PipelineHandler를 등록하고 필요한 미디어 장치를 매칭·확보하여 Camera를 생성·등록해야 합니다. 스트림 구성에 따른 실제 하드웨어 구성, 장치 실행·필요한 스케줄링, 요청 파라미터를 해당 버퍼의 프레임에 적용하는 작업도 장치별 책임입니다. 공통 큐가 있다고 이 책임이 사라지지는 않습니다. 버퍼 완료는 completeBuffer()로 알리고, 마지막 버퍼가 끝나도 요청은 자동 완료되지 않으므로 completeRequest()를 명시적으로 호출해야 합니다. stopDevice()에서는 캡처·요청 처리를 즉시 중지하고 미완료 요청을 취소·오류 완료해야 합니다. 호출자도 카메라 상태 변경의 필요한 동기화를 책임집니다. [vendor-overview.html#source-05721740b01bcd0e, #source-94ac8aab4dea2a65, #source-8264067114dccdee; vendor-integration.html#요청을-장치에-전달하고-반환하기, #정지와-오류-처리의-책임]\n\n지원 플랫폼 문서는 전용 핸들러 대상으로 Mali-C55, IPU3, i.MX8MP, Raspberry Pi 3·4·zero, RK3399를, 범용 대상으로 UVC, iMX7·IPU6·Sun6i(simple), 시험용 vimc를 나열합니다. pipelines 빌드 선택의 auto는 대상 아키텍처에 적용되는 핸들러를, all은 모든 핸들러를 빌드한다는 뜻입니다. 이는 문서상 구현 범위와 빌드 선택의 근거이며 특정 실물 기종·센서 조합의 동작 보증과 동일하지 않습니다. 실제 시스템에서 필요한 장치를 확보할 수 있어야 하고, 필요한 IPA 이름·버전이 맞지 않거나 프록시가 유효하지 않으면 생성이 실패할 수 있습니다. [vendor-overview.html#source-9d6502e234c4647d, #source-691389506fe87b32; vendor-integration.html#하드웨어와-공통-계층의-경계, #ipa-모듈-선택과-실패-조건]\n\n구성 지원도 요청별로 확인해야 합니다. generateConfiguration()은 roles를 충족하지 못하면 null을 반환합니다. validate()의 Adjusted는 스트림 파라미터 변경뿐 아니라 스트림 삭제도 가능하므로 호출자가 실제 결과를 다시 확인해야 합니다. Valid는 조정 없이 유효했다는 뜻이며, configure()는 검증된 구성을 실제 적용하고 실패 시 음수 오류를 반환합니다. 또한 RKISP1 왜곡 보정은 카메라별 튜닝값과 보정기 구성에 달려 있고, 보정 입력이 없어도 성공 반환이 가능하므로 성공 코드만으로 보정값 적용을 주장할 수 없습니다. [vendor-assurance.html#지원-조건과-제약, #역할-기반-구성-생성의-반환-계약; rkisp1-dewarp.html#카메라별-보정값의-소유권, #보정-파라미터의-기본값과-입력-오류]\n\n따라서 이 자료에서 보장할 수 있는 것은 고정 소스의 책임·반환 계약과 명시된 시험 조건의 관측 범위입니다. 실제 장치의 촬영·성능·오류 복구와 사내 HAL 지원 완료는 보장할 수 없습니다. 별도 기록의 성공 사례도 시험 WSL2 커널의 Virtual2 400×300 NV12에서 독립 프로세스 3회, 각 3프레임의 가상 캡처에 한정되고, 기본 커널로 원복되어 현재 그대로 재실행할 수 없습니다. 물리 카메라·물리 DMA·제품 앱·사내 HAL은 미검증입니다. DebayerCpu 벤치마크도 통계 수집·디베이어 처리 시간만 측정하며 캡처·출력 시간이나 제품 전체 성능을 입증하지 않습니다. 자동 검사 통과와 정적 관계 그림 역시 사람의 내용 승인이나 실기 실행 보증이 아닙니다. [index.html#문서를-읽는-방법; official-cam-validation.html#할당기를-준비하자-공식-cam-캡처가-완료됐습니다, #환경-확인에서-재현-실행까지; vendor-assurance.html#성능-근거를-읽는-기준]",
+  "evidence": [
+    {
+      "file": "index.html",
+      "anchor": "문서를-읽는-방법",
+      "supports": "정적 분석, 자동 검사와 사람 승인·실기 검증의 구분. 최초 관련 근거를 읽음."
+    },
+    {
+      "file": "vendor-overview.html",
+      "anchor": "카메라-스택의-네-계층",
+      "supports": "커널·공통 프레임워크·어댑테이션·상위 계층 책임"
+    },
+    {
+      "file": "vendor-overview.html",
+      "anchor": "source-8264067114dccdee",
+      "source_lines": "src/libcamera/camera.cpp:752-784",
+      "supports": "Camera 공통 인터페이스와 호출자 동기화 책임"
+    },
+    {
+      "file": "vendor-overview.html",
+      "anchor": "source-05721740b01bcd0e",
+      "source_lines": "src/libcamera/pipeline_handler.cpp:30-43",
+      "supports": "장치 매칭·확보·Camera 생성·핸들러 등록 책임"
+    },
+    {
+      "file": "vendor-overview.html",
+      "anchor": "source-94ac8aab4dea2a65",
+      "source_lines": "Documentation/libcamera_architecture.rst:86-108",
+      "supports": "장치별 하드웨어 구성·실행·스케줄링, 공통성 재사용"
+    },
+    {
+      "file": "vendor-overview.html",
+      "anchor": "장치-구현자가-공통-계층에서-얻는-것",
+      "supports": "요청 준비·대기열·장치 요청 한도·제출 순서의 공통 처리"
+    },
+    {
+      "file": "vendor-integration.html",
+      "anchor": "요청을-장치에-전달하고-반환하기",
+      "source_lines": "src/libcamera/pipeline_handler.cpp:535-558",
+      "supports": "파라미터 적용과 명시적 버퍼·요청 완료 의무"
+    },
+    {
+      "file": "vendor-integration.html",
+      "anchor": "source-a1eeb263fc114d2f",
+      "source_lines": "src/libcamera/pipeline_handler.cpp:405-411",
+      "supports": "stopDevice의 미완료 요청 취소·오류 완료"
+    },
+    {
+      "file": "vendor-overview.html",
+      "anchor": "source-9d6502e234c4647d",
+      "source_lines": "Documentation/platform_support.rst:6-19",
+      "supports": "문서상 전용·범용 플랫폼 범위"
+    },
+    {
+      "file": "vendor-overview.html",
+      "anchor": "source-691389506fe87b32",
+      "source_lines": "meson_options.txt:75-92",
+      "supports": "auto/all은 빌드할 핸들러 선택"
+    },
+    {
+      "file": "vendor-integration.html",
+      "anchor": "ipa-모듈-선택과-실패-조건",
+      "supports": "이름·버전 매칭, 서명별 실행 방식, 프록시 생성 실패"
+    },
+    {
+      "file": "vendor-assurance.html",
+      "anchor": "지원-조건과-제약",
+      "source_lines": "src/libcamera/camera.cpp:323-346",
+      "supports": "Invalid·Adjusted·Valid 의미, 호출자의 변경 결과 확인"
+    },
+    {
+      "file": "vendor-assurance.html",
+      "anchor": "역할-기반-구성-생성의-반환-계약",
+      "source_lines": "src/libcamera/pipeline_handler.cpp:271-315",
+      "supports": "roles 충족 시 구성, 미충족 시 null; 검증된 구성 적용·오류 반환"
+    },
+    {
+      "file": "rkisp1-dewarp.html",
+      "anchor": "보정-파라미터의-기본값과-입력-오류",
+      "supports": "카메라별 보정 입력 없음과 잘못된 일부 입력의 차이; 성공 반환 한계"
+    },
+    {
+      "file": "official-cam-validation.html",
+      "anchor": "할당기를-준비하자-공식-cam-캡처가-완료됐습니다",
+      "supports": "WSL2 시험 커널·Virtual2·NV12·3회 각3프레임의 제한된 관측"
+    },
+    {
+      "file": "official-cam-validation.html",
+      "anchor": "환경-확인에서-재현-실행까지",
+      "supports": "물리 DMA·카메라·제품 앱·사내 HAL 미검증"
+    },
+    {
+      "file": "vendor-assurance.html",
+      "anchor": "성능-근거를-읽는-기준",
+      "source_lines": "Documentation/software-isp-benchmarking.rst:15-20",
+      "supports": "DebayerCpu 처리 시간과 캡처·출력 시간 구분"
+    }
+  ],
+  "visited": [
+    {
+      "order": 1,
+      "file": "index.html",
+      "scope": "HTML main 전체",
+      "note": "04:07:37 UTC 도구 시각 직후 첫 자료로 열었으나 콘솔 한글 인코딩이 깨져 표시됨. 04:07:47 UTC 도구 시각 직후 UTF-8 stdout으로 같은 main 재열람. 첫 읽을 수 있는 관련 근거 시각을 first_evidence_at에 기록."
+    },
+    {
+      "order": 2,
+      "file": "vendor-overview.html",
+      "scope": "index의 제품 개요 경로; main 전체 및 주요 소스 발췌 재열람"
+    },
+    {
+      "order": 3,
+      "file": "vendor-integration.html",
+      "scope": "index의 연동 가이드 경로; main 전체 및 본문·선택 발췌 재열람"
+    },
+    {
+      "order": 4,
+      "file": "vendor-assurance.html",
+      "scope": "index의 지원 범위와 검증 경로; main 전체·본문 재열람"
+    },
+    {
+      "order": 5,
+      "file": "rkisp1-dewarp.html",
+      "scope": "index의 카메라별 튜닝·커널 지원 경로; main의 소스 근거 앞 본문"
+    },
+    {
+      "order": 6,
+      "file": "official-cam-validation.html",
+      "scope": "index의 WSL 공식 cam 가상 캡처 확인 경로; main의 소스 근거 앞 본문"
+    },
+    {
+      "order": 7,
+      "file": "vendor-overview.html",
+      "scope": "source-05721740b01bcd0e, source-94ac8aab4dea2a65, source-8264067114dccdee, source-9d6502e234c4647d, source-691389506fe87b32"
+    },
+    {
+      "order": 8,
+      "file": "vendor-integration.html",
+      "scope": "source-a1eeb263fc114d2f, source-a9ed7dcbf54ccaff, source-6dc4133d5797f19b, source-f61e5a9ff79a97a8"
+    }
+  ],
+  "queries": [
+    {
+      "method": "HTMLParser main 추출",
+      "terms": [],
+      "scope": "index.html부터 시작하여 main 링크와 본문만 읽음"
+    },
+    {
+      "method": "HTMLParser p/h1/h2/h3/li/summary 추출",
+      "terms": [],
+      "scope": "세 Vendor HTML과 rkisp1-dewarp.html, official-cam-validation.html main 안의 항목별 본문"
+    },
+    {
+      "method": "main 내부 id 선택",
+      "terms": [
+        "source-05721740b01bcd0e",
+        "source-94ac8aab4dea2a65",
+        "source-8264067114dccdee",
+        "source-9d6502e234c4647d",
+        "source-691389506fe87b32",
+        "source-a1eeb263fc114d2f",
+        "source-a9ed7dcbf54ccaff",
+        "source-6dc4133d5797f19b",
+        "source-f61e5a9ff79a97a8"
+      ],
+      "scope": "vendor-overview.html, vendor-integration.html"
+    }
+  ],
+  "help_count": 0,
+  "missing": [
+    "대상 실물 기종·센서 조합의 촬영·성능·오류 복구 결과는 발견하지 못함. 자료도 이를 미검증으로 명시함.",
+    "사내 HAL 실제 구성·검증 결과는 발견하지 못함.",
+    "첫 콘솔 출력은 한글 인코딩이 깨졌고 같은 허용 main을 재열람함. 환경 지연을 별도로 측정하거나 추정하지 않음."
+  ],
+  "reading_ease_1_to_5": null,
+  "human_active_review_seconds": null,
+  "environment_delay_seconds": null,
+  "timeout": false
+}
