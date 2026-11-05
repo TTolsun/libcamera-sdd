@@ -22,3 +22,5 @@ Configured source analysis and official upstream mirror:be7e83e91348250c015aad6d
 
 - [Issue242 follow-up: verified source defaults and defined probe terms](publication/review-followup-242/README.md)
 - [Conditional completion, ownership and reuse decisions — representative automatic evaluation](publication/issue249/README.md)
+
+- [Issue243 followup: parameter association and access-default evidence](publication/issue243-followup/README.md)
