@@ -6,6 +6,8 @@
 
 원래 [절차·과업](original-fixed-study/protocol.md)과 [정답 기준](original-fixed-study/rubric.md), 원래24개 자동 시행·실패·[요약](original-fixed-study/summary.json)을 보존합니다. 최초 비교는 공식 source293 자료 A와 공개 커밋178aa978의 문서 B이며 전체 정답은 A5/12·B8/12, 공통 과업은 A4/6·B5/6입니다. 첫 노출만 보면 양쪽3/6이며, 양쪽 정답인5쌍의 시간 중앙값은34초·30초로20% 단축 기준에 미달합니다. 사람 부담이 없어 종합 효과를 판정할 수 없습니다. 같은 참가자·시험을 #163 성과로 중복 집계하지 않습니다.
 
+원래 시행은 모든 과업 문구를 미리 공개했고 E01은 양 조건6시행에서 지정 시작점을 건너뛰었습니다. 시간 경계·과업 간 기억·E02의 앞 과업 노출도 [절차 감사](original-fixed-study/procedure-audit.md)에 남깁니다. 따라서 원래24건은 탐색적 관측이며 확증 시행은0건입니다. [D1 일관성 재채점](original-fixed-study/d1-consistency.json)은 원래 판정도 보존합니다. #163의 사람 최소 기준은 비작성자3명 이상(신입·타팀 관점 포함), 공통6과업 중5개 이상 독립 완료, 읽기 부담 중앙값4 이상입니다. 자동3/3으로 이를 충족했다고 하지 않습니다.
+
 이번 세 시행은 [사전 보완 계획](original-fixed-study/reader-improvement-plan.md)에 따른 **선택된 실패 과업의 B 단독 자동 회귀**입니다. [잠금](fresh-automatic/lock.json)은 시작 전에 공개 산출물 Git `499465da2dc50feded066ee956de1ee166e7667f`, source `be7e83e91348250c015aad6d6f59f1468555bae8`, build `e8630fb5243aa28ef74d2c58fed7778d2040f246f77cff3405083bf6835a70f3`, manifest·산출물352개 해시, 원래 질문·루브릭을 고정합니다. 새 컨텍스트에 과업 하나씩만 주고 index.html을 첫 자료로 읽게 했습니다. 정답표·다른 과업·기존 답변·소스 저장소·외부 웹은 제공하지 않았습니다. 제한은 과업 공개부터600초이며 중단·미응답도 분모입니다.
 
 새 문서와 원래 비교본은 소스·공개 버전이 다릅니다. [일곱 과업 관련 소스 파일의 동일성](fresh-automatic/task-source-equivalence.json)은 확인했지만 전체 발행물의 동일 조건 전후 시험을 뜻하지 않습니다.
@@ -37,7 +39,7 @@
 | 최종 정상 export | 27.815초 | 26.723초 |
 | 정상 verify | 2.956초 | 4.109초 |
 
-29개 원고의 메타데이터가 바뀌었으나 본문 변경은 색인1개이며 질문·선택자는 그대로였습니다.28개 원고 carry와 색인 차단을 구분했습니다. 표는 최종 성공 단계이며 앞선 환경·그림 제목·카탈로그 해시 실패와 재시도는 원본 장부에 따로 있습니다. 최초 빌드와 증분 빌드, 번역 캐시 준비 조건이 다르므로 위 시간 차이를 절감률로 해석하지 않습니다. 부모·변경본 각각89개의 실제 CLI 원본과2249개 파일을 검증했습니다. 상세 단계·실패·보정된 그림 프로필·재현 경계는 생성기 병합본의 [완료된 기계 비용 기록](https://github.com/TTolsun/camera-hal-sdd-generator/blob/9d05f3063747a9463fcded98c52e12a507949fa2/docs/libcamera/records/issue253/cost-qt-completed-machine.md)과 [증거 package](https://github.com/TTolsun/camera-hal-sdd-generator/tree/9d05f3063747a9463fcded98c52e12a507949fa2/docs/libcamera/records/issue253/maintenance-cost-v2)에 있습니다. 총 사람 유지비·도입 효과는 미측정입니다. 이 오래된 비교 사이트를 최신 공개본에 덮어쓰지 않았습니다.
+29개 원고의 메타데이터가 바뀌었으나 본문 변경은 색인1개이며 질문·선택자는 그대로였습니다.28개 원고 carry와 색인 차단을 구분했습니다. 표는 최종 성공 단계이며 앞선 환경·그림 제목·카탈로그 해시 실패와 재시도는 원본 장부에 따로 있습니다. 최초 빌드와 증분 빌드, 번역 캐시 준비 조건이 다르므로 위 시간 차이를 절감률로 해석하지 않습니다. 부모·변경본 각각89개의 실제 CLI 원본과2249개 파일을 검증했습니다. 상세 단계·실패·보정된 그림 프로필·재현 경계는 생성기 병합본의 [완료된 기계 비용 기록](https://github.com/TTolsun/camera-hal-sdd-generator/blob/9d05f3063747a9463fcded98c52e12a507949fa2/docs/libcamera/records/issue253/cost-qt-completed-machine.md)과 [증거 package](https://github.com/TTolsun/camera-hal-sdd-generator/tree/9d05f3063747a9463fcded98c52e12a507949fa2/docs/libcamera/records/issue253/maintenance-cost-v2)에 있습니다. 최신 독자 발행의294 TU·1403클래스와 위 qcam 비용 실험의313 TU·1428클래스는 서로 다른 추출 범위이므로 결과를 합치지 않습니다. 총 사람 유지비·도입 효과는 미측정입니다. 이 오래된 비교 사이트를 최신 공개본에 덮어쓰지 않았습니다.
 
 ## 생성·공개 반영의 근거를 확인하세요
 
