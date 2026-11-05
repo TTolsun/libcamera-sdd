@@ -28,25 +28,27 @@
 </div>
 </details><article><p>공개 libcamera 사례에서 요청 제출 성공과 완료를 구분하고, 다음 조사 작업 또는 제한된 검증 착수 여부를 판단하세요.</p>
 <details class="page-terms">
-<summary>이 문서의 용어: ROI, HAL, Pipeline Handler</summary>
+<summary>이 문서의 용어: ROI, HAL, Pipeline Handler, fence</summary>
 <ul>
 <li><strong>ROI</strong> (Return on Investment): ROI(투자 수익률)는 수익을 투자 비용과 비교하는 개념이며, 이 공개 libcamera 문서의 예시에서는 측정하지 않습니다.</li>
 <li><strong>HAL</strong> (Hardware Abstraction Layer): 운영체제가 제조사마다 다른 하드웨어를 같은 인터페이스로 다루게 하는 계층입니다. 이 프로젝트의 최종 적용 대상은 사내 Android Camera HAL입니다.</li>
 <li><strong>Pipeline Handler</strong>: 특정 하드웨어 플랫폼(IPU3, RKISP1 등)의 미디어 장치를 찾아 카메라를 만들고, 요청을 장치에 넣고 완료를 돌려주는 libcamera 구성 요소입니다. 플랫폼마다 하나씩 있습니다.</li>
+<li><strong>fence</strong>: 버퍼를 사용해도 되는 시점을 알리는 동기화 신호입니다. 요청에 유효한 fence가 연결돼 있으면 준비 단계에서 신호를 기다립니다. 요청 완료 신호와는 다릅니다.</li>
 </ul>
 <p>다른 용어는 <a href="glossary.html">용어집</a>에서 찾을 수 있습니다.</p>
 </details>
 <p><strong>확인 한계:</strong> 이 경로의 사실은 분석 커밋에 고정된 정적 소스 설명입니다. 기기에서 완료 누락을 재현하거나 개발 기간·품질·ROI를 측정한 결과가 아닙니다. 사내 HAL 적용과 실제 임원 평가는 미검증입니다.</p>
 <p>상세 설명과 소스 근거는 연결된 기준 문서에서 관리합니다. 아래 사실은 그 문서의 답변을 그대로 표시합니다. 이 경로는 조직의 직책·승인 권한을 정의하지 않습니다.</p>
 <h2 id="question-reproduction">무엇이 문제이며 어떤 조건과 기록부터 확보할까요?</h2>
+<p><strong>바로 확인할 상세 설명:</strong> <a href="request-lifecycle.html#%EC%A0%9C%EC%B6%9C%EC%97%90%EC%84%9C-%EC%99%84%EB%A3%8C%EA%B9%8C%EC%A7%80">제출에서 완료까지</a> · <a href="request-diagnosis.html#%EC%9A%94%EC%B2%AD-%EC%A0%9C%EC%B6%9C-%EC%98%A4%EB%A5%98-%EC%BD%94%EB%93%9C%EC%99%80-%EA%B2%80%EC%82%AC-%EC%88%9C%EC%84%9C">요청 제출 오류 코드와 검사 순서</a> · <a href="request-diagnosis.html#%EC%8B%A4%ED%8C%A8-%EC%9C%84%EC%B9%98%EB%B3%84-%ED%99%95%EC%9D%B8-%EC%88%9C%EC%84%9C">실패 위치별 확인 순서</a></p>
 <h3 id="claim-submission">제출 성공과 완료의 구분</h3>
 <p><strong>관측된 사실 · 정적 소스 설명</strong></p>
+<p><strong>적용 조건·한계: 분석 커밋의 공통 요청 경로에 대한 설명입니다. 특정 장치의 정상 촬영·완료 시간·오류 복구를 보증하지 않습니다.</strong></p>
 <blockquote>
 <p>queueRequest가 0을 반환하는 것은 파이프라인 대상의 queued 호출이 예약되었다는 성공을 뜻하며, 요청의 완료를 뜻하지 않습니다.</p>
 <p>completeRequest는 이미 완료된 요청을 카메라에 알리며, 파이프라인 핸들러는 순서 제약 없이 이를 호출할 수 있고 요청은 제출 순서대로 애플리케이션에 반환됩니다.</p>
 </blockquote>
 <p><a href="request-lifecycle.html#%EC%A0%9C%EC%B6%9C%EC%97%90%EC%84%9C-%EC%99%84%EB%A3%8C%EA%B9%8C%EC%A7%80">전체 조건·상세 근거</a></p>
-<p>적용 조건·한계: 분석 커밋의 공통 요청 경로에 대한 설명입니다. 특정 장치의 정상 촬영·완료 시간·오류 복구를 보증하지 않습니다.</p>
 <h3 id="claim-trial">완료 누락의 조사와 수정 후 확인 계획</h3>
 <p><strong>결정 요청 · 승인 아님</strong></p>
 <p>완료가 오지 않는 증상을 실제 대상에서 조사할지 결정하세요. 진행한다면 제출 반환값과 요청 상태, 준비 대기·장치 큐·완료 콜백을 구분하는 계측 계획부터 정합니다. 현재 문서만으로 원인을 확정하거나 관측 함수를 재호출해서 상태를 바꾸지 마세요.</p>
@@ -74,25 +76,28 @@
 </table></div>
 <p>적용 조건·한계: 조사 계획이며 실제 재현 결과가 아닙니다. 조사 위치·관측값·다음 분기는 공통 진단 문서에서 확인합니다.</p>
 <h2 id="question-investigation">제출 이후 어디에서 멈췄는지 어떻게 조사할까요?</h2>
+<p><strong>바로 확인할 상세 설명:</strong> <a href="request-lifecycle.html#%EC%A0%9C%EC%B6%9C%EC%97%90%EC%84%9C-%EC%99%84%EB%A3%8C%EA%B9%8C%EC%A7%80">제출에서 완료까지</a> · <a href="request-diagnosis.html#%EC%9A%94%EC%B2%AD-%EC%A0%9C%EC%B6%9C-%EC%98%A4%EB%A5%98-%EC%BD%94%EB%93%9C%EC%99%80-%EA%B2%80%EC%82%AC-%EC%88%9C%EC%84%9C">요청 제출 오류 코드와 검사 순서</a> · <a href="request-diagnosis.html#%EC%8B%A4%ED%8C%A8-%EC%9C%84%EC%B9%98%EB%B3%84-%ED%99%95%EC%9D%B8-%EC%88%9C%EC%84%9C">실패 위치별 확인 순서</a></p>
 <p><a href="#claim-submission">제출 성공과 완료의 구분 · 같은 근거·조건 다시 보기</a></p>
 <p><a href="#claim-trial">완료 누락의 조사와 수정 후 확인 계획 · 같은 근거·조건 다시 보기</a></p>
 <h2 id="question-responsibility">수정할 구현과 함께 확인할 책임·자원 경계는 무엇인가요?</h2>
+<p><strong>바로 확인할 상세 설명:</strong> <a href="request-lifecycle.html#%EC%9A%94%EC%B2%AD%EB%B2%84%ED%8D%BCfence%EC%9D%98-%EC%88%98%EB%AA%85">요청·버퍼·fence의 수명</a> · <a href="request-lifecycle.html#%EC%A0%95%EC%A7%80%EC%99%80-%EC%97%B0%EA%B2%B0-%ED%95%B4%EC%A0%9C%EB%A5%BC-%EA%B5%AC%EB%B6%84%ED%95%98%EA%B8%B0">정지와 연결 해제를 구분하기</a></p>
 <h3 id="claim-ownership">요청과 버퍼의 구현 책임</h3>
 <p><strong>관측된 사실 · 정적 소스 설명</strong></p>
+<p><strong>적용 조건·한계: 구현 책임은 코드 객체와 호출자의 계약입니다. 특정 사내 부서·담당자에게 수정 책임을 배정한 것이 아닙니다.</strong></p>
 <blockquote>
 <p><code>Camera::createRequest()</code>가 반환한 <code>Request</code>의 소유권은 호출자에게 넘어가며, 호출자는 이를 삭제할 책임이 있습니다. 호출자는 완료 핸들러에서 요청을 삭제하거나 <code>Request::reuse()</code>로 상태를 초기화한 뒤 재사용할 수 있습니다.</p>
 <p><code>Request::addBuffer()</code>는 요청에 버퍼 참조를 저장하며, 호출자는 요청 완료 콜백이 호출될 때까지 버퍼가 유효하도록 해야 합니다. 파이프라인 핸들러는 <code>completeRequest()</code> 또는 <code>cancelRequest()</code>가 반환된 뒤 해당 요청에 접근해서는 안 됩니다.</p>
 </blockquote>
 <p><a href="request-lifecycle.html#%EC%9A%94%EC%B2%AD%EB%B2%84%ED%8D%BCfence%EC%9D%98-%EC%88%98%EB%AA%85">전체 조건·상세 근거</a></p>
-<p>적용 조건·한계: 구현 책임은 코드 객체와 호출자의 계약입니다. 특정 사내 부서·담당자에게 수정 책임을 배정한 것이 아닙니다.</p>
 <h3 id="claim-stopping">정지와 연결 해제의 차이</h3>
 <p><strong>관측된 사실 · 정적 소스 설명</strong></p>
+<p><strong>적용 조건·한계: 정지와 연결 해제는 서로 다른 경로입니다. 구체적 구현의 동작과 기기 결과는 상세 설명과 실행 기록을 별도로 대조해야 합니다.</strong></p>
 <blockquote>
 <p><code>PipelineHandler::stop</code>은 모든 실행 중 스트림의 캡처를 정지하는 함수이며, 문서에 따르면 모든 대기 요청을 취소하고 즉시 오류 상태로 완료합니다. 반면 <code>Camera::disconnect</code>에는 실행 중 카메라의 연결 해제 시 대기 요청을 처리하는 것에 관한 TODO만 있으며, 그 처리 방식은 원문에 명시되어 있지 않습니다.</p>
 </blockquote>
 <p><a href="request-lifecycle.html#%EC%A0%95%EC%A7%80%EC%99%80-%EC%97%B0%EA%B2%B0-%ED%95%B4%EC%A0%9C%EB%A5%BC-%EA%B5%AC%EB%B6%84%ED%95%98%EA%B8%B0">전체 조건·상세 근거</a></p>
-<p>적용 조건·한계: 정지와 연결 해제는 서로 다른 경로입니다. 구체적 구현의 동작과 기기 결과는 상세 설명과 실행 기록을 별도로 대조해야 합니다.</p>
 <h2 id="question-verification">무엇을 확인해야 수정 결과를 판단할 수 있나요?</h2>
+<p><strong>바로 확인할 상세 설명:</strong> <a href="request-diagnosis.html#%EC%9A%94%EC%B2%AD-%EC%A0%9C%EC%B6%9C-%EC%98%A4%EB%A5%98-%EC%BD%94%EB%93%9C%EC%99%80-%EA%B2%80%EC%82%AC-%EC%88%9C%EC%84%9C">요청 제출 오류 코드와 검사 순서</a> · <a href="request-diagnosis.html#%EC%8B%A4%ED%8C%A8-%EC%9C%84%EC%B9%98%EB%B3%84-%ED%99%95%EC%9D%B8-%EC%88%9C%EC%84%9C">실패 위치별 확인 순서</a> · <a href="vendor-assurance.html#%EC%84%B1%EB%8A%A5-%EA%B7%BC%EA%B1%B0%EB%A5%BC-%EC%9D%BD%EB%8A%94-%EA%B8%B0%EC%A4%80">성능 근거를 읽는 기준</a></p>
 <p><a href="#claim-trial">완료 누락의 조사와 수정 후 확인 계획 · 같은 근거·조건 다시 보기</a></p>
 <h3 id="claim-measurement">아직 측정하지 않은 효과</h3>
 <p><strong>미측정 효과</strong></p>
