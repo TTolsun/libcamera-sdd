@@ -1,0 +1,11 @@
+flowchart TB
+
+  v_api["queueRequest start times do <br/>not establish posting order <br/>across threads. This <br/>diagram shows additional <br/>instrumentation points, not <br/>results of a concurrent <br/>test."]
+  v_post["Thread postMessage adds the <br/>message under a mutex. The <br/>caller must keep pointer <br/>arguments valid until the <br/>method is invoked."]
+  v_waiting["The pipeline adds the <br/>request to waitingRequests#95; <br/>and prepares it. A queued <br/>invocation is not <br/>guaranteed to run before <br/>the thread stops."]
+  v_register["doQueueRequest adds the <br/>request to queuedRequests#95; <br/>and assigns its software <br/>sequence#95;, separate from <br/>the device FrameMetadata <br/>sequence. registerRequest <br/>connects the prepared <br/>signal."]
+  v_notice["Emitting requestCompleted <br/>differs from observing a <br/>callback on a particular <br/>connection. Request <br/>completion does not <br/>guarantee successful <br/>capture."]
+  v_api -->|"After validation passes, <br/>the queued invocation is <br/>posted before 0 is returned."| v_post
+  v_post -->|"If the message is consumed <br/>and its handler runs, the <br/>request enters the waiting <br/>queue."| v_waiting
+  v_waiting -->|"On the normal path, <br/>registration requires <br/>preparation and device <br/>capacity. During stop, a <br/>cancelled waiting request <br/>is passed for registration."| v_register
+  v_register -->|"During completion <br/>processing, a completed <br/>queuedRequests#95; head is <br/>popped before the signal is <br/>emitted. · req-#62;status#40;#41; #61;#61; <br/>Request::RequestPending <br/>#91;false#93;"| v_notice

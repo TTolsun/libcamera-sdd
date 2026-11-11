@@ -1,0 +1,25 @@
+flowchart TB
+
+  v_copy["After sensor and ISP <br/>configuration succeeds, <br/>copy the main-path cfg to <br/>ispCfg."]
+  v_use_dewarper{"Check the existing <br/>usesDewarper#95; value, set <br/>earlier to true when <br/>canUseDewarper#95; is true and <br/>isRaw#95; is false."}
+  v_prepare["Set ispCfg bufferCount to <br/>kRkISP1MinBufferCount and <br/>size to format.size, then <br/>recalculate stride."]
+  v_dewarp_configure["Pass ispCfg, output <br/>configuration { cfg }, and <br/>the current camera#39;s <br/>dewarpParams#95; to <br/>dewarper#95;-#62;configure."]
+  v_result{"Check ret returned by <br/>dewarper#95;-#62;configure."}
+  v_return_ret["If ret is nonzero, return <br/>the same ret."]
+  v_transform["Pass cfg.stream#40;#41; and <br/>config-#62;combinedTransform#40;#41; <br/>to dewarper#95;-#62;setTransform, <br/>then copy cfg.size to local <br/>size."]
+  v_transpose_check{"Check transposeAfterIsp, <br/>which is true when the <br/>dewarper is used and <br/>combinedTransform has the <br/>Transform::Transpose bit."}
+  v_transpose["Transpose the local size <br/>once."]
+  v_crop["Bound sensorCrop size to <br/>the local size aspect ratio <br/>and pass the crop centered <br/>on sensorCrop.center#40;#41; to <br/>setControls."]
+  v_main_configure["Pass ispCfg and format to <br/>mainPath#95;.configure. This <br/>call alone does not mean <br/>the whole Camera <br/>configuration succeeded."]
+  v_copy -->|"Check the existing usage <br/>value after making the copy."| v_use_dewarper
+  v_use_dewarper -->|"Adjust the copy when using <br/>the dewarper. · <br/>data-#62;usesDewarper#95; #91;true#93;"| v_prepare
+  v_use_dewarper -->|"Pass the copy unchanged <br/>when not using the <br/>dewarper. · <br/>data-#62;usesDewarper#95; #91;false#93;"| v_main_configure
+  v_prepare -->|"Pass the adjusted copy."| v_dewarp_configure
+  v_dewarp_configure -->|"Check the return value."| v_result
+  v_result -->|"Return when ret is nonzero. <br/>· ret #91;true#93;"| v_return_ret
+  v_result -->|"Continue when ret is zero. <br/>· ret #91;false#93;"| v_transform
+  v_transform -->|"Check whether to transpose <br/>the local size."| v_transpose_check
+  v_transpose_check -->|"Transpose the local size <br/>when true. · <br/>transposeAfterIsp #91;true#93;"| v_transpose
+  v_transpose_check -->|"Do not transpose the local <br/>size when false. · <br/>transposeAfterIsp #91;false#93;"| v_crop
+  v_transpose -->|"Use the transposed local <br/>size."| v_crop
+  v_crop -->|"Configure the main path <br/>after calling setControls."| v_main_configure

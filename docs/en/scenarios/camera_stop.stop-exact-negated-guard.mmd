@@ -1,0 +1,25 @@
+flowchart TB
+
+  v_stop["Camera::stop may be called <br/>in any state. The caller <br/>must synchronize it with <br/>other state-affecting <br/>functions."]
+  v_running{"Is the camera not running?"}
+  v_noop["Return 0 without action <br/>before checking access."]
+  v_access["Check access for <br/>CameraRunning. <br/>allowDisconnected defaults <br/>to false, and disconnection <br/>is checked before state."]
+  v_ret{"Is the access result <br/>negative? Disconnection <br/>gives -ENODEV; otherwise, a <br/>state mismatch gives <br/>-EACCES."}
+  v_error["Return the negative ret <br/>from the access check <br/>unchanged."]
+  v_stopping["Set the camera state to <br/>CameraStopping."]
+  v_pipeline["Call PipelineHandler::stop <br/>with ConnectionTypeBlocking."]
+  v_assert["ASSERT checks for pending <br/>requests. No check code is <br/>generated if NDEBUG is <br/>defined before including <br/>log.h."]
+  v_abort["If the active ASSERT fails, <br/>program execution aborts."]
+  v_configured["If the check passes or no <br/>check code is generated, <br/>set the state to <br/>CameraConfigured."]
+  v_success["Return 0. Normal stop <br/>immediately stops capture <br/>and processing and <br/>synchronously completes <br/>cancelled requests in error."]
+  v_stop -->|"Check whether the camera is <br/>not running."| v_running
+  v_running -->|"If it is not running, <br/>return 0. #91;true#93;"| v_noop
+  v_running -->|"If it is running, check <br/>access. #91;false#93;"| v_access
+  v_access -->|"When the access check <br/>returns normally, check its <br/>result."| v_ret
+  v_ret -->|"If the result is negative, <br/>return it unchanged. #91;true#93;"| v_error
+  v_ret -->|"If the result is not <br/>negative, set the state. <br/>#91;false#93;"| v_stopping
+  v_stopping -->|"After setting the state, <br/>call stop."| v_pipeline
+  v_pipeline -->|"When the call returns <br/>normally, execution reaches <br/>ASSERT."| v_assert
+  v_assert -->|"If the active check fails, <br/>execution aborts."| v_abort
+  v_assert -->|"Continue if the check <br/>passes or no check code is <br/>generated."| v_configured
+  v_configured -->|"After setting the state, <br/>return 0."| v_success

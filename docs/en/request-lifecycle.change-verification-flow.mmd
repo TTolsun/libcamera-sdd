@@ -1,0 +1,17 @@
+flowchart TB
+
+  v_buffer["Request::Private::<br/>completeBuffer removes the <br/>buffer from pending#95; and <br/>asserts that the erase <br/>result is 1. It returns <br/>true if all buffers have <br/>completed, and false <br/>otherwise."]
+  v_pending["pending#95; tracks the buffers <br/>in the request that have <br/>not yet completed."]
+  v_cancel["doCancelRequest cancels <br/>each pending buffer, <br/>directly emits <br/>bufferCompleted, and then <br/>clears pending#95;."]
+  v_complete["Request::Private::complete <br/>asserts that the request is <br/>RequestPending and has no <br/>pending buffers, then sets <br/>its status."]
+  v_check["hasPendingBuffers is used <br/>to assert the absence of <br/>pending buffers in <br/>complete#40;#41; and to determine <br/>the return value of <br/>completeBuffer#40;#41;."]
+  v_pipeline["The pipeline handler must <br/>signal buffer completion <br/>and update tracking from <br/>the CameraManager thread. <br/>Completing the last buffer <br/>does not automatically <br/>complete the request."]
+  v_request["The pipeline handler must <br/>explicitly complete the <br/>request from the <br/>CameraManager thread. It <br/>must not access the request <br/>after the function returns."]
+  v_cancelrequest["PipelineHandler::<br/>cancelRequest cancels and <br/>completes the request and <br/>follows the same rules as <br/>completeRequest#40;#41;."]
+  v_pipeline -->|"It emits the buffer <br/>completion signal and then <br/>calls the request#39;s <br/>completeBuffer."| v_buffer
+  v_buffer -->|"It erases the buffer and <br/>asserts that exactly one <br/>entry was removed."| v_pending
+  v_cancel -->|"It directly emits a <br/>completion signal for each <br/>pending buffer and then <br/>clears the set."| v_pending
+  v_complete -->|"At the completion point, it <br/>asserts that no buffers are <br/>pending."| v_check
+  v_buffer -->|"It uses the check to return <br/>whether all buffers have <br/>completed."| v_check
+  v_request -->|"The function that signals <br/>request completion calls <br/>the request#39;s complete."| v_complete
+  v_cancelrequest -->|"It calls completeRequest <br/>after cancelling the <br/>request."| v_request

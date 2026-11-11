@@ -8,8 +8,15 @@
 <main id="main"><p class="breadcrumb">For Developer <span>/</span> Stream configuration</p><h1>Stream configuration</h1><div class="page-state"><span class="review-state">Before human review</span><span>Automated check passed</span><span class="generation-method">Authored: extracted structure and draft written by the model</span><a class="state-help" href="#page-evidence">State description ↓</a></div>
 <details class="mobile-toc"><summary>Table of contents of this page</summary><div class="toc">
 <ul>
-<li><a href="#캡처-전에-준비할-스트림-구성">Stream configuration to prepare before capture</a></li>
-<li><a href="#구성-적용과-성공-상태를-확인할-위치">Where to check configuration application and success status</a></li>
+<li><a href="#캡처-전에-준비할-스트림-구성">Stream configuration to prepare before capture</a><ul>
+<li><a href="#구성-호출의-입력과-접근-조건">Inputs and access conditions for the configuration call</a></li>
+</ul>
+</li>
+<li><a href="#구성-적용과-성공-상태를-확인할-위치">Where to check configuration application and success status</a><ul>
+<li><a href="#구성-적용-전의-검사와-파이프라인-결과">Checks before configuration is applied and pipeline results</a></li>
+<li><a href="#스트림-목록의-일회-초기화와-성공-상태">One-time initialization of the stream list and success status</a></li>
+</ul>
+</li>
 <li><a href="#소스-근거">Source evidence</a></li>
 <li><a href="#주요-확인-지점">Key check points</a></li>
 <li><a href="#주요-호출-관계">Key call relationships</a></li>
@@ -22,27 +29,338 @@
 <p>The answers to each question and their evidence links were checked. The meaning and execution results require human review.</p>
 <ul class="coverage-links"><li><p>What must be prepared before applying a configuration, and how do you distinguish state errors from connection errors?</p><p><a href="#캡처-전에-준비할-스트림-구성">Stream configuration to prepare before capture</a></p></li><li><p>Explain the order in which Camera::configure() clears the previous stream connections, then checks validate()==Valid, and returns -EINVAL if the result is not Valid. Explain the path in which PipelineHandler::configure is called with ConnectionTypeBlocking and the error is returned unchanged if the call fails. Specifically describe the condition under which, even after this call succeeds, the code enters the Fatal log path when cfg.stream is absent. Read the API's Stream linkage contract together with the code's post-success missing check, but do not write sentences that evaluate whether the source explicitly states a particular design term. Because the LOG documentation contract states that Fatal stops execution, do not describe the later clear/return code as a recovery path. If all streams are present, explain the success path that updates configuration_, activeStreams_, and CameraConfigured and returns 0. Write within four paragraphs. Include ConnectionTypeBlocking only once in the description of the call, and do not explain the same call type again in a separate sentence.</p><p><a href="#구성-적용과-성공-상태를-확인할-위치">Where to check configuration application and success status</a></p></li></ul><p><span>Verification scope</span>: <span>Linking code evidence to explanations</span></p>
 </details>
-<details class="page-terms">
-<summary>Terms in this document: Pipeline Handler</summary>
-<ul>
-<li><strong>Pipeline Handler</strong>: A libcamera component that finds the media device of a specific hardware platform (IPU3, RKISP1, etc.), creates cameras, passes requests to the device, and returns their completion. There is one per platform.</li>
-</ul>
-<p>Other terms can be found in <a href="../glossary.html">Glossary</a>.</p>
-</details>
 <div class="previous-route" id="이-흐름에서-확인할-것"><p>Destination of the previous link</p><a href="#캡처-전에-준비할-스트림-구성">Stream configuration to prepare before capture</a></div>
 <h2 id="캡처-전에-준비할-스트림-구성">Stream configuration to prepare before capture</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1163&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1163\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1163&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1163&quot;: [&quot;#source-72be07b9f03d4034&quot;]}"><code>Camera::configure()</code> is the function that selects, before capture starts, the group of streams to participate in the capture and the configuration of each stream. The caller specifies the streams and configuration to participate by populating <code>config</code>. This configuration is created by <code>generateConfiguration()</code> and adjusted by the caller with <code>CameraConfiguration::validate()</code>. This function accepts only fully valid configurations.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1163&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1163\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1163&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1163&quot;: [&quot;#source-72be07b9f03d4034&quot;]}">Before calling <code>configure()</code>, the caller must call <code>acquire()</code> to secure exclusive access to the camera. This function may only be called when the camera is in the Acquired or Configured state, and the caller must synchronize this call with other functions that change the camera state. If exclusive access is not secured, the <code>-EACCES</code> error is returned, and <code>-EACCES</code> is also returned when the camera is not in a state where it can be configured. If the camera has been disconnected from the system, <code>configure()</code> returns <code>-ENODEV</code>.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1163&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1163\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1163&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1163&quot;: [&quot;#source-72be07b9f03d4034&quot;]}"><code>Camera::configure()</code> configures the group of streams to be used for capture and the configuration of each stream before capture. The caller creates a configuration with <code>generateConfiguration()</code>, fills <code>config</code> with the streams to be used and their configurations, and then adjusts it with <code>CameraConfiguration::validate()</code>. <code>Camera::configure()</code> requires a fully valid configuration.</p>
+<!-- sdd:visual:configuration-prerequisite-map -->
+<h3 id="구성-호출의-입력과-접근-조건">Inputs and access conditions for the configuration call</h3>
+<pre class="mermaid">flowchart TB
 
-<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>1</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-72be07b9f03d4034" aria-label="src/libcamera/camera.cpp:1163 excerpt"><code>L1163</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:1163" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1163">Full source <code>L1163</code></a></span></li></ul></details><h2 id="구성-적용과-성공-상태를-확인할-위치">Where to check configuration application and success status</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1191&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1191\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1191&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1191&quot;: [&quot;#source-603af0dd7fa357d0&quot;]}"><code>Camera::configure()</code> first returns the return value of <code>d-&gt;isAccessAllowed(Private::CameraAcquired, Private::CameraConfigured)</code> as is when that value is less than 0. Next, <code>cfg.setStream(nullptr)</code> is called for every item in the <code>for</code> loop to clear the previous <code>Stream</code> connections. Then, if the result of <code>config-&gt;validate()</code> is not <code>CameraConfiguration::Valid</code>, "Can't configure camera with invalid configuration" is logged via <code>LOG(Camera, Error)</code>, and <code>-EINVAL</code> is returned. Therefore, even if validation fails, clearing <code>Stream</code> connections has already been completed.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1191&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1191\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1191&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1191&quot;: [&quot;#source-603af0dd7fa357d0&quot;]}">If validation passes, <code>Camera::configure()</code> calls the pipeline handler's <code>configure</code> through <code>d-&gt;pipe_-&gt;invokeMethod(&amp;PipelineHandler::configure, ConnectionTypeBlocking, this, config)</code>. If the call result <code>ret</code> is nonzero, <code>return ret;</code> returns that value unchanged, and in this case the subsequent <code>Stream</code> connection update code is not executed.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1191&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1191\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1191&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/base/log.cpp:1022&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/base/log.cpp#L1022\&quot;&gt;&lt;code&gt;src/libcamera/base/log.cpp:1022&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera.cpp:1183&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1183\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1183&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1191&quot;: [&quot;#source-603af0dd7fa357d0&quot;], &quot;src/libcamera/base/log.cpp:1022&quot;: [&quot;#source-47a6ef3943a7b53c&quot;], &quot;src/libcamera/camera.cpp:1183&quot;: [&quot;#source-5296d50aed1a3be0&quot;]}">After <code>invokeMethod</code> returns 0, if the loop has an entry whose <code>cfg.stream()</code> is <code>nullptr</code>, execution enters the path that prints "Pipeline handler failed to update stream configuration" with <code>LOG(Camera, Fatal)</code>. The API documentation explains that on return, the <code>StreamConfiguration</code> entries in <code>config</code> are linked to the <code>Stream</code> retrieved with <code>StreamConfiguration::stream()</code>, while the code checks entries missing this link through the Fatal path. Because the documentation states that Fatal aborts execution after printing the message, <code>d-&gt;activeStreams_.clear()</code> and <code>return -EINVAL;</code> are not executed, and in check order, preceding entries have already finished storing to <code>configuration_</code> and inserting into <code>activeStreams_</code>.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1191&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1191\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1191&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1191&quot;: [&quot;#source-603af0dd7fa357d0&quot;]}">If <code>invokeMethod</code> returns 0 and <code>cfg.stream()</code> is not <code>nullptr</code> for all entries, the code clears the list using <code>d-&gt;activeStreams_.clear()</code> before the loop, then for each entry stores <code>stream-&gt;configuration_ = cfg;</code> and calls <code>d-&gt;activeStreams_.insert(stream);</code>. After the loop, the code changes the state to <code>CameraConfigured</code> using <code>d-&gt;setState(Private::CameraConfigured);</code> and returns success using <code>return 0;</code>.</p>
+  v_call["Check the input and access &lt;br/&gt;prerequisites before &lt;br/&gt;calling Camera::configure."]
+  v_input["Fill the config from &lt;br/&gt;generateConfiguration with &lt;br/&gt;stream settings and prepare &lt;br/&gt;a fully valid input with &lt;br/&gt;validate."]
+  v_exclusive["The API requires exclusive &lt;br/&gt;access through acquire and &lt;br/&gt;documents -EACCES otherwise."]
+  v_sync["The caller synchronizes &lt;br/&gt;this call with other &lt;br/&gt;functions that affect &lt;br/&gt;camera state."]
+  v_range["The call checks Acquired &lt;br/&gt;through Configured and &lt;br/&gt;disallows disconnection."]
+  v_disconnected["If disconnected, return &lt;br/&gt;-ENODEV before checking the &lt;br/&gt;state range."]
+  v_outside["After the disconnection &lt;br/&gt;check, a state outside the &lt;br/&gt;allowed range returns &lt;br/&gt;-EACCES."]
+  v_allowed["If the disconnection and &lt;br/&gt;state checks pass, the &lt;br/&gt;access check returns 0."]
+  v_call --&gt;|"This is the input &lt;br/&gt;prerequisite."| v_input
+  v_call --&gt;|"This is the separate &lt;br/&gt;exclusive-access &lt;br/&gt;requirement."| v_exclusive
+  v_call --&gt;|"This is the separate caller &lt;br/&gt;synchronization requirement."| v_sync
+  v_call --&gt;|"This is the call#39;s actual &lt;br/&gt;state check."| v_range
+  v_range --&gt;|"Return the access error &lt;br/&gt;before validating the &lt;br/&gt;configuration."| v_disconnected
+  v_range --&gt;|"Return the state error &lt;br/&gt;before validating the &lt;br/&gt;configuration."| v_outside
+  v_range --&gt;|"The disconnection and state &lt;br/&gt;checks pass."| v_allowed</pre>
+<p><a href="configure.configuration-prerequisite-map.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>What configurations are prepared before capture, and what exclusive access, state, and synchronization conditions are met?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Check the input and access prerequisites before calling Camera::configure.">Check the input and access prerequisites before calling Camera::configure.</span></td>
+<td><a href="#source-72be07b9f03d4034">src/libcamera/camera.cpp:1163</a> · <a href="#source-104cfe232814f03c">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Fill the config from generateConfiguration with stream settings and prepare a fully valid input with validate.">Fill the config from generateConfiguration with stream settings and prepare a fully valid input with validate.</span></td>
+<td><a href="#source-72be07b9f03d4034">src/libcamera/camera.cpp:1163</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The API requires exclusive access through acquire and documents -EACCES otherwise.">The API requires exclusive access through acquire and documents -EACCES otherwise.</span></td>
+<td><a href="#source-72be07b9f03d4034">src/libcamera/camera.cpp:1163</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The caller synchronizes this call with other functions that affect camera state.">The caller synchronizes this call with other functions that affect camera state.</span></td>
+<td><a href="#source-72be07b9f03d4034">src/libcamera/camera.cpp:1163</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The call checks Acquired through Configured and disallows disconnection.">The call checks Acquired through Configured and disallows disconnection.</span></td>
+<td><a href="#source-104cfe232814f03c">src/libcamera/camera.cpp:1191</a> · <a href="#source-ce7310b26757525b">include/libcamera/internal/camera.h:61</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If disconnected, return -ENODEV before checking the state range.">If disconnected, return -ENODEV before checking the state range.</span></td>
+<td><a href="#source-0840d2509c9e395b">src/libcamera/camera.cpp:709</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After the disconnection check, a state outside the allowed range returns -EACCES.">After the disconnection check, a state outside the allowed range returns -EACCES.</span></td>
+<td><a href="#source-0840d2509c9e395b">src/libcamera/camera.cpp:709</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the disconnection and state checks pass, the access check returns 0.">If the disconnection and state checks pass, the access check returns 0.</span></td>
+<td><a href="#source-0840d2509c9e395b">src/libcamera/camera.cpp:709</a> · <a href="#source-104cfe232814f03c">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="This is the input prerequisite.">This is the input prerequisite.</span></td>
+<td><a href="#source-72be07b9f03d4034">src/libcamera/camera.cpp:1163</a> · <a href="#source-104cfe232814f03c">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="This is the separate exclusive-access requirement.">This is the separate exclusive-access requirement.</span></td>
+<td><a href="#source-72be07b9f03d4034">src/libcamera/camera.cpp:1163</a> · <a href="#source-104cfe232814f03c">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="This is the separate caller synchronization requirement.">This is the separate caller synchronization requirement.</span></td>
+<td><a href="#source-72be07b9f03d4034">src/libcamera/camera.cpp:1163</a> · <a href="#source-104cfe232814f03c">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="This is the call&#x27;s actual state check.">This is the call's actual state check.</span></td>
+<td><a href="#source-72be07b9f03d4034">src/libcamera/camera.cpp:1163</a> · <a href="#source-104cfe232814f03c">src/libcamera/camera.cpp:1191</a> · <a href="#source-ce7310b26757525b">include/libcamera/internal/camera.h:61</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return the access error before validating the configuration.">Return the access error before validating the configuration.</span></td>
+<td><a href="#source-104cfe232814f03c">src/libcamera/camera.cpp:1191</a> · <a href="#source-ce7310b26757525b">include/libcamera/internal/camera.h:61</a> · <a href="#source-0840d2509c9e395b">src/libcamera/camera.cpp:709</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return the state error before validating the configuration.">Return the state error before validating the configuration.</span></td>
+<td><a href="#source-104cfe232814f03c">src/libcamera/camera.cpp:1191</a> · <a href="#source-ce7310b26757525b">include/libcamera/internal/camera.h:61</a> · <a href="#source-0840d2509c9e395b">src/libcamera/camera.cpp:709</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The disconnection and state checks pass.">The disconnection and state checks pass.</span></td>
+<td><a href="#source-104cfe232814f03c">src/libcamera/camera.cpp:1191</a> · <a href="#source-ce7310b26757525b">include/libcamera/internal/camera.h:61</a> · <a href="#source-0840d2509c9e395b">src/libcamera/camera.cpp:709</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:configuration-prerequisite-map -->
+
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1163&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1163\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1163&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;include/libcamera/internal/camera.h:61&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/include/libcamera/internal/camera.h#L61\&quot;&gt;&lt;code&gt;include/libcamera/internal/camera.h:61&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera.cpp:709&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L709\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:709&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera.cpp:1191&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1191\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1191&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1163&quot;: [&quot;#source-72be07b9f03d4034&quot;], &quot;include/libcamera/internal/camera.h:61&quot;: [&quot;#source-ce7310b26757525b&quot;], &quot;src/libcamera/camera.cpp:709&quot;: [&quot;#source-0840d2509c9e395b&quot;], &quot;src/libcamera/camera.cpp:1191&quot;: [&quot;#source-104cfe232814f03c&quot;, &quot;#source-603af0dd7fa357d0&quot;]}">The caller must secure exclusive access to the camera using <code>acquire()</code> before calling <code>Camera::configure()</code>. This function must be called only when the camera is in the <code>Acquired</code> or <code>Configured</code> state, and the caller must synchronize the call with other functions that affect the camera state. The configure function returns <code>-EACCES</code> if exclusive access has not been secured or the camera is not in a state where it can be configured, and <code>-ENODEV</code> if the camera has been disconnected.</p>
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>5</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-72be07b9f03d4034" aria-label="src/libcamera/camera.cpp:1163 excerpt"><code>L1163</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:1163" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1163">Full source <code>L1163</code></a> · <a href="#source-0840d2509c9e395b" aria-label="src/libcamera/camera.cpp:709 excerpt"><code>L709</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:709" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L709">Full source <code>L709</code></a> · <a aria-label="src/libcamera/camera.cpp:1191" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1191"><code>L1191</code></a> · <a aria-label="src/libcamera/camera.cpp:323" href="#source-2b31e92e3fb3f083"><code>L323</code></a> · <a aria-label="src/libcamera/camera.cpp:1191" href="#source-104cfe232814f03c"><code>L1191</code></a></span></li><li><code>include/libcamera/internal/camera.h</code><span class="evidence-lines"><a href="#source-ce7310b26757525b" aria-label="include/libcamera/internal/camera.h:61 excerpt"><code>L61</code> excerpt</a> · <a aria-label="include/libcamera/internal/camera.h:61" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/include/libcamera/internal/camera.h#L61">Full source <code>L61</code></a></span></li></ul></details><h2 id="구성-적용과-성공-상태를-확인할-위치">Where to check configuration application and success status</h2>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1191&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1191\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1191&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera.cpp:1183&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1183\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1183&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1191&quot;: [&quot;#source-104cfe232814f03c&quot;, &quot;#source-603af0dd7fa357d0&quot;], &quot;src/libcamera/camera.cpp:1183&quot;: [&quot;#source-5296d50aed1a3be0&quot;]}"><code>Camera::configure()</code> returns the negative error value if the access state check produces one; if the check passes, it clears each <code>StreamConfiguration</code>'s previous stream association to <code>nullptr</code>, checks <code>validate()</code>, and returns <code>-EINVAL</code> if the result is not <code>Valid</code>. For a valid configuration, <code>Camera::configure()</code> calls <code>PipelineHandler::configure</code> with <code>ConnectionTypeBlocking</code> and returns its return value unchanged if that value is nonzero. The API contract states that when the function returns, each <code>StreamConfiguration</code> in <code>config</code> is associated with a <code>Stream</code> instance, which can be retrieved with <code>stream()</code>.</p>
+<!-- sdd:visual:configure-validation-before-pipeline -->
+<h3 id="구성-적용-전의-검사와-파이프라인-결과">Checks before configuration is applied and pipeline results</h3>
+<pre class="mermaid">flowchart TB
+
+  v_access{"Call &lt;br/&gt;isAccessAllowed#40;Private::&lt;br/&gt;CameraAcquired, &lt;br/&gt;Private::CameraConfigured#41;. &lt;br/&gt;Is the access result &lt;br/&gt;negative?"}
+  v_access_return["Return the access result &lt;br/&gt;ret."]
+  v_reset["Call cfg.setStream#40;nullptr#41; &lt;br/&gt;for each cfg in the &lt;br/&gt;existing #42;config to reset &lt;br/&gt;its connection."]
+  v_validation{"Did config-#62;validate#40;#41; &lt;br/&gt;return a status other than &lt;br/&gt;CameraConfiguration::Valid?"}
+  v_validation_return["Return -EINVAL because &lt;br/&gt;validate#40;#41; returned a &lt;br/&gt;status other than &lt;br/&gt;CameraConfiguration::Valid."]
+  v_log["Prepare and output the &lt;br/&gt;stream configuration log."]
+  v_pipeline["Call &lt;br/&gt;PipelineHandler::configure &lt;br/&gt;through invokeMethod with &lt;br/&gt;ConnectionTypeBlocking."]
+  v_pipeline_check{"Is the pipeline call#39;s &lt;br/&gt;return value ret true?"}
+  v_pipeline_return["Return the pipeline call#39;s &lt;br/&gt;return value ret."]
+  v_next["Continue to &lt;br/&gt;activeStreams#95;.clear#40;#41; and &lt;br/&gt;the separate stream &lt;br/&gt;connection check. This is &lt;br/&gt;not the function#39;s &lt;br/&gt;successful return."]
+  v_access --&gt;|"If the access result is &lt;br/&gt;negative, return ret. #91;true#93;"| v_access_return
+  v_access --&gt;|"If the access result is not &lt;br/&gt;negative, reset the &lt;br/&gt;connections. #91;false#93;"| v_reset
+  v_reset --&gt;|"Validate after resetting &lt;br/&gt;each connection."| v_validation
+  v_validation --&gt;|"If the returned status is &lt;br/&gt;not &lt;br/&gt;CameraConfiguration::Valid, &lt;br/&gt;return -EINVAL. #91;true#93;"| v_validation_return
+  v_validation --&gt;|"If the returned status is &lt;br/&gt;CameraConfiguration::Valid, &lt;br/&gt;prepare the log. #91;false#93;"| v_log
+  v_log --&gt;|"Call the pipeline after &lt;br/&gt;outputting the log."| v_pipeline
+  v_pipeline --&gt;|"Check the call result."| v_pipeline_check
+  v_pipeline_check --&gt;|"If ret is true, return ret. &lt;br/&gt;#91;true#93;"| v_pipeline_return
+  v_pipeline_check --&gt;|"If ret is false, continue &lt;br/&gt;to the next check. #91;false#93;"| v_next</pre>
+<p><a href="configure.configure-validation-before-pipeline.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>In what order does Camera::configure perform the access check, stream connection initialization, validation, and pipeline return-value check?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Call isAccessAllowed(Private::CameraAcquired, Private::CameraConfigured). Is the access result negative?">Call isAccessAllowed(Private::CameraAcquired, Private::CameraConfigured). Is the access result negative?</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return the access result ret.">Return the access result ret.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call cfg.setStream(nullptr) for each cfg in the existing *config to reset its connection.">Call cfg.setStream(nullptr) for each cfg in the existing *config to reset its connection.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Did config-&gt;validate() return a status other than CameraConfiguration::Valid?">Did config-&gt;validate() return a status other than CameraConfiguration::Valid?</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return -EINVAL because validate() returned a status other than CameraConfiguration::Valid.">Return -EINVAL because validate() returned a status other than CameraConfiguration::Valid.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Prepare and output the stream configuration log.">Prepare and output the stream configuration log.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call PipelineHandler::configure through invokeMethod with ConnectionTypeBlocking.">Call PipelineHandler::configure through invokeMethod with ConnectionTypeBlocking.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is the pipeline call&#x27;s return value ret true?">Is the pipeline call's return value ret true?</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return the pipeline call&#x27;s return value ret.">Return the pipeline call's return value ret.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Continue to activeStreams_.clear() and the separate stream connection check. This is not the function&#x27;s successful return.">Continue to activeStreams_.clear() and the separate stream connection check. This is not the function's successful return.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the access result is negative, return ret. · ret &lt; 0 [true]">If the access result is negative, return ret. · ret &lt; 0 [true]</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the access result is not negative, reset the connections. · ret &lt; 0 [false]">If the access result is not negative, reset the connections. · ret &lt; 0 [false]</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Validate after resetting each connection.">Validate after resetting each connection.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the returned status is not CameraConfiguration::Valid, return -EINVAL. · config-&gt;validate() != CameraConfiguration::Valid [true]">If the returned status is not CameraConfiguration::Valid, return -EINVAL. · config-&gt;validate() != CameraConfiguration::Valid [true]</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the returned status is CameraConfiguration::Valid, prepare the log. · config-&gt;validate() != CameraConfiguration::Valid [false]">If the returned status is CameraConfiguration::Valid, prepare the log. · config-&gt;validate() != CameraConfiguration::Valid [false]</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call the pipeline after outputting the log.">Call the pipeline after outputting the log.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the call result.">Check the call result.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If ret is true, return ret. · ret [true]">If ret is true, return ret. · ret [true]</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If ret is false, continue to the next check. · ret [false]">If ret is false, continue to the next check. · ret [false]</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:configure-validation-before-pipeline -->
+
+<!-- sdd:visual:configure-stream-list-once -->
+<h3 id="스트림-목록의-일회-초기화와-성공-상태">One-time initialization of the stream list and success status</h3>
+<pre class="mermaid">flowchart TB
+
+  v_handler_return["PipelineHandler::configure &lt;br/&gt;has returned normally with &lt;br/&gt;0."]
+  v_clear["Camera clears &lt;br/&gt;activeStreams#95;."]
+  v_loop["Camera iterates over each &lt;br/&gt;StreamConfiguration as cfg."]
+  v_check{"Camera obtains cfg.stream#40;#41; &lt;br/&gt;and checks whether stream &lt;br/&gt;is absent."}
+  v_fatal["When Camera prints the &lt;br/&gt;Fatal message, the program &lt;br/&gt;terminates immediately."]
+  v_update["Camera updates the Stream &lt;br/&gt;configuration#95; from cfg and &lt;br/&gt;inserts stream into &lt;br/&gt;activeStreams#95;."]
+  v_configured["After the loop, Camera sets &lt;br/&gt;the state to &lt;br/&gt;Private::CameraConfigured."]
+  v_camera_return["Camera::configure returns 0."]
+  v_handler_return --&gt;|"Execution continues after &lt;br/&gt;PipelineHandler::configure &lt;br/&gt;returns 0."| v_clear
+  v_clear --&gt;|"Camera iterates over the &lt;br/&gt;configurations after &lt;br/&gt;clearing activeStreams#95;."| v_loop
+  v_loop --&gt;|"Camera checks stream when &lt;br/&gt;there is another cfg."| v_check
+  v_check --&gt;|"If the condition is true, &lt;br/&gt;Camera prints a Fatal &lt;br/&gt;message. · #33;stream #91;true#93;"| v_fatal
+  v_check --&gt;|"If the condition is false, &lt;br/&gt;Camera updates the Stream. &lt;br/&gt;· #33;stream #91;false#93;"| v_update
+  v_update --&gt;|"Camera continues the loop &lt;br/&gt;after the update."| v_loop
+  v_loop --&gt;|"Camera sets the state when &lt;br/&gt;the loop ends."| v_configured
+  v_configured --&gt;|"Camera::configure returns &lt;br/&gt;after setting the state."| v_camera_return</pre>
+<p><a href="configure.configure-stream-list-once.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>After successful pipeline configuration, how do activeStreams_ initialization, updates to each StreamConfiguration, and the success state follow?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="PipelineHandler::configure has returned normally with 0.">PipelineHandler::configure has returned normally with 0.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera clears activeStreams_.">Camera clears activeStreams_.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera iterates over each StreamConfiguration as cfg.">Camera iterates over each StreamConfiguration as cfg.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera obtains cfg.stream() and checks whether stream is absent.">Camera obtains cfg.stream() and checks whether stream is absent.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="When Camera prints the Fatal message, the program terminates immediately.">When Camera prints the Fatal message, the program terminates immediately.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a> · <a href="#source-47a6ef3943a7b53c">src/libcamera/base/log.cpp:1022</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera updates the Stream configuration_ from cfg and inserts stream into activeStreams_.">Camera updates the Stream configuration_ from cfg and inserts stream into activeStreams_.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After the loop, Camera sets the state to Private::CameraConfigured.">After the loop, Camera sets the state to Private::CameraConfigured.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera::configure returns 0.">Camera::configure returns 0.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Execution continues after PipelineHandler::configure returns 0.">Execution continues after PipelineHandler::configure returns 0.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera iterates over the configurations after clearing activeStreams_.">Camera iterates over the configurations after clearing activeStreams_.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera checks stream when there is another cfg.">Camera checks stream when there is another cfg.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is true, Camera prints a Fatal message. · !stream [true]">If the condition is true, Camera prints a Fatal message. · !stream [true]</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is false, Camera updates the Stream. · !stream [false]">If the condition is false, Camera updates the Stream. · !stream [false]</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera continues the loop after the update.">Camera continues the loop after the update.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera sets the state when the loop ends.">Camera sets the state when the loop ends.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera::configure returns after setting the state.">Camera::configure returns after setting the state.</span></td>
+<td><a href="#source-603af0dd7fa357d0">src/libcamera/camera.cpp:1191</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:configure-stream-list-once -->
+
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1191&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1191\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1191&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/base/log.cpp:1022&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/base/log.cpp#L1022\&quot;&gt;&lt;code&gt;src/libcamera/base/log.cpp:1022&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1191&quot;: [&quot;#source-104cfe232814f03c&quot;, &quot;#source-603af0dd7fa357d0&quot;], &quot;src/libcamera/base/log.cpp:1022&quot;: [&quot;#source-47a6ef3943a7b53c&quot;]}">When the pipeline call succeeds, <code>Camera::configure()</code> clears <code>activeStreams_</code> and checks <code>cfg.stream()</code> for each configuration. If a stream is missing, execution enters the <code>Fatal</code> log path, and under the <code>LOG</code> contract, execution is aborted and the program terminates immediately after the message is printed. If every configuration has a stream, <code>Camera::configure()</code> updates each stream's <code>configuration_</code> to the corresponding configuration and adds the stream to <code>activeStreams_</code>. Camera::configure() then sets the state to <code>CameraConfigured</code> and returns <code>0</code>.</p>
 
 
-<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>3</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-603af0dd7fa357d0" aria-label="src/libcamera/camera.cpp:1191 excerpt"><code>L1191</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:1191" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1191">Full source <code>L1191</code></a> · <a href="#source-5296d50aed1a3be0" aria-label="src/libcamera/camera.cpp:1183 excerpt"><code>L1183</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:1183" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1183">Full source <code>L1183</code></a></span></li><li><code>src/libcamera/base/log.cpp</code><span class="evidence-lines"><a href="#source-47a6ef3943a7b53c" aria-label="src/libcamera/base/log.cpp:1022 excerpt"><code>L1022</code> excerpt</a> · <a aria-label="src/libcamera/base/log.cpp:1022" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/base/log.cpp#L1022">Full source <code>L1022</code></a></span></li></ul></details><h2 id="소스-근거">Source evidence</h2>
-<details class="source-excerpts"><summary><span>4</span> source excerpts</summary>
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>3</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/camera.cpp:1191" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1191"><code>L1191</code></a> · <a href="#source-5296d50aed1a3be0" aria-label="src/libcamera/camera.cpp:1183 excerpt"><code>L1183</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:1183" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1183">Full source <code>L1183</code></a> · <a aria-label="src/libcamera/camera.cpp:1191" href="#source-603af0dd7fa357d0"><code>L1191</code></a></span></li><li><code>src/libcamera/base/log.cpp</code><span class="evidence-lines"><a href="#source-47a6ef3943a7b53c" aria-label="src/libcamera/base/log.cpp:1022 excerpt"><code>L1022</code> excerpt</a> · <a aria-label="src/libcamera/base/log.cpp:1022" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/base/log.cpp#L1022">Full source <code>L1022</code></a></span></li></ul></details><h2 id="소스-근거">Source evidence</h2>
+<details class="source-excerpts"><summary><span>8</span> source excerpts</summary>
 <p>Include each excerpt only once. Expand the needed original text and check it against the explanation.</p>
 <p><a id="source-72be07b9f03d4034"></a></p>
 <details class="note">
@@ -77,6 +395,99 @@
  * \retval -EACCES The camera is not in a state where it can be configured
  * \retval -EINVAL The configuration is not valid
  */
+</code></pre></div>
+</details>
+<p><a id="source-2b31e92e3fb3f083"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/camera.cpp:323</summary>
+<p>This is an excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L323"><code>src/libcamera/camera.cpp:323</code></a>. The end line is 346, and the source text below can be compared against the explanation.</p>
+<p>SHA-256: <code>86bf9109257512866bf70a5d42cd3da29c70d851d871f0e496058141ba377623</code></p>
+<div class="highlight"><pre><span></span><code>\fn CameraConfiguration::validate()
+ * \brief Validate and possibly adjust the camera configuration
+ *
+ * This function adjusts the camera configuration to the closest valid
+ * configuration and returns the validation status.
+ *
+ * \todo Define exactly when to return each status code. Should stream
+ * parameters set to 0 by the caller be adjusted without returning Adjusted ?
+ * This would potentially be useful for applications but would get in the way
+ * in Camera::configure(). Do we need an extra status code to signal this ?
+ *
+ * \todo Handle validation of buffers count when refactoring the buffers API.
+ *
+ * \return A CameraConfiguration::Status value that describes the validation
+ * status.
+ * \retval CameraConfiguration::Invalid The configuration is invalid and can't
+ * be adjusted. This may only occur in extreme cases such as when the
+ * configuration is empty.
+ * \retval CameraConfiguration::Adjusted The configuration has been adjusted
+ * and is now valid. Parameters may have changed for any stream, and stream
+ * configurations may have been removed. The caller shall check the
+ * configuration carefully.
+ * \retval CameraConfiguration::Valid The configuration was already valid and
+ * hasn't been adjusted.
+</code></pre></div>
+</details>
+<p><a id="source-0840d2509c9e395b"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/camera.cpp:709</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L709"><code>src/libcamera/camera.cpp:709</code></a>. The end line is 730, and the source text below can be compared with the explanation.</p>
+<p>SHA-256: <code>d04dbcf64bf95e8e89669e5c85602d590cd8d6530e44cd275cee39348d644b8f</code></p>
+<div class="highlight"><pre><span></span><code>int Camera::Private::isAccessAllowed(State low, State high,
+                     bool allowDisconnected,
+                     const char *from) const
+{
+    if (!allowDisconnected &amp;&amp; disconnected_)
+        return -ENODEV;
+
+    State currentState = state_.load(std::memory_order_acquire);
+    if (currentState &gt;= low &amp;&amp; currentState &lt;= high)
+        return 0;
+
+    ASSERT(static_cast&lt;unsigned int&gt;(low) &lt; std::size(camera_state_names) &amp;&amp;
+           static_cast&lt;unsigned int&gt;(high) &lt; std::size(camera_state_names));
+
+    LOG(Camera, Error) &lt;&lt; "Camera in " &lt;&lt; camera_state_names[currentState]
+               &lt;&lt; " state trying " &lt;&lt; from
+               &lt;&lt; "() requiring state between "
+               &lt;&lt; camera_state_names[low] &lt;&lt; " and "
+               &lt;&lt; camera_state_names[high];
+
+    return -EACCES;
+}
+</code></pre></div>
+</details>
+<p><a id="source-ce7310b26757525b"></a></p>
+<details class="note">
+<summary>Source evidence: include/libcamera/internal/camera.h:61</summary>
+<p>This excerpt starts at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/include/libcamera/internal/camera.h#L61"><code>include/libcamera/internal/camera.h:61</code></a> and ends at line 63. The source text below can be compared with the description.</p>
+<p>SHA-256: <code>de8b9aceb9f90513ee8f246a8e96d7d6e48b58b68038a26bfd8e50ba286183e2</code></p>
+<div class="highlight"><pre><span></span><code>int isAccessAllowed(State low, State high,
+                bool allowDisconnected = false,
+                const char *from = __builtin_FUNCTION()) const;
+</code></pre></div>
+</details>
+<p><a id="source-104cfe232814f03c"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/camera.cpp:1191</summary>
+<p>This excerpt begins at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1191"><code>src/libcamera/camera.cpp:1191</code></a>. The ending line is 1206, and the original text below can be compared with the explanation.</p>
+<p>SHA-256: <code>e3da158ab68ff445cbbb048ad83ebff21ef19910f85951e63b8ece07ff52104e</code></p>
+<div class="highlight"><pre><span></span><code>int Camera::configure(CameraConfiguration *config)
+{
+    Private *const d = _d();
+
+    int ret = d-&gt;isAccessAllowed(Private::CameraAcquired,
+                     Private::CameraConfigured);
+    if (ret &lt; 0)
+        return ret;
+
+    for (auto &amp;cfg : *config)
+        cfg.setStream(nullptr);
+
+    if (config-&gt;validate() != CameraConfiguration::Valid) {
+        LOG(Camera, Error)
+            &lt;&lt; "Can't configure camera with invalid configuration";
+        return -EINVAL;
 </code></pre></div>
 </details>
 <p><a id="source-603af0dd7fa357d0"></a></p>
@@ -1720,12 +2131,19 @@
 </table></div>
 </details>
 
-</article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78</code></dd><dt>Document generation time</dt><dd><code>2026-10-30 16:46:15+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/claude/claude-haiku-5-5</code></dd><dt>Contracts between documents</dt><dd><a href="../../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>include/libcamera/geometry.h</code>, <code>include/libcamera/pixel_format.h</code>, <code>src/libcamera/base/log.cpp</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/formats.cpp</code>, <code>src/libcamera/pipeline/imx8-isi/imx8-isi.cpp</code>, <code>src/libcamera/pixel_format.cpp</code>, <code>src/libcamera/sensor/camera_sensor_legacy.cpp</code>, <code>src/libcamera/sensor/camera_sensor_raw.cpp</code>, <code>src/libcamera/stream.cpp</code></li><li>Evidence level: Code verified (static analysis, simple_compdb configuration, commit <code>212c689fcf</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status record date: 2026-10-31 · Before human review</li></ul></details><a href="../../scenarios/configure.md">Markdown source ↗</a> <a href="configure.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="manager_start.html"><small>Previous</small> Camera discovery ←</a><a class="next" href="camera_start.html"><small>Next</small> capture start →</a></nav>
+</article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78</code></dd><dt>Document generation time</dt><dd><code>2026-11-11 20:35:49+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>include/libcamera/geometry.h</code>, <code>include/libcamera/internal/camera.h</code>, <code>include/libcamera/pixel_format.h</code>, <code>src/libcamera/base/log.cpp</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/formats.cpp</code>, <code>src/libcamera/pipeline/imx8-isi/imx8-isi.cpp</code>, <code>src/libcamera/pixel_format.cpp</code>, <code>src/libcamera/sensor/camera_sensor_legacy.cpp</code>, <code>src/libcamera/sensor/camera_sensor_raw.cpp</code>, <code>src/libcamera/stream.cpp</code></li><li>Evidence level: Code verified (static analysis, simple_compdb configuration, commit <code>c19d05128f</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded: 2026-11-12 · Before human review</li></ul></details><a href="../../scenarios/configure.md">Markdown source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="manager_start.html"><small>Previous</small> Camera discovery ←</a><a class="next" href="camera_start.html"><small>Next</small> capture start →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
 <aside class="page-toc"><nav aria-label="Table of contents for this page"><p>On this page</p><div class="toc">
 <ul>
-<li><a href="#캡처-전에-준비할-스트림-구성">Stream configuration to prepare before capture</a></li>
-<li><a href="#구성-적용과-성공-상태를-확인할-위치">Where to check configuration application and success status</a></li>
+<li><a href="#캡처-전에-준비할-스트림-구성">Stream configuration to prepare before capture</a><ul>
+<li><a href="#구성-호출의-입력과-접근-조건">Inputs and access conditions for the configuration call</a></li>
+</ul>
+</li>
+<li><a href="#구성-적용과-성공-상태를-확인할-위치">Where to check configuration application and success status</a><ul>
+<li><a href="#구성-적용-전의-검사와-파이프라인-결과">Checks before configuration is applied and pipeline results</a></li>
+<li><a href="#스트림-목록의-일회-초기화와-성공-상태">One-time initialization of the stream list and success status</a></li>
+</ul>
+</li>
 <li><a href="#소스-근거">Source evidence</a></li>
 <li><a href="#주요-확인-지점">Key check points</a></li>
 <li><a href="#주요-호출-관계">Key call relationships</a></li>
@@ -1736,4 +2154,4 @@
 </nav></aside></div>
 <dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find document</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search documents, sections, terms, and code elements</label><input id="search-input" type="search" autocomplete="off" placeholder="Example: Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
 <dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Diagram element and function names"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Collapse">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to screen</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">Drag with a mouse or swipe with touch to move the diagram. "Fit to screen" shows an overview of the whole diagram.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="Zoomed diagram"><div id="diagram-canvas"></div></div></dialog>
-<script id="site-config" type="application/json">{"root": "../", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "d7f54ca11e", "language": "en"}</script><script defer src="../../assets/site.js?v=dd3415510a"></script><script defer src="../../assets/reader-tools.js?v=dd3415510a"></script></body></html>
+<script id="site-config" type="application/json">{"root": "../", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "10c7b0ad3c", "language": "en"}</script><script defer src="../../assets/site.js?v=dd3415510a"></script><script defer src="../../assets/reader-tools.js?v=dd3415510a"></script></body></html>

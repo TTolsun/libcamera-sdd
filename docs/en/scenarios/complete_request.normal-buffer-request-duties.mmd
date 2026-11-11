@@ -1,0 +1,18 @@
+flowchart TB
+
+  v_handler["PipelineHandler is <br/>responsible for signaling <br/>buffer and request <br/>completion."]
+  v_complete_buffer["Call completeBuffer on the <br/>CameraManager thread; it <br/>notifies the app and <br/>updates buffer tracking."]
+  v_buffer_result["completeBuffer returns true <br/>if all buffers in the <br/>request are complete, and <br/>false otherwise."]
+  v_complete_request["The last buffer does not <br/>complete the request; the <br/>handler must explicitly <br/>call completeRequest after <br/>any needed work."]
+  v_request["Call the completion <br/>function on the <br/>CameraManager thread; the <br/>handler must not access the <br/>request after it returns."]
+  v_application["Requests return to the <br/>application in submission <br/>order; the handler may <br/>report completed requests <br/>in any order."]
+  v_private_complete["Request::Private::complete <br/>asserts that the request is <br/>RequestPending and has no <br/>pending buffers."]
+  v_assert["ASSERT logs a Fatal error <br/>and aborts if false; <br/>passing or compiling it out <br/>with NDEBUG does not abort."]
+  v_handler -->|"The handler must call <br/>completeBuffer to signal <br/>buffer completion."| v_complete_buffer
+  v_handler -->|"The handler must explicitly <br/>call completeRequest to <br/>complete the request."| v_complete_request
+  v_complete_buffer -->|"The completeBuffer return <br/>value reports whether all <br/>buffers are complete."| v_buffer_result
+  v_complete_buffer -->|"The request contains the <br/>completed buffer."| v_request
+  v_complete_request -->|"completeRequest explicitly <br/>completes a request that <br/>buffer completion alone <br/>does not complete."| v_request
+  v_request -->|"Completed requests return <br/>to the application in <br/>submission order."| v_application
+  v_request -->|"Request::Private::complete <br/>checks the request status <br/>and pending buffers."| v_private_complete
+  v_private_complete -->|"This completion function <br/>uses ASSERT for both <br/>preconditions."| v_assert

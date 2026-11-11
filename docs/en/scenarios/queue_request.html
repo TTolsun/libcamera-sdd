@@ -8,8 +8,17 @@
 <main id="main"><p class="breadcrumb">For Developer <span>/</span> Request submission</p><h1>Request submission</h1><div class="page-state"><span class="review-state">Before human review</span><span>Automated check passed</span><span class="generation-method">Authored: extracted structure and draft written by the model</span><a class="state-help" href="#page-evidence">State description ↓</a></div>
 <details class="mobile-toc"><summary>Table of contents of this page</summary><div class="toc">
 <ul>
-<li><a href="#요청을-제출하기-전에-갖출-조건">Conditions to meet before submitting a request</a></li>
-<li><a href="#큐로-전달된-요청의-준비와-실패">Preparation and failure of requests delivered to the queue</a></li>
+<li><a href="#요청을-제출하기-전에-갖출-조건">Conditions to meet before submitting a request</a><ul>
+<li><a href="#요청-제출의-접근-검사">Access check for request submission</a></li>
+<li><a href="#요청-제출의-실제-거절-조건">Actual conditions for rejecting request submission</a></li>
+</ul>
+</li>
+<li><a href="#큐로-전달된-요청의-준비와-실패">Preparation and failure of requests delivered to the queue</a><ul>
+<li><a href="#장치-큐-전달과-취소의-분기">Branching between device queue delivery and cancellation</a></li>
+<li><a href="#대기-큐-삽입과-준비-호출">Insertion into the waiting queue and the prepare call</a></li>
+<li><a href="#준비된-대기-요청의-장치-전달-검사">Checking device delivery of ready requests in the waiting queue</a></li>
+</ul>
+</li>
 <li><a href="#소스-근거">Source evidence</a></li>
 <li><a href="#주요-확인-지점">Key check points</a></li>
 <li><a href="#주요-호출-관계">Key call relationships</a></li>
@@ -22,28 +31,576 @@
 <p>The answers to each question and their evidence links were checked. The meaning and execution results require human review.</p>
 <ul class="coverage-links"><li><p>How do you check the request conditions for Camera::queueRequest() and distinguish the return value from the completion notification?</p><p><a href="#요청을-제출하기-전에-갖출-조건">Conditions to meet before submitting a request</a></p></li><li><p>When are accepted requests passed to the device, and how are waiting, cancellation, and queueing failures handled?</p><p><a href="#큐로-전달된-요청의-준비와-실패">Preparation and failure of requests delivered to the queue</a></p></li></ul><p><span>Verification scope</span>: <span>Linking code evidence to explanations</span></p>
 </details>
-<details class="page-terms">
-<summary>Terms in this document: Pipeline Handler</summary>
-<ul>
-<li><strong>Pipeline Handler</strong>: A libcamera component that finds the media device of a specific hardware platform (IPU3, RKISP1, etc.), creates cameras, passes requests to the device, and returns their completion. There is one per platform.</li>
-</ul>
-<p>Other terms can be found in <a href="../glossary.html">Glossary</a>.</p>
-</details>
 <div class="previous-route" id="이-흐름에서-확인할-것"><p>Destination of the previous link</p><a href="#요청을-제출하기-전에-갖출-조건">Conditions to meet before submitting a request</a></div>
 <h2 id="요청을-제출하기-전에-갖출-조건">Conditions to meet before submitting a request</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1308&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1308\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1308&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera.cpp:690&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L690\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:690&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1308&quot;: [&quot;#source-3c1e4a3c695a8890&quot;], &quot;src/libcamera/camera.cpp:690&quot;: [&quot;#source-43bf991ac670b1aa&quot;]}"><code>Camera::queueRequest()</code> is marked as thread-safe and, before accepting a capture request, calls <code>d-&gt;isAccessAllowed(Private::CameraRunning)</code> to check that the camera is in the Running state. When <code>allowDisconnected</code> is false and <code>disconnected_</code> is true, <code>isAccessAllowed()</code> returns <code>-ENODEV</code> before comparing states. After the connection check passes, if the current state differs from the required state, the returned value is <code>-EACCES</code>, and <code>queueRequest()</code> returns that value unchanged. When both conditions apply, <code>-ENODEV</code>, which indicates a disconnection, takes precedence over <code>-EACCES</code>, and callers must call <code>queueRequest()</code> only when the camera is in the Running state.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1308&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1308\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1308&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1308&quot;: [&quot;#source-3c1e4a3c695a8890&quot;]}">If <code>request-&gt;_d()-&gt;camera()</code> differs from <code>this</code>, queueRequest() returns <code>-EXDEV</code> and does not proceed to the pipeline call. After this check, if <code>request-&gt;status()</code> is not <code>Request::RequestPending</code> or <code>request-&gt;controls().infoMap()</code> is different from <code>&amp;controls()</code>, queueRequest() returns <code>-EINVAL</code>. Also, if <code>request-&gt;buffers()</code> is empty or any stream in it is not in <code>d-&gt;activeStreams_</code>, queueRequest() returns <code>-EINVAL</code>.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1308&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1308\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1308&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1308&quot;: [&quot;#source-3c1e4a3c695a8890&quot;]}">If all checks pass, <code>Camera::queueRequest()</code> calls <code>pipe_-&gt;invokeMethod(&amp;PipelineHandler::queueRequest, ConnectionTypeQueued, request)</code> and then returns <code>0</code>. Therefore, the return value <code>0</code> means that the request was handed off to the pipeline, and does not mean that the request has completed. After the request is queued, the camera reports completion through the <code>requestCompleted</code> signal.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1308&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1308\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1308&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera.cpp:690&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L690\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:690&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;include/libcamera/internal/camera.h:59&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/include/libcamera/internal/camera.h#L59\&quot;&gt;&lt;code&gt;include/libcamera/internal/camera.h:59&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1308&quot;: [&quot;#source-3c1e4a3c695a8890&quot;], &quot;src/libcamera/camera.cpp:690&quot;: [&quot;#source-43bf991ac670b1aa&quot;], &quot;include/libcamera/internal/camera.h:59&quot;: [&quot;#source-c0ab3b94a184909f&quot;]}"><code>Camera::queueRequest()</code> queues a request to the camera for capture. The function is thread-safe, and the caller must call it only when the camera is in the Running state. If the camera is disconnected, Camera::queueRequest() returns <code>-ENODEV</code>; if the camera remains connected but is not in the Running state, Camera::queueRequest() returns <code>-EACCES</code>.</p>
+<!-- sdd:visual:queue-access-helper -->
+<h3 id="요청-제출의-접근-검사">Access check for request submission</h3>
+<pre class="mermaid">flowchart TB
 
-<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>2</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-3c1e4a3c695a8890" aria-label="src/libcamera/camera.cpp:1308 excerpt"><code>L1308</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:1308" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1308">Full source <code>L1308</code></a> · <a href="#source-43bf991ac670b1aa" aria-label="src/libcamera/camera.cpp:690 excerpt"><code>L690</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:690" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L690">Full source <code>L690</code></a></span></li></ul></details><h2 id="큐로-전달된-요청의-준비와-실패">Preparation and failure of requests delivered to the queue</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1373&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1373\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1373&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1373&quot;: [&quot;#source-997ecce495182b6b&quot;]}"><code>Camera::queueRequest()</code> calls <code>patchControlList(request-&gt;controls())</code> to preprocess <code>AeEnable</code>, as described in the comment, then specifies <code>ConnectionTypeQueued</code> for <code>d-&gt;pipe_-&gt;invokeMethod()</code> and passes <code>request</code> to <code>PipelineHandler::queueRequest</code>. The comment between the request checks says the camera state may change until the function ends, and explains that no locking is needed because <code>PipelineHandler::queueRequest()</code> handles the state change.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/pipeline_handler.cpp:447&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L447\&quot;&gt;&lt;code&gt;src/libcamera/pipeline_handler.cpp:447&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline_handler.cpp:447&quot;: [&quot;#source-5493b66ef420047f&quot;]}">According to the comment, this function is called on the <code>CameraManager</code> thread. After <code>PipelineHandler::queueRequest</code> adds <code>request</code> to <code>waitingRequests_</code> of <code>camera-&gt;_d()</code>, it calls <code>request-&gt;_d()-&gt;prepare(300ms)</code> to start preparation. The comment states that if <code>Request</code> fails during the preparation stage, or if the pipeline handler fails to queue the request to hardware, the request is cancelled.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/pipeline_handler.cpp:509&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L509\&quot;&gt;&lt;code&gt;src/libcamera/pipeline_handler.cpp:509&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline_handler.cpp:509&quot;: [&quot;#source-9bef16708cb3efe3&quot;]}"><code>doQueueRequests</code> repeats until <code>waitingRequests_</code> is empty. When the size of <code>queuedRequests_</code> equals <code>maxQueuedRequestsDevice_</code>, the loop stops, and when <code>prepared_</code> of the front request is false, the loop stops without removing that request. A request that passes these conditions is removed with <code>pop()</code> and passed to <code>doQueueRequest</code>. According to the comment, the reason for removing it first is that <code>doQueueRequests()</code> may be called recursively within <code>doQueueRequest()</code>.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/pipeline_handler.cpp:483&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L483\&quot;&gt;&lt;code&gt;src/libcamera/pipeline_handler.cpp:483&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline_handler.cpp:483&quot;: [&quot;#source-7348e9b4af985eb2&quot;]}"><code>doQueueRequest</code> appends the request to the end of <code>queuedRequests_</code> in the <code>Camera::Private</code> data obtained through <code>camera-&gt;_d()</code>. Then the current value of <code>requestSequence_</code> is assigned to the request's <code>sequence_</code>, and <code>requestSequence_</code> is incremented by 1. If the request's <code>cancelled_</code> is true, <code>completeRequest(request)</code> is called and the return happens immediately, so <code>queueRequestDevice</code> is not called. Otherwise, <code>queueRequestDevice(camera, request)</code> is called, and if the return value is non-zero, the request is cancelled through <code>cancelRequest(request)</code>.</p>
+  v_entry["Camera::queueRequest calls &lt;br/&gt;the access check with &lt;br/&gt;Private::CameraRunning."]
+  v_disconnect{"Is disconnection disallowed &lt;br/&gt;and the camera disconnected?"}
+  v_enodev["The access check returns &lt;br/&gt;-ENODEV."]
+  v_state{"Does the current state &lt;br/&gt;exactly match the requested &lt;br/&gt;CameraRunning state?"}
+  v_zero["The access check returns 0. &lt;br/&gt;This means only that the &lt;br/&gt;access check passed."]
+  v_assert["If the states differ, an &lt;br/&gt;ASSERT checks the range of &lt;br/&gt;the state argument."]
+  v_eacces["The access check returns &lt;br/&gt;-EACCES."]
+  v_result{"Is the ret returned by the &lt;br/&gt;access check negative?"}
+  v_negative["Camera::queueRequest &lt;br/&gt;immediately returns that &lt;br/&gt;ret."]
+  v_camera["After the access check &lt;br/&gt;passes, the function checks &lt;br/&gt;whether the camera that &lt;br/&gt;created request matches the &lt;br/&gt;current Camera."]
+  v_entry --&gt;|"The check examines &lt;br/&gt;disconnection first."| v_disconnect
+  v_disconnect --&gt;|"If so, the check returns an &lt;br/&gt;error. #91;true#93;"| v_enodev
+  v_disconnect --&gt;|"Otherwise, the check reads &lt;br/&gt;and examines the current &lt;br/&gt;state. #91;false#93;"| v_state
+  v_state --&gt;|"If they match, the check &lt;br/&gt;returns 0. #91;true#93;"| v_zero
+  v_state --&gt;|"If they differ, the check &lt;br/&gt;examines the argument &lt;br/&gt;range. #91;false#93;"| v_assert
+  v_assert --&gt;|"If execution continues &lt;br/&gt;after the ASSERT, return &lt;br/&gt;the error."| v_eacces
+  v_enodev --&gt;|"The caller checks the &lt;br/&gt;return value as ret."| v_result
+  v_eacces --&gt;|"The caller checks the &lt;br/&gt;return value as ret."| v_result
+  v_zero --&gt;|"The caller checks the &lt;br/&gt;return value as ret."| v_result
+  v_result --&gt;|"If it is negative, the &lt;br/&gt;function returns it &lt;br/&gt;immediately. #91;true#93;"| v_negative
+  v_result --&gt;|"If it is not negative, the &lt;br/&gt;function proceeds to the &lt;br/&gt;next check. #91;false#93;"| v_camera</pre>
+<p><a href="queue_request.queue-access-helper.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>In what order does the initial access check in queueRequest check for disconnection and the Running state, and what does a return value of 0 from this check mean?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Camera::queueRequest calls the access check with Private::CameraRunning.">Camera::queueRequest calls the access check with Private::CameraRunning.</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is disconnection disallowed and the camera disconnected?">Is disconnection disallowed and the camera disconnected?</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a> · <a href="#source-c0ab3b94a184909f">include/libcamera/internal/camera.h:59</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The access check returns -ENODEV.">The access check returns -ENODEV.</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Does the current state exactly match the requested CameraRunning state?">Does the current state exactly match the requested CameraRunning state?</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a> · <a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The access check returns 0. This means only that the access check passed.">The access check returns 0. This means only that the access check passed.</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a> · <a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the states differ, an ASSERT checks the range of the state argument.">If the states differ, an ASSERT checks the range of the state argument.</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a> · <a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The access check returns -EACCES.">The access check returns -EACCES.</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is the ret returned by the access check negative?">Is the ret returned by the access check negative?</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera::queueRequest immediately returns that ret.">Camera::queueRequest immediately returns that ret.</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After the access check passes, the function checks whether the camera that created request matches the current Camera.">After the access check passes, the function checks whether the camera that created request matches the current Camera.</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The check examines disconnection first.">The check examines disconnection first.</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a> · <a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a> · <a href="#source-c0ab3b94a184909f">include/libcamera/internal/camera.h:59</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If so, the check returns an error. · !allowDisconnected &amp;&amp; disconnected_ [true]">If so, the check returns an error. · !allowDisconnected &amp;&amp; disconnected_ [true]</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Otherwise, the check reads and examines the current state. · !allowDisconnected &amp;&amp; disconnected_ [false]">Otherwise, the check reads and examines the current state. · !allowDisconnected &amp;&amp; disconnected_ [false]</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If they match, the check returns 0. · currentState == state [true]">If they match, the check returns 0. · currentState == state [true]</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If they differ, the check examines the argument range. · currentState == state [false]">If they differ, the check examines the argument range. · currentState == state [false]</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If execution continues after the ASSERT, return the error.">If execution continues after the ASSERT, return the error.</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The caller checks the return value as ret.">The caller checks the return value as ret.</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a> · <a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The caller checks the return value as ret.">The caller checks the return value as ret.</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a> · <a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The caller checks the return value as ret.">The caller checks the return value as ret.</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a> · <a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If it is negative, the function returns it immediately. · ret &lt; 0 [true]">If it is negative, the function returns it immediately. · ret &lt; 0 [true]</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If it is not negative, the function proceeds to the next check. · ret &lt; 0 [false]">If it is not negative, the function proceeds to the next check. · ret &lt; 0 [false]</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:queue-access-helper -->
+
+<!-- sdd:visual:queue-acceptance-exact-guards -->
+<h3 id="요청-제출의-실제-거절-조건">Actual conditions for rejecting request submission</h3>
+<pre class="mermaid">flowchart TB
+
+  v_access{"Is the CameraRunning access &lt;br/&gt;check result negative?"}
+  v_access_error["Return the error received &lt;br/&gt;from the access check &lt;br/&gt;unchanged."]
+  v_camera{"Is the camera that created &lt;br/&gt;the request different from &lt;br/&gt;this camera?"}
+  v_exdev["Return -EXDEV."]
+  v_status{"Is the request status &lt;br/&gt;different from &lt;br/&gt;Request::RequestPending?"}
+  v_controls{"Is the request controls &lt;br/&gt;infoMap different from the &lt;br/&gt;camera controls address?"}
+  v_buffers{"Are request buffers empty? &lt;br/&gt;The caller must add at &lt;br/&gt;least one capture buffer &lt;br/&gt;before queuing."}
+  v_stream{"Is the current buffer#39;s &lt;br/&gt;stream absent from &lt;br/&gt;activeStreams#95;? Check every &lt;br/&gt;buffer."}
+  v_invalid["Return -EINVAL."]
+  v_patch["Pre-process the request &lt;br/&gt;controls with &lt;br/&gt;patchControlList."]
+  v_invoke["Use invokeMethod with &lt;br/&gt;ConnectionTypeQueued to &lt;br/&gt;queue &lt;br/&gt;PipelineHandler::&lt;br/&gt;queueRequest."]
+  v_success["Camera::queueRequest &lt;br/&gt;returns 0 for acceptance; &lt;br/&gt;requestCompleted signals &lt;br/&gt;completion."]
+  v_access --&gt;|"If true, return the &lt;br/&gt;received error. #91;true#93;"| v_access_error
+  v_access --&gt;|"If false, check the request &lt;br/&gt;camera. #91;false#93;"| v_camera
+  v_camera --&gt;|"If true, return -EXDEV. &lt;br/&gt;#91;true#93;"| v_exdev
+  v_camera --&gt;|"If false, check the status. &lt;br/&gt;#91;false#93;"| v_status
+  v_status --&gt;|"If true, return -EINVAL. &lt;br/&gt;#91;true#93;"| v_invalid
+  v_status --&gt;|"If false, check the &lt;br/&gt;controls. #91;false#93;"| v_controls
+  v_controls --&gt;|"If true, return -EINVAL. &lt;br/&gt;#91;true#93;"| v_invalid
+  v_controls --&gt;|"If false, check the buffer &lt;br/&gt;list. #91;false#93;"| v_buffers
+  v_buffers --&gt;|"If true, return -EINVAL. &lt;br/&gt;#91;true#93;"| v_invalid
+  v_buffers --&gt;|"If false, check each &lt;br/&gt;buffer#39;s stream. #91;false#93;"| v_stream
+  v_stream --&gt;|"If true, return -EINVAL. &lt;br/&gt;#91;true#93;"| v_invalid
+  v_stream --&gt;|"If false and another buffer &lt;br/&gt;remains, check its stream. &lt;br/&gt;#91;false#93;"| v_stream
+  v_stream --&gt;|"If false and all buffers &lt;br/&gt;have been checked, &lt;br/&gt;pre-process controls. &lt;br/&gt;#91;false#93;"| v_patch
+  v_patch --&gt;|"When pre-processing returns &lt;br/&gt;normally, queue the call."| v_invoke
+  v_invoke --&gt;|"When invokeMethod returns &lt;br/&gt;normally, return 0."| v_success</pre>
+<p><a href="queue_request.queue-acceptance-exact-guards.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>After passing the access check, in what order does Camera::queueRequest check the request, controls, buffers, and streams, and when does it accept the request for delivery to the queue?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Is the CameraRunning access check result negative?">Is the CameraRunning access check result negative?</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return the error received from the access check unchanged.">Return the error received from the access check unchanged.</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is the camera that created the request different from this camera?">Is the camera that created the request different from this camera?</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return -EXDEV.">Return -EXDEV.</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is the request status different from Request::RequestPending?">Is the request status different from Request::RequestPending?</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is the request controls infoMap different from the camera controls address?">Is the request controls infoMap different from the camera controls address?</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Are request buffers empty? The caller must add at least one capture buffer before queuing.">Are request buffers empty? The caller must add at least one capture buffer before queuing.</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is the current buffer&#x27;s stream absent from activeStreams_? Check every buffer.">Is the current buffer's stream absent from activeStreams_? Check every buffer.</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return -EINVAL.">Return -EINVAL.</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Pre-process the request controls with patchControlList.">Pre-process the request controls with patchControlList.</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Use invokeMethod with ConnectionTypeQueued to queue PipelineHandler::queueRequest.">Use invokeMethod with ConnectionTypeQueued to queue PipelineHandler::queueRequest.</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera::queueRequest returns 0 for acceptance; requestCompleted signals completion.">Camera::queueRequest returns 0 for acceptance; requestCompleted signals completion.</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, return the received error. · ret &lt; 0 [true]">If true, return the received error. · ret &lt; 0 [true]</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, check the request camera. · ret &lt; 0 [false]">If false, check the request camera. · ret &lt; 0 [false]</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, return -EXDEV. · request-&gt;_d()-&gt;camera() != this [true]">If true, return -EXDEV. · request-&gt;_d()-&gt;camera() != this [true]</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, check the status. · request-&gt;_d()-&gt;camera() != this [false]">If false, check the status. · request-&gt;_d()-&gt;camera() != this [false]</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, return -EINVAL. · request-&gt;status() != Request::RequestPending [true]">If true, return -EINVAL. · request-&gt;status() != Request::RequestPending [true]</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, check the controls. · request-&gt;status() != Request::RequestPending [false]">If false, check the controls. · request-&gt;status() != Request::RequestPending [false]</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, return -EINVAL. · request-&gt;controls().infoMap() != &amp;controls() [true]">If true, return -EINVAL. · request-&gt;controls().infoMap() != &amp;controls() [true]</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, check the buffer list. · request-&gt;controls().infoMap() != &amp;controls() [false]">If false, check the buffer list. · request-&gt;controls().infoMap() != &amp;controls() [false]</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, return -EINVAL. · request-&gt;buffers().empty() [true]">If true, return -EINVAL. · request-&gt;buffers().empty() [true]</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, check each buffer&#x27;s stream. · request-&gt;buffers().empty() [false]">If false, check each buffer's stream. · request-&gt;buffers().empty() [false]</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, return -EINVAL. · d-&gt;activeStreams_.find(stream) == d-&gt;activeStreams_.end() [true]">If true, return -EINVAL. · d-&gt;activeStreams_.find(stream) == d-&gt;activeStreams_.end() [true]</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false and another buffer remains, check its stream. · d-&gt;activeStreams_.find(stream) == d-&gt;activeStreams_.end() [false]">If false and another buffer remains, check its stream. · d-&gt;activeStreams_.find(stream) == d-&gt;activeStreams_.end() [false]</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false and all buffers have been checked, pre-process controls. · d-&gt;activeStreams_.find(stream) == d-&gt;activeStreams_.end() [false]">If false and all buffers have been checked, pre-process controls. · d-&gt;activeStreams_.find(stream) == d-&gt;activeStreams_.end() [false]</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="When pre-processing returns normally, queue the call.">When pre-processing returns normally, queue the call.</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="When invokeMethod returns normally, return 0.">When invokeMethod returns normally, return 0.</span></td>
+<td><a href="#source-3c1e4a3c695a8890">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:queue-acceptance-exact-guards -->
+
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1308&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1308\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1308&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1308&quot;: [&quot;#source-3c1e4a3c695a8890&quot;]}"><code>Camera::queueRequest()</code> returns <code>-EXDEV</code> if the camera that created the request is different from the camera receiving the request, <code>-EINVAL</code> if the request status is not <code>RequestPending</code> or <code>controls().infoMap()</code> differs from the address of the camera's <code>controls()</code>, and <code>-EINVAL</code> if there are no buffers or a stream associated with a buffer in the request is not in <code>activeStreams_</code>.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1308&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1308\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1308&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1308&quot;: [&quot;#source-3c1e4a3c695a8890&quot;]}">The application must fill a request created with <code>createRequest()</code> with at least one capture buffer before queuing it. After passing the checks, <code>Camera::queueRequest()</code> calls <code>patchControlList()</code>, invokes <code>PipelineHandler::queueRequest()</code> through a queued call, and returns <code>0</code>. After the request is queued, the camera signals its completion through <code>requestCompleted</code>.</p>
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>3</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-3c1e4a3c695a8890" aria-label="src/libcamera/camera.cpp:1308 excerpt"><code>L1308</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:1308" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1308">Full source <code>L1308</code></a> · <a href="#source-43bf991ac670b1aa" aria-label="src/libcamera/camera.cpp:690 excerpt"><code>L690</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:690" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L690">Full source <code>L690</code></a></span></li><li><code>include/libcamera/internal/camera.h</code><span class="evidence-lines"><a href="#source-c0ab3b94a184909f" aria-label="include/libcamera/internal/camera.h:59 excerpt"><code>L59</code> excerpt</a> · <a aria-label="include/libcamera/internal/camera.h:59" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/include/libcamera/internal/camera.h#L59">Full source <code>L59</code></a></span></li></ul></details><h2 id="큐로-전달된-요청의-준비와-실패">Preparation and failure of requests delivered to the queue</h2>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1373&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1373\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1373&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline_handler.cpp:447&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L447\&quot;&gt;&lt;code&gt;src/libcamera/pipeline_handler.cpp:447&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1373&quot;: [&quot;#source-997ecce495182b6b&quot;], &quot;src/libcamera/pipeline_handler.cpp:447&quot;: [&quot;#source-5493b66ef420047f&quot;]}"><code>Camera::queueRequest</code> preprocesses the request's <code>AeEnable</code> using <code>patchControlList</code> and then passes the request to <code>PipelineHandler::queueRequest</code> using <code>ConnectionTypeQueued</code>. The camera state may change until the function ends, and no locking is needed for this part because <code>PipelineHandler::queueRequest</code> handles the state change. Called from the <code>CameraManager</code> thread, <code>PipelineHandler::queueRequest</code> puts the request in <code>waitingRequests_</code> and then starts <code>prepare(300ms)</code>. According to the source comment, if a request fails during preparation, that request is cancelled.</p>
+<!-- sdd:visual:dispatch-device-errors -->
+<h3 id="장치-큐-전달과-취소의-분기">Branching between device queue delivery and cancellation</h3>
+<pre class="mermaid">flowchart TB
+
+  v_enqueue["Add request with &lt;br/&gt;queuedRequests#95;.push#95;back."]
+  v_sequence["Assign requestSequence#95; to &lt;br/&gt;request#39;s sequence#95; and &lt;br/&gt;increment requestSequence#95;."]
+  v_cancelled{"Check whether request is &lt;br/&gt;already cancelled."}
+  v_complete["Complete request with &lt;br/&gt;completeRequest."]
+  v_return["Return from the function &lt;br/&gt;immediately."]
+  v_device["Call queueRequestDevice and &lt;br/&gt;store its return value in &lt;br/&gt;ret."]
+  v_result{"Check whether ret is zero &lt;br/&gt;or nonzero."}
+  v_cancel["Call cancelRequest, then &lt;br/&gt;the function ends."]
+  v_end["If ret is zero, the &lt;br/&gt;function ends."]
+  v_enqueue --&gt;|"Assign sequence#95; after &lt;br/&gt;adding the request."| v_sequence
+  v_sequence --&gt;|"Check for cancellation &lt;br/&gt;after assigning sequence#95;."| v_cancelled
+  v_cancelled --&gt;|"Complete the already &lt;br/&gt;cancelled request. #91;true#93;"| v_complete
+  v_complete --&gt;|"Return immediately after &lt;br/&gt;completing it."| v_return
+  v_cancelled --&gt;|"Pass only a request that is &lt;br/&gt;not cancelled to the &lt;br/&gt;device. #91;false#93;"| v_device
+  v_device --&gt;|"Check the return value."| v_result
+  v_result --&gt;|"Cancel the request if the &lt;br/&gt;return value is nonzero. &lt;br/&gt;#91;true#93;"| v_cancel
+  v_result --&gt;|"The function ends if the &lt;br/&gt;return value is zero. &lt;br/&gt;#91;false#93;"| v_end</pre>
+<p><a href="queue_request.dispatch-device-errors.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>In what order does doQueueRequest update queuedRequests_ and sequence_, and how does it handle an already cancelled request or a non-zero return from queueRequestDevice?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Add request with queuedRequests_.push_back.">Add request with queuedRequests_.push_back.</span></td>
+<td><a href="#source-7348e9b4af985eb2">src/libcamera/pipeline_handler.cpp:483</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Assign requestSequence_ to request&#x27;s sequence_ and increment requestSequence_.">Assign requestSequence_ to request's sequence_ and increment requestSequence_.</span></td>
+<td><a href="#source-7348e9b4af985eb2">src/libcamera/pipeline_handler.cpp:483</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether request is already cancelled.">Check whether request is already cancelled.</span></td>
+<td><a href="#source-7348e9b4af985eb2">src/libcamera/pipeline_handler.cpp:483</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Complete request with completeRequest.">Complete request with completeRequest.</span></td>
+<td><a href="#source-7348e9b4af985eb2">src/libcamera/pipeline_handler.cpp:483</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return from the function immediately.">Return from the function immediately.</span></td>
+<td><a href="#source-7348e9b4af985eb2">src/libcamera/pipeline_handler.cpp:483</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call queueRequestDevice and store its return value in ret.">Call queueRequestDevice and store its return value in ret.</span></td>
+<td><a href="#source-7348e9b4af985eb2">src/libcamera/pipeline_handler.cpp:483</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether ret is zero or nonzero.">Check whether ret is zero or nonzero.</span></td>
+<td><a href="#source-7348e9b4af985eb2">src/libcamera/pipeline_handler.cpp:483</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call cancelRequest, then the function ends.">Call cancelRequest, then the function ends.</span></td>
+<td><a href="#source-7348e9b4af985eb2">src/libcamera/pipeline_handler.cpp:483</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If ret is zero, the function ends.">If ret is zero, the function ends.</span></td>
+<td><a href="#source-7348e9b4af985eb2">src/libcamera/pipeline_handler.cpp:483</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Assign sequence_ after adding the request.">Assign sequence_ after adding the request.</span></td>
+<td><a href="#source-7348e9b4af985eb2">src/libcamera/pipeline_handler.cpp:483</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check for cancellation after assigning sequence_.">Check for cancellation after assigning sequence_.</span></td>
+<td><a href="#source-7348e9b4af985eb2">src/libcamera/pipeline_handler.cpp:483</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Complete the already cancelled request. · request-&gt;_d()-&gt;cancelled_ [true]">Complete the already cancelled request. · request-&gt;_d()-&gt;cancelled_ [true]</span></td>
+<td><a href="#source-7348e9b4af985eb2">src/libcamera/pipeline_handler.cpp:483</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return immediately after completing it.">Return immediately after completing it.</span></td>
+<td><a href="#source-7348e9b4af985eb2">src/libcamera/pipeline_handler.cpp:483</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Pass only a request that is not cancelled to the device. · request-&gt;_d()-&gt;cancelled_ [false]">Pass only a request that is not cancelled to the device. · request-&gt;_d()-&gt;cancelled_ [false]</span></td>
+<td><a href="#source-7348e9b4af985eb2">src/libcamera/pipeline_handler.cpp:483</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the return value.">Check the return value.</span></td>
+<td><a href="#source-7348e9b4af985eb2">src/libcamera/pipeline_handler.cpp:483</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Cancel the request if the return value is nonzero. · ret [true]">Cancel the request if the return value is nonzero. · ret [true]</span></td>
+<td><a href="#source-7348e9b4af985eb2">src/libcamera/pipeline_handler.cpp:483</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function ends if the return value is zero. · ret [false]">The function ends if the return value is zero. · ret [false]</span></td>
+<td><a href="#source-7348e9b4af985eb2">src/libcamera/pipeline_handler.cpp:483</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:dispatch-device-errors -->
+
+<!-- sdd:visual:queue-insert-prepare-only -->
+<h3 id="대기-큐-삽입과-준비-호출">Insertion into the waiting queue and the prepare call</h3>
+<pre class="mermaid">flowchart TB
+
+  v_camera["PipelineHandler::&lt;br/&gt;queueRequest finds camera &lt;br/&gt;from request and gets its &lt;br/&gt;Camera::Private."]
+  v_waiting["It pushes request into &lt;br/&gt;waitingRequests#95; in &lt;br/&gt;Camera::Private."]
+  v_prepare["It calls prepare#40;300ms#41; on &lt;br/&gt;request; the call does not &lt;br/&gt;guarantee completion within &lt;br/&gt;300ms."]
+  v_end["After prepare returns &lt;br/&gt;normally, &lt;br/&gt;PipelineHandler::&lt;br/&gt;queueRequest ends. The next &lt;br/&gt;diagram shows a separate &lt;br/&gt;call."]
+  v_camera --&gt;|"After getting &lt;br/&gt;Camera::Private, it inserts &lt;br/&gt;request."| v_waiting
+  v_waiting --&gt;|"After inserting request, it &lt;br/&gt;calls prepare."| v_prepare
+  v_prepare --&gt;|"The function ends when &lt;br/&gt;prepare returns normally."| v_end</pre>
+<p><a href="queue_request.queue-insert-prepare-only.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>Where does PipelineHandler::queueRequest itself place the request, and which preparation function does it call?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="PipelineHandler::queueRequest finds camera from request and gets its Camera::Private.">PipelineHandler::queueRequest finds camera from request and gets its Camera::Private.</span></td>
+<td><a href="#source-5493b66ef420047f">src/libcamera/pipeline_handler.cpp:447</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It pushes request into waitingRequests_ in Camera::Private.">It pushes request into waitingRequests_ in Camera::Private.</span></td>
+<td><a href="#source-5493b66ef420047f">src/libcamera/pipeline_handler.cpp:447</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It calls prepare(300ms) on request; the call does not guarantee completion within 300ms.">It calls prepare(300ms) on request; the call does not guarantee completion within 300ms.</span></td>
+<td><a href="#source-5493b66ef420047f">src/libcamera/pipeline_handler.cpp:447</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After prepare returns normally, PipelineHandler::queueRequest ends. The next diagram shows a separate call.">After prepare returns normally, PipelineHandler::queueRequest ends. The next diagram shows a separate call.</span></td>
+<td><a href="#source-5493b66ef420047f">src/libcamera/pipeline_handler.cpp:447</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After getting Camera::Private, it inserts request.">After getting Camera::Private, it inserts request.</span></td>
+<td><a href="#source-5493b66ef420047f">src/libcamera/pipeline_handler.cpp:447</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After inserting request, it calls prepare.">After inserting request, it calls prepare.</span></td>
+<td><a href="#source-5493b66ef420047f">src/libcamera/pipeline_handler.cpp:447</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function ends when prepare returns normally.">The function ends when prepare returns normally.</span></td>
+<td><a href="#source-5493b66ef420047f">src/libcamera/pipeline_handler.cpp:447</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:queue-insert-prepare-only -->
+
+<!-- sdd:visual:prepared-queue-dispatch-loop -->
+<h3 id="준비된-대기-요청의-장치-전달-검사">Checking device delivery of ready requests in the waiting queue</h3>
+<pre class="mermaid">flowchart TB
+
+  v_waiting{"Check whether &lt;br/&gt;waitingRequests#95; has a &lt;br/&gt;waiting request."}
+  v_limit{"Compare the number of &lt;br/&gt;requests in queuedRequests#95; &lt;br/&gt;with the device queue limit."}
+  v_front["Get the first request with &lt;br/&gt;waitingRequests#95;.front#40;#41;."]
+  v_prepared{"Check the first request#39;s &lt;br/&gt;prepared#95; state."}
+  v_pop["First remove the request &lt;br/&gt;with waitingRequests#95;.pop#40;#41; &lt;br/&gt;in case of reentry."]
+  v_queue["Call &lt;br/&gt;doQueueRequest#40;request#41;."]
+  v_end["doQueueRequests ends."]
+  v_waiting --&gt;|"If true, compare the size &lt;br/&gt;with the limit. · &lt;br/&gt;#33;data-#62;waitingRequests#95;.&lt;br/&gt;empty#40;#41; #91;true#93;"| v_limit
+  v_waiting --&gt;|"If false, end the function. &lt;br/&gt;· &lt;br/&gt;#33;data-#62;waitingRequests#95;.&lt;br/&gt;empty#40;#41; #91;false#93;"| v_end
+  v_limit --&gt;|"If true, end the loop with &lt;br/&gt;break. · &lt;br/&gt;data-#62;queuedRequests#95;.size#40;#41;&lt;br/&gt; #61;#61; &lt;br/&gt;maxQueuedRequestsDevice#95; &lt;br/&gt;#91;true#93;"| v_end
+  v_limit --&gt;|"If false, get the first &lt;br/&gt;request. · &lt;br/&gt;data-#62;queuedRequests#95;.size#40;#41;&lt;br/&gt; #61;#61; &lt;br/&gt;maxQueuedRequestsDevice#95; &lt;br/&gt;#91;false#93;"| v_front
+  v_front --&gt;|"Check the first request#39;s &lt;br/&gt;readiness."| v_prepared
+  v_prepared --&gt;|"If true, end the loop with &lt;br/&gt;break. · &lt;br/&gt;#33;request-#62;#95;d#40;#41;-#62;prepared#95; &lt;br/&gt;#91;true#93;"| v_end
+  v_prepared --&gt;|"If false, remove the &lt;br/&gt;request. · &lt;br/&gt;#33;request-#62;#95;d#40;#41;-#62;prepared#95; &lt;br/&gt;#91;false#93;"| v_pop
+  v_pop --&gt;|"Call doQueueRequest after &lt;br/&gt;removing the request."| v_queue
+  v_queue --&gt;|"When doQueueRequest returns &lt;br/&gt;normally, check the while &lt;br/&gt;condition again."| v_waiting</pre>
+<p><a href="queue_request.prepared-queue-dispatch-loop.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>In what order does a doQueueRequests call check the waiting queue, the device queue limit, and readiness, and dequeue requests?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Check whether waitingRequests_ has a waiting request.">Check whether waitingRequests_ has a waiting request.</span></td>
+<td><a href="#source-9bef16708cb3efe3">src/libcamera/pipeline_handler.cpp:509</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Compare the number of requests in queuedRequests_ with the device queue limit.">Compare the number of requests in queuedRequests_ with the device queue limit.</span></td>
+<td><a href="#source-9bef16708cb3efe3">src/libcamera/pipeline_handler.cpp:509</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Get the first request with waitingRequests_.front().">Get the first request with waitingRequests_.front().</span></td>
+<td><a href="#source-9bef16708cb3efe3">src/libcamera/pipeline_handler.cpp:509</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the first request&#x27;s prepared_ state.">Check the first request's prepared_ state.</span></td>
+<td><a href="#source-9bef16708cb3efe3">src/libcamera/pipeline_handler.cpp:509</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="First remove the request with waitingRequests_.pop() in case of reentry.">First remove the request with waitingRequests_.pop() in case of reentry.</span></td>
+<td><a href="#source-9bef16708cb3efe3">src/libcamera/pipeline_handler.cpp:509</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call doQueueRequest(request).">Call doQueueRequest(request).</span></td>
+<td><a href="#source-9bef16708cb3efe3">src/libcamera/pipeline_handler.cpp:509</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="doQueueRequests ends.">doQueueRequests ends.</span></td>
+<td><a href="#source-9bef16708cb3efe3">src/libcamera/pipeline_handler.cpp:509</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, compare the size with the limit. · !data-&gt;waitingRequests_.empty() [true]">If true, compare the size with the limit. · !data-&gt;waitingRequests_.empty() [true]</span></td>
+<td><a href="#source-9bef16708cb3efe3">src/libcamera/pipeline_handler.cpp:509</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, end the function. · !data-&gt;waitingRequests_.empty() [false]">If false, end the function. · !data-&gt;waitingRequests_.empty() [false]</span></td>
+<td><a href="#source-9bef16708cb3efe3">src/libcamera/pipeline_handler.cpp:509</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, end the loop with break. · data-&gt;queuedRequests_.size() == maxQueuedRequestsDevice_ [true]">If true, end the loop with break. · data-&gt;queuedRequests_.size() == maxQueuedRequestsDevice_ [true]</span></td>
+<td><a href="#source-9bef16708cb3efe3">src/libcamera/pipeline_handler.cpp:509</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, get the first request. · data-&gt;queuedRequests_.size() == maxQueuedRequestsDevice_ [false]">If false, get the first request. · data-&gt;queuedRequests_.size() == maxQueuedRequestsDevice_ [false]</span></td>
+<td><a href="#source-9bef16708cb3efe3">src/libcamera/pipeline_handler.cpp:509</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the first request&#x27;s readiness.">Check the first request's readiness.</span></td>
+<td><a href="#source-9bef16708cb3efe3">src/libcamera/pipeline_handler.cpp:509</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, end the loop with break. · !request-&gt;_d()-&gt;prepared_ [true]">If true, end the loop with break. · !request-&gt;_d()-&gt;prepared_ [true]</span></td>
+<td><a href="#source-9bef16708cb3efe3">src/libcamera/pipeline_handler.cpp:509</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, remove the request. · !request-&gt;_d()-&gt;prepared_ [false]">If false, remove the request. · !request-&gt;_d()-&gt;prepared_ [false]</span></td>
+<td><a href="#source-9bef16708cb3efe3">src/libcamera/pipeline_handler.cpp:509</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call doQueueRequest after removing the request.">Call doQueueRequest after removing the request.</span></td>
+<td><a href="#source-9bef16708cb3efe3">src/libcamera/pipeline_handler.cpp:509</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="When doQueueRequest returns normally, check the while condition again.">When doQueueRequest returns normally, check the while condition again.</span></td>
+<td><a href="#source-9bef16708cb3efe3">src/libcamera/pipeline_handler.cpp:509</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:prepared-queue-dispatch-loop -->
+
+<p data-sdd-evidence="[[&quot;src/libcamera/pipeline_handler.cpp:509&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L509\&quot;&gt;&lt;code&gt;src/libcamera/pipeline_handler.cpp:509&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline_handler.cpp:509&quot;: [&quot;#source-9bef16708cb3efe3&quot;]}">While the waiting queue is not empty, <code>doQueueRequests</code> stops iterating if the size of the camera data's <code>queuedRequests_</code> equals <code>maxQueuedRequestsDevice_</code> or the first request's <code>prepared_</code> is false. Otherwise, it first removes the first request from the waiting queue and then passes it to <code>doQueueRequest</code>, processing prepared requests in order.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/pipeline_handler.cpp:483&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L483\&quot;&gt;&lt;code&gt;src/libcamera/pipeline_handler.cpp:483&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline_handler.cpp:483&quot;: [&quot;#source-7348e9b4af985eb2&quot;]}"><code>doQueueRequest</code> adds the request to the camera data's <code>queuedRequests_</code>, assigns the value of the camera data's <code>requestSequence_</code> to the request's <code>sequence_</code>, and then increments the camera data's <code>requestSequence_</code>. If the request's <code>cancelled_</code> is true, it calls <code>completeRequest</code> and returns. Otherwise, it calls <code>queueRequestDevice</code> and, if that call's return value is not 0, calls <code>cancelRequest</code>.</p>
 
 
 <details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>4</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-997ecce495182b6b" aria-label="src/libcamera/camera.cpp:1373 excerpt"><code>L1373</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:1373" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1373">Full source <code>L1373</code></a></span></li><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="#source-5493b66ef420047f" aria-label="src/libcamera/pipeline_handler.cpp:447 excerpt"><code>L447</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:447" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L447">Full source <code>L447</code></a> · <a href="#source-9bef16708cb3efe3" aria-label="src/libcamera/pipeline_handler.cpp:509 excerpt"><code>L509</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:509" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L509">Full source <code>L509</code></a> · <a href="#source-7348e9b4af985eb2" aria-label="src/libcamera/pipeline_handler.cpp:483 excerpt"><code>L483</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:483" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L483">Full source <code>L483</code></a></span></li></ul></details><h2 id="소스-근거">Source evidence</h2>
-<details class="source-excerpts"><summary><span>6</span> source excerpts</summary>
+<details class="source-excerpts"><summary><span>7</span> source excerpts</summary>
 <p>Include each excerpt only once. Expand the needed original text and check it against the explanation.</p>
 <p><a id="source-3c1e4a3c695a8890"></a></p>
 <details class="note">
@@ -148,6 +705,20 @@ int Camera::queueRequest(Request *request)
 
     return -EACCES;
 }
+</code></pre></div>
+</details>
+<p><a id="source-c0ab3b94a184909f"></a></p>
+<details class="note">
+<summary>Source evidence: include/libcamera/internal/camera.h:59</summary>
+<p>This excerpt starts at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/include/libcamera/internal/camera.h#L59"><code>include/libcamera/internal/camera.h:59</code></a> and ends at line 65. The source text below can be compared with the description.</p>
+<p>SHA-256: <code>61976e2a42ea559a873f8f33b895b1b932f1b96c0c201bef55a72d304cfa039a</code></p>
+<div class="highlight"><pre><span></span><code>int isAccessAllowed(State state, bool allowDisconnected = false,
+                const char *from = __builtin_FUNCTION()) const;
+    int isAccessAllowed(State low, State high,
+                bool allowDisconnected = false,
+                const char *from = __builtin_FUNCTION()) const;
+
+    void disconnect();
 </code></pre></div>
 </details>
 <p><a id="source-997ecce495182b6b"></a></p>
@@ -923,12 +1494,21 @@ void PipelineHandler::queueRequest(Request *request)
 </table></div>
 </details>
 
-</article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78</code></dd><dt>Document generation time</dt><dd><code>2026-11-02 17:10:25+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/claude/claude-haiku-5-5</code></dd><dt>Contracts between documents</dt><dd><a href="../../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>src/libcamera/base/log.cpp</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/controls.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code>, <code>src/libcamera/request.cpp</code></li><li>Evidence level: Code verified (static analysis, simple_compdb configuration, commit <code>293d751a81</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status record date: 2026-11-03 · Before human review</li></ul></details><a href="../../scenarios/queue_request.md">Markdown source ↗</a> <a href="queue_request.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="camera_start.html"><small>Previous</small> capture start ←</a><a class="next" href="complete_request.html"><small>Next</small> request completion notification →</a></nav>
+</article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78</code></dd><dt>Document generation time</dt><dd><code>2026-11-11 22:00:08+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>include/libcamera/internal/camera.h</code>, <code>src/libcamera/base/log.cpp</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/controls.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code>, <code>src/libcamera/request.cpp</code></li><li>Evidence level: Code verified (static analysis, simple_compdb configuration, commit <code>c19d05128f</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded: 2026-11-12 · Before human review</li></ul></details><a href="../../scenarios/queue_request.md">Markdown source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="camera_start.html"><small>Previous</small> capture start ←</a><a class="next" href="complete_request.html"><small>Next</small> request completion notification →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
 <aside class="page-toc"><nav aria-label="Table of contents for this page"><p>On this page</p><div class="toc">
 <ul>
-<li><a href="#요청을-제출하기-전에-갖출-조건">Conditions to meet before submitting a request</a></li>
-<li><a href="#큐로-전달된-요청의-준비와-실패">Preparation and failure of requests delivered to the queue</a></li>
+<li><a href="#요청을-제출하기-전에-갖출-조건">Conditions to meet before submitting a request</a><ul>
+<li><a href="#요청-제출의-접근-검사">Access check for request submission</a></li>
+<li><a href="#요청-제출의-실제-거절-조건">Actual conditions for rejecting request submission</a></li>
+</ul>
+</li>
+<li><a href="#큐로-전달된-요청의-준비와-실패">Preparation and failure of requests delivered to the queue</a><ul>
+<li><a href="#장치-큐-전달과-취소의-분기">Branching between device queue delivery and cancellation</a></li>
+<li><a href="#대기-큐-삽입과-준비-호출">Insertion into the waiting queue and the prepare call</a></li>
+<li><a href="#준비된-대기-요청의-장치-전달-검사">Checking device delivery of ready requests in the waiting queue</a></li>
+</ul>
+</li>
 <li><a href="#소스-근거">Source evidence</a></li>
 <li><a href="#주요-확인-지점">Key check points</a></li>
 <li><a href="#주요-호출-관계">Key call relationships</a></li>
@@ -939,4 +1519,4 @@ void PipelineHandler::queueRequest(Request *request)
 </nav></aside></div>
 <dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find document</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search documents, sections, terms, and code elements</label><input id="search-input" type="search" autocomplete="off" placeholder="Example: Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
 <dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Diagram element and function names"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Collapse">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to screen</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">Drag with a mouse or swipe with touch to move the diagram. "Fit to screen" shows an overview of the whole diagram.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="Zoomed diagram"><div id="diagram-canvas"></div></div></dialog>
-<script id="site-config" type="application/json">{"root": "../", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "d7f54ca11e", "language": "en"}</script><script defer src="../../assets/site.js?v=dd3415510a"></script><script defer src="../../assets/reader-tools.js?v=dd3415510a"></script></body></html>
+<script id="site-config" type="application/json">{"root": "../", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "10c7b0ad3c", "language": "en"}</script><script defer src="../../assets/site.js?v=dd3415510a"></script><script defer src="../../assets/reader-tools.js?v=dd3415510a"></script></body></html>

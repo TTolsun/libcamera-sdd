@@ -1,0 +1,29 @@
+flowchart TB
+
+  v_access{"Is the CameraRunning access <br/>check result negative?"}
+  v_access_error["Return the error received <br/>from the access check <br/>unchanged."]
+  v_camera{"Is the camera that created <br/>the request different from <br/>this camera?"}
+  v_exdev["Return -EXDEV."]
+  v_status{"Is the request status <br/>different from <br/>Request::RequestPending?"}
+  v_controls{"Is the request controls <br/>infoMap different from the <br/>camera controls address?"}
+  v_buffers{"Are request buffers empty? <br/>The caller must add at <br/>least one capture buffer <br/>before queuing."}
+  v_stream{"Is the current buffer#39;s <br/>stream absent from <br/>activeStreams#95;? Check every <br/>buffer."}
+  v_invalid["Return -EINVAL."]
+  v_patch["Pre-process the request <br/>controls with <br/>patchControlList."]
+  v_invoke["Use invokeMethod with <br/>ConnectionTypeQueued to <br/>queue <br/>PipelineHandler::<br/>queueRequest."]
+  v_success["Camera::queueRequest <br/>returns 0 for acceptance; <br/>requestCompleted signals <br/>completion."]
+  v_access -->|"If true, return the <br/>received error. #91;true#93;"| v_access_error
+  v_access -->|"If false, check the request <br/>camera. #91;false#93;"| v_camera
+  v_camera -->|"If true, return -EXDEV. <br/>#91;true#93;"| v_exdev
+  v_camera -->|"If false, check the status. <br/>#91;false#93;"| v_status
+  v_status -->|"If true, return -EINVAL. <br/>#91;true#93;"| v_invalid
+  v_status -->|"If false, check the <br/>controls. #91;false#93;"| v_controls
+  v_controls -->|"If true, return -EINVAL. <br/>#91;true#93;"| v_invalid
+  v_controls -->|"If false, check the buffer <br/>list. #91;false#93;"| v_buffers
+  v_buffers -->|"If true, return -EINVAL. <br/>#91;true#93;"| v_invalid
+  v_buffers -->|"If false, check each <br/>buffer#39;s stream. #91;false#93;"| v_stream
+  v_stream -->|"If true, return -EINVAL. <br/>#91;true#93;"| v_invalid
+  v_stream -->|"If false and another buffer <br/>remains, check its stream. <br/>#91;false#93;"| v_stream
+  v_stream -->|"If false and all buffers <br/>have been checked, <br/>pre-process controls. <br/>#91;false#93;"| v_patch
+  v_patch -->|"When pre-processing returns <br/>normally, queue the call."| v_invoke
+  v_invoke -->|"When invokeMethod returns <br/>normally, return 0."| v_success

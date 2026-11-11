@@ -8,8 +8,12 @@
 <main id="main"><p class="breadcrumb">For Developer <span>/</span> Checking virtual capture with the official WSL cam</p><h1>Verifying virtual capture with the official cam in WSL</h1><div class="page-state"><span class="review-state">Before human review</span><span>Automated check passed</span><span class="generation-method">Authored: extracted structure and draft written by the model</span><a class="state-help" href="#page-evidence">State description ↓</a></div>
 <details class="mobile-toc"><summary>Table of contents of this page</summary><div class="toc">
 <ul>
-<li><a href="#할당기를-준비하자-공식-cam-캡처가-완료됐습니다">Once the allocator was prepared, the official cam capture finished.</a></li>
+<li><a href="#할당기를-준비하자-공식-cam-캡처가-완료됐습니다">Once the allocator was prepared, the official cam capture finished.</a><ul>
+<li><a href="#기본-커널시험-커널복구-후-관측-범위">Scope of observations on the baseline kernel, test kernel, and after recovery</a></li>
+</ul>
+</li>
 <li><a href="#가상-파이프라인이-영상을-만들고-요청-완료를-알립니다">The virtual pipeline generates video and notifies request completion.</a><ul>
+<li><a href="#가상-dma-buf-할당과-cam-요청-연결">Virtual DMA-BUF allocation and connection to cam requests</a></li>
 <li><a href="#virtual2-줄-패턴-nv12-변환기록-시도-흐름">Virtual2 line pattern NV12 conversion and write attempt flow</a></li>
 <li><a href="#버퍼-완료와-요청-완료순서-통지는-별개입니다">Buffer completion is separate from request completion and ordered notifications</a></li>
 </ul>
@@ -57,10 +61,154 @@
 <h2 id="할당기를-준비하자-공식-cam-캡처가-완료됐습니다">Once the allocator was prepared, the official cam capture finished.</h2>
 
 <p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-10812730226e86cc\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&quot;, &quot;&lt;a href=\&quot;#source-d84e6ca3abcfec11\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;: [&quot;#source-10812730226e86cc&quot;], &quot;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&quot;: [&quot;#source-d84e6ca3abcfec11&quot;]}">In this baseline reproduction, the default WSL kernel did not expose a DMA-BUF allocator, so the official cam could not allocate buffers.</p>
+<!-- sdd:visual:observed-kernel-boundaries -->
+<h3 id="기본-커널시험-커널복구-후-관측-범위">Scope of observations on the baseline kernel, test kernel, and after recovery</h3>
+<pre class="mermaid">flowchart TB
+
+  v_baseline["The default WSL kernel did &lt;br/&gt;not expose a DMA-BUF &lt;br/&gt;allocator."]
+  v_trial["The test WSL2 kernel had &lt;br/&gt;built-in udmabuf."]
+  v_camera["Official cam completed &lt;br/&gt;three Virtual2 frames in &lt;br/&gt;each of three runs."]
+  v_cpu["The separate DMA-BUF probe &lt;br/&gt;allocated 4,096 bytes and &lt;br/&gt;accessed them on the CPU."]
+  v_restored["The default kernel was &lt;br/&gt;restored and .wslconfig was &lt;br/&gt;absent."]
+  v_baseline --&gt;|"Test configuration"| v_trial
+  v_trial --&gt;|"Official cam observation"| v_camera
+  v_trial --&gt;|"Separate probe observation"| v_cpu
+  v_trial --&gt;|"Restored after the trial"| v_restored</pre>
+<p><a href="official-cam-validation.observed-kernel-boundaries.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>On which kernel were the official cam and a separate DMA-BUF probe observed, and what was the state at the end of the test?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="The default WSL kernel did not expose a DMA-BUF allocator.">The default WSL kernel did not expose a DMA-BUF allocator.</span></td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The test WSL2 kernel had built-in udmabuf.">The test WSL2 kernel had built-in udmabuf.</span></td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Official cam completed three Virtual2 frames in each of three runs.">Official cam completed three Virtual2 frames in each of three runs.</span></td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a> · <a href="#source-d84e6ca3abcfec11">product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The separate DMA-BUF probe allocated 4,096 bytes and accessed them on the CPU.">The separate DMA-BUF probe allocated 4,096 bytes and accessed them on the CPU.</span></td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The default kernel was restored and .wslconfig was absent.">The default kernel was restored and .wslconfig was absent.</span></td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Test configuration">Test configuration</span></td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Official cam observation">Official cam observation</span></td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Separate probe observation">Separate probe observation</span></td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Restored after the trial">Restored after the trial</span></td>
+<td><a href="#source-10812730226e86cc">product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:observed-kernel-boundaries -->
+
 <p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&quot;, &quot;&lt;a href=\&quot;#source-d84e6ca3abcfec11\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-10812730226e86cc\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&quot;: [&quot;#source-d84e6ca3abcfec11&quot;], &quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;: [&quot;#source-10812730226e86cc&quot;]}">The official cam, with source 293d751a left unmodified, was run separately in three independent processes on the WSL2 test kernel with the Virtual2 400x300 NV12 virtual camera configuration. In each run, normal completion of 3 frames and successful udmabuf allocation were observed, and the CPU access success of the separate DMA-BUF probe was recorded separately from this cam allocation observation. The trial ended with the default kernel restored, so in the current state this configuration cannot be rerun as is.</p>
 
 <details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>3</span></summary><ul><li><code>product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1" href="#source-10812730226e86cc"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/official-cam-reader.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1" href="#source-d84e6ca3abcfec11"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/execution-contract.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/execution-contract.txt:1" href="#source-6722470b9620a771"><code>L1</code></a></span></li></ul></details><h2 id="가상-파이프라인이-영상을-만들고-요청-완료를-알립니다">The virtual pipeline generates video and notifies request completion.</h2>
 <p data-sdd-evidence="[[&quot;src/libcamera/pipeline/virtual/README.md:3&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline/virtual/README.md#L3\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/virtual/README.md:3&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline/virtual/data/virtual.yaml:28&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline/virtual/data/virtual.yaml#L28\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/virtual/data/virtual.yaml:28&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/framebuffer_allocator.cpp:86&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L86\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:86&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline/virtual/virtual.cpp:356&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline/virtual/virtual.cpp#L356\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/virtual/virtual.cpp:356&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/apps/cam/camera_session.cpp:356&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/apps/cam/camera_session.cpp#L356\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:356&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline/virtual/test_pattern_generator.cpp#L47\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline/virtual/README.md:3&quot;: [&quot;#source-4f7002340059b1cf&quot;], &quot;src/libcamera/pipeline/virtual/data/virtual.yaml:28&quot;: [&quot;#source-9858e22e2225cc10&quot;], &quot;src/libcamera/framebuffer_allocator.cpp:86&quot;: [&quot;#source-e91194807faa9e0c&quot;], &quot;src/libcamera/pipeline/virtual/virtual.cpp:356&quot;: [&quot;#source-1868fec3abf482b8&quot;], &quot;src/apps/cam/camera_session.cpp:356&quot;: [&quot;#source-4175eaf02282069c&quot;, &quot;#source-66f2ccd037a8a670&quot;], &quot;src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47&quot;: [&quot;#source-fa5429fa2c62882d&quot;]}">The virtual pipeline handler, analyzed from the pinned libcamera source, emulates a test virtual camera and supports software test patterns or image input as video in place of a real sensor. The Virtual2 configuration selected here is an example that supplies a 400x300 lines pattern, and this one configuration does not define the entire virtual feature. After allocation succeeds, cam attaches real DMA-BUF buffers to requests to prepare request delivery. This is the path in which the CPU attempts both NV12 conversion and writes to the mapped buffer together during software request processing.</p>
+<!-- sdd:visual:virtual-dmabuf-attachment -->
+<h3 id="가상-dma-buf-할당과-cam-요청-연결">Virtual DMA-BUF allocation and connection to cam requests</h3>
+<pre class="mermaid">flowchart TB
+
+  v_allocate["cam calls allocate#40;#41; for &lt;br/&gt;the configured stream."]
+  v_camera_export["Camera checks configured &lt;br/&gt;state and active stream, &lt;br/&gt;then calls the pipeline &lt;br/&gt;with blocking delivery."]
+  v_virtual_guard{"Is the virtual DMA-BUF &lt;br/&gt;allocator valid?"}
+  v_failure["The virtual pipeline &lt;br/&gt;returns -ENOBUFS and cam &lt;br/&gt;returns -ENOMEM for &lt;br/&gt;allocation failure."]
+  v_export["The virtual pipeline &lt;br/&gt;exports using plane sizes &lt;br/&gt;and the configured buffer &lt;br/&gt;count."]
+  v_attach["cam uses addBuffer#40;#41; to &lt;br/&gt;attach the indexed stream &lt;br/&gt;buffer to the new request."]
+  v_allocate --&gt;|"Pass to Camera"| v_camera_export
+  v_camera_export --&gt;|"After checks pass"| v_virtual_guard
+  v_virtual_guard --&gt;|"No"| v_failure
+  v_virtual_guard --&gt;|"Yes"| v_export
+  v_export --&gt;|"After successful allocation"| v_attach</pre>
+<p><a href="official-cam-validation.virtual-dmabuf-attachment.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>What calls and conditions are involved from the virtual pipeline exporting a DMA-BUF to cam attaching it to a request?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="cam calls allocate() for the configured stream.">cam calls allocate() for the configured stream.</span></td>
+<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera checks configured state and active stream, then calls the pipeline with blocking delivery.">Camera checks configured state and active stream, then calls the pipeline with blocking delivery.</span></td>
+<td><a href="#source-80fd4657ae4c65d1">src/libcamera/camera.cpp:963</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is the virtual DMA-BUF allocator valid?">Is the virtual DMA-BUF allocator valid?</span></td>
+<td><a href="#source-1868fec3abf482b8">src/libcamera/pipeline/virtual/virtual.cpp:356</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The virtual pipeline returns -ENOBUFS and cam returns -ENOMEM for allocation failure.">The virtual pipeline returns -ENOBUFS and cam returns -ENOMEM for allocation failure.</span></td>
+<td><a href="#source-1868fec3abf482b8">src/libcamera/pipeline/virtual/virtual.cpp:356</a> · <a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The virtual pipeline exports using plane sizes and the configured buffer count.">The virtual pipeline exports using plane sizes and the configured buffer count.</span></td>
+<td><a href="#source-1868fec3abf482b8">src/libcamera/pipeline/virtual/virtual.cpp:356</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="cam uses addBuffer() to attach the indexed stream buffer to the new request.">cam uses addBuffer() to attach the indexed stream buffer to the new request.</span></td>
+<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Pass to Camera">Pass to Camera</span></td>
+<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a> · <a href="#source-e91194807faa9e0c">src/libcamera/framebuffer_allocator.cpp:86</a> · <a href="#source-80fd4657ae4c65d1">src/libcamera/camera.cpp:963</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After checks pass">After checks pass</span></td>
+<td><a href="#source-80fd4657ae4c65d1">src/libcamera/camera.cpp:963</a> · <a href="#source-1868fec3abf482b8">src/libcamera/pipeline/virtual/virtual.cpp:356</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No">No</span></td>
+<td><a href="#source-1868fec3abf482b8">src/libcamera/pipeline/virtual/virtual.cpp:356</a> · <a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes">Yes</span></td>
+<td><a href="#source-1868fec3abf482b8">src/libcamera/pipeline/virtual/virtual.cpp:356</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After successful allocation">After successful allocation</span></td>
+<td><a href="#source-1868fec3abf482b8">src/libcamera/pipeline/virtual/virtual.cpp:356</a> · <a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:virtual-dmabuf-attachment -->
+
 <!-- sdd:visual:virtual-frame-path -->
 <h3 id="virtual2-줄-패턴-nv12-변환기록-시도-흐름">Virtual2 line pattern NV12 conversion and write attempt flow</h3>
 <pre class="mermaid">flowchart TB
@@ -413,24 +561,29 @@
 <pre class="mermaid">flowchart TB
 
   v_start_check{"Check camera start result"}
-  v_start_fail["Stop sink#95; if any, return &lt;br/&gt;error, no camera stop"]
+  v_start_fail["Stop sink if present, &lt;br/&gt;return start error, no &lt;br/&gt;camera stop"]
   v_remaining{"Check whether initial &lt;br/&gt;requests remain"}
-  v_limit_check{"Check whether submission &lt;br/&gt;limit is reached"}
-  v_camera_queue["Count +1, try camera queue &lt;br/&gt;call; check running"]
-  v_helper_ret{"Check submit result for &lt;br/&gt;negative error"}
-  v_stop_err["Stop started camera, sink#95; &lt;br/&gt;if any; return error"]
-  v_ok_result["Async call scheduled; &lt;br/&gt;returns 0"]
-  v_done["No initial requests left; &lt;br/&gt;loop ends normally"]
+  v_limit_check{"Check if limit is set and &lt;br/&gt;queue API call attempts &lt;br/&gt;reached it"}
+  v_control_merge["Merge controls only if &lt;br/&gt;script exists; always +1 &lt;br/&gt;queue API call attempts"]
+  v_camera_queue_check{"Check camera Running state, &lt;br/&gt;request owner, request &lt;br/&gt;validity"}
+  v_queue_error["On check failure, return &lt;br/&gt;negative error code"]
+  v_queue_async["Async pipeline queue call &lt;br/&gt;scheduled; API returns 0"]
+  v_caller_check{"Check if queueRequest &lt;br/&gt;result is a negative error"}
+  v_stop_on_error["Stop camera, stop sink if &lt;br/&gt;present, then return error"]
+  v_done["Loop ends normally; print &lt;br/&gt;capture notice by limit, &lt;br/&gt;return 0"]
   v_start_check --&gt;|"start failed #91;true#93;"| v_start_fail
   v_start_check --&gt;|"start succeeded #91;false#93;"| v_remaining
-  v_remaining --&gt;|"request remains"| v_limit_check
+  v_remaining --&gt;|"requests remain"| v_limit_check
   v_remaining --&gt;|"none left, loop ends"| v_done
-  v_limit_check --&gt;|"unset or below, call #91;false#93;"| v_camera_queue
-  v_limit_check --&gt;|"at limit: 0, no call #91;true#93;"| v_remaining
-  v_camera_queue --&gt;|"returns call result"| v_helper_ret
-  v_helper_ret --&gt;|"if negative error #91;true#93;"| v_stop_err
-  v_helper_ret --&gt;|"non-negative #91;false#93;"| v_ok_result
-  v_ok_result --&gt;|"check remaining"| v_remaining</pre>
+  v_limit_check --&gt;|"unset or below #91;false#93;"| v_control_merge
+  v_limit_check --&gt;|"at limit: 0, no call #91;true#93;"| v_caller_check
+  v_control_merge --&gt;|"calls camera queue"| v_camera_queue_check
+  v_camera_queue_check --&gt;|"fails: return error"| v_queue_error
+  v_camera_queue_check --&gt;|"passes: async call"| v_queue_async
+  v_queue_error --&gt;|"error to caller"| v_caller_check
+  v_queue_async --&gt;|"then caller checks"| v_caller_check
+  v_caller_check --&gt;|"negative error #91;true#93;"| v_stop_on_error
+  v_caller_check --&gt;|"non-negative: next #91;false#93;"| v_remaining</pre>
 <p><a href="official-cam-validation.initial-submission.mmd">Mermaid source</a></p>
 <details class="note">
 <summary>Diagram evidence and verification scope</summary>
@@ -448,38 +601,46 @@
 <tbody>
 <tr>
 <td><span data-sdd-label-en="Check camera start result">Check camera start result</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a> · <a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
+<td><a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a> · <a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Stop sink_ if any, return error, no camera stop">Stop sink_ if any, return error, no camera stop</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a> · <a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
+<td><span data-sdd-label-en="Stop sink if present, return start error, no camera stop">Stop sink if present, return start error, no camera stop</span></td>
+<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Check whether initial requests remain">Check whether initial requests remain</span></td>
 <td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Check whether submission limit is reached">Check whether submission limit is reached</span></td>
+<td><span data-sdd-label-en="Check if limit is set and queue API call attempts reached it">Check if limit is set and queue API call attempts reached it</span></td>
 <td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Count +1, try camera queue call; check running">Count +1, try camera queue call; check running</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a> · <a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
-</tr>
-<tr>
-<td><span data-sdd-label-en="Check submit result for negative error">Check submit result for negative error</span></td>
+<td><span data-sdd-label-en="Merge controls only if script exists; always +1 queue API call attempts">Merge controls only if script exists; always +1 queue API call attempts</span></td>
 <td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Stop started camera, sink_ if any; return error">Stop started camera, sink_ if any; return error</span></td>
+<td><span data-sdd-label-en="Check camera Running state, request owner, request validity">Check camera Running state, request owner, request validity</span></td>
+<td><a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="On check failure, return negative error code">On check failure, return negative error code</span></td>
+<td><a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Async pipeline queue call scheduled; API returns 0">Async pipeline queue call scheduled; API returns 0</span></td>
+<td><a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check if queueRequest result is a negative error">Check if queueRequest result is a negative error</span></td>
 <td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Async call scheduled; returns 0">Async call scheduled; returns 0</span></td>
-<td><a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a> · <a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><span data-sdd-label-en="Stop camera, stop sink if present, then return error">Stop camera, stop sink if present, then return error</span></td>
+<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="No initial requests left; loop ends normally">No initial requests left; loop ends normally</span></td>
+<td><span data-sdd-label-en="Loop ends normally; print capture notice by limit, return 0">Loop ends normally; print capture notice by limit, return 0</span></td>
 <td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
 </tr>
 <tr>
@@ -491,7 +652,7 @@
 <td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a> · <a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="request remains">request remains</span></td>
+<td><span data-sdd-label-en="requests remain">requests remain</span></td>
 <td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
 </tr>
 <tr>
@@ -499,28 +660,40 @@
 <td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="unset or below, call · captureLimit_ &amp;&amp; queueCount_ &gt;= captureLimit_ [false]">unset or below, call · captureLimit_ &amp;&amp; queueCount_ &gt;= captureLimit_ [false]</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a> · <a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
+<td><span data-sdd-label-en="unset or below · captureLimit_ &amp;&amp; queueCount_ &gt;= captureLimit_ [false]">unset or below · captureLimit_ &amp;&amp; queueCount_ &gt;= captureLimit_ [false]</span></td>
+<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="at limit: 0, no call · captureLimit_ &amp;&amp; queueCount_ &gt;= captureLimit_ [true]">at limit: 0, no call · captureLimit_ &amp;&amp; queueCount_ &gt;= captureLimit_ [true]</span></td>
 <td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="returns call result">returns call result</span></td>
+<td><span data-sdd-label-en="calls camera queue">calls camera queue</span></td>
 <td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a> · <a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="if negative error · ret &lt; 0 [true]">if negative error · ret &lt; 0 [true]</span></td>
+<td><span data-sdd-label-en="fails: return error">fails: return error</span></td>
+<td><a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="passes: async call">passes: async call</span></td>
+<td><a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="error to caller">error to caller</span></td>
+<td><a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a> · <a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="then caller checks">then caller checks</span></td>
+<td><a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a> · <a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="negative error · ret &lt; 0 [true]">negative error · ret &lt; 0 [true]</span></td>
 <td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="non-negative · ret &lt; 0 [false]">non-negative · ret &lt; 0 [false]</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a> · <a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
-</tr>
-<tr>
-<td><span data-sdd-label-en="check remaining">check remaining</span></td>
-<td><a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a> · <a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><span data-sdd-label-en="non-negative: next · ret &lt; 0 [false]">non-negative: next · ret &lt; 0 [false]</span></td>
+<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
 </tr>
 </tbody>
 </table></div>
@@ -1170,7 +1343,7 @@
 <details class="note">
 <summary>Product evidence: product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</summary>
 <p>This material is provided separately from the source. Check the provider, version, and scope of application in the record below. Automatic checks are not human approval.</p>
-<p>This is an excerpt starting at <code>product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</code>. The end line is 38, and the source text below can be compared against the explanation.</p>
+<p>This excerpt starts at <code>product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1</code> and ends at line 38. The original text below can be compared with the explanation.</p>
 <p>SHA-256: <code>93f4c8ea45fc873453b7739b88105877f6b1bc60ed7f3f6a280b15d8b131a9a7</code></p>
 <div class="highlight"><pre><span></span><code># 공식 cam WSL 가상 카메라 검증
 
@@ -1485,7 +1658,7 @@ REGISTER_PIPELINE_HANDLER
 <p><a id="source-5e575d092c08b32d"></a></p>
 <details class="note">
 <summary>Source evidence: src/libcamera/pipeline_handler.cpp:469</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L469"><code>src/libcamera/pipeline_handler.cpp:469</code></a>. The end line is 530, and the source text below can be compared against the description.</p>
+<p>This excerpt begins at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L469"><code>src/libcamera/pipeline_handler.cpp:469</code></a> and ends at line 530. The original text below can be compared with the explanation.</p>
 <p>SHA-256: <code>cb607d060ba4eb069998bde3ed10bd4cdec9a7315e40b4b5da7ba877b5f98678</code></p>
 <div class="highlight"><pre><span></span><code>void PipelineHandler::queueRequest(Request *request)
 {
@@ -1612,7 +1785,7 @@ void PipelineHandler::cancelRequest(
 <p><a id="source-655b027df7d08524"></a></p>
 <details class="note">
 <summary>Source evidence: src/libcamera/camera.cpp:1481</summary>
-<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1481"><code>src/libcamera/camera.cpp:1481</code></a>. The end line is 1491, and the source text below can be compared with the description.</p>
+<p>This excerpt starts at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1481"><code>src/libcamera/camera.cpp:1481</code></a> and ends at line 1491. The original text below can be compared with the explanation.</p>
 <p>SHA-256: <code>aadfd6b4fdf910083a3d97fb11c623145f71553c9240f8e882d619fce61c43bb</code></p>
 <div class="highlight"><pre><span></span><code>void Camera::requestComplete(Request *request)
 {
@@ -1993,7 +2166,7 @@ void PipelineHandler::queueRequest(
 <p><a id="source-0626196def047e5c"></a></p>
 <details class="note">
 <summary>Source evidence: src/libcamera/request.cpp:125</summary>
-<p>This is an excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L125"><code>src/libcamera/request.cpp:125</code></a>. The end line is 139, and the original text below can be compared with the description.</p>
+<p>This excerpt starts at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L125"><code>src/libcamera/request.cpp:125</code></a> and ends at line 139. The original text below can be compared with the explanation.</p>
 <p>SHA-256: <code>2efec13b708bff2ca232445ef868877a30facef1b6fa17ddcff47bfd013e2289</code></p>
 <div class="highlight"><pre><span></span><code>void Request::Private::complete()
 {
@@ -2462,7 +2635,7 @@ void Request::Private::doCancelRequest()
 <details class="note">
 <summary>Product evidence: product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</summary>
 <p>This material is provided separately from the source. Check the provider, version, and scope of application in the record below. Automatic checks are not human approval.</p>
-<p>This is an excerpt starting at <code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</code>. The end line is 38, and the source text below can be compared against the explanation.</p>
+<p>This excerpt starts at <code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</code> and ends at line 38. The original text below can be compared with the explanation.</p>
 <p>SHA-256: <code>93f4c8ea45fc873453b7739b88105877f6b1bc60ed7f3f6a280b15d8b131a9a7</code></p>
 <div class="highlight"><pre><span></span><code># 공식 cam WSL 가상 카메라 검증
 
@@ -2746,8 +2919,12 @@ void CameraSession::stop()
 <footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
 <aside class="page-toc"><nav aria-label="Table of contents for this page"><p>On this page</p><div class="toc">
 <ul>
-<li><a href="#할당기를-준비하자-공식-cam-캡처가-완료됐습니다">Once the allocator was prepared, the official cam capture finished.</a></li>
+<li><a href="#할당기를-준비하자-공식-cam-캡처가-완료됐습니다">Once the allocator was prepared, the official cam capture finished.</a><ul>
+<li><a href="#기본-커널시험-커널복구-후-관측-범위">Scope of observations on the baseline kernel, test kernel, and after recovery</a></li>
+</ul>
+</li>
 <li><a href="#가상-파이프라인이-영상을-만들고-요청-완료를-알립니다">The virtual pipeline generates video and notifies request completion.</a><ul>
+<li><a href="#가상-dma-buf-할당과-cam-요청-연결">Virtual DMA-BUF allocation and connection to cam requests</a></li>
 <li><a href="#virtual2-줄-패턴-nv12-변환기록-시도-흐름">Virtual2 line pattern NV12 conversion and write attempt flow</a></li>
 <li><a href="#버퍼-완료와-요청-완료순서-통지는-별개입니다">Buffer completion is separate from request completion and ordered notifications</a></li>
 </ul>
@@ -2774,4 +2951,4 @@ void CameraSession::stop()
 </nav></aside></div>
 <dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find document</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search documents, sections, terms, and code elements</label><input id="search-input" type="search" autocomplete="off" placeholder="Example: Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
 <dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Diagram element and function names"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Collapse">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to screen</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">Drag with a mouse or swipe with touch to move the diagram. "Fit to screen" shows an overview of the whole diagram.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="Zoomed diagram"><div id="diagram-canvas"></div></div></dialog>
-<script id="site-config" type="application/json">{"root": "./", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "d7f54ca11e", "language": "en"}</script><script defer src="../assets/site.js?v=dd3415510a"></script><script defer src="../assets/reader-tools.js?v=dd3415510a"></script></body></html>
+<script id="site-config" type="application/json">{"root": "./", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "10c7b0ad3c", "language": "en"}</script><script defer src="../assets/site.js?v=dd3415510a"></script><script defer src="../assets/reader-tools.js?v=dd3415510a"></script></body></html>

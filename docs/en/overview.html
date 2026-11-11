@@ -13,15 +13,27 @@
 </ul>
 </li>
 <li><a href="#컴포넌트별-책임">Responsibilities by component</a></li>
-<li><a href="#요청-생성과-소유권">Request creation and ownership</a></li>
-<li><a href="#캡처-세션의-상태와-자원">State and resources of the capture session</a></li>
+<li><a href="#요청-생성과-소유권">Request creation and ownership</a><ul>
+<li><a href="#요청-생성과-소유권의-관계와-경계">The relationship and boundaries between request creation and ownership</a></li>
+</ul>
+</li>
+<li><a href="#캡처-세션의-상태와-자원">State and resources of the capture session</a><ul>
+<li><a href="#캡처-세션의-상태와-자원의-관계와-경계">Relationships and boundaries between capture session states and resources</a></li>
+</ul>
+</li>
 <li><a href="#요청-제출과-완료">Request submission and completion</a><ul>
 <li><a href="#요청-접수와-버퍼-완료-요청-완료">Request acceptance, buffer completion, and request completion</a></li>
 </ul>
 </li>
-<li><a href="#버퍼-완료와-요청-완료">Buffer completion and request completion</a></li>
+<li><a href="#버퍼-완료와-요청-완료">Buffer completion and request completion</a><ul>
+<li><a href="#버퍼-완료와-요청-완료의-관계와-경계">The relationship and boundaries between buffer completion and request completion</a></li>
+</ul>
+</li>
 <li><a href="#스레드-경계와-동기화">Thread boundaries and synchronization</a></li>
-<li><a href="#정적-근거의-확인-범위">Scope of static evidence verification</a></li>
+<li><a href="#정적-근거의-확인-범위">Scope of static evidence verification</a><ul>
+<li><a href="#상태-검사와-시작-결과">State checks and start results</a></li>
+</ul>
+</li>
 <li><a href="#클래스-관계">Class relationships</a></li>
 <li><a href="#소스-근거">Source evidence</a></li>
 <li><a href="#선택한-시나리오의-코드-읽기-순서">Code reading order for the selected scenario</a></li>
@@ -30,7 +42,7 @@
 </details><p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p><strong>Start from CameraManager in src/libcamera/camera_manager.cpp and follow request submission and completion.</strong></p><details class="note">
 <summary>Design questions and validation scope</summary>
 <p>The answers to each question and their evidence links were checked. The meaning and execution results require human review.</p>
-<ul class="coverage-links"><li><p>What public functions and object lifetime contract does Camera provide?</p><p><a href="#컴포넌트별-책임">Responsibilities by component</a></p></li><li><p>Which files and entry points should be read first, and in what order do device discovery and camera access proceed?</p><p><a href="#탐색과-파이프라인-선택">Discovery and pipeline selection</a></p><p>Separate run verification items</p></li><li><p>What are the conditions for request creation and the ownership and reuse contract?</p><p><a href="#요청-생성과-소유권">Request creation and ownership</a></p></li><li><p>What is the sequence for preparing, repeating, and ending capture?</p><p><a href="#캡처-세션의-상태와-자원">State and resources of the capture session</a></p></li><li><p>Under what conditions is a request submitted, and how is completion notified?</p><p><a href="#요청-제출과-완료">Request submission and completion</a></p></li><li><p>How do you distinguish buffer completion from request completion?</p><p><a href="#버퍼-완료와-요청-완료">Buffer completion and request completion</a></p></li><li><p>What are the synchronization responsibility for state changes and the execution thread for request completion?</p><p><a href="#스레드-경계와-동기화">Thread boundaries and synchronization</a></p></li><li><p>In what states can Camera::start() be called, and what does Camera::start() return if the state check fails? What TODO remains in the start timing documentation?</p><p><a href="#정적-근거의-확인-범위">Scope of static evidence verification</a></p></li></ul><p><span>Verification scope</span>: <span>Linking code evidence to explanations</span></p>
+<ul class="coverage-links"><li><p>What public functions and object lifetime contract does Camera provide?</p><p><a href="#컴포넌트별-책임">Responsibilities by component</a></p></li><li><p>Which files and entry points should be read first, and in what order do device discovery and camera access proceed?</p><p><a href="#탐색과-파이프라인-선택">Discovery and pipeline selection</a></p></li><li><p>What are the conditions for request creation and the ownership and reuse contract?</p><p><a href="#요청-생성과-소유권">Request creation and ownership</a></p></li><li><p>What is the sequence for preparing, repeating, and ending capture?</p><p><a href="#캡처-세션의-상태와-자원">State and resources of the capture session</a></p></li><li><p>Under what conditions is a request submitted, and how is completion notified?</p><p><a href="#요청-제출과-완료">Request submission and completion</a></p></li><li><p>How do you distinguish buffer completion from request completion?</p><p><a href="#버퍼-완료와-요청-완료">Buffer completion and request completion</a></p></li><li><p>What are the synchronization responsibility for state changes and the execution thread for request completion?</p><p><a href="#스레드-경계와-동기화">Thread boundaries and synchronization</a></p></li><li><p>In what states can Camera::start() be called, and what does Camera::start() return if the state check fails? What TODO remains in the start timing documentation?</p><p><a href="#정적-근거의-확인-범위">Scope of static evidence verification</a></p><p>Separate run verification items</p></li></ul><p><span>Verification scope</span>: <span>Linking code evidence to explanations</span></p>
 </details>
 <details class="page-terms">
 <summary>Terms in this document: IPA, Pipeline Handler</summary>
@@ -42,22 +54,35 @@
 </details>
 <div class="previous-route" id="장치-요청-한도와-대기-큐"><p>Destination of the previous link</p><a href="pipeline-requests.html#%EC%9E%A5%EC%B9%98-%EC%9A%94%EC%B2%AD-%ED%95%9C%EB%8F%84%EC%99%80-%EB%8C%80%EA%B8%B0-%ED%81%90">Pipeline Request Submission and Completion</a></div>
 <h2 id="탐색과-파이프라인-선택">Discovery and pipeline selection</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera_manager.cpp:283&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera_manager.cpp#L283\&quot;&gt;&lt;code&gt;src/libcamera/camera_manager.cpp:283&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera_manager.cpp:154&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera_manager.cpp#L154\&quot;&gt;&lt;code&gt;src/libcamera/camera_manager.cpp:154&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera_manager.cpp:283&quot;: [&quot;#source-f75d22cf73f3402d&quot;], &quot;src/libcamera/camera_manager.cpp:154&quot;: [&quot;#source-0c01857bf49370e2&quot;]}"><code>CameraManager</code> is the entry point of libcamera that enumerates devices and provides applications with access to the cameras in the system. According to the introductory comment, <code>CameraManager</code> owns all <code>Camera</code> objects and manages camera lifetimes by handling hot-plug and hot-unplug. <code>CameraManager::Private::pipelineFactoryMatch</code> repeatedly creates <code>PipelineHandler</code> from the given factory and provides as many matching pipelines as possible while each object's <code>match(enumerator_.get())</code> returns true. When <code>match</code> returns false, the iteration stops, and a <code>Debug</code> log is recorded only when the match succeeds.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera_manager.cpp:283&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera_manager.cpp#L283\&quot;&gt;&lt;code&gt;src/libcamera/camera_manager.cpp:283&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera_manager.cpp:154&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera_manager.cpp#L154\&quot;&gt;&lt;code&gt;src/libcamera/camera_manager.cpp:154&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera_manager.cpp:283&quot;: [&quot;#source-f75d22cf73f3402d&quot;], &quot;src/libcamera/camera_manager.cpp:154&quot;: [&quot;#source-0c01857bf49370e2&quot;]}"><code>CameraManager</code> is the entry point to libcamera: it enumerates devices, associates them with pipelines, and provides applications with access to cameras in the system. <code>CameraManager::Private::pipelineFactoryMatch()</code> creates a <code>PipelineHandler</code> from the factory and checks whether it matches the enumerated devices. The function repeats this process to provide as many matching pipelines as possible and ends the loop when <code>match()</code> returns false.</p>
 <!-- sdd:visual:discovery-map -->
 <h3 id="장치-탐색에서-camera-접근까지">From device discovery to Camera access</h3>
 <pre class="mermaid">flowchart TB
 
-  v_manager["CameraManager entry"]
-  v_enumerate["Enumerate devices"]
-  v_handler["PipelineHandler::match#40;#41;"]
-  v_camera["Create and register Camera"]
-  v_manager --&gt;|"start#40;#41;"| v_enumerate
-  v_enumerate --&gt;|"Pass enumerator to match &lt;br/&gt;devices"| v_handler
-  v_handler --&gt;|"When required devices are &lt;br/&gt;acquired"| v_camera</pre>
+  v_manager["CameraManager enumerates &lt;br/&gt;devices and owns the Camera &lt;br/&gt;objects."]
+  v_start["start#40;#41; starts the manager &lt;br/&gt;and enumerates devices."]
+  v_start-error["A failed start returns a &lt;br/&gt;negative error code."]
+  v_match["The factory creates a &lt;br/&gt;handler and the manager &lt;br/&gt;calls match."]
+  v_found{"Were all devices for this &lt;br/&gt;pipeline found?"}
+  v_registered["Acquire the devices, &lt;br/&gt;create, store and register &lt;br/&gt;the cameras, and return &lt;br/&gt;true."]
+  v_released["Acquire no devices or &lt;br/&gt;release all acquired &lt;br/&gt;devices, then return false."]
+  v_running["Before a lookup, the &lt;br/&gt;application ensures the &lt;br/&gt;manager is running."]
+  v_list["cameras#40;#41; returns the list &lt;br/&gt;of available cameras."]
+  v_get["get#40;id#41; returns a shared &lt;br/&gt;pointer to the Camera, or &lt;br/&gt;nullptr if it is absent."]
+  v_manager --&gt;|"Start device discovery."| v_start
+  v_manager --&gt;|"This is the manager’s &lt;br/&gt;separate device matching &lt;br/&gt;responsibility."| v_match
+  v_start --&gt;|"The start failed."| v_start-error
+  v_match --&gt;|"match checks whether the &lt;br/&gt;devices are available."| v_found
+  v_found --&gt;|"All required devices are &lt;br/&gt;available."| v_registered
+  v_found --&gt;|"A required device is &lt;br/&gt;missing."| v_released
+  v_registered --&gt;|"A true result starts &lt;br/&gt;matching again with a new &lt;br/&gt;handler."| v_match
+  v_manager --&gt;|"This is the separate &lt;br/&gt;application lookup &lt;br/&gt;requirement."| v_running
+  v_running --&gt;|"Get the list."| v_list
+  v_running --&gt;|"Look up a Camera by ID."| v_get</pre>
 <p><a href="overview.discovery-map.mmd">Mermaid source</a></p>
 <details class="note">
 <summary>Diagram evidence and verification scope</summary>
-<p>Follow the responsibilities for device matching and registration. The diagram shows responsibility links and does not show the overall call order or execution time.</p>
+<p>How does CameraManager match devices and register cameras, and under what conditions can an app look up a camera?</p>
 <p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
 <div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
 <thead>
@@ -68,58 +93,296 @@
 </thead>
 <tbody>
 <tr>
-<td><span data-sdd-label-en="CameraManager entry">CameraManager entry</span></td>
+<td><span data-sdd-label-en="CameraManager enumerates devices and owns the Camera objects.">CameraManager enumerates devices and owns the Camera objects.</span></td>
 <td><a href="#source-f75d22cf73f3402d">src/libcamera/camera_manager.cpp:283</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Enumerate devices">Enumerate devices</span></td>
+<td><span data-sdd-label-en="start() starts the manager and enumerates devices.">start() starts the manager and enumerates devices.</span></td>
 <td><a href="#source-f58d94d893e03971">src/libcamera/camera_manager.cpp:329</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="PipelineHandler::match()">PipelineHandler::match()</span></td>
-<td><a href="#source-5bbd41c1e725138c">src/libcamera/pipeline_handler.cpp:86</a></td>
-</tr>
-<tr>
-<td><span data-sdd-label-en="Create and register Camera">Create and register Camera</span></td>
-<td><a href="#source-5bbd41c1e725138c">src/libcamera/pipeline_handler.cpp:86</a></td>
-</tr>
-<tr>
-<td><span data-sdd-label-en="start()">start()</span></td>
+<td><span data-sdd-label-en="A failed start returns a negative error code.">A failed start returns a negative error code.</span></td>
 <td><a href="#source-f58d94d893e03971">src/libcamera/camera_manager.cpp:329</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Pass enumerator to match devices">Pass enumerator to match devices</span></td>
+<td><span data-sdd-label-en="The factory creates a handler and the manager calls match.">The factory creates a handler and the manager calls match.</span></td>
+<td><a href="#source-0c01857bf49370e2">src/libcamera/camera_manager.cpp:154</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Were all devices for this pipeline found?">Were all devices for this pipeline found?</span></td>
 <td><a href="#source-5bbd41c1e725138c">src/libcamera/pipeline_handler.cpp:86</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="When required devices are acquired">When required devices are acquired</span></td>
+<td><span data-sdd-label-en="Acquire the devices, create, store and register the cameras, and return true.">Acquire the devices, create, store and register the cameras, and return true.</span></td>
 <td><a href="#source-5bbd41c1e725138c">src/libcamera/pipeline_handler.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Acquire no devices or release all acquired devices, then return false.">Acquire no devices or release all acquired devices, then return false.</span></td>
+<td><a href="#source-5bbd41c1e725138c">src/libcamera/pipeline_handler.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Before a lookup, the application ensures the manager is running.">Before a lookup, the application ensures the manager is running.</span></td>
+<td><a href="#source-f58d94d893e03971">src/libcamera/camera_manager.cpp:329</a> · <a href="#source-0c733673790ad84f">src/libcamera/camera_manager.cpp:368</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="cameras() returns the list of available cameras.">cameras() returns the list of available cameras.</span></td>
+<td><a href="#source-0c733673790ad84f">src/libcamera/camera_manager.cpp:368</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="get(id) returns a shared pointer to the Camera, or nullptr if it is absent.">get(id) returns a shared pointer to the Camera, or nullptr if it is absent.</span></td>
+<td><a href="#source-0c733673790ad84f">src/libcamera/camera_manager.cpp:368</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Start device discovery.">Start device discovery.</span></td>
+<td><a href="#source-f75d22cf73f3402d">src/libcamera/camera_manager.cpp:283</a> · <a href="#source-f58d94d893e03971">src/libcamera/camera_manager.cpp:329</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="This is the manager’s separate device matching responsibility.">This is the manager’s separate device matching responsibility.</span></td>
+<td><a href="#source-f75d22cf73f3402d">src/libcamera/camera_manager.cpp:283</a> · <a href="#source-0c01857bf49370e2">src/libcamera/camera_manager.cpp:154</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The start failed.">The start failed.</span></td>
+<td><a href="#source-f58d94d893e03971">src/libcamera/camera_manager.cpp:329</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="match checks whether the devices are available.">match checks whether the devices are available.</span></td>
+<td><a href="#source-0c01857bf49370e2">src/libcamera/camera_manager.cpp:154</a> · <a href="#source-5bbd41c1e725138c">src/libcamera/pipeline_handler.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="All required devices are available.">All required devices are available.</span></td>
+<td><a href="#source-5bbd41c1e725138c">src/libcamera/pipeline_handler.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="A required device is missing.">A required device is missing.</span></td>
+<td><a href="#source-5bbd41c1e725138c">src/libcamera/pipeline_handler.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="A true result starts matching again with a new handler.">A true result starts matching again with a new handler.</span></td>
+<td><a href="#source-5bbd41c1e725138c">src/libcamera/pipeline_handler.cpp:86</a> · <a href="#source-0c01857bf49370e2">src/libcamera/camera_manager.cpp:154</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="This is the separate application lookup requirement.">This is the separate application lookup requirement.</span></td>
+<td><a href="#source-f75d22cf73f3402d">src/libcamera/camera_manager.cpp:283</a> · <a href="#source-f58d94d893e03971">src/libcamera/camera_manager.cpp:329</a> · <a href="#source-0c733673790ad84f">src/libcamera/camera_manager.cpp:368</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Get the list.">Get the list.</span></td>
+<td><a href="#source-f58d94d893e03971">src/libcamera/camera_manager.cpp:329</a> · <a href="#source-0c733673790ad84f">src/libcamera/camera_manager.cpp:368</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Look up a Camera by ID.">Look up a Camera by ID.</span></td>
+<td><a href="#source-f58d94d893e03971">src/libcamera/camera_manager.cpp:329</a> · <a href="#source-0c733673790ad84f">src/libcamera/camera_manager.cpp:368</a></td>
 </tr>
 </tbody>
 </table></div>
 </details>
 <!-- /sdd:visual:discovery-map -->
 
-<p data-sdd-evidence="[[&quot;src/libcamera/camera_manager.cpp:283&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera_manager.cpp#L283\&quot;&gt;&lt;code&gt;src/libcamera/camera_manager.cpp:283&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera_manager.cpp:283&quot;: [&quot;#source-f75d22cf73f3402d&quot;]}">Only one <code>CameraManager</code> instance can exist at a time.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera_manager.cpp:283&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera_manager.cpp#L283\&quot;&gt;&lt;code&gt;src/libcamera/camera_manager.cpp:283&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera_manager.cpp:283&quot;: [&quot;#source-f75d22cf73f3402d&quot;]}">Execution check item: Creating a second <code>CameraManager</code> instance without deleting the existing instance results in undefined behaviour. Therefore, the calling side must delete the existing instance before creating a new instance.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera_manager.cpp:329&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera_manager.cpp#L329\&quot;&gt;&lt;code&gt;src/libcamera/camera_manager.cpp:329&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera_manager.cpp:368&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera_manager.cpp#L368\&quot;&gt;&lt;code&gt;src/libcamera/camera_manager.cpp:368&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera_manager.cpp:329&quot;: [&quot;#source-f58d94d893e03971&quot;], &quot;src/libcamera/camera_manager.cpp:368&quot;: [&quot;#source-0c733673790ad84f&quot;]}">If <code>CameraManager::start()</code> succeeds, the application can list and use the cameras in the system enumerated during startup, and this state continues until the camera manager is stopped or the camera is disconnected from the system. <code>CameraManager::cameras()</code> and <code>CameraManager::get()</code> must be called while the camera manager is running, and responsibility for ensuring this state rests with the caller.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/pipeline_handler.cpp:86&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L86\&quot;&gt;&lt;code&gt;src/libcamera/pipeline_handler.cpp:86&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline_handler.cpp:86&quot;: [&quot;#source-5bbd41c1e725138c&quot;]}">Whoever implements <code>match()</code> must acquire all the required devices with <code>MediaDevice::acquire()</code> once all of them are found. Then the implementation must create a <code>Camera</code> instance, store it internally, register it with the camera manager, and return <code>true</code>. If not all the required devices are found, the implementation must either not acquire any device, or release the devices already acquired with <code>MediaDevice::release()</code> and then return <code>false</code>.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera_manager.cpp:283&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera_manager.cpp#L283\&quot;&gt;&lt;code&gt;src/libcamera/camera_manager.cpp:283&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera_manager.cpp:329&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera_manager.cpp#L329\&quot;&gt;&lt;code&gt;src/libcamera/camera_manager.cpp:329&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera_manager.cpp:368&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera_manager.cpp#L368\&quot;&gt;&lt;code&gt;src/libcamera/camera_manager.cpp:368&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera_manager.cpp:283&quot;: [&quot;#source-f75d22cf73f3402d&quot;], &quot;src/libcamera/camera_manager.cpp:329&quot;: [&quot;#source-f58d94d893e03971&quot;], &quot;src/libcamera/camera_manager.cpp:368&quot;: [&quot;#source-0c733673790ad84f&quot;]}">Only one <code>CameraManager</code> instance must exist at a time. Creating a second instance without first deleting the existing instance results in undefined behavior. Once the start of <code>CameraManager::start()</code> is confirmed, the application can list and use cameras in the system until the camera manager is stopped or the camera is disconnected from the system. The caller must ensure that the camera manager is running before calling <code>CameraManager::cameras()</code> and <code>CameraManager::get()</code>.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/pipeline_handler.cpp:86&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L86\&quot;&gt;&lt;code&gt;src/libcamera/pipeline_handler.cpp:86&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline_handler.cpp:86&quot;: [&quot;#source-5bbd41c1e725138c&quot;]}">If all required media devices are found, the <code>PipelineHandler::match()</code> implementer must acquire them all using <code>MediaDevice::acquire()</code>, create the corresponding <code>Camera</code> instances, store them internally, register them with the camera manager, and then return <code>true</code>. If not all devices are found, the <code>match()</code> implementer must either acquire no media devices or release all already acquired devices using <code>MediaDevice::release()</code>, and return <code>false</code>.</p>
 
 <details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>5</span></summary><ul><li><code>src/libcamera/camera_manager.cpp</code><span class="evidence-lines"><a href="#source-f75d22cf73f3402d" aria-label="src/libcamera/camera_manager.cpp:283 excerpt"><code>L283</code> excerpt</a> · <a aria-label="src/libcamera/camera_manager.cpp:283" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera_manager.cpp#L283">Full source <code>L283</code></a> · <a href="#source-0c01857bf49370e2" aria-label="src/libcamera/camera_manager.cpp:154 excerpt"><code>L154</code> excerpt</a> · <a aria-label="src/libcamera/camera_manager.cpp:154" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera_manager.cpp#L154">Full source <code>L154</code></a> · <a href="#source-f58d94d893e03971" aria-label="src/libcamera/camera_manager.cpp:329 excerpt"><code>L329</code> excerpt</a> · <a aria-label="src/libcamera/camera_manager.cpp:329" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera_manager.cpp#L329">Full source <code>L329</code></a> · <a href="#source-0c733673790ad84f" aria-label="src/libcamera/camera_manager.cpp:368 excerpt"><code>L368</code> excerpt</a> · <a aria-label="src/libcamera/camera_manager.cpp:368" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera_manager.cpp#L368">Full source <code>L368</code></a></span></li><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="#source-5bbd41c1e725138c" aria-label="src/libcamera/pipeline_handler.cpp:86 excerpt"><code>L86</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:86" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L86">Full source <code>L86</code></a></span></li></ul></details><h2 id="컴포넌트별-책임">Responsibilities by component</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:758&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L758\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:758&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:758&quot;: [&quot;#source-6c066281dcce33d6&quot;]}">The <code>Camera</code> class represents a camera that can create one or more image streams from a single image source. It provides the main interface for configuring and controlling the device and capturing image streams, and it is the central object that libcamera exposes externally.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:758&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L758\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:758&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:758&quot;: [&quot;#source-6c066281dcce33d6&quot;]}">libcamera manages the lifetime of <code>Camera</code> instances with <code>std::shared_ptr&lt;&gt;</code>. Instances must be created with the <code>create()</code> function, which returns a shared pointer. The constructors and destructor of <code>Camera</code> are declared private, so instances cannot be constructed or destroyed directly.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:758&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L758\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:758&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:758&quot;: [&quot;#source-6c066281dcce33d6&quot;]}"><code>Camera</code> models a camera capable of producing one or more image streams from a single image source. It is the main interface for configuring and controlling the device and capturing image streams, and is the central object exposed by libcamera. libcamera manages the lifetime of camera instances with <code>std::shared_ptr&lt;&gt;</code>, and instances must be created with <code>create()</code>, which returns a shared pointer. The constructors and destructor of <code>Camera</code> are private, so instances cannot be created or destroyed manually.</p>
 
 <details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>1</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-6c066281dcce33d6" aria-label="src/libcamera/camera.cpp:758 excerpt"><code>L758</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:758" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L758">Full source <code>L758</code></a></span></li></ul></details><h2 id="요청-생성과-소유권">Request creation and ownership</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1243&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1243\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1243&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1243&quot;: [&quot;#source-d61960ed2545ba78&quot;]}">The <code>cookie</code> of <code>Camera::createRequest</code> is an opaque input value for the application. This value is stored in the generated request and can be read again at any time with <code>Request::cookie()</code>. According to the source description, applications typically use this value in the request completion handler to associate the request with an external resource, and from libcamera's perspective, <code>cookie</code> is a completely opaque value. <code>Camera::createRequest()</code> can only be called when the camera is in the <code>Configured</code> or <code>Running</code> state, and on error, the function returns <code>nullptr</code>.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1243&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1243\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1243&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/request.cpp:376&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L376\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:376&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1243&quot;: [&quot;#source-d61960ed2545ba78&quot;], &quot;src/libcamera/request.cpp:376&quot;: [&quot;#source-0556d5e91908d040&quot;]}">Ownership of the request returned by <code>Camera::createRequest()</code> passes to the caller, who is also responsible for deleting it. To requeue the same request instead of creating a new one, the caller must call <code>Request::reuse()</code> before queueing the request, to reset its status and associated controls. If <code>flags &amp; ReuseBuffers</code> is true, <code>Request::reuse(ReuseFlag)</code> calls <code>setRequest(this)</code> on each buffer in <code>bufferMap_</code> and adds it to <code>_d()-&gt;pending_</code>, so buffers already added with <code>addBuffer()</code> are retained and reused. If <code>ReuseBuffers</code> is not specified, <code>bufferMap_</code> is cleared.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1243&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1243\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1243&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1243&quot;: [&quot;#source-d61960ed2545ba78&quot;]}">The <code>cookie</code> of <code>Camera::createRequest(cookie)</code> is an opaque input value used by the application. This value is stored in the request and can be read at any time using <code>Request::cookie()</code>. This value is completely opaque from the perspective of <code>libcamera</code>. <code>Camera::createRequest()</code> may only be called when the camera is in the <code>Configured</code> or <code>Running</code> state and returns <code>nullptr</code> if an error occurs.</p>
+<!-- sdd:visual:item-creation -->
+<h3 id="요청-생성과-소유권의-관계와-경계">The relationship and boundaries between request creation and ownership</h3>
+<pre class="mermaid">flowchart TB
+
+  v_create["Camera::createRequest &lt;br/&gt;creates an empty request in &lt;br/&gt;Configured or Running and &lt;br/&gt;returns nullptr on error."]
+  v_caller["The caller owns and must &lt;br/&gt;delete the request; it may &lt;br/&gt;delete it on completion or &lt;br/&gt;reset and reuse it."]
+  v_reuse["Call Request::reuse before &lt;br/&gt;queueing the request again."]
+  v_flags{"flags selects buffer reuse; &lt;br/&gt;the branches show only &lt;br/&gt;buffer handling."}
+  v_buffer["Each existing buffer gets &lt;br/&gt;the request and enters &lt;br/&gt;pending#95;; the loop then &lt;br/&gt;ends."]
+  v_map["bufferMap#95; is cleared, &lt;br/&gt;removing the previous &lt;br/&gt;buffer associations."]
+  v_reset["After buffer handling, set &lt;br/&gt;RequestPending and clear &lt;br/&gt;controls and metadata."]
+  v_create --&gt;|"The returned request#39;s &lt;br/&gt;ownership passes to the &lt;br/&gt;caller."| v_caller
+  v_caller --&gt;|"The caller may reset and &lt;br/&gt;reuse the request instead &lt;br/&gt;of deleting it."| v_reuse
+  v_reuse --&gt;|"The flags of Request::reuse &lt;br/&gt;indicate whether to reuse &lt;br/&gt;buffers."| v_flags
+  v_flags --&gt;|"With ReuseBuffers, the &lt;br/&gt;existing buffers are &lt;br/&gt;associated again. #91;true#93;"| v_buffer
+  v_flags --&gt;|"Without ReuseBuffers, the &lt;br/&gt;buffer map is cleared. &lt;br/&gt;#91;false#93;"| v_map
+  v_buffer --&gt;|"Reset after buffer handling."| v_reset
+  v_map --&gt;|"Reset after buffer handling."| v_reset</pre>
+<p><a href="overview.item-creation.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>How does the caller create, own, delete, or reuse requests, and what happens to the buffers depending on whether ReuseBuffers is specified?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Camera::createRequest creates an empty request in Configured or Running and returns nullptr on error.">Camera::createRequest creates an empty request in Configured or Running and returns nullptr on error.</span></td>
+<td><a href="#source-d61960ed2545ba78">src/libcamera/camera.cpp:1243</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The caller owns and must delete the request; it may delete it on completion or reset and reuse it.">The caller owns and must delete the request; it may delete it on completion or reset and reuse it.</span></td>
+<td><a href="#source-d61960ed2545ba78">src/libcamera/camera.cpp:1243</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call Request::reuse before queueing the request again.">Call Request::reuse before queueing the request again.</span></td>
+<td><a href="#source-0556d5e91908d040">src/libcamera/request.cpp:376</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="flags selects buffer reuse; the branches show only buffer handling.">flags selects buffer reuse; the branches show only buffer handling.</span></td>
+<td><a href="#source-0556d5e91908d040">src/libcamera/request.cpp:376</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Each existing buffer gets the request and enters pending_; the loop then ends.">Each existing buffer gets the request and enters pending_; the loop then ends.</span></td>
+<td><a href="#source-0556d5e91908d040">src/libcamera/request.cpp:376</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="bufferMap_ is cleared, removing the previous buffer associations.">bufferMap_ is cleared, removing the previous buffer associations.</span></td>
+<td><a href="#source-0556d5e91908d040">src/libcamera/request.cpp:376</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After buffer handling, set RequestPending and clear controls and metadata.">After buffer handling, set RequestPending and clear controls and metadata.</span></td>
+<td><a href="#source-0556d5e91908d040">src/libcamera/request.cpp:376</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The returned request&#x27;s ownership passes to the caller.">The returned request's ownership passes to the caller.</span></td>
+<td><a href="#source-d61960ed2545ba78">src/libcamera/camera.cpp:1243</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The caller may reset and reuse the request instead of deleting it.">The caller may reset and reuse the request instead of deleting it.</span></td>
+<td><a href="#source-d61960ed2545ba78">src/libcamera/camera.cpp:1243</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The flags of Request::reuse indicate whether to reuse buffers.">The flags of Request::reuse indicate whether to reuse buffers.</span></td>
+<td><a href="#source-0556d5e91908d040">src/libcamera/request.cpp:376</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="With ReuseBuffers, the existing buffers are associated again. · flags &amp; ReuseBuffers [true]">With ReuseBuffers, the existing buffers are associated again. · flags &amp; ReuseBuffers [true]</span></td>
+<td><a href="#source-0556d5e91908d040">src/libcamera/request.cpp:376</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Without ReuseBuffers, the buffer map is cleared. · flags &amp; ReuseBuffers [false]">Without ReuseBuffers, the buffer map is cleared. · flags &amp; ReuseBuffers [false]</span></td>
+<td><a href="#source-0556d5e91908d040">src/libcamera/request.cpp:376</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Reset after buffer handling.">Reset after buffer handling.</span></td>
+<td><a href="#source-0556d5e91908d040">src/libcamera/request.cpp:376</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Reset after buffer handling.">Reset after buffer handling.</span></td>
+<td><a href="#source-0556d5e91908d040">src/libcamera/request.cpp:376</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:item-creation -->
+
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1243&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1243\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1243&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/request.cpp:376&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L376\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:376&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1243&quot;: [&quot;#source-d61960ed2545ba78&quot;], &quot;src/libcamera/request.cpp:376&quot;: [&quot;#source-0556d5e91908d040&quot;]}">Ownership of the request returned by <code>Camera::createRequest()</code> is transferred to the caller, and the caller must delete the request. To requeue the same request instead of creating a new one, the caller must call <code>Request::reuse()</code> before queueing it to reset the request state and associated controls. <code>Request::reuse(ReuseFlag)</code> retains and reuses the existing buffers added with <code>addBuffer()</code> if <code>ReuseBuffers</code> is specified, and clears <code>bufferMap_</code> otherwise.</p>
 
 <details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>2</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-d61960ed2545ba78" aria-label="src/libcamera/camera.cpp:1243 excerpt"><code>L1243</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:1243" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1243">Full source <code>L1243</code></a></span></li><li><code>src/libcamera/request.cpp</code><span class="evidence-lines"><a href="#source-0556d5e91908d040" aria-label="src/libcamera/request.cpp:376 excerpt"><code>L376</code> excerpt</a> · <a aria-label="src/libcamera/request.cpp:376" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L376">Full source <code>L376</code></a></span></li></ul></details><h2 id="캡처-세션의-상태와-자원">State and resources of the capture session</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:769&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L769\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:769&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:769&quot;: [&quot;#source-4b17a07667f3a55d&quot;]}">To prepare capture, the application must acquire the camera with <code>acquire()</code>, configure it with <code>configure()</code>, and then start it with <code>start()</code>. A started camera can process requests until it is stopped, and this period is the <code>Running</code> state. The full end path runs from <code>Running</code> via <code>stop()</code> through <code>Stopping</code>, returns to <code>Configured</code> after stopping, and then goes from <code>Configured</code> via <code>release()</code> to <code>Available</code>, releasing the camera. While the camera is not released, the application may repeat starting and stopping multiple times, and may also change the capture settings by reconfiguring the camera.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:769&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L769\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:769&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:769&quot;: [&quot;#source-4b17a07667f3a55d&quot;]}">When preparing for capture, the application acquires the camera with <code>acquire()</code>, configures it with <code>configure()</code>, and then starts it with <code>start()</code>. Once started, the camera can process requests until it is stopped. To finish using a camera in the <code>Running</code> state completely, the application stops it with <code>stop()</code>, lets it pass through <code>Stopping</code> and return to <code>Configured</code>, and then releases it with <code>release()</code>. The application may start and stop the camera multiple times while it remains unreleased, and may also reconfigure it.</p>
+<!-- sdd:visual:item-lifecycle -->
+<h3 id="캡처-세션의-상태와-자원의-관계와-경계">Relationships and boundaries between capture session states and resources</h3>
+<pre class="mermaid">flowchart TB
+
+  v_available["The camera is Available. &lt;br/&gt;Release it when finished."]
+  v_acquired["The camera is Acquired. &lt;br/&gt;Acquire and configure it to &lt;br/&gt;prepare for capture."]
+  v_configured["The camera is Configured. &lt;br/&gt;It can be reconfigured or &lt;br/&gt;started and stopped &lt;br/&gt;repeatedly until released."]
+  v_running["The camera is Running and &lt;br/&gt;can process requests until &lt;br/&gt;stopped."]
+  v_stopping["The camera is Stopping. The &lt;br/&gt;caller must synchronize &lt;br/&gt;state functions if &lt;br/&gt;necessary."]
+  v_available --&gt;|"release#40;#41; leaves the camera &lt;br/&gt;Available."| v_available
+  v_available --&gt;|"acquire#40;#41; moves the camera &lt;br/&gt;to Acquired."| v_acquired
+  v_acquired --&gt;|"release#40;#41; moves the camera &lt;br/&gt;to Available."| v_available
+  v_acquired --&gt;|"configure#40;#41; moves the &lt;br/&gt;camera to Configured."| v_configured
+  v_configured --&gt;|"release#40;#41; moves the camera &lt;br/&gt;to Available."| v_available
+  v_configured --&gt;|"configure#40;#41; or &lt;br/&gt;createRequest#40;#41; leaves the &lt;br/&gt;camera Configured."| v_configured
+  v_configured --&gt;|"start#40;#41; moves the camera to &lt;br/&gt;Running."| v_running
+  v_running --&gt;|"stop#40;#41; moves the camera to &lt;br/&gt;Stopping."| v_stopping
+  v_stopping --&gt;|"The camera transitions from &lt;br/&gt;Stopping to Configured."| v_configured
+  v_running --&gt;|"createRequest#40;#41; or &lt;br/&gt;queueRequest#40;#41; leaves the &lt;br/&gt;camera Running."| v_running</pre>
+<p><a href="overview.item-lifecycle.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>How do acquire, configure, start, stop, release, and repeated capture change the camera state?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="The camera is Available. Release it when finished.">The camera is Available. Release it when finished.</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The camera is Acquired. Acquire and configure it to prepare for capture.">The camera is Acquired. Acquire and configure it to prepare for capture.</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The camera is Configured. It can be reconfigured or started and stopped repeatedly until released.">The camera is Configured. It can be reconfigured or started and stopped repeatedly until released.</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The camera is Running and can process requests until stopped.">The camera is Running and can process requests until stopped.</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The camera is Stopping. The caller must synchronize state functions if necessary.">The camera is Stopping. The caller must synchronize state functions if necessary.</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="release() leaves the camera Available.">release() leaves the camera Available.</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="acquire() moves the camera to Acquired.">acquire() moves the camera to Acquired.</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="release() moves the camera to Available.">release() moves the camera to Available.</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="configure() moves the camera to Configured.">configure() moves the camera to Configured.</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="release() moves the camera to Available.">release() moves the camera to Available.</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="configure() or createRequest() leaves the camera Configured.">configure() or createRequest() leaves the camera Configured.</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="start() moves the camera to Running.">start() moves the camera to Running.</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="stop() moves the camera to Stopping.">stop() moves the camera to Stopping.</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The camera transitions from Stopping to Configured.">The camera transitions from Stopping to Configured.</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="createRequest() or queueRequest() leaves the camera Running.">createRequest() or queueRequest() leaves the camera Running.</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:item-lifecycle -->
+
 
 <details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>1</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-4b17a07667f3a55d" aria-label="src/libcamera/camera.cpp:769 excerpt"><code>L769</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:769" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L769">Full source <code>L769</code></a></span></li></ul></details><h2 id="요청-제출과-완료">Request submission and completion</h2>
 <p class="reading-links">See also: <a href="overview.html#%EB%B2%84%ED%8D%BC-%EC%99%84%EB%A3%8C%EC%99%80-%EC%9A%94%EC%B2%AD-%EC%99%84%EB%A3%8C">Distinguishing buffer completion from completion of the entire request</a> · <a href="overview.html#%EC%8A%A4%EB%A0%88%EB%93%9C-%EA%B2%BD%EA%B3%84%EC%99%80-%EB%8F%99%EA%B8%B0%ED%99%94">Completion caller and thread obligations</a></p>
 
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1308&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1308\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1308&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1308&quot;: [&quot;#source-2f880c124115c9c4&quot;]}">The application must attach at least one capture buffer to the request object returned by <code>createRequest()</code> before submitting it with <code>Camera::queueRequest()</code>. When a request submitted with <code>Camera::queueRequest()</code> finishes processing, the camera notifies completion through the <code>requestCompleted</code> signal. <code>Camera::queueRequest()</code> may be called only when the camera is in the Running state defined in <code>camera_operation</code>.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1308&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1308\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1308&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1308&quot;: [&quot;#source-2f880c124115c9c4&quot;]}">The application must attach at least one capture buffer to the request object returned by <code>createRequest()</code> before submitting it with <code>Camera::queueRequest()</code>. After the request is queued through <code>Camera::queueRequest()</code>, the camera notifies the application through the <code>requestCompleted</code> signal when processing is complete. The caller must call <code>Camera::queueRequest()</code> only when the camera is in the <code>Running</code> state.</p>
 <!-- sdd:visual:submission-completion -->
 <h3 id="요청-접수와-버퍼-완료-요청-완료">Request acceptance, buffer completion, and request completion</h3>
 <pre class="mermaid">flowchart TB
@@ -196,15 +459,215 @@
 
 
 <details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>1</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-2f880c124115c9c4" aria-label="src/libcamera/camera.cpp:1308 excerpt"><code>L1308</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:1308" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1308">Full source <code>L1308</code></a></span></li></ul></details><h2 id="버퍼-완료와-요청-완료">Buffer completion and request completion</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/pipeline_handler.cpp:547&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L547\&quot;&gt;&lt;code&gt;src/libcamera/pipeline_handler.cpp:547&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline_handler.cpp:547&quot;: [&quot;#source-ca3f659653ce3f6a&quot;]}">The pipeline handler must call <code>PipelineHandler::completeBuffer()</code> to signal that one buffer of the request has completed. <code>completeBuffer()</code> notifies the application of the buffer completion and updates the request's internal buffer tracking state. If all buffers contained in the request have completed, the function returns <code>true</code>; otherwise, the function returns <code>false</code>. Even after the last buffer completes, the pipeline handler must explicitly call <code>completeRequest()</code>.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/pipeline_handler.cpp:547&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L547\&quot;&gt;&lt;code&gt;src/libcamera/pipeline_handler.cpp:547&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline_handler.cpp:547&quot;: [&quot;#source-ca3f659653ce3f6a&quot;]}"><code>PipelineHandler::completeBuffer()</code> notifies the application of the completion of a buffer belonging to the request and updates the request's internal buffer tracking information. The pipeline handler must explicitly call <code>completeRequest()</code> even after the last buffer has completed.</p>
+<!-- sdd:visual:item-completion -->
+<h3 id="버퍼-완료와-요청-완료의-관계와-경계">The relationship and boundaries between buffer completion and request completion</h3>
+<pre class="mermaid">flowchart TB
+
+  v_buffer_completion["The handler must call &lt;br/&gt;completeBuffer on the &lt;br/&gt;CameraManager thread to &lt;br/&gt;notify and track buffer &lt;br/&gt;completion."]
+  v_result{"The return value indicates &lt;br/&gt;whether all buffers in the &lt;br/&gt;request have completed."}
+  v_all_complete["It returns True if all &lt;br/&gt;buffers have completed."]
+  v_buffers_remaining["It returns false if not all &lt;br/&gt;buffers have completed."]
+  v_request_completion["The last buffer does not &lt;br/&gt;automatically complete the &lt;br/&gt;request; handlers must call &lt;br/&gt;completeRequest#40;#41;."]
+  v_buffer_completion --&gt;|"The function returns &lt;br/&gt;whether all buffers have &lt;br/&gt;completed."| v_result
+  v_result --&gt;|"It returns True if all &lt;br/&gt;buffers have completed."| v_all_complete
+  v_result --&gt;|"It returns false if not all &lt;br/&gt;buffers have completed."| v_buffers_remaining
+  v_all_complete --&gt;|"Even after the last buffer, &lt;br/&gt;the handler must complete &lt;br/&gt;the request explicitly."| v_request_completion</pre>
+<p><a href="overview.item-completion.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>How are individual buffer completion and whether all buffers are complete distinguished from an explicit request completion call?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="The handler must call completeBuffer on the CameraManager thread to notify and track buffer completion.">The handler must call completeBuffer on the CameraManager thread to notify and track buffer completion.</span></td>
+<td><a href="#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The return value indicates whether all buffers in the request have completed.">The return value indicates whether all buffers in the request have completed.</span></td>
+<td><a href="#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It returns True if all buffers have completed.">It returns True if all buffers have completed.</span></td>
+<td><a href="#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It returns false if not all buffers have completed.">It returns false if not all buffers have completed.</span></td>
+<td><a href="#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The last buffer does not automatically complete the request; handlers must call completeRequest().">The last buffer does not automatically complete the request; handlers must call completeRequest().</span></td>
+<td><a href="#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function returns whether all buffers have completed.">The function returns whether all buffers have completed.</span></td>
+<td><a href="#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It returns True if all buffers have completed.">It returns True if all buffers have completed.</span></td>
+<td><a href="#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It returns false if not all buffers have completed.">It returns false if not all buffers have completed.</span></td>
+<td><a href="#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Even after the last buffer, the handler must complete the request explicitly.">Even after the last buffer, the handler must complete the request explicitly.</span></td>
+<td><a href="#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:item-completion -->
+
 
 <details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>1</span></summary><ul><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="#source-ca3f659653ce3f6a" aria-label="src/libcamera/pipeline_handler.cpp:547 excerpt"><code>L547</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:547" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L547">Full source <code>L547</code></a></span></li></ul></details><h2 id="스레드-경계와-동기화">Thread boundaries and synchronization</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:780&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L780\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:780&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline_handler.cpp:571&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L571\&quot;&gt;&lt;code&gt;src/libcamera/pipeline_handler.cpp:571&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:780&quot;: [&quot;#source-33ababe2a4780075&quot;], &quot;src/libcamera/pipeline_handler.cpp:571&quot;: [&quot;#source-7ac40780a56ae3a9&quot;]}">Functions that change the <code>Camera</code> state are generally not synchronized with each other by the <code>Camera</code> class, so if necessary, the caller must ensure synchronization between these functions. The caller of <code>PipelineHandler::completeRequest()</code> is the pipeline handler. The pipeline handler must call this function when notifying the camera of a completed request, and the call must be made from the <code>CameraManager</code> thread.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:780&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L780\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:780&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline_handler.cpp:571&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L571\&quot;&gt;&lt;code&gt;src/libcamera/pipeline_handler.cpp:571&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:780&quot;: [&quot;#source-33ababe2a4780075&quot;], &quot;src/libcamera/pipeline_handler.cpp:571&quot;: [&quot;#source-7ac40780a56ae3a9&quot;]}">When calling functions that change the <code>Camera</code> state, the caller must ensure synchronization between the functions where necessary. The pipeline handler must call <code>PipelineHandler::completeRequest()</code> on the <code>CameraManager</code> thread.</p>
 
 <details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>2</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-33ababe2a4780075" aria-label="src/libcamera/camera.cpp:780 excerpt"><code>L780</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:780" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L780">Full source <code>L780</code></a></span></li><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="#source-7ac40780a56ae3a9" aria-label="src/libcamera/pipeline_handler.cpp:571 excerpt"><code>L571</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:571" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L571">Full source <code>L571</code></a></span></li></ul></details><h2 id="정적-근거의-확인-범위">Scope of static evidence verification</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1404&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1404\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1404&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera.cpp:1383&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1383\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1383&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera.cpp:755&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L755\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:755&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1404&quot;: [&quot;#source-bf3cae669253cabe&quot;], &quot;src/libcamera/camera.cpp:1383&quot;: [&quot;#source-1bb135021258e6a5&quot;], &quot;src/libcamera/camera.cpp:755&quot;: [&quot;#source-2e73109154ae3a90&quot;]}"><code>Camera::start()</code> checks the camera state through <code>d-&gt;isAccessAllowed(Private::CameraConfigured)</code> and stores its return value in <code>ret</code>. When <code>ret</code> is negative (<code>ret &lt; 0</code>), <code>start()</code> returns that value unchanged through <code>return ret;</code>, and in this branch, neither the pipeline start call nor the state transition to <code>Private::CameraRunning</code> is executed. The <code>-EACCES</code> in the API comment means a state in which the camera cannot start, but from this code fragment alone it cannot be confirmed that <code>isAccessAllowed()</code> returns <code>-EACCES</code>, so the two values are not asserted to be the same. The item that the TODO comment asks to be documented is the camera start timing.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1400&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1400\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1400&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera.cpp:1383&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1383\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1383&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1400&quot;: [&quot;#source-05691b4c81e7ee1c&quot;], &quot;src/libcamera/camera.cpp:1383&quot;: [&quot;#source-1bb135021258e6a5&quot;]}"><code>Camera::start</code> returns <code>ret</code> if it is negative in the <code>CameraConfigured</code> access check. The API documentation specifies <code>-EACCES</code> as the error for a state in which the camera cannot be started. The function then calls <code>PipelineHandler::start</code> with <code>ConnectionTypeBlocking</code> and, if the resulting <code>ret</code> is nonzero, returns that value. If the result is 0, the function changes the state to <code>CameraRunning</code> and then returns 0.</p>
+<!-- sdd:visual:item-verification -->
+<h3 id="상태-검사와-시작-결과">State checks and start results</h3>
+<pre class="mermaid">flowchart TB
 
-<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>3</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-bf3cae669253cabe" aria-label="src/libcamera/camera.cpp:1404 excerpt"><code>L1404</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:1404" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1404">Full source <code>L1404</code></a> · <a href="#source-1bb135021258e6a5" aria-label="src/libcamera/camera.cpp:1383 excerpt"><code>L1383</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:1383" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1383">Full source <code>L1383</code></a> · <a href="#source-2e73109154ae3a90" aria-label="src/libcamera/camera.cpp:755 excerpt"><code>L755</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:755" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L755">Full source <code>L755</code></a></span></li></ul></details>
+  v_access["Camera::start stores the &lt;br/&gt;result of &lt;br/&gt;isAccessAllowed#40;Private::&lt;br/&gt;CameraConfigured#41; in ret."]
+  v_access_check{"It checks the access check &lt;br/&gt;result."}
+  v_access_return["It returns the access check &lt;br/&gt;result ret."]
+  v_assertion["An ASSERT checks that &lt;br/&gt;requestSequence#95; is zero."]
+  v_controls_check{"Condition: controls."}
+  v_copy_controls["Create a ControlList copy &lt;br/&gt;and pass it to &lt;br/&gt;patchControlList."]
+  v_start_copy["It calls &lt;br/&gt;PipelineHandler::start via &lt;br/&gt;invokeMethod with &lt;br/&gt;ConnectionTypeBlocking and &lt;br/&gt;#38;copy."]
+  v_start_null["It calls &lt;br/&gt;PipelineHandler::start via &lt;br/&gt;invokeMethod with &lt;br/&gt;ConnectionTypeBlocking and &lt;br/&gt;nullptr."]
+  v_result_check{"Condition: ret."}
+  v_result_return["It returns the pipeline &lt;br/&gt;start result ret."]
+  v_running["It sets &lt;br/&gt;Private::CameraRunning with &lt;br/&gt;setState and returns 0."]
+  v_access --&gt;|"When the access check &lt;br/&gt;returns normally, it checks &lt;br/&gt;the result."| v_access_check
+  v_access_check --&gt;|"If true, it returns ret. · &lt;br/&gt;ret #60; 0 #91;true#93;"| v_access_return
+  v_access_check --&gt;|"If false, it reaches &lt;br/&gt;ASSERT. · ret #60; 0 #91;false#93;"| v_assertion
+  v_assertion --&gt;|"On the continuing path, &lt;br/&gt;check the supplied controls."| v_controls_check
+  v_controls_check --&gt;|"If true, it creates a copy. &lt;br/&gt;· controls #91;true#93;"| v_copy_controls
+  v_controls_check --&gt;|"If false, it calls with &lt;br/&gt;nullptr. · controls #91;false#93;"| v_start_null
+  v_copy_controls --&gt;|"When patchControlList &lt;br/&gt;returns normally, it calls &lt;br/&gt;with the copy."| v_start_copy
+  v_start_copy --&gt;|"When the call returns &lt;br/&gt;normally, it checks ret."| v_result_check
+  v_start_null --&gt;|"When the call returns &lt;br/&gt;normally, it checks ret."| v_result_check
+  v_result_check --&gt;|"If true, it returns ret. · &lt;br/&gt;ret #91;true#93;"| v_result_return
+  v_result_check --&gt;|"If false, it sets the state &lt;br/&gt;and returns 0. · ret #91;false#93;"| v_running</pre>
+<p><a href="overview.item-verification.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>Depending on the results of the access check and pipeline start, what does Camera::start return, and when does Camera::start transition to CameraRunning?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Camera::start stores the result of isAccessAllowed(Private::CameraConfigured) in ret.">Camera::start stores the result of isAccessAllowed(Private::CameraConfigured) in ret.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It checks the access check result.">It checks the access check result.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It returns the access check result ret.">It returns the access check result ret.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="An ASSERT checks that requestSequence_ is zero.">An ASSERT checks that requestSequence_ is zero.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Condition: controls.">Condition: controls.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Create a ControlList copy and pass it to patchControlList.">Create a ControlList copy and pass it to patchControlList.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It calls PipelineHandler::start via invokeMethod with ConnectionTypeBlocking and &amp;copy.">It calls PipelineHandler::start via invokeMethod with ConnectionTypeBlocking and &amp;copy.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It calls PipelineHandler::start via invokeMethod with ConnectionTypeBlocking and nullptr.">It calls PipelineHandler::start via invokeMethod with ConnectionTypeBlocking and nullptr.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Condition: ret.">Condition: ret.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It returns the pipeline start result ret.">It returns the pipeline start result ret.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It sets Private::CameraRunning with setState and returns 0.">It sets Private::CameraRunning with setState and returns 0.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="When the access check returns normally, it checks the result.">When the access check returns normally, it checks the result.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, it returns ret. · ret &lt; 0 [true]">If true, it returns ret. · ret &lt; 0 [true]</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, it reaches ASSERT. · ret &lt; 0 [false]">If false, it reaches ASSERT. · ret &lt; 0 [false]</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="On the continuing path, check the supplied controls.">On the continuing path, check the supplied controls.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, it creates a copy. · controls [true]">If true, it creates a copy. · controls [true]</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, it calls with nullptr. · controls [false]">If false, it calls with nullptr. · controls [false]</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="When patchControlList returns normally, it calls with the copy.">When patchControlList returns normally, it calls with the copy.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="When the call returns normally, it checks ret.">When the call returns normally, it checks ret.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="When the call returns normally, it checks ret.">When the call returns normally, it checks ret.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, it returns ret. · ret [true]">If true, it returns ret. · ret [true]</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, it sets the state and returns 0. · ret [false]">If false, it sets the state and returns 0. · ret [false]</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:item-verification -->
+
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:755&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L755\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:755&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:755&quot;: [&quot;#source-2e73109154ae3a90&quot;]}">Execution check: This TODO comment requests the addition of documentation on camera start timing.</p>
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>4</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-05691b4c81e7ee1c" aria-label="src/libcamera/camera.cpp:1400 excerpt"><code>L1400</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:1400" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1400">Full source <code>L1400</code></a> · <a href="#source-1bb135021258e6a5" aria-label="src/libcamera/camera.cpp:1383 excerpt"><code>L1383</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:1383" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1383">Full source <code>L1383</code></a> · <a href="#source-2e73109154ae3a90" aria-label="src/libcamera/camera.cpp:755 excerpt"><code>L755</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:755" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L755">Full source <code>L755</code></a> · <a aria-label="src/libcamera/camera.cpp:1404" href="#source-bf3cae669253cabe"><code>L1404</code></a></span></li></ul></details>
 <!-- sdd:class-diagram -->
 <h2 id="클래스-관계">Class relationships</h2>
 <p>Arrow labels show the extracted relationship, and dashed lines indicate inheritance. Arrows point to the referenced target or base class. They do not indicate call order.</p>
@@ -229,7 +692,7 @@
 <!-- /sdd:class-diagram -->
 
 <h2 id="소스-근거">Source evidence</h2>
-<details class="source-excerpts"><summary><span>16</span> source excerpts</summary>
+<details class="source-excerpts"><summary><span>17</span> source excerpts</summary>
 <p>Include each excerpt only once. Expand the needed original text and check it against the explanation.</p>
 <p><a id="source-f75d22cf73f3402d"></a></p>
 <details class="note">
@@ -560,7 +1023,7 @@ bool PipelineHandler::completeBuffer
 <p><a id="source-33ababe2a4780075"></a></p>
 <details class="note">
 <summary>Source evidence: src/libcamera/camera.cpp:780</summary>
-<p>This is an excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L780"><code>src/libcamera/camera.cpp:780</code></a>. The end line is 784, and you can compare the source text below with the description.</p>
+<p>This excerpt begins at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L780"><code>src/libcamera/camera.cpp:780</code></a> and ends at line 784. The original text below can be compared with the explanation.</p>
 <p>SHA-256: <code>943831ed5cf08179455c41bd83a649d74d2a4a2d53f153cfa83dbeff179c2bf6</code></p>
 <div class="highlight"><pre><span></span><code>Functions that affect the camera state as defined below are generally not
  * synchronized with each other by the Camera class. The caller is responsible
@@ -631,6 +1094,42 @@ void PipelineHandler::completeRequest
  */
 </code></pre></div>
 </details>
+<p><a id="source-05691b4c81e7ee1c"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/camera.cpp:1400</summary>
+<p>This is an excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1400"><code>src/libcamera/camera.cpp:1400</code></a>. The end line is 1428, and the original text below can be compared with the description.</p>
+<p>SHA-256: <code>a440ed27d1a8c891ff25f542252c50f9fc3040df4cc04346bf771ee8e4e54b73</code></p>
+<div class="highlight"><pre><span></span><code>int Camera::start(const ControlList *controls)
+{
+    Private *const d = _d();
+
+    int ret = d-&gt;isAccessAllowed(Private::CameraConfigured);
+    if (ret &lt; 0)
+        return ret;
+
+    LOG(Camera, Debug) &lt;&lt; "Starting capture";
+
+    ASSERT(d-&gt;requestSequence_ == 0);
+
+    if (controls) {
+        ControlList copy(*controls);
+        patchControlList(copy);
+        ret = d-&gt;pipe_-&gt;invokeMethod(&amp;PipelineHandler::start,
+                         ConnectionTypeBlocking, this, &amp;copy);
+    } else {
+        ret = d-&gt;pipe_-&gt;invokeMethod(&amp;PipelineHandler::start,
+                         ConnectionTypeBlocking, this, nullptr);
+    }
+
+    if (ret)
+        return ret;
+
+    d-&gt;setState(Private::CameraRunning);
+
+    return 0;
+}
+</code></pre></div>
+</details>
 </details>
 <h2 id="선택한-시나리오의-코드-읽기-순서">Code reading order for the selected scenario</h2>
 <ol>
@@ -639,7 +1138,7 @@ void PipelineHandler::completeRequest
 <li>Distinguish scheduled calls from completion notifications, and check the execution thread against the connection code.</li>
 </ol>
 
-</article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78</code></dd><dt>Document generation time</dt><dd><code>2026-10-30 22:41:11+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/claude/claude-haiku-5-5</code></dd><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd><dt>Reader scope</dt><dd><a href="../reader-scope.json">Answers by task and unreviewed scope</a></dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>include/libcamera/camera.h</code>, <code>include/libcamera/camera_manager.h</code>, <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/pipeline_handler.h</code>, <code>include/libcamera/request.h</code>, <code>src/libcamera/base/log.cpp</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/camera_manager.cpp</code>, <code>src/libcamera/controls.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code>, <code>src/libcamera/request.cpp</code></li><li>Evidence level: Code verified (static analysis, simple_compdb configuration, commit <code>293d751a81</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status record date: 2026-10-31 · Before human review</li></ul></details><a href="../overview.md">Markdown source ↗</a> <a href="overview.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="team-overview.html"><small>Previous</small> What this project does ←</a><a class="next" href="camera-model.html"><small>Next</small> Camera and request model →</a></nav>
+</article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78</code></dd><dt>Document generation time</dt><dd><code>2026-11-11 20:46:11+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd><dt>Reader scope</dt><dd><a href="../reader-scope.json">Answers by task and unreviewed scope</a></dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>include/libcamera/camera.h</code>, <code>include/libcamera/camera_manager.h</code>, <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/pipeline_handler.h</code>, <code>include/libcamera/request.h</code>, <code>src/libcamera/base/log.cpp</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/camera_manager.cpp</code>, <code>src/libcamera/controls.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code>, <code>src/libcamera/request.cpp</code></li><li>Evidence level: Code verified (static analysis, simple_compdb configuration, commit <code>c19d05128f</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded: 2026-11-12 · Before human review</li></ul></details><a href="../overview.md">Markdown source ↗</a> <a href="overview.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="team-overview.html"><small>Previous</small> What this project does ←</a><a class="next" href="camera-model.html"><small>Next</small> Camera and request model →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
 <aside class="page-toc"><nav aria-label="Table of contents for this page"><p>On this page</p><div class="toc">
 <ul>
@@ -648,15 +1147,27 @@ void PipelineHandler::completeRequest
 </ul>
 </li>
 <li><a href="#컴포넌트별-책임">Responsibilities by component</a></li>
-<li><a href="#요청-생성과-소유권">Request creation and ownership</a></li>
-<li><a href="#캡처-세션의-상태와-자원">State and resources of the capture session</a></li>
+<li><a href="#요청-생성과-소유권">Request creation and ownership</a><ul>
+<li><a href="#요청-생성과-소유권의-관계와-경계">The relationship and boundaries between request creation and ownership</a></li>
+</ul>
+</li>
+<li><a href="#캡처-세션의-상태와-자원">State and resources of the capture session</a><ul>
+<li><a href="#캡처-세션의-상태와-자원의-관계와-경계">Relationships and boundaries between capture session states and resources</a></li>
+</ul>
+</li>
 <li><a href="#요청-제출과-완료">Request submission and completion</a><ul>
 <li><a href="#요청-접수와-버퍼-완료-요청-완료">Request acceptance, buffer completion, and request completion</a></li>
 </ul>
 </li>
-<li><a href="#버퍼-완료와-요청-완료">Buffer completion and request completion</a></li>
+<li><a href="#버퍼-완료와-요청-완료">Buffer completion and request completion</a><ul>
+<li><a href="#버퍼-완료와-요청-완료의-관계와-경계">The relationship and boundaries between buffer completion and request completion</a></li>
+</ul>
+</li>
 <li><a href="#스레드-경계와-동기화">Thread boundaries and synchronization</a></li>
-<li><a href="#정적-근거의-확인-범위">Scope of static evidence verification</a></li>
+<li><a href="#정적-근거의-확인-범위">Scope of static evidence verification</a><ul>
+<li><a href="#상태-검사와-시작-결과">State checks and start results</a></li>
+</ul>
+</li>
 <li><a href="#클래스-관계">Class relationships</a></li>
 <li><a href="#소스-근거">Source evidence</a></li>
 <li><a href="#선택한-시나리오의-코드-읽기-순서">Code reading order for the selected scenario</a></li>
@@ -665,4 +1176,4 @@ void PipelineHandler::completeRequest
 </nav></aside></div>
 <dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find document</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search documents, sections, terms, and code elements</label><input id="search-input" type="search" autocomplete="off" placeholder="Example: Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
 <dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Diagram element and function names"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Collapse">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to screen</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">Drag with a mouse or swipe with touch to move the diagram. "Fit to screen" shows an overview of the whole diagram.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="Zoomed diagram"><div id="diagram-canvas"></div></div></dialog>
-<script id="site-config" type="application/json">{"root": "./", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "d7f54ca11e", "language": "en"}</script><script defer src="../assets/site.js?v=dd3415510a"></script><script defer src="../assets/reader-tools.js?v=dd3415510a"></script></body></html>
+<script id="site-config" type="application/json">{"root": "./", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "10c7b0ad3c", "language": "en"}</script><script defer src="../assets/site.js?v=dd3415510a"></script><script defer src="../assets/reader-tools.js?v=dd3415510a"></script></body></html>

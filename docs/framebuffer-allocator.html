@@ -8,9 +8,18 @@
 <main id="main"><p class="breadcrumb">For Developer <span>/</span> FrameBufferAllocator의 실패와 참조 수명</p><h1>FrameBufferAllocator의 실패와 참조 수명</h1><div class="page-state"><span class="review-state">사람 검토 전</span><span>자동 검사 통과</span><span class="generation-method">작성: 추출한 구조와 모델이 쓴 초안</span><a class="state-help" href="#page-evidence">상태 설명 ↓</a></div>
 <details class="mobile-toc"><summary>이 페이지의 목차</summary><div class="toc">
 <ul>
-<li><a href="#할당-전에-확인할-카메라-상태와-스트림">할당 전에 확인할 카메라 상태와 스트림</a></li>
-<li><a href="#buffers-반환-참조의-유효기간">buffers 반환 참조의 유효기간</a></li>
-<li><a href="#중복-할당과-내보내기-실패를-구분하기">중복 할당과 내보내기 실패를 구분하기</a></li>
+<li><a href="#할당-전에-확인할-카메라-상태와-스트림">할당 전에 확인할 카메라 상태와 스트림</a><ul>
+<li><a href="#할당-전에-확인할-카메라-상태와-스트림의-관계와-경계">할당 전에 확인할 카메라 상태와 스트림의 관계와 경계</a></li>
+</ul>
+</li>
+<li><a href="#buffers-반환-참조의-유효기간">buffers 반환 참조의 유효기간</a><ul>
+<li><a href="#buffers-반환-참조의-유효기간의-관계와-경계">buffers 반환 참조의 유효기간의 관계와 경계</a></li>
+</ul>
+</li>
+<li><a href="#중복-할당과-내보내기-실패를-구분하기">중복 할당과 내보내기 실패를 구분하기</a><ul>
+<li><a href="#중복-할당과-내보내기-실패를-구분하기의-관계와-경계">중복 할당과 내보내기 실패를 구분하기의 관계와 경계</a></li>
+</ul>
+</li>
 <li><a href="#free의-스트림-조회와-반환값">free의 스트림 조회와 반환값</a></li>
 <li><a href="#소스-근거">소스 근거</a></li>
 </ul>
@@ -22,17 +31,268 @@
 </details>
 
 <h2 id="할당-전에-확인할-카메라-상태와-스트림">할당 전에 확인할 카메라 상태와 스트림</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/framebuffer_allocator.cpp:72&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L72\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:72&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/framebuffer_allocator.cpp:81&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L81\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:81&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/framebuffer_allocator.cpp:72&quot;: [&quot;#source-4f32d036f2dee319&quot;], &quot;src/libcamera/framebuffer_allocator.cpp:81&quot;: [&quot;#source-224d9d0ce4f1ad7f&quot;]}"><code>allocate()</code>를 호출하기 전에 카메라는 <code>Camera::configure()</code>로 미리 구성되어 있고 정지해야 하며, 스트림은 활성 카메라 구성에 속해야 합니다. 카메라 상태가 버퍼를 할당할 수 없는 경우에는 <code>-EACCES</code>가 반환되고, <code>stream</code>이 카메라에 속하지 않거나 활성 카메라 구성의 일부가 아닌 경우에는 <code>-EINVAL</code>이 반환됩니다.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/framebuffer_allocator.cpp:72&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L72\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:72&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/framebuffer_allocator.cpp:81&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L81\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:81&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/framebuffer_allocator.cpp:72&quot;: [&quot;#source-4f32d036f2dee319&quot;], &quot;src/libcamera/framebuffer_allocator.cpp:81&quot;: [&quot;#source-224d9d0ce4f1ad7f&quot;]}"><code>allocate()</code>를 호출하기 전에 카메라는 <code>Camera::configure()</code>로 이미 구성되고 정지된 상태여야 하며, 스트림은 활성 카메라 구성에 속해야 합니다. <code>-EACCES</code>는 카메라가 버퍼를 할당할 수 없는 상태일 때 반환되며, <code>-EINVAL</code>은 스트림이 카메라에 속하지 않거나 활성 카메라 구성에 포함되지 않을 때 반환됩니다.</p>
+<!-- sdd:visual:item-allocation-preconditions -->
+<h3 id="할당-전에-확인할-카메라-상태와-스트림의-관계와-경계">할당 전에 확인할 카메라 상태와 스트림의 관계와 경계</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {&quot;allocate#40;#41;를 호출하기 전에 &lt;br/&gt;Camera는 &lt;br/&gt;Camera::configure#40;#41;로 &lt;br/&gt;설정되어 있어야 하며 정지해 &lt;br/&gt;있어야 합니다.&quot;: &quot;Before allocate#40;#41;, Camera &lt;br/&gt;must have been configured &lt;br/&gt;with Camera::configure#40;#41; &lt;br/&gt;and stopped.&quot;, &quot;stream은 카메라에 속해야 &lt;br/&gt;합니다.&quot;: &quot;The stream must belong to &lt;br/&gt;the camera.&quot;, &quot;stream은 활성 카메라 설정의 &lt;br/&gt;일부여야 합니다.&quot;: &quot;The stream must be part of &lt;br/&gt;the active camera &lt;br/&gt;configuration.&quot;, &quot;stream이 카메라에 속하지 &lt;br/&gt;않거나 활성 설정의 일부가 &lt;br/&gt;아니면 -EINVAL이 반환됩니다.&quot;: &quot;If stream does not belong &lt;br/&gt;to the camera or its active &lt;br/&gt;configuration, -EINVAL is &lt;br/&gt;returned.&quot;, &quot;stream이 카메라에 속하지 &lt;br/&gt;않으면 -EINVAL이 반환됩니다.&quot;: &quot;If stream does not belong &lt;br/&gt;to the camera, -EINVAL is &lt;br/&gt;returned.&quot;, &quot;stream이 활성 카메라 설정의 &lt;br/&gt;일부가 아니면 -EINVAL이 &lt;br/&gt;반환됩니다.&quot;: &quot;If stream is not in the &lt;br/&gt;active configuration, &lt;br/&gt;-EINVAL is returned.&quot;, &quot;카메라가 버퍼를 할당할 수 &lt;br/&gt;없는 상태이면 -EACCES가 &lt;br/&gt;반환됩니다.&quot;: &quot;If the camera cannot &lt;br/&gt;allocate buffers in its &lt;br/&gt;state, -EACCES is returned.&quot;, &quot;카메라가 버퍼를 할당할 수 &lt;br/&gt;있는 상태가 아니면 &lt;br/&gt;-EACCES가 반환됩니다.&quot;: &quot;If the camera cannot &lt;br/&gt;allocate buffers in its &lt;br/&gt;current state, -EACCES is &lt;br/&gt;returned.&quot;, &quot;카메라가 버퍼를 할당할 수 &lt;br/&gt;있는 상태인지 확인합니다.&quot;: &quot;Check whether the camera is &lt;br/&gt;in a state where buffers &lt;br/&gt;can be allocated.&quot;}
+  v_camera_precondition[&quot;allocate#40;#41;를 호출하기 전에 &lt;br/&gt;Camera는 &lt;br/&gt;Camera::configure#40;#41;로 &lt;br/&gt;설정되어 있어야 하며 정지해 &lt;br/&gt;있어야 합니다.&quot;]
+  v_stream[&quot;stream은 활성 카메라 설정의 &lt;br/&gt;일부여야 합니다.&quot;]
+  v_camera[&quot;카메라가 버퍼를 할당할 수 &lt;br/&gt;있는 상태인지 확인합니다.&quot;]
+  v_eacces[&quot;카메라가 버퍼를 할당할 수 &lt;br/&gt;있는 상태가 아니면 &lt;br/&gt;-EACCES가 반환됩니다.&quot;]
+  v_einval[&quot;stream이 카메라에 속하지 &lt;br/&gt;않거나 활성 설정의 일부가 &lt;br/&gt;아니면 -EINVAL이 반환됩니다.&quot;]
+  v_camera_precondition --&gt;|&quot;stream은 활성 카메라 설정의 &lt;br/&gt;일부여야 합니다.&quot;| v_stream
+  v_camera --&gt;|&quot;stream은 카메라에 속해야 &lt;br/&gt;합니다.&quot;| v_stream
+  v_camera --&gt;|&quot;카메라가 버퍼를 할당할 수 &lt;br/&gt;없는 상태이면 -EACCES가 &lt;br/&gt;반환됩니다.&quot;| v_eacces
+  v_stream --&gt;|&quot;stream이 카메라에 속하지 &lt;br/&gt;않으면 -EINVAL이 반환됩니다.&quot;| v_einval
+  v_stream --&gt;|&quot;stream이 활성 카메라 설정의 &lt;br/&gt;일부가 아니면 -EINVAL이 &lt;br/&gt;반환됩니다.&quot;| v_einval</pre>
+<p><a href="framebuffer-allocator.item-allocation-preconditions.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>allocate() 호출 전에 카메라와 스트림은 어떤 조건을 충족해야 하며, 어떤 조건에서 -EACCES와 -EINVAL이 반환되는가?</p>
+<p>소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.</p>
+<p>LLM 그림 초안 · 사람 검토 전</p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Before allocate(), Camera must have been configured with Camera::configure() and stopped.">allocate&#40;&#41;를 호출하기 전에 Camera는 Camera::configure&#40;&#41;로 설정되어 있어야 하며 정지해 있어야 합니다.</span></td>
+<td><a href="#source-4f32d036f2dee319">src/libcamera/framebuffer_allocator.cpp:72</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The stream must be part of the active camera configuration.">stream은 활성 카메라 설정의 일부여야 합니다.</span></td>
+<td><a href="#source-4f32d036f2dee319">src/libcamera/framebuffer_allocator.cpp:72</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether the camera is in a state where buffers can be allocated.">카메라가 버퍼를 할당할 수 있는 상태인지 확인합니다.</span></td>
+<td><a href="#source-224d9d0ce4f1ad7f">src/libcamera/framebuffer_allocator.cpp:81</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the camera cannot allocate buffers in its current state, -EACCES is returned.">카메라가 버퍼를 할당할 수 있는 상태가 아니면 -EACCES가 반환됩니다.</span></td>
+<td><a href="#source-224d9d0ce4f1ad7f">src/libcamera/framebuffer_allocator.cpp:81</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If stream does not belong to the camera or its active configuration, -EINVAL is returned.">stream이 카메라에 속하지 않거나 활성 설정의 일부가 아니면 -EINVAL이 반환됩니다.</span></td>
+<td><a href="#source-224d9d0ce4f1ad7f">src/libcamera/framebuffer_allocator.cpp:81</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The stream must be part of the active camera configuration.">stream은 활성 카메라 설정의 일부여야 합니다.</span></td>
+<td><a href="#source-4f32d036f2dee319">src/libcamera/framebuffer_allocator.cpp:72</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The stream must belong to the camera.">stream은 카메라에 속해야 합니다.</span></td>
+<td><a href="#source-224d9d0ce4f1ad7f">src/libcamera/framebuffer_allocator.cpp:81</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the camera cannot allocate buffers in its state, -EACCES is returned.">카메라가 버퍼를 할당할 수 없는 상태이면 -EACCES가 반환됩니다.</span></td>
+<td><a href="#source-224d9d0ce4f1ad7f">src/libcamera/framebuffer_allocator.cpp:81</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If stream does not belong to the camera, -EINVAL is returned.">stream이 카메라에 속하지 않으면 -EINVAL이 반환됩니다.</span></td>
+<td><a href="#source-224d9d0ce4f1ad7f">src/libcamera/framebuffer_allocator.cpp:81</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If stream is not in the active configuration, -EINVAL is returned.">stream이 활성 카메라 설정의 일부가 아니면 -EINVAL이 반환됩니다.</span></td>
+<td><a href="#source-224d9d0ce4f1ad7f">src/libcamera/framebuffer_allocator.cpp:81</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:item-allocation-preconditions -->
+
 
 <details class="evidence-links evidence-section"><summary>절 전체 근거 <span>2</span>개</summary><ul><li><code>src/libcamera/framebuffer_allocator.cpp</code><span class="evidence-lines"><a href="#source-4f32d036f2dee319" aria-label="src/libcamera/framebuffer_allocator.cpp:72 발췌"><code>L72</code> 발췌</a> · <a aria-label="src/libcamera/framebuffer_allocator.cpp:72" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L72">전체 소스 <code>L72</code></a> · <a href="#source-224d9d0ce4f1ad7f" aria-label="src/libcamera/framebuffer_allocator.cpp:81 발췌"><code>L81</code> 발췌</a> · <a aria-label="src/libcamera/framebuffer_allocator.cpp:81" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L81">전체 소스 <code>L81</code></a></span></li></ul></details><h2 id="buffers-반환-참조의-유효기간">buffers 반환 참조의 유효기간</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/framebuffer_allocator.cpp:141&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L141\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:141&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/framebuffer_allocator.cpp:142&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L142\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:142&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/framebuffer_allocator.cpp:141&quot;: [&quot;#source-68023250094ce1a8&quot;], &quot;src/libcamera/framebuffer_allocator.cpp:142&quot;: [&quot;#source-d60c5ad57e6699de&quot;]}"><code>buffers()</code>는 해당 스트림에 대해 <code>allocate()</code>로 버퍼 할당이 성공한 뒤에만 호출해야 합니다. <code>buffers()</code>가 반환하는 버퍼는 같은 스트림에 대해 <code>free()</code>가 호출되거나 <code>FrameBufferAllocator</code> 인스턴스가 파괴될 때까지 유효합니다.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/framebuffer_allocator.cpp:141&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L141\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:141&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/framebuffer_allocator.cpp:142&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L142\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:142&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/framebuffer_allocator.cpp:141&quot;: [&quot;#source-68023250094ce1a8&quot;], &quot;src/libcamera/framebuffer_allocator.cpp:142&quot;: [&quot;#source-d60c5ad57e6699de&quot;]}"><code>buffers()</code>는 해당 스트림에 대해 <code>allocate()</code>로 버퍼를 성공적으로 할당한 후에만 호출해야 합니다. <code>buffers()</code>가 반환하는 버퍼는 같은 스트림에 대해 <code>free()</code>가 호출되거나 <code>FrameBufferAllocator</code> 인스턴스가 파괴될 때까지 유효합니다.</p>
+<!-- sdd:visual:item-reference-lifetime -->
+<h3 id="buffers-반환-참조의-유효기간의-관계와-경계">buffers 반환 참조의 유효기간의 관계와 경계</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {&quot;FrameBufferAllocator &lt;br/&gt;인스턴스의 파괴가 &lt;br/&gt;유효기간을 끝낼 수 있습니다.&quot;: &quot;Destruction of the &lt;br/&gt;FrameBufferAllocator &lt;br/&gt;instance can end validity.&quot;, &quot;FrameBufferAllocator &lt;br/&gt;인스턴스의 파괴는 &lt;br/&gt;유효기간을 끝내는 &lt;br/&gt;사건입니다.&quot;: &quot;Destruction of the &lt;br/&gt;FrameBufferAllocator &lt;br/&gt;instance is an event that &lt;br/&gt;ends validity.&quot;, &quot;allocate#40;#41;로 해당 stream의 &lt;br/&gt;버퍼를 성공적으로 &lt;br/&gt;할당합니다.&quot;: &quot;Successfully allocate &lt;br/&gt;buffers for the stream with &lt;br/&gt;allocate#40;#41;.&quot;, &quot;buffers#40;#41;는 해당 stream의 &lt;br/&gt;버퍼를 성공적으로 할당한 &lt;br/&gt;뒤에만 호출해야 합니다.&quot;: &quot;Call buffers#40;#41; only after &lt;br/&gt;successfully allocating &lt;br/&gt;buffers for the stream.&quot;, &quot;같은 stream에 대한 free#40;#41; &lt;br/&gt;호출은 유효기간을 끝내는 &lt;br/&gt;사건입니다.&quot;: &quot;Calling free#40;#41; for the same &lt;br/&gt;stream is an event that &lt;br/&gt;ends validity.&quot;, &quot;같은 stream에 대한 free#40;#41; &lt;br/&gt;호출이 유효기간을 끝낼 수 &lt;br/&gt;있습니다.&quot;: &quot;Calling free#40;#41; for the same &lt;br/&gt;stream can end validity.&quot;, &quot;반환된 버퍼는 아래 두 사건 &lt;br/&gt;중 먼저 발생하는 사건까지 &lt;br/&gt;유효합니다.&quot;: &quot;Returned buffers are valid &lt;br/&gt;until the first of the two &lt;br/&gt;events below.&quot;, &quot;성공적으로 할당한 뒤에만 &lt;br/&gt;buffers#40;#41;를 호출해야 합니다.&quot;: &quot;Call buffers#40;#41; only after &lt;br/&gt;successful allocation.&quot;}
+  v_allocate[&quot;allocate#40;#41;로 해당 stream의 &lt;br/&gt;버퍼를 성공적으로 &lt;br/&gt;할당합니다.&quot;]
+  v_buffers[&quot;buffers#40;#41;는 해당 stream의 &lt;br/&gt;버퍼를 성공적으로 할당한 &lt;br/&gt;뒤에만 호출해야 합니다.&quot;]
+  v_returned[&quot;반환된 버퍼는 아래 두 사건 &lt;br/&gt;중 먼저 발생하는 사건까지 &lt;br/&gt;유효합니다.&quot;]
+  v_free[&quot;같은 stream에 대한 free#40;#41; &lt;br/&gt;호출은 유효기간을 끝내는 &lt;br/&gt;사건입니다.&quot;]
+  v_allocator[&quot;FrameBufferAllocator &lt;br/&gt;인스턴스의 파괴는 &lt;br/&gt;유효기간을 끝내는 &lt;br/&gt;사건입니다.&quot;]
+  v_allocate --&gt;|&quot;성공적으로 할당한 뒤에만 &lt;br/&gt;buffers#40;#41;를 호출해야 합니다.&quot;| v_buffers
+  v_buffers --&gt;|&quot;반환된 버퍼는 아래 두 사건 &lt;br/&gt;중 먼저 발생하는 사건까지 &lt;br/&gt;유효합니다.&quot;| v_returned
+  v_returned --&gt;|&quot;같은 stream에 대한 free#40;#41; &lt;br/&gt;호출이 유효기간을 끝낼 수 &lt;br/&gt;있습니다.&quot;| v_free
+  v_returned --&gt;|&quot;FrameBufferAllocator &lt;br/&gt;인스턴스의 파괴가 &lt;br/&gt;유효기간을 끝낼 수 있습니다.&quot;| v_allocator</pre>
+<p><a href="framebuffer-allocator.item-reference-lifetime.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>buffers()는 언제 호출할 수 있으며, 반환 버퍼의 유효기간은 어떤 사건으로 끝나는가?</p>
+<p>소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.</p>
+<p>LLM 그림 초안 · 사람 검토 전</p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Successfully allocate buffers for the stream with allocate().">allocate&#40;&#41;로 해당 stream의 버퍼를 성공적으로 할당합니다.</span></td>
+<td><a href="#source-68023250094ce1a8">src/libcamera/framebuffer_allocator.cpp:141</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call buffers() only after successfully allocating buffers for the stream.">buffers&#40;&#41;는 해당 stream의 버퍼를 성공적으로 할당한 뒤에만 호출해야 합니다.</span></td>
+<td><a href="#source-68023250094ce1a8">src/libcamera/framebuffer_allocator.cpp:141</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Returned buffers are valid until the first of the two events below.">반환된 버퍼는 아래 두 사건 중 먼저 발생하는 사건까지 유효합니다.</span></td>
+<td><a href="#source-d60c5ad57e6699de">src/libcamera/framebuffer_allocator.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Calling free() for the same stream is an event that ends validity.">같은 stream에 대한 free&#40;&#41; 호출은 유효기간을 끝내는 사건입니다.</span></td>
+<td><a href="#source-d60c5ad57e6699de">src/libcamera/framebuffer_allocator.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Destruction of the FrameBufferAllocator instance is an event that ends validity.">FrameBufferAllocator 인스턴스의 파괴는 유효기간을 끝내는 사건입니다.</span></td>
+<td><a href="#source-d60c5ad57e6699de">src/libcamera/framebuffer_allocator.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call buffers() only after successful allocation.">성공적으로 할당한 뒤에만 buffers&#40;&#41;를 호출해야 합니다.</span></td>
+<td><a href="#source-68023250094ce1a8">src/libcamera/framebuffer_allocator.cpp:141</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Returned buffers are valid until the first of the two events below.">반환된 버퍼는 아래 두 사건 중 먼저 발생하는 사건까지 유효합니다.</span></td>
+<td><a href="#source-d60c5ad57e6699de">src/libcamera/framebuffer_allocator.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Calling free() for the same stream can end validity.">같은 stream에 대한 free&#40;&#41; 호출이 유효기간을 끝낼 수 있습니다.</span></td>
+<td><a href="#source-d60c5ad57e6699de">src/libcamera/framebuffer_allocator.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Destruction of the FrameBufferAllocator instance can end validity.">FrameBufferAllocator 인스턴스의 파괴가 유효기간을 끝낼 수 있습니다.</span></td>
+<td><a href="#source-d60c5ad57e6699de">src/libcamera/framebuffer_allocator.cpp:142</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:item-reference-lifetime -->
+
 
 <details class="evidence-links evidence-section"><summary>절 전체 근거 <span>2</span>개</summary><ul><li><code>src/libcamera/framebuffer_allocator.cpp</code><span class="evidence-lines"><a href="#source-68023250094ce1a8" aria-label="src/libcamera/framebuffer_allocator.cpp:141 발췌"><code>L141</code> 발췌</a> · <a aria-label="src/libcamera/framebuffer_allocator.cpp:141" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L141">전체 소스 <code>L141</code></a> · <a href="#source-d60c5ad57e6699de" aria-label="src/libcamera/framebuffer_allocator.cpp:142 발췌"><code>L142</code> 발췌</a> · <a aria-label="src/libcamera/framebuffer_allocator.cpp:142" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L142">전체 소스 <code>L142</code></a></span></li></ul></details><h2 id="중복-할당과-내보내기-실패를-구분하기">중복 할당과 내보내기 실패를 구분하기</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/framebuffer_allocator.cpp:86&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L86\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:86&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/framebuffer_allocator.cpp:86&quot;: [&quot;#source-78a6c2f7dbdebb0f&quot;]}"><code>try_emplace</code>의 <code>inserted</code>가 <code>false</code>이면 <code>FrameBufferAllocator::allocate()</code>는 "Buffers already allocated for stream" 오류 로그를 남기고 <code>-EBUSY</code>를 반환합니다. <code>camera_-&gt;exportFrameBuffers(stream, &amp;it-&gt;second)</code>가 반환한 값은 변수 <code>ret</code>에 저장됩니다. 따라서 <code>exportFrameBuffers()</code>는 함수이고 <code>ret</code>는 그 반환값을 담는 변수입니다. <code>ret</code>가 음수, 즉 <code>ret &lt; 0</code>이면 <code>allocate()</code>는 <code>buffers_.erase(it)</code>를 실행해 <code>it</code>가 가리키는 <code>buffers_</code> 항목을 제거합니다.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/framebuffer_allocator.cpp:95&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L95\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:95&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/framebuffer_allocator.cpp:95&quot;: [&quot;#source-c091763d679ea029&quot;]}"><code>FrameBufferAllocator::allocate</code>는 <code>exportFrameBuffers</code> 호출 결과인 <code>ret</code>를 음수 여부와 관계없이 그대로 반환합니다.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/framebuffer_allocator.cpp:86&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L86\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:86&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/framebuffer_allocator.cpp:95&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L95\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:95&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/framebuffer_allocator.cpp:86&quot;: [&quot;#source-78a6c2f7dbdebb0f&quot;], &quot;src/libcamera/framebuffer_allocator.cpp:95&quot;: [&quot;#source-c091763d679ea029&quot;]}"><code>FrameBufferAllocator::allocate</code>는 <code>try_emplace</code>의 <code>inserted</code>가 false이면 버퍼가 이미 할당되었다는 오류를 기록하고 <code>-EBUSY</code>를 반환합니다. <code>FrameBufferAllocator::allocate()</code>는 <code>exportFrameBuffers()</code>의 반환값을 <code>ret</code>에 저장하고, <code>ret</code>가 음수이면 <code>buffers_.erase(it)</code>로 해당 <code>buffers_</code> 항목을 제거합니다. <code>FrameBufferAllocator::allocate</code>는 <code>exportFrameBuffers</code>를 호출한 경우 그 결과인 <code>ret</code>를 음수 여부와 관계없이 반환합니다.</p>
+<!-- sdd:visual:item-allocation-failure -->
+<h3 id="중복-할당과-내보내기-실패를-구분하기의-관계와-경계">중복 할당과 내보내기 실패를 구분하기의 관계와 경계</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {&quot;buffers#95;.try#95;emplace#40;stream#41;&lt;br/&gt;의 삽입 결과를 확인합니다.&quot;: &quot;Check the insertion result &lt;br/&gt;of &lt;br/&gt;buffers#95;.try#95;emplace#40;stream#41;&lt;br/&gt;.&quot;, &quot;ret이 구성 오류인지 &lt;br/&gt;확인합니다.&quot;: &quot;Check ret for a &lt;br/&gt;configuration error.&quot;, &quot;stream이 활성 구성에 속하지 &lt;br/&gt;않는다는 오류를 기록합니다.&quot;: &quot;Log that stream is not part &lt;br/&gt;of the active configuration.&quot;, &quot;구성 오류가 아니면 실패 &lt;br/&gt;여부를 확인합니다. #91;false#93;&quot;: &quot;Otherwise, check for &lt;br/&gt;failure. #91;false#93;&quot;, &quot;구성 오류이면 오류를 &lt;br/&gt;기록합니다. #91;true#93;&quot;: &quot;If it is a configuration &lt;br/&gt;error, log it. #91;true#93;&quot;, &quot;내보내기 결과 ret을 &lt;br/&gt;반환합니다.&quot;: &quot;Return the export result &lt;br/&gt;ret.&quot;, &quot;내보내기 결과가 실패인지 &lt;br/&gt;확인합니다.&quot;: &quot;Check whether the export &lt;br/&gt;result indicates failure.&quot;, &quot;내보내기 결과를 확인합니다.&quot;: &quot;Check the export result.&quot;, &quot;내보내기에 실패하면 새 &lt;br/&gt;buffers#95; 항목을 지웁니다.&quot;: &quot;Erase the new buffers#95; &lt;br/&gt;entry when export fails.&quot;, &quot;삽입되면 버퍼를 내보냅니다. &lt;br/&gt;#91;false#93;&quot;: &quot;If insertion succeeds, &lt;br/&gt;export the buffers. #91;false#93;&quot;, &quot;삽입되지 않으면 중복 &lt;br/&gt;할당으로 종료합니다. #91;true#93;&quot;: &quot;If insertion fails, return &lt;br/&gt;for duplicate allocation. &lt;br/&gt;#91;true#93;&quot;, &quot;새 항목에 버퍼를 내보내고 &lt;br/&gt;결과를 ret에 저장합니다.&quot;: &quot;Export buffers to the new &lt;br/&gt;entry and save the result &lt;br/&gt;in ret.&quot;, &quot;실패하면 항목을 지웁니다. &lt;br/&gt;#91;true#93;&quot;: &quot;If export fails, erase the &lt;br/&gt;entry. #91;true#93;&quot;, &quot;실패하지 않으면 항목을 &lt;br/&gt;지우지 않고 ret을 &lt;br/&gt;반환합니다. #91;false#93;&quot;: &quot;Otherwise, return ret &lt;br/&gt;without erasing the entry. &lt;br/&gt;#91;false#93;&quot;, &quot;오류를 기록한 뒤 실패 &lt;br/&gt;여부를 확인합니다.&quot;: &quot;After logging, check for &lt;br/&gt;failure.&quot;, &quot;중복 할당을 기록하고 &lt;br/&gt;-EBUSY를 반환합니다. 기존 &lt;br/&gt;buffers#95; 항목은 지우지 &lt;br/&gt;않습니다.&quot;: &quot;Log the duplicate &lt;br/&gt;allocation and return &lt;br/&gt;-EBUSY; keep the existing &lt;br/&gt;buffers#95; entry.&quot;, &quot;항목을 지운 뒤 ret을 &lt;br/&gt;반환합니다.&quot;: &quot;After erasing the entry, &lt;br/&gt;return ret.&quot;}
+  v_insert{&quot;buffers#95;.try#95;emplace#40;stream#41;&lt;br/&gt;의 삽입 결과를 확인합니다.&quot;}
+  v_busy[&quot;중복 할당을 기록하고 &lt;br/&gt;-EBUSY를 반환합니다. 기존 &lt;br/&gt;buffers#95; 항목은 지우지 &lt;br/&gt;않습니다.&quot;]
+  v_export[&quot;새 항목에 버퍼를 내보내고 &lt;br/&gt;결과를 ret에 저장합니다.&quot;]
+  v_invalid{&quot;ret이 구성 오류인지 &lt;br/&gt;확인합니다.&quot;}
+  v_log[&quot;stream이 활성 구성에 속하지 &lt;br/&gt;않는다는 오류를 기록합니다.&quot;]
+  v_failure{&quot;내보내기 결과가 실패인지 &lt;br/&gt;확인합니다.&quot;}
+  v_erase[&quot;내보내기에 실패하면 새 &lt;br/&gt;buffers#95; 항목을 지웁니다.&quot;]
+  v_result[&quot;내보내기 결과 ret을 &lt;br/&gt;반환합니다.&quot;]
+  v_insert --&gt;|&quot;삽입되지 않으면 중복 &lt;br/&gt;할당으로 종료합니다. #91;true#93;&quot;| v_busy
+  v_insert --&gt;|&quot;삽입되면 버퍼를 내보냅니다. &lt;br/&gt;#91;false#93;&quot;| v_export
+  v_export --&gt;|&quot;내보내기 결과를 확인합니다.&quot;| v_invalid
+  v_invalid --&gt;|&quot;구성 오류이면 오류를 &lt;br/&gt;기록합니다. #91;true#93;&quot;| v_log
+  v_invalid --&gt;|&quot;구성 오류가 아니면 실패 &lt;br/&gt;여부를 확인합니다. #91;false#93;&quot;| v_failure
+  v_log --&gt;|&quot;오류를 기록한 뒤 실패 &lt;br/&gt;여부를 확인합니다.&quot;| v_failure
+  v_failure --&gt;|&quot;실패하면 항목을 지웁니다. &lt;br/&gt;#91;true#93;&quot;| v_erase
+  v_erase --&gt;|&quot;항목을 지운 뒤 ret을 &lt;br/&gt;반환합니다.&quot;| v_result
+  v_failure --&gt;|&quot;실패하지 않으면 항목을 &lt;br/&gt;지우지 않고 ret을 &lt;br/&gt;반환합니다. #91;false#93;&quot;| v_result</pre>
+<p><a href="framebuffer-allocator.item-allocation-failure.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>중복 할당과 내보내기 실패는 처리 흐름, 반환값 및 buffers_ 항목 처리에서 어떻게 다른가?</p>
+<p>소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.</p>
+<p>LLM 그림 초안 · 사람 검토 전</p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Check the insertion result of buffers_.try_emplace(stream).">buffers&#95;.try&#95;emplace&#40;stream&#41;의 삽입 결과를 확인합니다.</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Log the duplicate allocation and return -EBUSY; keep the existing buffers_ entry.">중복 할당을 기록하고 -EBUSY를 반환합니다. 기존 buffers&#95; 항목은 지우지 않습니다.</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Export buffers to the new entry and save the result in ret.">새 항목에 버퍼를 내보내고 결과를 ret에 저장합니다.</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check ret for a configuration error.">ret이 구성 오류인지 확인합니다.</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Log that stream is not part of the active configuration.">stream이 활성 구성에 속하지 않는다는 오류를 기록합니다.</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether the export result indicates failure.">내보내기 결과가 실패인지 확인합니다.</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Erase the new buffers_ entry when export fails.">내보내기에 실패하면 새 buffers&#95; 항목을 지웁니다.</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return the export result ret.">내보내기 결과 ret을 반환합니다.</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If insertion fails, return for duplicate allocation. · !inserted [true]">삽입되지 않으면 중복 할당으로 종료합니다. · &#33;inserted &#91;true&#93;</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If insertion succeeds, export the buffers. · !inserted [false]">삽입되면 버퍼를 내보냅니다. · &#33;inserted &#91;false&#93;</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the export result.">내보내기 결과를 확인합니다.</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If it is a configuration error, log it. · ret == -EINVAL [true]">구성 오류이면 오류를 기록합니다. · ret == -EINVAL &#91;true&#93;</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Otherwise, check for failure. · ret == -EINVAL [false]">구성 오류가 아니면 실패 여부를 확인합니다. · ret == -EINVAL &#91;false&#93;</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After logging, check for failure.">오류를 기록한 뒤 실패 여부를 확인합니다.</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If export fails, erase the entry. · ret &lt; 0 [true]">실패하면 항목을 지웁니다. · ret &lt; 0 &#91;true&#93;</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After erasing the entry, return ret.">항목을 지운 뒤 ret을 반환합니다.</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Otherwise, return ret without erasing the entry. · ret &lt; 0 [false]">실패하지 않으면 항목을 지우지 않고 ret을 반환합니다. · ret &lt; 0 &#91;false&#93;</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:item-allocation-failure -->
+
 
 <details class="evidence-links evidence-section"><summary>절 전체 근거 <span>2</span>개</summary><ul><li><code>src/libcamera/framebuffer_allocator.cpp</code><span class="evidence-lines"><a href="#source-78a6c2f7dbdebb0f" aria-label="src/libcamera/framebuffer_allocator.cpp:86 발췌"><code>L86</code> 발췌</a> · <a aria-label="src/libcamera/framebuffer_allocator.cpp:86" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L86">전체 소스 <code>L86</code></a> · <a href="#source-c091763d679ea029" aria-label="src/libcamera/framebuffer_allocator.cpp:95 발췌"><code>L95</code> 발췌</a> · <a aria-label="src/libcamera/framebuffer_allocator.cpp:95" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L95">전체 소스 <code>L95</code></a></span></li></ul></details><h2 id="free의-스트림-조회와-반환값">free의 스트림 조회와 반환값</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/framebuffer_allocator.cpp:119&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L119\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:119&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/framebuffer_allocator.cpp:119&quot;: [&quot;#source-fe0210ae47a5ebe2&quot;]}"><code>stream</code>을 찾지 못하면, 즉 <code>iter</code>가 <code>buffers_.end()</code>와 같으면 <code>-EINVAL</code>을 반환하고 <code>buffers_</code>의 항목을 제거하지 않습니다. 스트림을 찾은 경우에는 해당 항목을 <code>buffers_.erase(iter)</code>로 삭제한 뒤 <code>0</code>을 반환합니다.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/framebuffer_allocator.cpp:119&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L119\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:119&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/framebuffer_allocator.cpp:119&quot;: [&quot;#source-fe0210ae47a5ebe2&quot;]}"><code>FrameBufferAllocator::free</code>는 스트림을 찾지 못하면 <code>-EINVAL</code>을 반환하며 <code>buffers_</code> 항목을 제거하지 않습니다. 스트림을 찾으면 해당 <code>buffers_</code> 항목을 제거하고 <code>0</code>을 반환합니다.</p>
 
 
 <details class="evidence-links evidence-section"><summary>절 전체 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/framebuffer_allocator.cpp</code><span class="evidence-lines"><a href="#source-fe0210ae47a5ebe2" aria-label="src/libcamera/framebuffer_allocator.cpp:119 발췌"><code>L119</code> 발췌</a> · <a aria-label="src/libcamera/framebuffer_allocator.cpp:119" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L119">전체 소스 <code>L119</code></a></span></li></ul></details><h2 id="소스-근거">소스 근거</h2>
@@ -139,13 +399,22 @@
 </details>
 </details>
 
-</article><section class="evidence"><h2 id="page-evidence">문서 생성·검토 정보</h2><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>사람 검토</dt><dd>사람 검토 전</dd><dt>분석 기준 커밋</dt><dd><code>c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78</code></dd><dt>문서 생성 시각</dt><dd><code>2026-10-30 15:19:58+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>cli/claude/claude-haiku-5-5</code></dd><dt>문서 간 계약</dt><dd><a href="contract-consistency.json">자동 대조 보고서</a> · 사람 검토 전</dd></dl><details class="note manuscript-record"><summary>원고 작성 당시 기록</summary><p>원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.</p><ul><li>근거 파일: <code>src/libcamera/framebuffer_allocator.cpp</code></li><li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>212c689fcf</code>)</li><li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li><li>검토 상태 기록일: 2026-10-31 · 사람 검토 전</li></ul></details><a href="framebuffer-allocator.md">Markdown 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="ipa-module-validation.html"><small>이전</small>IPA 모듈 정보 검사와 서명 파일 누락 ←</a><a class="next" href="camera-model.html"><small><span>다음</span> · <span>카메라와 요청 모델</span></small><span>Camera·Request와 버퍼 참조의 책임</span> →</a></nav>
+</article><section class="evidence"><h2 id="page-evidence">문서 생성·검토 정보</h2><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>사람 검토</dt><dd>사람 검토 전</dd><dt>분석 기준 커밋</dt><dd><code>c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78</code></dd><dt>문서 생성 시각</dt><dd><code>2026-11-11 21:04:22+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>문서 간 계약</dt><dd><a href="contract-consistency.json">자동 대조 보고서</a> · 사람 검토 전</dd></dl><details class="note manuscript-record"><summary>원고 작성 당시 기록</summary><p>원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.</p><ul><li>근거 파일: <code>src/libcamera/framebuffer_allocator.cpp</code></li><li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>c19d05128f</code>)</li><li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li><li>검토 상태 기록일: 2026-11-12 · 사람 검토 전</li></ul></details><a href="framebuffer-allocator.md">Markdown 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="ipa-module-validation.html"><small>이전</small>IPA 모듈 정보 검사와 서명 파일 누락 ←</a><a class="next" href="camera-model.html"><small><span>다음</span> · <span>카메라와 요청 모델</span></small><span>Camera·Request와 버퍼 참조의 책임</span> →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · 인용 검사와 사람의 내용 검토는 별도입니다.</footer></main>
 <aside class="page-toc"><nav aria-label="현재 페이지 목차"><p>이 페이지에서</p><div class="toc">
 <ul>
-<li><a href="#할당-전에-확인할-카메라-상태와-스트림">할당 전에 확인할 카메라 상태와 스트림</a></li>
-<li><a href="#buffers-반환-참조의-유효기간">buffers 반환 참조의 유효기간</a></li>
-<li><a href="#중복-할당과-내보내기-실패를-구분하기">중복 할당과 내보내기 실패를 구분하기</a></li>
+<li><a href="#할당-전에-확인할-카메라-상태와-스트림">할당 전에 확인할 카메라 상태와 스트림</a><ul>
+<li><a href="#할당-전에-확인할-카메라-상태와-스트림의-관계와-경계">할당 전에 확인할 카메라 상태와 스트림의 관계와 경계</a></li>
+</ul>
+</li>
+<li><a href="#buffers-반환-참조의-유효기간">buffers 반환 참조의 유효기간</a><ul>
+<li><a href="#buffers-반환-참조의-유효기간의-관계와-경계">buffers 반환 참조의 유효기간의 관계와 경계</a></li>
+</ul>
+</li>
+<li><a href="#중복-할당과-내보내기-실패를-구분하기">중복 할당과 내보내기 실패를 구분하기</a><ul>
+<li><a href="#중복-할당과-내보내기-실패를-구분하기의-관계와-경계">중복 할당과 내보내기 실패를 구분하기의 관계와 경계</a></li>
+</ul>
+</li>
 <li><a href="#free의-스트림-조회와-반환값">free의 스트림 조회와 반환값</a></li>
 <li><a href="#소스-근거">소스 근거</a></li>
 </ul>
@@ -153,4 +422,4 @@
 </nav></aside></div>
 <dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">문서 찾기</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><label for="search-input">문서·절·용어·코드 요소 검색</label><input id="search-input" type="search" autocomplete="off" placeholder="예: Pipeline, IPA, 클래스 관계"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
 <dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">클래스 관계</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">요소 찾기</label><input id="node-search" type="search" placeholder="그림 요소·함수 이름"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="축소">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="확대">+</button><button id="zoom-fit">화면에 맞춤</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">마우스로 끌거나 터치로 밀어서 그림을 이동합니다. '화면에 맞춤'은 그림 전체를 보는 개요 보기입니다.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="확대된 다이어그램"><div id="diagram-canvas"></div></div></dialog>
-<script id="site-config" type="application/json">{"root": "./", "mermaid": "assets/mermaid/mermaid.esm.min.mjs", "terms": "0c4c51ad91"}</script><script defer src="./assets/site.js?v=dd3415510a"></script><script defer src="./assets/reader-tools.js?v=dd3415510a"></script></body></html>
+<script id="site-config" type="application/json">{"root": "./", "mermaid": "assets/mermaid/mermaid.esm.min.mjs", "terms": "e624f47117"}</script><script defer src="./assets/site.js?v=dd3415510a"></script><script defer src="./assets/reader-tools.js?v=dd3415510a"></script></body></html>

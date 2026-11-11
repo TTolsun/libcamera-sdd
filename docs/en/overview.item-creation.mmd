@@ -1,0 +1,16 @@
+flowchart TB
+
+  v_create["Camera::createRequest <br/>creates an empty request in <br/>Configured or Running and <br/>returns nullptr on error."]
+  v_caller["The caller owns and must <br/>delete the request; it may <br/>delete it on completion or <br/>reset and reuse it."]
+  v_reuse["Call Request::reuse before <br/>queueing the request again."]
+  v_flags{"flags selects buffer reuse; <br/>the branches show only <br/>buffer handling."}
+  v_buffer["Each existing buffer gets <br/>the request and enters <br/>pending#95;; the loop then <br/>ends."]
+  v_map["bufferMap#95; is cleared, <br/>removing the previous <br/>buffer associations."]
+  v_reset["After buffer handling, set <br/>RequestPending and clear <br/>controls and metadata."]
+  v_create -->|"The returned request#39;s <br/>ownership passes to the <br/>caller."| v_caller
+  v_caller -->|"The caller may reset and <br/>reuse the request instead <br/>of deleting it."| v_reuse
+  v_reuse -->|"The flags of Request::reuse <br/>indicate whether to reuse <br/>buffers."| v_flags
+  v_flags -->|"With ReuseBuffers, the <br/>existing buffers are <br/>associated again. #91;true#93;"| v_buffer
+  v_flags -->|"Without ReuseBuffers, the <br/>buffer map is cleared. <br/>#91;false#93;"| v_map
+  v_buffer -->|"Reset after buffer handling."| v_reset
+  v_map -->|"Reset after buffer handling."| v_reset

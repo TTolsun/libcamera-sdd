@@ -1,0 +1,23 @@
+flowchart TB
+
+  v_pipeline_buffer["The pipeline handler must <br/>call <br/>PipelineHandler::<br/>completeBuffer from the <br/>CameraManager thread to <br/>signal buffer completion."]
+  v_buffer_signal["The bufferCompleted signal <br/>is emitted and emit <br/>returns. The receiver <br/>execution boundary is <br/>covered in a separate <br/>callback boundary diagram."]
+  v_request_buffer["Request::Private::<br/>completeBuffer updates the <br/>request#39;s buffer tracking."]
+  v_pending["It erases the buffer from <br/>pending#95;, asserts that <br/>exactly one entry was <br/>erased, and clears the <br/>buffer#39;s request <br/>association. If the buffer <br/>status is <br/>FrameMetadata::<br/>FrameCancelled, it sets <br/>cancelled#95; to true."]
+  v_buffer_return["PipelineHandler::<br/>completeBuffer returns true <br/>if all buffers in the <br/>request have completed, and <br/>false otherwise."]
+  v_complete_request["The request does not <br/>complete automatically when <br/>the last buffer completes. <br/>The handler must explicitly <br/>call completeRequest from <br/>the CameraManager thread <br/>and must not access the <br/>request after it returns. <br/>The handler may pass <br/>completed requests without <br/>an ordering constraint, and <br/>they are returned to the <br/>application in submission <br/>order."]
+  v_complete["complete asserts that the <br/>request is RequestPending <br/>and has no pending buffers. <br/>It sets the status to <br/>RequestCancelled if <br/>cancelled#95; is true and to <br/>RequestComplete if it is <br/>false. doCancelRequest sets <br/>cancelled#95; to true even <br/>when pending#95; is empty."]
+  v_front{"If the queue is not empty, <br/>it checks the front <br/>request. If the front <br/>request is RequestPending, <br/>the loop stops without <br/>notifying it."}
+  v_pop["If the front request is no <br/>longer pending, it asserts <br/>that the request has no <br/>pending buffers and removes <br/>it from the queue with <br/>pop#95;front."]
+  v_notify_camera["It calls <br/>Camera::requestComplete to <br/>notify the camera that the <br/>removed request has <br/>completed. This diagram <br/>shows the path that passes <br/>the state check."]
+  v_notify_application["The requestCompleted signal <br/>is emitted and emit <br/>returns. The receiver <br/>execution boundary is <br/>covered in a separate <br/>callback boundary diagram."]
+  v_pipeline_buffer -->|"PipelineHandler::<br/>completeBuffer emits the <br/>bufferCompleted signal."| v_buffer_signal
+  v_buffer_signal -->|"After the bufferCompleted <br/>emit returns, it calls the <br/>request#39;s completeBuffer."| v_request_buffer
+  v_request_buffer -->|"Request::Private::<br/>completeBuffer erases the <br/>buffer from pending#95;."| v_pending
+  v_pending -->|"After removing the buffer <br/>from pending#95;, clearing its <br/>association, and performing <br/>the remaining checks, <br/>PipelineHandler::<br/>completeBuffer returns the <br/>result."| v_buffer_return
+  v_buffer_return -->|"On the selected UVC path, <br/>it explicitly calls <br/>completeRequest after <br/>completeBuffer returns."| v_complete_request
+  v_complete_request -->|"completeRequest calls <br/>complete on the current <br/>request."| v_complete
+  v_complete -->|"After completing the <br/>current request, it checks <br/>the status of the front <br/>request if the queue is not <br/>empty."| v_front
+  v_front -->|"It asserts that the front <br/>request has no pending <br/>buffers, then removes it <br/>from the queue. · <br/>req-#62;status#40;#41; #61;#61; <br/>Request::RequestPending <br/>#91;false#93;"| v_pop
+  v_pop -->|"After removing the request <br/>from the queue, it notifies <br/>the camera of completion."| v_notify_camera
+  v_notify_camera -->|"If the state check passes, <br/>requestComplete emits the <br/>requestCompleted signal. · <br/>#95;d#40;#41;-#62;isAccessAllowed#40;Private::<br/>CameraStopping, <br/>Private::CameraRunning, <br/>true#41; #91;false#93;"| v_notify_application

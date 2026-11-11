@@ -1,0 +1,20 @@
+flowchart TB
+
+  v_camera{"After the access check <br/>passes, did this camera <br/>create the request?"}
+  v_wrong-camera["Return -EXDEV because a <br/>different camera created <br/>the request."]
+  v_status{"Is the request still <br/>RequestPending?"}
+  v_controls{"Does the control list use <br/>this camera’s control info <br/>map?"}
+  v_buffers{"Does the request contain at <br/>least one buffer?"}
+  v_streams{"Does every attached buffer <br/>belong to an active stream?"}
+  v_invalid["Return -EINVAL from the <br/>failed request-data check."]
+  v_submit["Preprocess controls, queue <br/>the asynchronous pipeline <br/>call, and return 0."]
+  v_camera -->|"No."| v_wrong-camera
+  v_camera -->|"Yes."| v_status
+  v_status -->|"The request is not pending."| v_invalid
+  v_status -->|"The request is pending."| v_controls
+  v_controls -->|"The control info map <br/>differs."| v_invalid
+  v_controls -->|"The control info map <br/>matches."| v_buffers
+  v_buffers -->|"There are no buffers."| v_invalid
+  v_buffers -->|"There are buffers."| v_streams
+  v_streams -->|"A stream is absent from the <br/>active set."| v_invalid
+  v_streams -->|"Every stream is in the <br/>active set."| v_submit
