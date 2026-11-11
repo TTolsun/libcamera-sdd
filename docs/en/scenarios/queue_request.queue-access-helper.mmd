@@ -1,0 +1,23 @@
+flowchart TB
+
+  v_entry["Camera::queueRequest calls <br/>the access check with <br/>Private::CameraRunning."]
+  v_disconnect{"Is disconnection disallowed <br/>and the camera disconnected?"}
+  v_enodev["The access check returns <br/>-ENODEV."]
+  v_state{"Does the current state <br/>exactly match the requested <br/>CameraRunning state?"}
+  v_zero["The access check returns 0. <br/>This means only that the <br/>access check passed."]
+  v_assert["If the states differ, an <br/>ASSERT checks the range of <br/>the state argument."]
+  v_eacces["The access check returns <br/>-EACCES."]
+  v_result{"Is the ret returned by the <br/>access check negative?"}
+  v_negative["Camera::queueRequest <br/>immediately returns that <br/>ret."]
+  v_camera["After the access check <br/>passes, the function checks <br/>whether the camera that <br/>created request matches the <br/>current Camera."]
+  v_entry -->|"The check examines <br/>disconnection first."| v_disconnect
+  v_disconnect -->|"If so, the check returns an <br/>error. #91;true#93;"| v_enodev
+  v_disconnect -->|"Otherwise, the check reads <br/>and examines the current <br/>state. #91;false#93;"| v_state
+  v_state -->|"If they match, the check <br/>returns 0. #91;true#93;"| v_zero
+  v_state -->|"If they differ, the check <br/>examines the argument <br/>range. #91;false#93;"| v_assert
+  v_assert -->|"If execution continues <br/>after the ASSERT, return <br/>the error."| v_eacces
+  v_enodev -->|"The caller checks the <br/>return value as ret."| v_result
+  v_eacces -->|"The caller checks the <br/>return value as ret."| v_result
+  v_zero -->|"The caller checks the <br/>return value as ret."| v_result
+  v_result -->|"If it is negative, the <br/>function returns it <br/>immediately. #91;true#93;"| v_negative
+  v_result -->|"If it is not negative, the <br/>function proceeds to the <br/>next check. #91;false#93;"| v_camera

@@ -1,16 +1,16 @@
 flowchart TB
 
-  v_caller["createRequest caller: owns <br/>Request"]
-  v_buffer["addBuffer caller: buffer <br/>validity duty"]
-  v_callback["Application <br/>request-completion callback <br/>is called"]
-  v_delete["Delete request"]
-  v_reuse["Reuse Request after <br/>resetting state"]
-  v_complete["completeRequest return <br/>boundary"]
-  v_cancel["cancelRequest return <br/>boundary"]
-  v_ban["Handler management ends; <br/>must not access request <br/>after return"]
-  v_buffer -->|"Keep buffer valid until <br/>callback is called"| v_callback
-  v_callback -->|"May delete in completion <br/>handler"| v_delete
-  v_complete -->|"No access once it returns"| v_ban
-  v_cancel -->|"Same rules apply"| v_ban
-  v_caller -->|"Owner may reuse after <br/>resetting state"| v_reuse
-  v_caller -->|"Owner is responsible for <br/>deletion"| v_delete
+  v_create["The createRequest caller <br/>receives ownership of the <br/>returned request and is <br/>responsible for deleting <br/>it. On error, nullptr is <br/>returned."]
+  v_add["The addBuffer caller must <br/>ensure that the buffer <br/>referenced by the request <br/>remains valid until the <br/>request completion callback <br/>is called."]
+  v_handler["The request may be deleted <br/>in the completion handler <br/>or reused after its state <br/>is reset. Deletion and <br/>reuse are alternatives."]
+  v_callback["The request completion <br/>callback is the point until <br/>which the addBuffer caller <br/>must keep the buffer valid."]
+  v_reuse["reuse resets the request <br/>status and controls. Call <br/>it before requeuing; <br/>ReuseBuffers can be used to <br/>reuse previously added <br/>buffers."]
+  v_complete["The pipeline handler must <br/>not access the request <br/>after completeRequest <br/>returns. This is a separate <br/>boundary from the <br/>completion handler#39;s <br/>deletion or reuse choice."]
+  v_cancel["cancelRequest cancels and <br/>completes the request. The <br/>same rules as <br/>completeRequest apply, <br/>including the prohibition <br/>on access after return."]
+  v_signal["An emitter passing a <br/>pointer or reference <br/>through Signal::emit must <br/>ensure that its target <br/>remains valid after <br/>emission."]
+  v_queued["If a separate Queued <br/>receiver continues to use a <br/>pointer, verify its <br/>lifetime through the last <br/>use and coordination <br/>between parties. Do not <br/>assume one completion <br/>callback or stop return <br/>waits for all receivers."]
+  v_create -->|"The returned request may be <br/>deleted in the completion <br/>handler."| v_handler
+  v_handler -->|"As an alternative to <br/>deletion, the request may <br/>be reused after its state <br/>is reset."| v_reuse
+  v_add -->|"The caller must ensure that <br/>the buffer remains valid <br/>until the request <br/>completion callback is <br/>called."| v_callback
+  v_cancel -->|"cancelRequest calls <br/>completeRequest and follows <br/>the same completion rules."| v_complete
+  v_signal -->|"Queued delivery is <br/>asynchronous and the sender <br/>does not wait for <br/>completion. Auto uses <br/>Direct in the same thread <br/>and Queued in different <br/>threads."| v_queued

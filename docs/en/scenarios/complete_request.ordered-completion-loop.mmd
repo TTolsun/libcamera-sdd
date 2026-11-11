@@ -1,0 +1,21 @@
+flowchart TB
+
+  v_entry["PipelineHandler calls <br/>complete for the input <br/>request."]
+  v_input_assert["ASSERT checks that the <br/>input request is pending <br/>and has no pending buffers. <br/>An active failure aborts <br/>execution."]
+  v_input_status["If the checks pass or are <br/>omitted, request stores <br/>RequestCancelled when <br/>cancelled#95; is true, else <br/>RequestComplete."]
+  v_queue{"Check whether <br/>queuedRequests#95; is empty."}
+  v_front{"Check whether the front req <br/>is RequestPending. It may <br/>differ from the input <br/>request."}
+  v_front_assert["ASSERT checks that the <br/>front req has no pending <br/>buffers. An active failure <br/>aborts execution."]
+  v_pop["If the check passes or is <br/>omitted, remove the front <br/>req from the queue."]
+  v_notify["Pass the removed req to <br/>Camera#39;s requestComplete."]
+  v_resume["doQueueRequests allows <br/>waiting requests to be <br/>queued to the pipeline, and <br/>completeRequest ends."]
+  v_entry -->|"The called complete checks <br/>the input request."| v_input_assert
+  v_input_assert -->|"Store the status if the <br/>checks pass or are omitted."| v_input_status
+  v_input_status -->|"Check the queue when <br/>complete returns normally."| v_queue
+  v_queue -->|"Check the front request if <br/>the queue is nonempty. <br/>#91;true#93;"| v_front
+  v_queue -->|"Allow waiting requests to <br/>be queued if the queue is <br/>empty. #91;false#93;"| v_resume
+  v_front -->|"If the front request is <br/>pending, break and allow <br/>waiting requests to be <br/>queued. #91;true#93;"| v_resume
+  v_front -->|"If the front request is not <br/>pending, check its pending <br/>buffers. #91;false#93;"| v_front_assert
+  v_front_assert -->|"Remove the request if the <br/>check passes or is omitted."| v_pop
+  v_pop -->|"Pass the removed request."| v_notify
+  v_notify -->|"Check the queue again only <br/>if requestComplete returns <br/>normally."| v_queue

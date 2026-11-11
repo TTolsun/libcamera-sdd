@@ -9,14 +9,21 @@
 <details class="mobile-toc"><summary>Table of contents of this page</summary><div class="toc">
 <ul>
 <li><a href="#카메라별-보정값의-소유권">Ownership of per-camera calibration values</a><ul>
-<li><a href="#보정값은-카메라별로-저장하고-구성-때-전달">Calibration values are stored per camera and passed at configuration time.</a></li>
+<li><a href="#카메라별-선택적-보정값의-저장과-전달">Storage and transfer of optional per-camera correction values</a></li>
 </ul>
 </li>
 <li><a href="#튜닝-입력의-기본값과-오류">Default values and errors of tuning inputs</a><ul>
-<li><a href="#보정-파라미터의-기본값과-입력-오류">Default values and input errors of calibration parameters</a></li>
+<li><a href="#보정-입력의-기본값오류저장-분기">Default, error, and storage branches for calibration input</a></li>
 </ul>
 </li>
-<li><a href="#스트림-적용과-실행-확인-범위">Scope of stream application and execution verification</a></li>
+<li><a href="#스트림-적용과-실행-확인-범위">Scope of stream application and execution verification</a><ul>
+<li><a href="#출력별-맵과-선택적-보정값">Per-output maps and optional correction values</a></li>
+<li><a href="#지원-제어와-요청-지원-조건">Supported controls and conditions for request support</a></li>
+<li><a href="#구성된-스트림의-제어-갱신">Control updates for configured streams</a></li>
+<li><a href="#스트림-메타데이터의-조건">Conditions for stream metadata</a></li>
+<li><a href="#메인-경로의-보정-구성과-crop-전달">Calibration configuration and crop forwarding in the main path</a></li>
+</ul>
+</li>
 <li><a href="#소스-근거">Source evidence</a></li>
 </ul>
 </div>
@@ -26,33 +33,42 @@
 <ul class="coverage-links"><li><p>Who stores and passes calibration values so that those of multiple cameras are not mixed up?</p><p><a href="#카메라별-보정값의-소유권">Ownership of per-camera calibration values</a></p></li><li><p>What result does it return when calibration values are missing or only partially present?</p><p><a href="#튜닝-입력의-기본값과-오류">Default values and errors of tuning inputs</a></p></li><li><p>Which stream does the calibration value apply to, and which execution conditions must be checked separately?</p><p><a href="#스트림-적용과-실행-확인-범위">Scope of stream application and execution verification</a></p></li></ul><p><span>Verification scope</span>: <span>Linking code evidence to explanations</span></p>
 </details>
 <details class="page-terms">
-<summary>Terms in this document: RKISP1, distortion correction, Pipeline Handler</summary>
+<summary>Terms in this document: RKISP1, distortion correction, RAW, metadata, and 1 more</summary>
 <ul>
 <li><strong>RKISP1</strong> (Rockchip Image Signal Processor 1): A camera ISP included in Rockchip SoCs, the NXP i.MX8MP, and others. libcamera has a Pipeline Handler and an IPA for this device.</li>
 <li><strong>Distortion correction</strong>: A process that straightens an image bent by the lens. The RKISP1 pipeline performs it by supplying a vertex map to the DW100 device.</li>
+<li><strong>RAW</strong>: RAW is a pixel color-encoding classification and is distinguished from StreamRole::Raw, a separate stream role for capturing raw sensor frames.</li>
+<li><strong>Metadata</strong>: Capture information checked alongside the image pixels. The metadata of a Request is provided as a ControlList, and the FrameMetadata of a FrameBuffer holds capture status, timestamp, bytes used, and so on. Whether the other fields of FrameMetadata are valid depends on the capture status.</li>
 <li><strong>Pipeline Handler</strong>: A libcamera component that finds the media device of a specific hardware platform (IPU3, RKISP1, etc.), creates cameras, passes requests to the device, and returns their completion. There is one per platform.</li>
 </ul>
 <p>Other terms can be found in <a href="glossary.html">Glossary</a>.</p>
 </details>
 
 <h2 id="카메라별-보정값의-소유권">Ownership of per-camera calibration values</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/pipeline/rkisp1/rkisp1.cpp:94&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L94\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/rkisp1/rkisp1.cpp:94&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline/rkisp1/rkisp1.cpp:914&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L914\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/rkisp1/rkisp1.cpp:914&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline/rkisp1/rkisp1.cpp:94&quot;: [&quot;#source-04546183f68b35f4&quot;], &quot;src/libcamera/pipeline/rkisp1/rkisp1.cpp:914&quot;: [&quot;#source-c164eb4c00d1c1d6&quot;]}"><code>RkISP1CameraData</code> stores the correction values for each camera in the member <code>dewarpParams_</code>, which has the <code>std::optional&lt;Dw100VertexMap::DewarpParams&gt;</code> format. <code>PipelineHandlerRkISP1::configure()</code> retrieves the current camera's data by calling <code>cameraData(camera)</code>, and when the dewarper is used on the main path, passes the <code>dewarpParams_</code> of that data to <code>dewarper_-&gt;configure()</code>. If that call returns a nonzero value, that value is returned.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/pipeline/rkisp1/rkisp1.cpp:94&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L94\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/rkisp1/rkisp1.cpp:94&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline/rkisp1/rkisp1.cpp:434&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L434\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/rkisp1/rkisp1.cpp:434&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline/rkisp1/rkisp1.cpp:94&quot;: [&quot;#source-04546183f68b35f4&quot;], &quot;src/libcamera/pipeline/rkisp1/rkisp1.cpp:434&quot;: [&quot;#source-af6210cb39d0385e&quot;]}"><code>RkISP1CameraData</code> stores the per-camera <code>dewarpParams_</code> as a <code>std::optional&lt;Dw100VertexMap::DewarpParams&gt;</code> member. <code>RkISP1CameraData::loadTuningFile()</code> finds the <code>Dewarp</code> entry in the <code>modules</code> list, passes this member to <code>loadDewarpParams()</code>, and, on success, sets <code>canUseDewarper_</code> to true and returns 0; if the loading function returns a nonzero value, it returns that value unchanged.</p>
 <!-- sdd:visual:per-camera-parameters -->
-<h3 id="보정값은-카메라별로-저장하고-구성-때-전달">Calibration values are stored per camera and passed at configuration time.</h3>
+<h3 id="카메라별-선택적-보정값의-저장과-전달">Storage and transfer of optional per-camera correction values</h3>
 <pre class="mermaid">flowchart TB
 
-  v_tuning["Dewarp entry in tuning file"]
-  v_camera["RkISP1CameraData::&lt;br/&gt;dewarpParams#95;"]
-  v_configure["Current camera CameraData"]
-  v_converter["dewarper#95;-#62;configure#40;#41;"]
-  v_tuning --&gt;|"loadDewarpParams#40;#41; stores &lt;br/&gt;parameters"| v_camera
-  v_camera --&gt;|"Select with &lt;br/&gt;cameraData#40;camera#41;"| v_configure
-  v_configure --&gt;|"Configure mainPath when &lt;br/&gt;usesDewarper#95;"| v_converter</pre>
+  v_camera["Camera supplied to &lt;br/&gt;configure#40;#41;"]
+  v_data["Selected RkISP1CameraData"]
+  v_optional["Optional calibration value &lt;br/&gt;dewarpParams#95;"]
+  v_tuning["Dewarp entry in the tuning &lt;br/&gt;file"]
+  v_loader["loadDewarpParams#40;#41;"]
+  v_converter["Dewarper configuration in a &lt;br/&gt;separate configure#40;#41;. &lt;br/&gt;Arrows show ownership and &lt;br/&gt;data transfer, not &lt;br/&gt;execution order."]
+  v_camera --&gt;|"configure#40;camera#41; selects &lt;br/&gt;the camera data with &lt;br/&gt;cameraData#40;camera#41;."| v_data
+  v_data --&gt;|"The camera data contains &lt;br/&gt;the optional calibration &lt;br/&gt;value."| v_optional
+  v_tuning --&gt;|"The Dewarp entry is passed &lt;br/&gt;as params."| v_loader
+  v_loader --&gt;|"The loader resets the &lt;br/&gt;camera#39;s optional by &lt;br/&gt;reference and stores values &lt;br/&gt;when all required &lt;br/&gt;validation passes."| v_optional
+  v_loader --&gt;|"If cm, coefficients and &lt;br/&gt;cmNew are all absent, the &lt;br/&gt;loader succeeds with the &lt;br/&gt;optional empty."| v_optional
+  v_optional --&gt;|"Separate configure#40;#41; passes &lt;br/&gt;the possibly empty optional &lt;br/&gt;upon reaching the main path &lt;br/&gt;with usesDewarper#95; true."| v_converter</pre>
 <p><a href="rkisp1-dewarp.per-camera-parameters.mmd">Mermaid source</a></p>
 <details class="note">
 <summary>Diagram evidence and verification scope</summary>
-<p>Indicates the storage location and delivery of calibration values. Do not interpret global calibration values as shared by all cameras.</p>
+<p>Where are the selected camera's optional calibration values stored, how can they be populated from tuning entries, and under what conditions are they passed to the calibrator?</p>
 <p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra high</code></p>
 <div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
 <thead>
 <tr>
@@ -62,60 +78,97 @@
 </thead>
 <tbody>
 <tr>
-<td><span data-sdd-label-en="Dewarp entry in tuning file">Dewarp entry in tuning file</span></td>
-<td><a href="#source-af6210cb39d0385e">src/libcamera/pipeline/rkisp1/rkisp1.cpp:434</a></td>
+<td><span data-sdd-label-en="Camera supplied to configure()">Camera supplied to configure()</span></td>
+<td><a href="#source-c164eb4c00d1c1d6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="RkISP1CameraData::dewarpParams_">RkISP1CameraData::dewarpParams_</span></td>
+<td><span data-sdd-label-en="Selected RkISP1CameraData">Selected RkISP1CameraData</span></td>
+<td><a href="#source-c164eb4c00d1c1d6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Optional calibration value dewarpParams_">Optional calibration value dewarpParams_</span></td>
 <td><a href="#source-04546183f68b35f4">src/libcamera/pipeline/rkisp1/rkisp1.cpp:94</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Current camera CameraData">Current camera CameraData</span></td>
-<td><a href="#source-c164eb4c00d1c1d6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
-</tr>
-<tr>
-<td><span data-sdd-label-en="dewarper_-&gt;configure()">dewarper_-&gt;configure()</span></td>
-<td><a href="#source-c164eb4c00d1c1d6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
-</tr>
-<tr>
-<td><span data-sdd-label-en="loadDewarpParams() stores parameters">loadDewarpParams() stores parameters</span></td>
+<td><span data-sdd-label-en="Dewarp entry in the tuning file">Dewarp entry in the tuning file</span></td>
 <td><a href="#source-af6210cb39d0385e">src/libcamera/pipeline/rkisp1/rkisp1.cpp:434</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Select with cameraData(camera)">Select with cameraData(camera)</span></td>
+<td><span data-sdd-label-en="loadDewarpParams()">loadDewarpParams()</span></td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Dewarper configuration in a separate configure(). Arrows show ownership and data transfer, not execution order.">Dewarper configuration in a separate configure(). Arrows show ownership and data transfer, not execution order.</span></td>
 <td><a href="#source-c164eb4c00d1c1d6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Configure mainPath when usesDewarper_">Configure mainPath when usesDewarper_</span></td>
+<td><span data-sdd-label-en="configure(camera) selects the camera data with cameraData(camera).">configure(camera) selects the camera data with cameraData(camera).</span></td>
 <td><a href="#source-c164eb4c00d1c1d6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The camera data contains the optional calibration value.">The camera data contains the optional calibration value.</span></td>
+<td><a href="#source-04546183f68b35f4">src/libcamera/pipeline/rkisp1/rkisp1.cpp:94</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The Dewarp entry is passed as params.">The Dewarp entry is passed as params.</span></td>
+<td><a href="#source-af6210cb39d0385e">src/libcamera/pipeline/rkisp1/rkisp1.cpp:434</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The loader resets the camera&#x27;s optional by reference and stores values when all required validation passes.">The loader resets the camera's optional by reference and stores values when all required validation passes.</span></td>
+<td><a href="#source-af6210cb39d0385e">src/libcamera/pipeline/rkisp1/rkisp1.cpp:434</a> · <a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If cm, coefficients and cmNew are all absent, the loader succeeds with the optional empty.">If cm, coefficients and cmNew are all absent, the loader succeeds with the optional empty.</span></td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Separate configure() passes the possibly empty optional upon reaching the main path with usesDewarper_ true.">Separate configure() passes the possibly empty optional upon reaching the main path with usesDewarper_ true.</span></td>
+<td><a href="#source-c164eb4c00d1c1d6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a> · <a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
 </tr>
 </tbody>
 </table></div>
 </details>
 <!-- /sdd:visual:per-camera-parameters -->
 
-<p data-sdd-evidence="[[&quot;src/libcamera/pipeline/rkisp1/rkisp1.cpp:434&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L434\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/rkisp1/rkisp1.cpp:434&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline/rkisp1/rkisp1.cpp:434&quot;: [&quot;#source-af6210cb39d0385e&quot;]}"><code>RkISP1CameraData::loadTuningFile()</code> returns 0 without opening the file if there is no dewarper. If there is a dewarper, the function opens the file in read-only mode; if opening fails, the function returns the file error value, and if YAML parsing fails, the function returns <code>-EINVAL</code>.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/pipeline/rkisp1/rkisp1.cpp:434&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L434\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/rkisp1/rkisp1.cpp:434&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline/rkisp1/rkisp1.cpp:434&quot;: [&quot;#source-af6210cb39d0385e&quot;]}"><code>loadTuningFile()</code> returns 0 if <code>modules</code> is absent from the YAML, and in each module where <code>Dewarp</code> is absent, moves on to the next module. In a module where <code>Dewarp</code> is present, the corresponding parameters and the <code>dewarpParams_</code> of the camera data are passed to <code>loadDewarpParams()</code>, and if that call returns a non-zero value, that value is returned. On success, <code>canUseDewarper_</code> is set to <code>true</code> and 0 is returned, and 0 is also returned even when the module is absent.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/pipeline/rkisp1/rkisp1.cpp:434&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L434\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/rkisp1/rkisp1.cpp:434&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline/rkisp1/rkisp1.cpp:434&quot;: [&quot;#source-af6210cb39d0385e&quot;]}"><code>RkISP1CameraData::loadTuningFile()</code> returns 0 without opening the file if there is no dewarper. If opening the file fails, the function returns the file error; if YAML parsing fails, the function returns <code>-EINVAL</code>. If <code>modules</code> is absent or the list contains no <code>Dewarp</code> entry, the function returns 0.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/pipeline/rkisp1/rkisp1.cpp:914&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L914\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/rkisp1/rkisp1.cpp:914&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline/rkisp1/rkisp1.cpp:914&quot;: [&quot;#source-36de5a75453d86c6&quot;, &quot;#source-c164eb4c00d1c1d6&quot;]}"><code>PipelineHandlerRkISP1::configure()</code> obtains <code>cameraData(camera)</code> from the current <code>camera</code> and sets <code>usesDewarper_</code> to true when <code>canUseDewarper_</code> is true and the first stream is not RAW. When the dewarper is used on the main path stream, the function passes the current camera data's <code>dewarpParams_</code> to <code>dewarper_-&gt;configure()</code> and returns the resulting value if it is nonzero.</p>
 
-<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>3</span></summary><ul><li><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code><span class="evidence-lines"><a href="#source-04546183f68b35f4" aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:94 excerpt"><code>L94</code> excerpt</a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:94" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L94">Full source <code>L94</code></a> · <a href="#source-c164eb4c00d1c1d6" aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:914 excerpt"><code>L914</code> excerpt</a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:914" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L914">Full source <code>L914</code></a> · <a href="#source-af6210cb39d0385e" aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:434 excerpt"><code>L434</code> excerpt</a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:434" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L434">Full source <code>L434</code></a></span></li></ul></details><h2 id="튜닝-입력의-기본값과-오류">Default values and errors of tuning inputs</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/converter/converter_dw100.cpp:105&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L105\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:105&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/converter/converter_dw100.cpp:105&quot;: [&quot;#source-eacff078bd6a9d79&quot;]}"><code>ConverterDW100Module::loadDewarpParams</code> first initializes the output <code>dewarpParams</code>. If <code>cm</code>, <code>coefficients</code>, and <code>cmNew</code> are all absent, the dewarper keeps operating and <code>0</code> is returned. If some items are provided and either <code>cm</code> or <code>coefficients</code> is missing, <code>-EINVAL</code> is returned.</p>
-<!-- sdd:visual:dewarp-input-branches -->
-<h3 id="보정-파라미터의-기본값과-입력-오류">Default values and input errors of calibration parameters</h3>
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>3</span></summary><ul><li><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code><span class="evidence-lines"><a href="#source-04546183f68b35f4" aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:94 excerpt"><code>L94</code> excerpt</a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:94" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L94">Full source <code>L94</code></a> · <a href="#source-af6210cb39d0385e" aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:434 excerpt"><code>L434</code> excerpt</a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:434" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L434">Full source <code>L434</code></a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:914" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L914"><code>L914</code></a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:914" href="#source-c164eb4c00d1c1d6"><code>L914</code></a></span></li></ul></details><h2 id="튜닝-입력의-기본값과-오류">Default values and errors of tuning inputs</h2>
+<p data-sdd-evidence="[[&quot;src/libcamera/converter/converter_dw100.cpp:105&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L105\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:105&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/converter/converter_dw100.cpp:105&quot;: [&quot;#source-eacff078bd6a9d79&quot;]}"><code>ConverterDW100Module::loadDewarpParams</code> first clears <code>dewarpParams</code>; if <code>cm</code>, <code>coefficients</code>, and <code>cmNew</code> are all absent, it returns <code>0</code>. If any are present, it reads <code>cm</code> as a 3×3 <code>double</code> matrix and stores the valid value in <code>dp.cm</code>, then reads <code>coefficients</code> as a list of <code>double</code> values and passes it to <code>setCoefficients</code>. If <code>cm</code> or <code>coefficients</code> is absent, either fails to be read, or <code>setCoefficients</code> returns an error, it returns <code>-EINVAL</code>.</p>
+<!-- sdd:visual:item-parameters -->
+<h3 id="보정-입력의-기본값오류저장-분기">Default, error, and storage branches for calibration input</h3>
 <pre class="mermaid">flowchart TB
 
-  v_empty{"Are cm, coefficients and &lt;br/&gt;cmNew all absent?"}
-  v_default["Return 0 with empty optional"]
-  v_valid{"Required matrix and &lt;br/&gt;coefficients valid?"}
-  v_error["Return -EINVAL"]
-  v_store["Apply cmNew default and &lt;br/&gt;store"]
-  v_empty --&gt;|"Yes: no explicit parameters"| v_default
-  v_empty --&gt;|"No: validate required input"| v_valid
-  v_valid --&gt;|"Missing or malformed &lt;br/&gt;required input"| v_error
-  v_valid --&gt;|"Valid; also validate cmNew &lt;br/&gt;when provided"| v_store</pre>
-<p><a href="rkisp1-dewarp.dewarp-input-branches.mmd">Mermaid source</a></p>
+  v_reset["Clear dewarpParams."]
+  v_empty{"Are cm, coefficients, and &lt;br/&gt;cmNew all absent?"}
+  v_empty-return["Return 0 with the optional &lt;br/&gt;empty."]
+  v_cm{"Is cm present and readable &lt;br/&gt;as a 3×3 double matrix?"}
+  v_save-cm["Copy the valid matrix to &lt;br/&gt;dp.cm."]
+  v_coeff{"Is coefficients a list that &lt;br/&gt;passes the 4, 5, 8, or 12 &lt;br/&gt;count check?"}
+  v_new{"Is cmNew present?"}
+  v_matrix{"Can cmNew be read as a 3×3 &lt;br/&gt;double matrix?"}
+  v_default["Copy dp.cm to dp.cmNew."]
+  v_save-new["Copy the supplied matrix to &lt;br/&gt;dp.cmNew."]
+  v_store["Store dp in dewarpParams &lt;br/&gt;and return 0."]
+  v_error["Return -EINVAL with the &lt;br/&gt;optional empty."]
+  v_reset --&gt;|"Check the three inputs."| v_empty
+  v_empty --&gt;|"All three inputs are absent."| v_empty-return
+  v_empty --&gt;|"At least one input is &lt;br/&gt;present."| v_cm
+  v_cm --&gt;|"cm is present and its &lt;br/&gt;conversion succeeded."| v_save-cm
+  v_cm --&gt;|"cm is absent or its &lt;br/&gt;conversion failed."| v_error
+  v_save-cm --&gt;|"Check the coefficients &lt;br/&gt;after storing cm."| v_coeff
+  v_coeff --&gt;|"The list was read and &lt;br/&gt;setCoefficients succeeded."| v_new
+  v_coeff --&gt;|"The list is missing, &lt;br/&gt;invalid, or has an &lt;br/&gt;unsupported count."| v_error
+  v_new --&gt;|"Read the supplied cmNew."| v_matrix
+  v_new --&gt;|"cmNew is absent."| v_default
+  v_matrix --&gt;|"The cmNew conversion &lt;br/&gt;succeeded."| v_save-new
+  v_matrix --&gt;|"The cmNew conversion failed."| v_error
+  v_default --&gt;|"The default matrix is ready."| v_store
+  v_save-new --&gt;|"The supplied matrix is &lt;br/&gt;ready."| v_store</pre>
+<p><a href="rkisp1-dewarp.item-parameters.mmd">Mermaid source</a></p>
 <details class="note">
 <summary>Diagram evidence and verification scope</summary>
-<p>Distinguish between the case where no input is provided and the case where only some input is provided incorrectly. You must not conclude that calibration values were saved based on a success return alone.</p>
+<p>What is returned when calibration input is missing or invalid, and under what conditions are calibration values stored?</p>
 <p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
 <div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
 <thead>
@@ -126,61 +179,770 @@
 </thead>
 <tbody>
 <tr>
-<td><span data-sdd-label-en="Are cm, coefficients and cmNew all absent?">Are cm, coefficients and cmNew all absent?</span></td>
+<td><span data-sdd-label-en="Clear dewarpParams.">Clear dewarpParams.</span></td>
 <td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Return 0 with empty optional">Return 0 with empty optional</span></td>
+<td><span data-sdd-label-en="Are cm, coefficients, and cmNew all absent?">Are cm, coefficients, and cmNew all absent?</span></td>
 <td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Required matrix and coefficients valid?">Required matrix and coefficients valid?</span></td>
+<td><span data-sdd-label-en="Return 0 with the optional empty.">Return 0 with the optional empty.</span></td>
 <td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Return -EINVAL">Return -EINVAL</span></td>
+<td><span data-sdd-label-en="Is cm present and readable as a 3×3 double matrix?">Is cm present and readable as a 3×3 double matrix?</span></td>
 <td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Apply cmNew default and store">Apply cmNew default and store</span></td>
+<td><span data-sdd-label-en="Copy the valid matrix to dp.cm.">Copy the valid matrix to dp.cm.</span></td>
 <td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Yes: no explicit parameters">Yes: no explicit parameters</span></td>
+<td><span data-sdd-label-en="Is coefficients a list that passes the 4, 5, 8, or 12 count check?">Is coefficients a list that passes the 4, 5, 8, or 12 count check?</span></td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a> · <a href="#source-abfd8a7335a891ed">src/libcamera/converter/converter_dw100_vertexmap.cpp:258</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is cmNew present?">Is cmNew present?</span></td>
 <td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="No: validate required input">No: validate required input</span></td>
+<td><span data-sdd-label-en="Can cmNew be read as a 3×3 double matrix?">Can cmNew be read as a 3×3 double matrix?</span></td>
 <td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Missing or malformed required input">Missing or malformed required input</span></td>
+<td><span data-sdd-label-en="Copy dp.cm to dp.cmNew.">Copy dp.cm to dp.cmNew.</span></td>
 <td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Valid; also validate cmNew when provided">Valid; also validate cmNew when provided</span></td>
+<td><span data-sdd-label-en="Copy the supplied matrix to dp.cmNew.">Copy the supplied matrix to dp.cmNew.</span></td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Store dp in dewarpParams and return 0.">Store dp in dewarpParams and return 0.</span></td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return -EINVAL with the optional empty.">Return -EINVAL with the optional empty.</span></td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the three inputs.">Check the three inputs.</span></td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="All three inputs are absent.">All three inputs are absent.</span></td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="At least one input is present.">At least one input is present.</span></td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="cm is present and its conversion succeeded.">cm is present and its conversion succeeded.</span></td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="cm is absent or its conversion failed.">cm is absent or its conversion failed.</span></td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the coefficients after storing cm.">Check the coefficients after storing cm.</span></td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The list was read and setCoefficients succeeded.">The list was read and setCoefficients succeeded.</span></td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a> · <a href="#source-abfd8a7335a891ed">src/libcamera/converter/converter_dw100_vertexmap.cpp:258</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The list is missing, invalid, or has an unsupported count.">The list is missing, invalid, or has an unsupported count.</span></td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a> · <a href="#source-abfd8a7335a891ed">src/libcamera/converter/converter_dw100_vertexmap.cpp:258</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Read the supplied cmNew.">Read the supplied cmNew.</span></td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="cmNew is absent.">cmNew is absent.</span></td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The cmNew conversion succeeded.">The cmNew conversion succeeded.</span></td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The cmNew conversion failed.">The cmNew conversion failed.</span></td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The default matrix is ready.">The default matrix is ready.</span></td>
+<td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The supplied matrix is ready.">The supplied matrix is ready.</span></td>
 <td><a href="#source-eacff078bd6a9d79">src/libcamera/converter/converter_dw100.cpp:105</a></td>
 </tr>
 </tbody>
 </table></div>
 </details>
-<!-- /sdd:visual:dewarp-input-branches -->
+<!-- /sdd:visual:item-parameters -->
 
-<p data-sdd-evidence="[[&quot;src/libcamera/converter/converter_dw100.cpp:105&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L105\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:105&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/converter/converter_dw100.cpp:105&quot;: [&quot;#source-eacff078bd6a9d79&quot;]}"><code>ConverterDW100Module::loadDewarpParams</code> reads <code>cm</code> as a 3×3 <code>double</code> matrix and reads <code>coefficients</code> as a <code>double</code> list, setting 4, 5, 8, or 12 values. If the matrix or list cannot be read, or coefficient setting fails, <code>-EINVAL</code> is returned. If <code>cmNew</code> is present, it is read as a 3×3 <code>double</code> matrix; if that read fails, <code>-EINVAL</code> is returned, and if it is absent, <code>cm</code> is used as the default. If all processing succeeds, the correction values are stored in <code>dewarpParams</code>, and <code>0</code> is returned.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/converter/converter_dw100_vertexmap.cpp:258&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100_vertexmap.cpp#L258\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100_vertexmap.cpp:258&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/converter/converter_dw100.cpp:105&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L105\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:105&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/converter/converter_dw100_vertexmap.cpp:258&quot;: [&quot;#source-abfd8a7335a891ed&quot;], &quot;src/libcamera/converter/converter_dw100.cpp:105&quot;: [&quot;#source-eacff078bd6a9d79&quot;]}"><code>Dw100VertexMap::DewarpParams::setCoefficients</code> uses <code>if (!(s == 4 || s == 5 || s == 8 || s == 12))</code> to check whether the number of coefficients is 4, 5, 8, or 12, and returns <code>-EINVAL</code> if the count is different. If <code>setCoefficients</code> returns a nonzero value, <code>loadDewarpParams</code> logs an error stating that the number of coefficients must be 4, 5, 8, or 12 and returns <code>-EINVAL</code>.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/converter/converter_dw100.cpp:105&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L105\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:105&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/converter/converter_dw100.cpp:105&quot;: [&quot;#source-eacff078bd6a9d79&quot;]}">After passing the preceding checks, <code>ConverterDW100Module::loadDewarpParams</code> reads <code>cmNew</code>, if present, as a 3×3 <code>double</code> matrix and stores it in <code>dp.cmNew</code>, returning <code>-EINVAL</code> if the conversion fails; if <code>cmNew</code> is absent, it copies <code>dp.cm</code> to <code>dp.cmNew</code>. If processing succeeds along either path, it stores <code>dp</code> in <code>dewarpParams</code> and then returns <code>0</code>.</p>
 
-<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>1</span></summary><ul><li><code>src/libcamera/converter/converter_dw100.cpp</code><span class="evidence-lines"><a href="#source-eacff078bd6a9d79" aria-label="src/libcamera/converter/converter_dw100.cpp:105 excerpt"><code>L105</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:105" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L105">Full source <code>L105</code></a></span></li></ul></details><h2 id="스트림-적용과-실행-확인-범위">Scope of stream application and execution verification</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/converter/converter_dw100.cpp:178&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L178\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:178&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/converter/converter_dw100.cpp:178&quot;: [&quot;#source-167e93a77fbf4931&quot;]}"><code>ConverterDW100Module::configure</code> iterates over each output configuration when <code>converter_.configure</code> succeeds, and in order, on <code>vertexMap</code> of the corresponding stream, passes <code>inputCfg.size</code> to <code>setInputSize</code>, <code>outputCfg.size</code> to <code>setOutputSize</code>, and <code>sensorCrop_</code> to <code>setSensorCrop</code>. Within the output stream loop, <code>ConverterDW100Module::configure</code> calls <code>vertexMap.setDewarpParams</code> of each output when <code>dewarpParams</code> has a value, and passes <code>*dewarpParams</code>, the dereferenced value.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/converter/converter_dw100.cpp:369&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L369\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:369&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/converter/converter_dw100.cpp:402&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L402\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:402&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/converter/converter_dw100.cpp:434&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L434\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:434&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/converter/converter_dw100.cpp:369&quot;: [&quot;#source-fc0e25ddead912f1&quot;], &quot;src/libcamera/converter/converter_dw100.cpp:402&quot;: [&quot;#source-ec47236059d2723f&quot;], &quot;src/libcamera/converter/converter_dw100.cpp:434&quot;: [&quot;#source-3a4c4ed7cee81158&quot;]}"><code>ConverterDW100Module::updateControlInfos</code> registers <code>controls::LensDewarpEnable</code> as a supported control when <code>hasDewarpParams_</code> is true, sets the minimum to <code>false</code>, and sets the maximum and default to <code>true</code>. <code>ConverterDW100Module::setControls</code> returns and ends when <code>isConfigured(stream)</code> is false. For a configured stream, when <code>info.update</code> and <code>running_</code> are true and <code>converter_.supportsRequests()</code> is false, it logs a dynamic control error. <code>populateMetadata</code> returns immediately if the stream is not configured in the <code>isConfigured(stream)</code> check.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/converter/converter_dw100.cpp:441&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L441\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:441&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/converter/converter_dw100.cpp:443&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L443\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:443&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/converter/converter_dw100.cpp:441&quot;: [&quot;#source-6fc7fca6e9842fbd&quot;], &quot;src/libcamera/converter/converter_dw100.cpp:443&quot;: [&quot;#source-aebf4a59ba423b05&quot;]}">For configured streams, <code>ConverterDW100Module::populateMetadata</code> writes the value of <code>vertexMap.effectiveScalerCrop()</code> to <code>controls::ScalerCrop</code>. Then, if <code>hasDewarpParams_</code> is true, the value of <code>vertexMap.lensDewarpEnable()</code> is written to <code>controls::LensDewarpEnable</code>.</p>
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>2</span></summary><ul><li><code>src/libcamera/converter/converter_dw100.cpp</code><span class="evidence-lines"><a href="#source-eacff078bd6a9d79" aria-label="src/libcamera/converter/converter_dw100.cpp:105 excerpt"><code>L105</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:105" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L105">Full source <code>L105</code></a></span></li><li><code>src/libcamera/converter/converter_dw100_vertexmap.cpp</code><span class="evidence-lines"><a href="#source-abfd8a7335a891ed" aria-label="src/libcamera/converter/converter_dw100_vertexmap.cpp:258 excerpt"><code>L258</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100_vertexmap.cpp:258" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100_vertexmap.cpp#L258">Full source <code>L258</code></a></span></li></ul></details><h2 id="스트림-적용과-실행-확인-범위">Scope of stream application and execution verification</h2>
+<p data-sdd-evidence="[[&quot;src/libcamera/converter/converter_dw100.cpp:178&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L178\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:178&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/converter/converter_dw100.cpp:178&quot;: [&quot;#source-167e93a77fbf4931&quot;, &quot;#source-25d871212cbd755c&quot;]}"><code>ConverterDW100Module::configure</code> iterates over each output configuration and, for the corresponding stream's <code>vertexMap</code>, passes <code>inputCfg.size</code> to <code>setInputSize</code>, <code>outputCfg.size</code> to <code>setOutputSize</code>, and <code>sensorCrop_</code> to <code>setSensorCrop</code>, in that order. <code>ConverterDW100Module::configure</code> iterates over the output streams and, if <code>dewarpParams</code> has a value, calls the corresponding stream's <code>vertexMap.setDewarpParams</code> and passes <code>*dewarpParams</code>.</p>
+<!-- sdd:visual:per-output-vertex-map -->
+<h3 id="출력별-맵과-선택적-보정값">Per-output maps and optional correction values</h3>
+<pre class="mermaid">flowchart TB
+
+  v_clear["vertexMaps#95;.clear#40;#41; clears &lt;br/&gt;the existing maps."]
+  v_configure["The function stores the &lt;br/&gt;result of &lt;br/&gt;converter#95;.configure#40;&lt;br/&gt;inputCfg, outputCfgs#41; in &lt;br/&gt;ret."]
+  v_ret_check{"The function checks ret: if &lt;br/&gt;#40;ret#41;."}
+  v_return_ret["The function returns ret."]
+  v_store["The function stores &lt;br/&gt;inputCfg.bufferCount in &lt;br/&gt;inputBufferCount#95; and &lt;br/&gt;dewarpParams.has#95;value#40;#41; in &lt;br/&gt;hasDewarpParams#95;."]
+  v_loop{"The function iterates over &lt;br/&gt;each output in for #40;auto &lt;br/&gt;#38;ref : outputCfgs#41;."}
+  v_map["The function sets the input &lt;br/&gt;size, output size, and &lt;br/&gt;sensorCrop#95; on each &lt;br/&gt;stream#39;s info.map."]
+  v_params_check{"The function checks &lt;br/&gt;dewarpParams: if &lt;br/&gt;#40;dewarpParams#41;."}
+  v_set_params["The function calls &lt;br/&gt;vertexMap.setDewarpParams#40;#42;&lt;br/&gt;dewarpParams#41;."]
+  v_update["The function sets &lt;br/&gt;info.update to true."]
+  v_return_zero["The function returns 0 &lt;br/&gt;after processing all &lt;br/&gt;outputs. It can succeed &lt;br/&gt;without dewarp parameters."]
+  v_clear --&gt;|"After clearing the maps, &lt;br/&gt;the function calls the base &lt;br/&gt;configuration."| v_configure
+  v_configure --&gt;|"After the call returns &lt;br/&gt;normally, the function &lt;br/&gt;checks ret."| v_ret_check
+  v_ret_check --&gt;|"If true, the function &lt;br/&gt;returns ret. · ret #91;true#93;"| v_return_ret
+  v_ret_check --&gt;|"If false, the function &lt;br/&gt;stores the input buffer &lt;br/&gt;count and parameter &lt;br/&gt;presence. · ret #91;false#93;"| v_store
+  v_store --&gt;|"After storing the values, &lt;br/&gt;the function iterates over &lt;br/&gt;the outputs."| v_loop
+  v_loop --&gt;|"If an output remains, the &lt;br/&gt;function configures its map."| v_map
+  v_loop --&gt;|"If there are no outputs or &lt;br/&gt;iteration is complete, the &lt;br/&gt;function returns 0."| v_return_zero
+  v_map --&gt;|"After the map setup calls &lt;br/&gt;return normally, the &lt;br/&gt;function checks the &lt;br/&gt;parameters."| v_params_check
+  v_params_check --&gt;|"If true, the function sets &lt;br/&gt;the dewarp parameters. · &lt;br/&gt;dewarpParams #91;true#93;"| v_set_params
+  v_params_check --&gt;|"If false, the function &lt;br/&gt;skips setting the dewarp &lt;br/&gt;parameters. · dewarpParams &lt;br/&gt;#91;false#93;"| v_update
+  v_set_params --&gt;|"After the call returns &lt;br/&gt;normally, the function sets &lt;br/&gt;update."| v_update
+  v_update --&gt;|"The function checks for the &lt;br/&gt;next output."| v_loop</pre>
+<p><a href="rkisp1-dewarp.per-output-vertex-map.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>What does ConverterDW100Module::configure return depending on the underlying configuration result, and how does ConverterDW100Module::configure initialize the map for each output?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="vertexMaps_.clear() clears the existing maps.">vertexMaps_.clear() clears the existing maps.</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function stores the result of converter_.configure(inputCfg, outputCfgs) in ret.">The function stores the result of converter_.configure(inputCfg, outputCfgs) in ret.</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function checks ret: if (ret).">The function checks ret: if (ret).</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function returns ret.">The function returns ret.</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function stores inputCfg.bufferCount in inputBufferCount_ and dewarpParams.has_value() in hasDewarpParams_.">The function stores inputCfg.bufferCount in inputBufferCount_ and dewarpParams.has_value() in hasDewarpParams_.</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function iterates over each output in for (auto &amp;ref : outputCfgs).">The function iterates over each output in for (auto &amp;ref : outputCfgs).</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function sets the input size, output size, and sensorCrop_ on each stream&#x27;s info.map.">The function sets the input size, output size, and sensorCrop_ on each stream's info.map.</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function checks dewarpParams: if (dewarpParams).">The function checks dewarpParams: if (dewarpParams).</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function calls vertexMap.setDewarpParams(*dewarpParams).">The function calls vertexMap.setDewarpParams(*dewarpParams).</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function sets info.update to true.">The function sets info.update to true.</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function returns 0 after processing all outputs. It can succeed without dewarp parameters.">The function returns 0 after processing all outputs. It can succeed without dewarp parameters.</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After clearing the maps, the function calls the base configuration.">After clearing the maps, the function calls the base configuration.</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After the call returns normally, the function checks ret.">After the call returns normally, the function checks ret.</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, the function returns ret. · ret [true]">If true, the function returns ret. · ret [true]</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, the function stores the input buffer count and parameter presence. · ret [false]">If false, the function stores the input buffer count and parameter presence. · ret [false]</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After storing the values, the function iterates over the outputs.">After storing the values, the function iterates over the outputs.</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If an output remains, the function configures its map.">If an output remains, the function configures its map.</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If there are no outputs or iteration is complete, the function returns 0.">If there are no outputs or iteration is complete, the function returns 0.</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After the map setup calls return normally, the function checks the parameters.">After the map setup calls return normally, the function checks the parameters.</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, the function sets the dewarp parameters. · dewarpParams [true]">If true, the function sets the dewarp parameters. · dewarpParams [true]</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, the function skips setting the dewarp parameters. · dewarpParams [false]">If false, the function skips setting the dewarp parameters. · dewarpParams [false]</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After the call returns normally, the function sets update.">After the call returns normally, the function sets update.</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function checks for the next output.">The function checks for the next output.</span></td>
+<td><a href="#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:per-output-vertex-map -->
+
+<!-- sdd:visual:control-info-and-request-support -->
+<h3 id="지원-제어와-요청-지원-조건">Supported controls and conditions for request support</h3>
+<pre class="mermaid">flowchart TB
+
+  v_start["Initialize &lt;br/&gt;scalerCropDefault to &lt;br/&gt;sensorCrop#95;."]
+  v_configured{"Check the &lt;br/&gt;isConfigured#40;stream#41; &lt;br/&gt;condition."}
+  v_limits["Call map.applyLimits#40;#41; and &lt;br/&gt;store the result of &lt;br/&gt;effectiveScalerCrop#40;#41; in &lt;br/&gt;local scalerCropDefault."]
+  v_crop["Set controls::ScalerCrop &lt;br/&gt;with minimum &lt;br/&gt;Rectangle#40;sensorCrop#95;.x, &lt;br/&gt;sensorCrop#95;.y, 1, 1#41;, &lt;br/&gt;maximum sensorCrop#95;, and &lt;br/&gt;default sensorCrop#95;."]
+  v_dewarp{"Check the hasDewarpParams#95; &lt;br/&gt;condition."}
+  v_enable["Add ControlInfo#40;false, &lt;br/&gt;true, true#41; for &lt;br/&gt;controls::LensDewarpEnable."]
+  v_requests{"Check the &lt;br/&gt;#33;converter#95;.supportsRequests&lt;br/&gt;#40;#41; condition."}
+  v_warning["Call the warning log &lt;br/&gt;stating that requests are &lt;br/&gt;unsupported and dynamic &lt;br/&gt;configuration is not &lt;br/&gt;possible."]
+  v_end["updateControlInfos ends."]
+  v_start --&gt;|"Check the stream &lt;br/&gt;configuration."| v_configured
+  v_configured --&gt;|"If true, apply the limits. &lt;br/&gt;· isConfigured#40;stream#41; &lt;br/&gt;#91;true#93;"| v_limits
+  v_configured --&gt;|"If false, skip applying the &lt;br/&gt;limits. · &lt;br/&gt;isConfigured#40;stream#41; #91;false#93;"| v_crop
+  v_limits --&gt;|"After normal return, set &lt;br/&gt;ScalerCrop."| v_crop
+  v_crop --&gt;|"Check the dewarp parameter &lt;br/&gt;condition."| v_dewarp
+  v_dewarp --&gt;|"If true, add the control. · &lt;br/&gt;hasDewarpParams#95; #91;true#93;"| v_enable
+  v_dewarp --&gt;|"If false, skip the &lt;br/&gt;addition. · &lt;br/&gt;hasDewarpParams#95; #91;false#93;"| v_requests
+  v_enable --&gt;|"Check request support."| v_requests
+  v_requests --&gt;|"If true, call the warning &lt;br/&gt;log. · &lt;br/&gt;#33;converter#95;.supportsRequests&lt;br/&gt;#40;#41; #91;true#93;"| v_warning
+  v_requests --&gt;|"If false, end the function. &lt;br/&gt;· &lt;br/&gt;#33;converter#95;.supportsRequests&lt;br/&gt;#40;#41; #91;false#93;"| v_end
+  v_warning --&gt;|"After the log call returns &lt;br/&gt;normally, end the function."| v_end</pre>
+<p><a href="rkisp1-dewarp.control-info-and-request-support.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>How does updateControlInfos populate supported controls based on the stream configuration and calibration values, and what does it do when a request is unsupported?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Initialize scalerCropDefault to sensorCrop_.">Initialize scalerCropDefault to sensorCrop_.</span></td>
+<td><a href="#source-d069b98fadac2d0c">src/libcamera/converter/converter_dw100.cpp:369</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the isConfigured(stream) condition.">Check the isConfigured(stream) condition.</span></td>
+<td><a href="#source-d069b98fadac2d0c">src/libcamera/converter/converter_dw100.cpp:369</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call map.applyLimits() and store the result of effectiveScalerCrop() in local scalerCropDefault.">Call map.applyLimits() and store the result of effectiveScalerCrop() in local scalerCropDefault.</span></td>
+<td><a href="#source-d069b98fadac2d0c">src/libcamera/converter/converter_dw100.cpp:369</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Set controls::ScalerCrop with minimum Rectangle(sensorCrop_.x, sensorCrop_.y, 1, 1), maximum sensorCrop_, and default sensorCrop_.">Set controls::ScalerCrop with minimum Rectangle(sensorCrop_.x, sensorCrop_.y, 1, 1), maximum sensorCrop_, and default sensorCrop_.</span></td>
+<td><a href="#source-d069b98fadac2d0c">src/libcamera/converter/converter_dw100.cpp:369</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the hasDewarpParams_ condition.">Check the hasDewarpParams_ condition.</span></td>
+<td><a href="#source-d069b98fadac2d0c">src/libcamera/converter/converter_dw100.cpp:369</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Add ControlInfo(false, true, true) for controls::LensDewarpEnable.">Add ControlInfo(false, true, true) for controls::LensDewarpEnable.</span></td>
+<td><a href="#source-d069b98fadac2d0c">src/libcamera/converter/converter_dw100.cpp:369</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the !converter_.supportsRequests() condition.">Check the !converter_.supportsRequests() condition.</span></td>
+<td><a href="#source-d069b98fadac2d0c">src/libcamera/converter/converter_dw100.cpp:369</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call the warning log stating that requests are unsupported and dynamic configuration is not possible.">Call the warning log stating that requests are unsupported and dynamic configuration is not possible.</span></td>
+<td><a href="#source-d069b98fadac2d0c">src/libcamera/converter/converter_dw100.cpp:369</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="updateControlInfos ends.">updateControlInfos ends.</span></td>
+<td><a href="#source-d069b98fadac2d0c">src/libcamera/converter/converter_dw100.cpp:369</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the stream configuration.">Check the stream configuration.</span></td>
+<td><a href="#source-d069b98fadac2d0c">src/libcamera/converter/converter_dw100.cpp:369</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, apply the limits. · isConfigured(stream) [true]">If true, apply the limits. · isConfigured(stream) [true]</span></td>
+<td><a href="#source-d069b98fadac2d0c">src/libcamera/converter/converter_dw100.cpp:369</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, skip applying the limits. · isConfigured(stream) [false]">If false, skip applying the limits. · isConfigured(stream) [false]</span></td>
+<td><a href="#source-d069b98fadac2d0c">src/libcamera/converter/converter_dw100.cpp:369</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After normal return, set ScalerCrop.">After normal return, set ScalerCrop.</span></td>
+<td><a href="#source-d069b98fadac2d0c">src/libcamera/converter/converter_dw100.cpp:369</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the dewarp parameter condition.">Check the dewarp parameter condition.</span></td>
+<td><a href="#source-d069b98fadac2d0c">src/libcamera/converter/converter_dw100.cpp:369</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, add the control. · hasDewarpParams_ [true]">If true, add the control. · hasDewarpParams_ [true]</span></td>
+<td><a href="#source-d069b98fadac2d0c">src/libcamera/converter/converter_dw100.cpp:369</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, skip the addition. · hasDewarpParams_ [false]">If false, skip the addition. · hasDewarpParams_ [false]</span></td>
+<td><a href="#source-d069b98fadac2d0c">src/libcamera/converter/converter_dw100.cpp:369</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check request support.">Check request support.</span></td>
+<td><a href="#source-d069b98fadac2d0c">src/libcamera/converter/converter_dw100.cpp:369</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, call the warning log. · !converter_.supportsRequests() [true]">If true, call the warning log. · !converter_.supportsRequests() [true]</span></td>
+<td><a href="#source-d069b98fadac2d0c">src/libcamera/converter/converter_dw100.cpp:369</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, end the function. · !converter_.supportsRequests() [false]">If false, end the function. · !converter_.supportsRequests() [false]</span></td>
+<td><a href="#source-d069b98fadac2d0c">src/libcamera/converter/converter_dw100.cpp:369</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After the log call returns normally, end the function.">After the log call returns normally, end the function.</span></td>
+<td><a href="#source-d069b98fadac2d0c">src/libcamera/converter/converter_dw100.cpp:369</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:control-info-and-request-support -->
+
+<!-- sdd:visual:stream-control-update -->
+<h3 id="구성된-스트림의-제어-갱신">Control updates for configured streams</h3>
+<pre class="mermaid">flowchart TB
+
+  v_start["ConverterDW100Module::&lt;br/&gt;setControls checks the &lt;br/&gt;controls."]
+  v_configured{"Is stream not configured?"}
+  v_return["The function returns &lt;br/&gt;immediately."]
+  v_lens{"Is the lensDewarpEnable &lt;br/&gt;optional present? It can be &lt;br/&gt;present with a false bool &lt;br/&gt;value."}
+  v_set_lens["It calls &lt;br/&gt;setLensDewarpEnable#40;#42;&lt;br/&gt;lensDewarpEnable#41; and sets &lt;br/&gt;info.update to true."]
+  v_crop{"Is the crop optional for &lt;br/&gt;ScalerCrop present?"}
+  v_set_crop["It calls &lt;br/&gt;setScalerCrop#40;#42;crop#41; and &lt;br/&gt;sets info.update to true."]
+  v_requests{"Is info.update true, &lt;br/&gt;running#95; true, and request &lt;br/&gt;support absent from &lt;br/&gt;converter#95;?"}
+  v_log["It logs that a dw100 kernel &lt;br/&gt;driver with requests &lt;br/&gt;support is required. It &lt;br/&gt;does not revert earlier &lt;br/&gt;updates."]
+  v_finish["The function ends."]
+  v_start --&gt;|"It checks whether stream is &lt;br/&gt;not configured."| v_configured
+  v_configured --&gt;|"If the condition is true, &lt;br/&gt;it returns immediately. · &lt;br/&gt;#33;isConfigured#40;stream#41; #91;true#93;"| v_return
+  v_configured --&gt;|"If the condition is false, &lt;br/&gt;it checks the &lt;br/&gt;lensDewarpEnable optional. &lt;br/&gt;· #33;isConfigured#40;stream#41; &lt;br/&gt;#91;false#93;"| v_lens
+  v_lens --&gt;|"If the optional is present, &lt;br/&gt;it passes the value, &lt;br/&gt;including false. · &lt;br/&gt;lensDewarpEnable #91;true#93;"| v_set_lens
+  v_lens --&gt;|"If the optional is absent, &lt;br/&gt;it checks crop. · &lt;br/&gt;lensDewarpEnable #91;false#93;"| v_crop
+  v_set_lens --&gt;|"After the call returns &lt;br/&gt;normally and the update is &lt;br/&gt;set, it checks crop."| v_crop
+  v_crop --&gt;|"If the optional is present, &lt;br/&gt;it passes the value. · crop &lt;br/&gt;#91;true#93;"| v_set_crop
+  v_crop --&gt;|"If the optional is absent, &lt;br/&gt;it checks the request &lt;br/&gt;support error condition. · &lt;br/&gt;crop #91;false#93;"| v_requests
+  v_set_crop --&gt;|"After the call returns &lt;br/&gt;normally and the update is &lt;br/&gt;set, it checks the error &lt;br/&gt;condition."| v_requests
+  v_requests --&gt;|"If the condition is true, &lt;br/&gt;it logs an error. · &lt;br/&gt;info.update #38;#38; running#95; #38;#38; &lt;br/&gt;#33;converter#95;.supportsRequests&lt;br/&gt;#40;#41; #91;true#93;"| v_log
+  v_requests --&gt;|"If the condition is false, &lt;br/&gt;the function ends. · &lt;br/&gt;info.update #38;#38; running#95; #38;#38; &lt;br/&gt;#33;converter#95;.supportsRequests&lt;br/&gt;#40;#41; #91;false#93;"| v_finish
+  v_log --&gt;|"The function ends when &lt;br/&gt;logging the error returns &lt;br/&gt;normally."| v_finish</pre>
+<p><a href="rkisp1-dewarp.stream-control-update.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>How does setControls check for the presence of optional controls, and what are the conditions for an unsupported request error while running?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="ConverterDW100Module::setControls checks the controls.">ConverterDW100Module::setControls checks the controls.</span></td>
+<td><a href="#source-3b37038ea14e4a3f">src/libcamera/converter/converter_dw100.cpp:400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is stream not configured?">Is stream not configured?</span></td>
+<td><a href="#source-3b37038ea14e4a3f">src/libcamera/converter/converter_dw100.cpp:400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function returns immediately.">The function returns immediately.</span></td>
+<td><a href="#source-3b37038ea14e4a3f">src/libcamera/converter/converter_dw100.cpp:400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is the lensDewarpEnable optional present? It can be present with a false bool value.">Is the lensDewarpEnable optional present? It can be present with a false bool value.</span></td>
+<td><a href="#source-3b37038ea14e4a3f">src/libcamera/converter/converter_dw100.cpp:400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It calls setLensDewarpEnable(*lensDewarpEnable) and sets info.update to true.">It calls setLensDewarpEnable(*lensDewarpEnable) and sets info.update to true.</span></td>
+<td><a href="#source-3b37038ea14e4a3f">src/libcamera/converter/converter_dw100.cpp:400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is the crop optional for ScalerCrop present?">Is the crop optional for ScalerCrop present?</span></td>
+<td><a href="#source-3b37038ea14e4a3f">src/libcamera/converter/converter_dw100.cpp:400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It calls setScalerCrop(*crop) and sets info.update to true.">It calls setScalerCrop(*crop) and sets info.update to true.</span></td>
+<td><a href="#source-3b37038ea14e4a3f">src/libcamera/converter/converter_dw100.cpp:400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is info.update true, running_ true, and request support absent from converter_?">Is info.update true, running_ true, and request support absent from converter_?</span></td>
+<td><a href="#source-3b37038ea14e4a3f">src/libcamera/converter/converter_dw100.cpp:400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It logs that a dw100 kernel driver with requests support is required. It does not revert earlier updates.">It logs that a dw100 kernel driver with requests support is required. It does not revert earlier updates.</span></td>
+<td><a href="#source-3b37038ea14e4a3f">src/libcamera/converter/converter_dw100.cpp:400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function ends.">The function ends.</span></td>
+<td><a href="#source-3b37038ea14e4a3f">src/libcamera/converter/converter_dw100.cpp:400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It checks whether stream is not configured.">It checks whether stream is not configured.</span></td>
+<td><a href="#source-3b37038ea14e4a3f">src/libcamera/converter/converter_dw100.cpp:400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is true, it returns immediately. · !isConfigured(stream) [true]">If the condition is true, it returns immediately. · !isConfigured(stream) [true]</span></td>
+<td><a href="#source-3b37038ea14e4a3f">src/libcamera/converter/converter_dw100.cpp:400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is false, it checks the lensDewarpEnable optional. · !isConfigured(stream) [false]">If the condition is false, it checks the lensDewarpEnable optional. · !isConfigured(stream) [false]</span></td>
+<td><a href="#source-3b37038ea14e4a3f">src/libcamera/converter/converter_dw100.cpp:400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the optional is present, it passes the value, including false. · lensDewarpEnable [true]">If the optional is present, it passes the value, including false. · lensDewarpEnable [true]</span></td>
+<td><a href="#source-3b37038ea14e4a3f">src/libcamera/converter/converter_dw100.cpp:400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the optional is absent, it checks crop. · lensDewarpEnable [false]">If the optional is absent, it checks crop. · lensDewarpEnable [false]</span></td>
+<td><a href="#source-3b37038ea14e4a3f">src/libcamera/converter/converter_dw100.cpp:400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After the call returns normally and the update is set, it checks crop.">After the call returns normally and the update is set, it checks crop.</span></td>
+<td><a href="#source-3b37038ea14e4a3f">src/libcamera/converter/converter_dw100.cpp:400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the optional is present, it passes the value. · crop [true]">If the optional is present, it passes the value. · crop [true]</span></td>
+<td><a href="#source-3b37038ea14e4a3f">src/libcamera/converter/converter_dw100.cpp:400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the optional is absent, it checks the request support error condition. · crop [false]">If the optional is absent, it checks the request support error condition. · crop [false]</span></td>
+<td><a href="#source-3b37038ea14e4a3f">src/libcamera/converter/converter_dw100.cpp:400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After the call returns normally and the update is set, it checks the error condition.">After the call returns normally and the update is set, it checks the error condition.</span></td>
+<td><a href="#source-3b37038ea14e4a3f">src/libcamera/converter/converter_dw100.cpp:400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is true, it logs an error. · info.update &amp;&amp; running_ &amp;&amp; !converter_.supportsRequests() [true]">If the condition is true, it logs an error. · info.update &amp;&amp; running_ &amp;&amp; !converter_.supportsRequests() [true]</span></td>
+<td><a href="#source-3b37038ea14e4a3f">src/libcamera/converter/converter_dw100.cpp:400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is false, the function ends. · info.update &amp;&amp; running_ &amp;&amp; !converter_.supportsRequests() [false]">If the condition is false, the function ends. · info.update &amp;&amp; running_ &amp;&amp; !converter_.supportsRequests() [false]</span></td>
+<td><a href="#source-3b37038ea14e4a3f">src/libcamera/converter/converter_dw100.cpp:400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function ends when logging the error returns normally.">The function ends when logging the error returns normally.</span></td>
+<td><a href="#source-3b37038ea14e4a3f">src/libcamera/converter/converter_dw100.cpp:400</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:stream-control-update -->
+
+<!-- sdd:visual:configured-stream-metadata -->
+<h3 id="스트림-메타데이터의-조건">Conditions for stream metadata</h3>
+<pre class="mermaid">flowchart TB
+
+  v_start["populateMetadata receives &lt;br/&gt;stream and meta."]
+  v_configured{"Check whether &lt;br/&gt;#33;isConfigured#40;stream#41; is &lt;br/&gt;true."}
+  v_early_return["Return immediately."]
+  v_map["Reference the stream#39;s map &lt;br/&gt;as vertexMap."]
+  v_crop["Write the &lt;br/&gt;effectiveScalerCrop value &lt;br/&gt;from vertexMap to &lt;br/&gt;controls::ScalerCrop in &lt;br/&gt;meta."]
+  v_dewarp_check{"Check whether &lt;br/&gt;hasDewarpParams#95; is true."}
+  v_dewarp["Write the lensDewarpEnable &lt;br/&gt;value from vertexMap to &lt;br/&gt;controls::LensDewarpEnable &lt;br/&gt;in meta."]
+  v_end["Finish populateMetadata."]
+  v_start --&gt;|"Check whether the stream is &lt;br/&gt;configured."| v_configured
+  v_configured --&gt;|"Return immediately if the &lt;br/&gt;condition is true. · &lt;br/&gt;#33;isConfigured#40;stream#41; #91;true#93;"| v_early_return
+  v_configured --&gt;|"Reference the map if the &lt;br/&gt;condition is false. · &lt;br/&gt;#33;isConfigured#40;stream#41; &lt;br/&gt;#91;false#93;"| v_map
+  v_map --&gt;|"Write ScalerCrop."| v_crop
+  v_crop --&gt;|"Check the condition if the &lt;br/&gt;write call returns normally."| v_dewarp_check
+  v_dewarp_check --&gt;|"Write the value if the &lt;br/&gt;condition is true. · &lt;br/&gt;hasDewarpParams#95; #91;true#93;"| v_dewarp
+  v_dewarp_check --&gt;|"Finish the function if the &lt;br/&gt;condition is false. · &lt;br/&gt;hasDewarpParams#95; #91;false#93;"| v_end
+  v_dewarp --&gt;|"Finish the function if the &lt;br/&gt;write call returns normally."| v_end</pre>
+<p><a href="rkisp1-dewarp.configured-stream-metadata.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>When does populateMetadata return early, and under what conditions does it record ScalerCrop and LensDewarpEnable?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="populateMetadata receives stream and meta.">populateMetadata receives stream and meta.</span></td>
+<td><a href="#source-91482028dd941751">src/libcamera/converter/converter_dw100.cpp:434</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether !isConfigured(stream) is true.">Check whether !isConfigured(stream) is true.</span></td>
+<td><a href="#source-91482028dd941751">src/libcamera/converter/converter_dw100.cpp:434</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return immediately.">Return immediately.</span></td>
+<td><a href="#source-91482028dd941751">src/libcamera/converter/converter_dw100.cpp:434</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Reference the stream&#x27;s map as vertexMap.">Reference the stream's map as vertexMap.</span></td>
+<td><a href="#source-91482028dd941751">src/libcamera/converter/converter_dw100.cpp:434</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Write the effectiveScalerCrop value from vertexMap to controls::ScalerCrop in meta.">Write the effectiveScalerCrop value from vertexMap to controls::ScalerCrop in meta.</span></td>
+<td><a href="#source-91482028dd941751">src/libcamera/converter/converter_dw100.cpp:434</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether hasDewarpParams_ is true.">Check whether hasDewarpParams_ is true.</span></td>
+<td><a href="#source-91482028dd941751">src/libcamera/converter/converter_dw100.cpp:434</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Write the lensDewarpEnable value from vertexMap to controls::LensDewarpEnable in meta.">Write the lensDewarpEnable value from vertexMap to controls::LensDewarpEnable in meta.</span></td>
+<td><a href="#source-91482028dd941751">src/libcamera/converter/converter_dw100.cpp:434</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Finish populateMetadata.">Finish populateMetadata.</span></td>
+<td><a href="#source-91482028dd941751">src/libcamera/converter/converter_dw100.cpp:434</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether the stream is configured.">Check whether the stream is configured.</span></td>
+<td><a href="#source-91482028dd941751">src/libcamera/converter/converter_dw100.cpp:434</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return immediately if the condition is true. · !isConfigured(stream) [true]">Return immediately if the condition is true. · !isConfigured(stream) [true]</span></td>
+<td><a href="#source-91482028dd941751">src/libcamera/converter/converter_dw100.cpp:434</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Reference the map if the condition is false. · !isConfigured(stream) [false]">Reference the map if the condition is false. · !isConfigured(stream) [false]</span></td>
+<td><a href="#source-91482028dd941751">src/libcamera/converter/converter_dw100.cpp:434</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Write ScalerCrop.">Write ScalerCrop.</span></td>
+<td><a href="#source-91482028dd941751">src/libcamera/converter/converter_dw100.cpp:434</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the condition if the write call returns normally.">Check the condition if the write call returns normally.</span></td>
+<td><a href="#source-91482028dd941751">src/libcamera/converter/converter_dw100.cpp:434</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Write the value if the condition is true. · hasDewarpParams_ [true]">Write the value if the condition is true. · hasDewarpParams_ [true]</span></td>
+<td><a href="#source-91482028dd941751">src/libcamera/converter/converter_dw100.cpp:434</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Finish the function if the condition is false. · hasDewarpParams_ [false]">Finish the function if the condition is false. · hasDewarpParams_ [false]</span></td>
+<td><a href="#source-91482028dd941751">src/libcamera/converter/converter_dw100.cpp:434</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Finish the function if the write call returns normally.">Finish the function if the write call returns normally.</span></td>
+<td><a href="#source-91482028dd941751">src/libcamera/converter/converter_dw100.cpp:434</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:configured-stream-metadata -->
+
+<!-- sdd:visual:main-path-dewarp-handoff -->
+<h3 id="메인-경로의-보정-구성과-crop-전달">Calibration configuration and crop forwarding in the main path</h3>
+<pre class="mermaid">flowchart TB
+
+  v_copy["After sensor and ISP &lt;br/&gt;configuration succeeds, &lt;br/&gt;copy the main-path cfg to &lt;br/&gt;ispCfg."]
+  v_use_dewarper{"Check the existing &lt;br/&gt;usesDewarper#95; value, set &lt;br/&gt;earlier to true when &lt;br/&gt;canUseDewarper#95; is true and &lt;br/&gt;isRaw#95; is false."}
+  v_prepare["Set ispCfg bufferCount to &lt;br/&gt;kRkISP1MinBufferCount and &lt;br/&gt;size to format.size, then &lt;br/&gt;recalculate stride."]
+  v_dewarp_configure["Pass ispCfg, output &lt;br/&gt;configuration { cfg }, and &lt;br/&gt;the current camera#39;s &lt;br/&gt;dewarpParams#95; to &lt;br/&gt;dewarper#95;-#62;configure."]
+  v_result{"Check ret returned by &lt;br/&gt;dewarper#95;-#62;configure."}
+  v_return_ret["If ret is nonzero, return &lt;br/&gt;the same ret."]
+  v_transform["Pass cfg.stream#40;#41; and &lt;br/&gt;config-#62;combinedTransform#40;#41; &lt;br/&gt;to dewarper#95;-#62;setTransform, &lt;br/&gt;then copy cfg.size to local &lt;br/&gt;size."]
+  v_transpose_check{"Check transposeAfterIsp, &lt;br/&gt;which is true when the &lt;br/&gt;dewarper is used and &lt;br/&gt;combinedTransform has the &lt;br/&gt;Transform::Transpose bit."}
+  v_transpose["Transpose the local size &lt;br/&gt;once."]
+  v_crop["Bound sensorCrop size to &lt;br/&gt;the local size aspect ratio &lt;br/&gt;and pass the crop centered &lt;br/&gt;on sensorCrop.center#40;#41; to &lt;br/&gt;setControls."]
+  v_main_configure["Pass ispCfg and format to &lt;br/&gt;mainPath#95;.configure. This &lt;br/&gt;call alone does not mean &lt;br/&gt;the whole Camera &lt;br/&gt;configuration succeeded."]
+  v_copy --&gt;|"Check the existing usage &lt;br/&gt;value after making the copy."| v_use_dewarper
+  v_use_dewarper --&gt;|"Adjust the copy when using &lt;br/&gt;the dewarper. · &lt;br/&gt;data-#62;usesDewarper#95; #91;true#93;"| v_prepare
+  v_use_dewarper --&gt;|"Pass the copy unchanged &lt;br/&gt;when not using the &lt;br/&gt;dewarper. · &lt;br/&gt;data-#62;usesDewarper#95; #91;false#93;"| v_main_configure
+  v_prepare --&gt;|"Pass the adjusted copy."| v_dewarp_configure
+  v_dewarp_configure --&gt;|"Check the return value."| v_result
+  v_result --&gt;|"Return when ret is nonzero. &lt;br/&gt;· ret #91;true#93;"| v_return_ret
+  v_result --&gt;|"Continue when ret is zero. &lt;br/&gt;· ret #91;false#93;"| v_transform
+  v_transform --&gt;|"Check whether to transpose &lt;br/&gt;the local size."| v_transpose_check
+  v_transpose_check --&gt;|"Transpose the local size &lt;br/&gt;when true. · &lt;br/&gt;transposeAfterIsp #91;true#93;"| v_transpose
+  v_transpose_check --&gt;|"Do not transpose the local &lt;br/&gt;size when false. · &lt;br/&gt;transposeAfterIsp #91;false#93;"| v_crop
+  v_transpose --&gt;|"Use the transposed local &lt;br/&gt;size."| v_crop
+  v_crop --&gt;|"Configure the main path &lt;br/&gt;after calling setControls."| v_main_configure</pre>
+<p><a href="rkisp1-dewarp.main-path-dewarp-handoff.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>In the main path, how do dewarper use and the configuration return value determine whether an input copy, output configuration, calibration values, and default crop are passed?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="After sensor and ISP configuration succeeds, copy the main-path cfg to ispCfg.">After sensor and ISP configuration succeeds, copy the main-path cfg to ispCfg.</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the existing usesDewarper_ value, set earlier to true when canUseDewarper_ is true and isRaw_ is false.">Check the existing usesDewarper_ value, set earlier to true when canUseDewarper_ is true and isRaw_ is false.</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Set ispCfg bufferCount to kRkISP1MinBufferCount and size to format.size, then recalculate stride.">Set ispCfg bufferCount to kRkISP1MinBufferCount and size to format.size, then recalculate stride.</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Pass ispCfg, output configuration { cfg }, and the current camera&#x27;s dewarpParams_ to dewarper_-&gt;configure.">Pass ispCfg, output configuration { cfg }, and the current camera's dewarpParams_ to dewarper_-&gt;configure.</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check ret returned by dewarper_-&gt;configure.">Check ret returned by dewarper_-&gt;configure.</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If ret is nonzero, return the same ret.">If ret is nonzero, return the same ret.</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Pass cfg.stream() and config-&gt;combinedTransform() to dewarper_-&gt;setTransform, then copy cfg.size to local size.">Pass cfg.stream() and config-&gt;combinedTransform() to dewarper_-&gt;setTransform, then copy cfg.size to local size.</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check transposeAfterIsp, which is true when the dewarper is used and combinedTransform has the Transform::Transpose bit.">Check transposeAfterIsp, which is true when the dewarper is used and combinedTransform has the Transform::Transpose bit.</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Transpose the local size once.">Transpose the local size once.</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Bound sensorCrop size to the local size aspect ratio and pass the crop centered on sensorCrop.center() to setControls.">Bound sensorCrop size to the local size aspect ratio and pass the crop centered on sensorCrop.center() to setControls.</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Pass ispCfg and format to mainPath_.configure. This call alone does not mean the whole Camera configuration succeeded.">Pass ispCfg and format to mainPath_.configure. This call alone does not mean the whole Camera configuration succeeded.</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the existing usage value after making the copy.">Check the existing usage value after making the copy.</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Adjust the copy when using the dewarper. · data-&gt;usesDewarper_ [true]">Adjust the copy when using the dewarper. · data-&gt;usesDewarper_ [true]</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Pass the copy unchanged when not using the dewarper. · data-&gt;usesDewarper_ [false]">Pass the copy unchanged when not using the dewarper. · data-&gt;usesDewarper_ [false]</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Pass the adjusted copy.">Pass the adjusted copy.</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the return value.">Check the return value.</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return when ret is nonzero. · ret [true]">Return when ret is nonzero. · ret [true]</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Continue when ret is zero. · ret [false]">Continue when ret is zero. · ret [false]</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether to transpose the local size.">Check whether to transpose the local size.</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Transpose the local size when true. · transposeAfterIsp [true]">Transpose the local size when true. · transposeAfterIsp [true]</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Do not transpose the local size when false. · transposeAfterIsp [false]">Do not transpose the local size when false. · transposeAfterIsp [false]</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Use the transposed local size.">Use the transposed local size.</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Configure the main path after calling setControls.">Configure the main path after calling setControls.</span></td>
+<td><a href="#source-36de5a75453d86c6">src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:main-path-dewarp-handoff -->
+
+<p data-sdd-evidence="[[&quot;src/libcamera/converter/converter_dw100.cpp:369&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L369\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:369&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/converter/converter_dw100.cpp:402&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L402\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:402&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/converter/converter_dw100.cpp:400&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L400\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:400&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/converter/converter_dw100.cpp:434&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L434\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:434&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/converter/converter_dw100.cpp:369&quot;: [&quot;#source-d069b98fadac2d0c&quot;, &quot;#source-fc0e25ddead912f1&quot;], &quot;src/libcamera/converter/converter_dw100.cpp:402&quot;: [&quot;#source-ec47236059d2723f&quot;], &quot;src/libcamera/converter/converter_dw100.cpp:400&quot;: [&quot;#source-3b37038ea14e4a3f&quot;], &quot;src/libcamera/converter/converter_dw100.cpp:434&quot;: [&quot;#source-3a4c4ed7cee81158&quot;, &quot;#source-91482028dd941751&quot;]}">If <code>hasDewarpParams_</code> is true, <code>ConverterDW100Module::updateControlInfos</code> registers <code>controls::LensDewarpEnable</code> as a supported control and sets the control information's minimum, maximum, and default values to <code>false</code>, <code>true</code>, and <code>true</code>, respectively. <code>ConverterDW100Module::setControls</code> returns and exits if <code>isConfigured(stream)</code> is false. For a configured stream, <code>ConverterDW100Module::setControls</code> logs an error about dynamic controls if <code>info.update</code> and <code>running_</code> are true and <code>converter_.supportsRequests()</code> is false. <code>populateMetadata</code> returns immediately if the <code>isConfigured(stream)</code> check finds that the stream is not configured.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/converter/converter_dw100.cpp:441&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L441\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:441&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/converter/converter_dw100.cpp:443&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L443\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:443&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/converter/converter_dw100.cpp:441&quot;: [&quot;#source-6fc7fca6e9842fbd&quot;], &quot;src/libcamera/converter/converter_dw100.cpp:443&quot;: [&quot;#source-aebf4a59ba423b05&quot;]}"><code>ConverterDW100Module::populateMetadata</code> records the configured stream's <code>vertexMap.effectiveScalerCrop()</code> value in <code>controls::ScalerCrop</code> and then, if <code>hasDewarpParams_</code> is true, records the <code>vertexMap.lensDewarpEnable()</code> value in <code>controls::LensDewarpEnable</code>.</p>
 
 
-<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>9</span></summary><ul><li><code>src/libcamera/converter/converter_dw100.cpp</code><span class="evidence-lines"><a href="#source-167e93a77fbf4931" aria-label="src/libcamera/converter/converter_dw100.cpp:178 excerpt"><code>L178</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:178" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L178">Full source <code>L178</code></a> · <a href="#source-fc0e25ddead912f1" aria-label="src/libcamera/converter/converter_dw100.cpp:369 excerpt"><code>L369</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:369" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L369">Full source <code>L369</code></a> · <a href="#source-ec47236059d2723f" aria-label="src/libcamera/converter/converter_dw100.cpp:402 excerpt"><code>L402</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:402" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L402">Full source <code>L402</code></a> · <a href="#source-3a4c4ed7cee81158" aria-label="src/libcamera/converter/converter_dw100.cpp:434 excerpt"><code>L434</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:434" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L434">Full source <code>L434</code></a> · <a href="#source-6fc7fca6e9842fbd" aria-label="src/libcamera/converter/converter_dw100.cpp:441 excerpt"><code>L441</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:441" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L441">Full source <code>L441</code></a> · <a href="#source-aebf4a59ba423b05" aria-label="src/libcamera/converter/converter_dw100.cpp:443 excerpt"><code>L443</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:443" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L443">Full source <code>L443</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:197" href="#source-fff6050000b728bd"><code>L197</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:198" href="#source-a6496a0f6db3636a"><code>L198</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:199" href="#source-a92725ea0f81f8d7"><code>L199</code></a></span></li></ul></details><h2 id="소스-근거">Source evidence</h2>
-<details class="source-excerpts"><summary><span>13</span> source excerpts</summary>
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>12</span></summary><ul><li><code>src/libcamera/converter/converter_dw100.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/converter/converter_dw100.cpp:178" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L178"><code>L178</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:369" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L369"><code>L369</code></a> · <a href="#source-ec47236059d2723f" aria-label="src/libcamera/converter/converter_dw100.cpp:402 excerpt"><code>L402</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:402" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L402">Full source <code>L402</code></a> · <a href="#source-3b37038ea14e4a3f" aria-label="src/libcamera/converter/converter_dw100.cpp:400 excerpt"><code>L400</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:400" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L400">Full source <code>L400</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:434" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L434"><code>L434</code></a> · <a href="#source-6fc7fca6e9842fbd" aria-label="src/libcamera/converter/converter_dw100.cpp:441 excerpt"><code>L441</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:441" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L441">Full source <code>L441</code></a> · <a href="#source-aebf4a59ba423b05" aria-label="src/libcamera/converter/converter_dw100.cpp:443 excerpt"><code>L443</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:443" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L443">Full source <code>L443</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:178" href="#source-167e93a77fbf4931"><code>L178</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:369" href="#source-fc0e25ddead912f1"><code>L369</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:434" href="#source-3a4c4ed7cee81158"><code>L434</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:197" href="#source-fff6050000b728bd"><code>L197</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:198" href="#source-a6496a0f6db3636a"><code>L198</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:199" href="#source-a92725ea0f81f8d7"><code>L199</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:178" href="#source-25d871212cbd755c"><code>L178</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:212" href="#source-3c3967c227d1109c"><code>L212</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:369" href="#source-d069b98fadac2d0c"><code>L369</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:434" href="#source-91482028dd941751"><code>L434</code></a></span></li><li><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:914" href="#source-36de5a75453d86c6"><code>L914</code></a></span></li></ul></details><h2 id="소스-근거">Source evidence</h2>
+<details class="source-excerpts"><summary><span>20</span> source excerpts</summary>
 <p>Include each excerpt only once. Expand the needed original text and check it against the explanation.</p>
 <p><a id="source-04546183f68b35f4"></a></p>
 <details class="note">
 <summary>Source evidence: src/libcamera/pipeline/rkisp1/rkisp1.cpp:94</summary>
-<p>This is an excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L94"><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp:94</code></a>. The end line is 142, and the original text below can be compared with the description.</p>
+<p>This excerpt starts at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L94"><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp:94</code></a> and ends at line 142. The original text below can be compared with the description.</p>
 <p>SHA-256: <code>4c9387123443d958220746e355a9e93b30dca2bb4a32b4f4020c938e1a699de1</code></p>
 <div class="highlight"><pre><span></span><code>class RkISP1CameraData : public Camera::Private
 {
@@ -583,6 +1345,46 @@ int PipelineHandlerRkISP1::exportFrameBuffers(
 int ConverterDW100Module::configure(
 </code></pre></div>
 </details>
+<p><a id="source-abfd8a7335a891ed"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/converter/converter_dw100_vertexmap.cpp:258</summary>
+<p>This excerpt begins at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100_vertexmap.cpp#L258"><code>src/libcamera/converter/converter_dw100_vertexmap.cpp:258</code></a> and ends at line 290. The original text below can be compared with the explanation.</p>
+<p>SHA-256: <code>b1a17e4f1ba9764bfd619a46ec1e5089c0120986720f4300e39d0723259d1b20</code></p>
+<div class="highlight"><pre><span></span><code>int Dw100VertexMap::DewarpParams::setCoefficients(std::span&lt;const double&gt; coeffs)
+{
+    size_t s = coeffs.size();
+    if (!(s == 4 || s == 5 || s == 8 || s == 12))
+        return -EINVAL;
+
+    coefficients = {};
+
+    if (s &gt;= 4) {
+        coefficients.k1 = coeffs[0];
+        coefficients.k2 = coeffs[1];
+        coefficients.p1 = coeffs[2];
+        coefficients.p2 = coeffs[3];
+    }
+
+    if (s &gt;= 5)
+        coefficients.k3 = coeffs[4];
+
+    if (s &gt;= 8) {
+        coefficients.k4 = coeffs[5];
+        coefficients.k5 = coeffs[6];
+        coefficients.k6 = coeffs[7];
+    }
+
+    if (s == 12) {
+        coefficients.s1 = coeffs[8];
+        coefficients.s2 = coeffs[9];
+        coefficients.s3 = coeffs[10];
+        coefficients.s4 = coeffs[11];
+    }
+
+    return 0;
+}
+</code></pre></div>
+</details>
 <p><a id="source-167e93a77fbf4931"></a></p>
 <details class="note">
 <summary>Source evidence: src/libcamera/converter/converter_dw100.cpp:178</summary>
@@ -787,25 +1589,373 @@ void ConverterDW100Module::setSensorCrop(
         meta.set(controls::LensDewarpEnable, vertexMap.lensDewarpEnable());
 </code></pre></div>
 </details>
+<p><a id="source-36de5a75453d86c6"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</summary>
+<p>This excerpt starts at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L914"><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp:914</code></a>. The ending line is 1120, and the source text below can be compared with the description.</p>
+<p>SHA-256: <code>5b47ac903184e961b3b117b2c9e06dd6764b3a1b18d34ca7bb86035aa1c067c0</code></p>
+<div class="highlight"><pre><span></span><code>int PipelineHandlerRkISP1::configure(Camera *camera, CameraConfiguration *c)
+{
+    RkISP1CameraConfiguration *config =
+        static_cast&lt;RkISP1CameraConfiguration *&gt;(c);
+    RkISP1CameraData *data = cameraData(camera);
+    CameraSensor *sensor = data-&gt;sensor_.get();
+    int ret;
+
+    ret = initLinks(camera, *config);
+    if (ret)
+        return ret;
+
+    const PixelFormat &amp;streamFormat = config-&gt;at(0).pixelFormat;
+    const PixelFormatInfo &amp;info = PixelFormatInfo::info(streamFormat);
+    isRaw_ = info.colourEncoding == PixelFormatInfo::ColourEncodingRAW;
+    data-&gt;usesDewarper_ = data-&gt;canUseDewarper_ &amp;&amp; !isRaw_;
+
+    Transform transform = config-&gt;combinedTransform();
+    bool transposeAfterIsp = false;
+    if (data-&gt;usesDewarper_) {
+        if (!!(transform &amp; Transform::Transpose))
+            transposeAfterIsp = true;
+        transform = Transform::Identity;
+    }
+
+    /*
+     * Configure the format on the sensor output and propagate it through
+     * the pipeline.
+     */
+    V4L2SubdeviceFormat format = config-&gt;sensorFormat();
+    LOG(RkISP1, Debug) &lt;&lt; "Configuring sensor with " &lt;&lt; format;
+
+    if (config-&gt;sensorConfig)
+        ret = sensor-&gt;applyConfiguration(*config-&gt;sensorConfig,
+                         transform,
+                         &amp;format);
+    else
+        ret = sensor-&gt;setFormat(&amp;format, transform);
+
+    if (ret &lt; 0)
+        return ret;
+
+    LOG(RkISP1, Debug) &lt;&lt; "Sensor configured with " &lt;&lt; format;
+
+    /* Propagate format through the internal media pipeline up to the ISP */
+    ret = data-&gt;pipe_.configure(sensor, &amp;format);
+    if (ret &lt; 0)
+        return ret;
+
+    LOG(RkISP1, Debug) &lt;&lt; "Configuring ISP with : " &lt;&lt; format;
+    ret = isp_-&gt;setFormat(0, &amp;format);
+    if (ret &lt; 0)
+        return ret;
+
+    Rectangle inputCrop(0, 0, format.size);
+    ret = isp_-&gt;setSelection(0, V4L2_SEL_TGT_CROP, &amp;inputCrop);
+    if (ret &lt; 0)
+        return ret;
+
+    LOG(RkISP1, Debug)
+        &lt;&lt; "ISP input pad configured with " &lt;&lt; format
+        &lt;&lt; " crop " &lt;&lt; inputCrop;
+
+    Rectangle outputCrop = inputCrop;
+
+    /* YUYV8_2X8 is required on the ISP source path pad for YUV output. */
+    if (!isRaw_)
+        format.code = MEDIA_BUS_FMT_YUYV8_2X8;
+
+    /*
+     * On devices without DUAL_CROP (like the imx8mp) cropping needs to be
+     * done on the ISP/IS output.
+     *
+     * If the dewarper is used, the cropping shall be done by the dewarper.
+     */
+    if (media_-&gt;hwRevision() == RKISP1_V_IMX8MP) {
+        /* imx8mp has only a single path. */
+        const auto &amp;cfg = config-&gt;at(0);
+        /*
+         * If the dewarper is used, all cropping including aspect ratio
+         * preservation shall be done there. To ensure that the output
+         * format provided by the ISP is supported by the dewarper, a
+         * minimal crop still needs to be applied on the ISP output.
+         *
+         * \todo It might be possible to allocate bigger buffers
+         * (aligned to 8 pixels) with a stride matching format.size for
+         * the ISP. The not-filled border could later be ignored by the
+         * dewarper. This way we could skip the minimal crop here and
+         * the MaximumScalerCrop would always match the isp output.
+         */
+        Size ispCrop;
+        if (data-&gt;usesDewarper_)
+            ispCrop = dewarper_-&gt;adjustInputSize(cfg.pixelFormat,
+                                 format.size);
+        else
+            ispCrop = format.size.boundedToAspectRatio(cfg.size)
+                      .alignedUpTo(2, 2);
+
+        outputCrop = ispCrop.centeredTo(Rectangle(format.size).center());
+        format.size = ispCrop;
+    }
+
+    LOG(RkISP1, Debug)
+        &lt;&lt; "Configuring ISP output pad with " &lt;&lt; format
+        &lt;&lt; " crop " &lt;&lt; outputCrop;
+
+    ret = isp_-&gt;setSelection(2, V4L2_SEL_TGT_CROP, &amp;outputCrop);
+    if (ret &lt; 0)
+        return ret;
+
+    format.colorSpace = config-&gt;at(0).colorSpace;
+    ret = isp_-&gt;setFormat(2, &amp;format);
+    if (ret &lt; 0)
+        return ret;
+
+    LOG(RkISP1, Debug)
+        &lt;&lt; "ISP output pad configured with " &lt;&lt; format
+        &lt;&lt; " crop " &lt;&lt; outputCrop;
+
+    IPACameraSensorInfo sensorInfo;
+    ret = data-&gt;sensor_-&gt;sensorInfo(&amp;sensorInfo);
+    if (ret)
+        return ret;
+
+    /* Apply the actual sensor crop for proper dewarp map calculation. */
+    Rectangle sensorCrop = outputCrop.transformedBetween(
+        inputCrop, sensorInfo.analogCrop);
+    if (data-&gt;usesDewarper_)
+        dewarper_-&gt;setSensorCrop(sensorCrop);
+    data-&gt;properties_.set(properties::ScalerCropMaximum, sensorCrop);
+
+    std::map&lt;unsigned int, IPAStream&gt; streamConfig;
+
+    for (const StreamConfiguration &amp;cfg : *config) {
+        if (cfg.stream() == &amp;data-&gt;mainPathStream_) {
+            /*
+             * To allow for digital zoom, scaling down should happen
+             * in the dewarper, instead of the resizer. Configure
+             * the isp output to the same size as the sensor output.
+             */
+            StreamConfiguration ispCfg = cfg;
+            if (data-&gt;usesDewarper_) {
+                ispCfg.bufferCount = kRkISP1MinBufferCount;
+                ispCfg.size = format.size;
+                ispCfg.stride =
+                    PixelFormatInfo::info(ispCfg.pixelFormat)
+                        .stride(ispCfg.size.width, 0);
+
+                ret = dewarper_-&gt;configure(ispCfg, { cfg }, data-&gt;dewarpParams_);
+                if (ret)
+                    return ret;
+
+                dewarper_-&gt;setTransform(cfg.stream(), config-&gt;combinedTransform());
+                /*
+                 * Apply a default scaler crop that keeps the
+                 * aspect ratio.
+                 */
+                Size size = cfg.size;
+                if (transposeAfterIsp)
+                    size.transpose();
+                size = sensorCrop.size().boundedToAspectRatio(size);
+
+                ControlList ctrls;
+                ctrls.set(controls::ScalerCrop, size.centeredTo(sensorCrop.center()));
+                dewarper_-&gt;setControls(cfg.stream(), ctrls);
+            }
+
+            ret = mainPath_.configure(ispCfg, format);
+            streamConfig[0] = IPAStream(cfg.pixelFormat,
+                            cfg.size);
+        } else if (hasSelfPath_) {
+            ret = selfPath_.configure(cfg, format);
+            streamConfig[1] = IPAStream(cfg.pixelFormat,
+                            cfg.size);
+        } else {
+            return -ENODEV;
+        }
+
+        if (ret)
+            return ret;
+    }
+
+    V4L2DeviceFormat paramFormat;
+    paramFormat.fourcc = V4L2PixelFormat(V4L2_META_FMT_RK_ISP1_EXT_PARAMS);
+    ret = param_-&gt;setFormat(&amp;paramFormat);
+    if (ret)
+        return ret;
+
+    V4L2DeviceFormat statFormat;
+    statFormat.fourcc = V4L2PixelFormat(V4L2_META_FMT_RK_ISP1_STAT_3A);
+    ret = stat_-&gt;setFormat(&amp;statFormat);
+    if (ret)
+        return ret;
+
+    /* Inform IPA of stream configuration and sensor controls. */
+    ipa::rkisp1::IPAConfigInfo ipaConfig{ sensorInfo,
+                          data-&gt;sensor_-&gt;controls(),
+                          paramFormat.fourcc };
+
+    ret = data-&gt;ipa_-&gt;configure(ipaConfig, streamConfig, &amp;data-&gt;ipaControls_);
+    if (ret) {
+        LOG(RkISP1, Error) &lt;&lt; "failed configuring IPA (" &lt;&lt; ret &lt;&lt; ")";
+        return ret;
+    }
+
+    return updateControls(data);
+}
+</code></pre></div>
+</details>
+<p><a id="source-25d871212cbd755c"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/converter/converter_dw100.cpp:178</summary>
+<p>This excerpt begins at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L178"><code>src/libcamera/converter/converter_dw100.cpp:178</code></a> and ends at line 207. The original text below can be compared with the explanation.</p>
+<p>SHA-256: <code>78dde0742228b34c3f439a9eddb6037b62427aabefc6d5d1cf1cca5ebbb1be07</code></p>
+<div class="highlight"><pre><span></span><code>int ConverterDW100Module::configure(const StreamConfiguration &amp;inputCfg,
+                    const std::vector&lt;std::reference_wrapper&lt;const StreamConfiguration&gt;&gt;
+                        &amp;outputCfgs,
+                    const std::optional&lt;Dw100VertexMap::DewarpParams&gt; &amp;dewarpParams)
+{
+    int ret;
+
+    vertexMaps_.clear();
+    ret = converter_.configure(inputCfg, outputCfgs);
+    if (ret)
+        return ret;
+
+    inputBufferCount_ = inputCfg.bufferCount;
+    hasDewarpParams_ = dewarpParams.has_value();
+
+    for (auto &amp;ref : outputCfgs) {
+        const auto &amp;outputCfg = ref.get();
+        auto &amp;info = vertexMaps_[outputCfg.stream()];
+        auto &amp;vertexMap = info.map;
+        vertexMap.setInputSize(inputCfg.size);
+        vertexMap.setOutputSize(outputCfg.size);
+        vertexMap.setSensorCrop(sensorCrop_);
+
+        if (dewarpParams)
+            vertexMap.setDewarpParams(*dewarpParams);
+        info.update = true;
+    }
+
+    return 0;
+}
+</code></pre></div>
+</details>
+<p><a id="source-3c3967c227d1109c"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/converter/converter_dw100.cpp:212</summary>
+<p>This excerpt begins at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L212"><code>src/libcamera/converter/converter_dw100.cpp:212</code></a> and ends at line 215. The original text below can be compared with the explanation.</p>
+<p>SHA-256: <code>a9101e5798b547dc964f47b0cdc02a663fbac547a8ca9334e92c8f915b399967</code></p>
+<div class="highlight"><pre><span></span><code>bool ConverterDW100Module::isConfigured(const Stream *stream) const
+{
+    return vertexMaps_.find(stream) != vertexMaps_.end();
+}
+</code></pre></div>
+</details>
+<p><a id="source-d069b98fadac2d0c"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/converter/converter_dw100.cpp:369</summary>
+<p>This excerpt begins at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L369"><code>src/libcamera/converter/converter_dw100.cpp:369</code></a> and ends at line 389. The original text below can be compared with the explanation.</p>
+<p>SHA-256: <code>e1b29934e982572d53d59c39d6c378efd91d24852bbca5ca00612947e57d91eb</code></p>
+<div class="highlight"><pre><span></span><code>void ConverterDW100Module::updateControlInfos(const Stream *stream, ControlInfoMap::Map &amp;controls)
+{
+    ControlValue scalerCropDefault = sensorCrop_;
+
+    if (isConfigured(stream)) {
+        auto &amp;info = vertexMaps_[stream];
+        info.map.applyLimits();
+        scalerCropDefault = info.map.effectiveScalerCrop();
+    }
+
+    controls[&amp;controls::ScalerCrop] = ControlInfo(Rectangle(sensorCrop_.x, sensorCrop_.y, 1, 1),
+                              sensorCrop_, sensorCrop_);
+
+    if (hasDewarpParams_)
+        controls[&amp;controls::LensDewarpEnable] = ControlInfo(false, true, true);
+
+    if (!converter_.supportsRequests())
+        LOG(Converter, Warning)
+            &lt;&lt; "dw100 kernel driver has no requests support."
+               " Dynamic configuration is not possible.";
+}
+</code></pre></div>
+</details>
+<p><a id="source-3b37038ea14e4a3f"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/converter/converter_dw100.cpp:400</summary>
+<p>This excerpt begins at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L400"><code>src/libcamera/converter/converter_dw100.cpp:400</code></a> and ends at line 424. The original text below can be compared with the explanation.</p>
+<p>SHA-256: <code>9103f3c7e936f73ecac9cd744a6fd3d94f6e54e14542d2a4c13e6c417faa8cee</code></p>
+<div class="highlight"><pre><span></span><code>void ConverterDW100Module::setControls(const Stream *stream, const ControlList &amp;controls)
+{
+    if (!isConfigured(stream))
+        return;
+
+    auto &amp;info = vertexMaps_[stream];
+    auto &amp;vertexMap = info.map;
+
+    const auto &amp;lensDewarpEnable = controls.get(controls::LensDewarpEnable);
+    if (lensDewarpEnable) {
+        vertexMap.setLensDewarpEnable(*lensDewarpEnable);
+        info.update = true;
+    }
+
+    const auto &amp;crop = controls.get(controls::ScalerCrop);
+    if (crop) {
+        vertexMap.setScalerCrop(*crop);
+        info.update = true;
+    }
+
+    if (info.update &amp;&amp; running_ &amp;&amp; !converter_.supportsRequests())
+        LOG(Converter, Error)
+            &lt;&lt; "Dynamically setting dw100 specific controls requires"
+               " a dw100 kernel driver with requests support";
+}
+</code></pre></div>
+</details>
+<p><a id="source-91482028dd941751"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/converter/converter_dw100.cpp:434</summary>
+<p>This excerpt starts at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/converter/converter_dw100.cpp#L434"><code>src/libcamera/converter/converter_dw100.cpp:434</code></a> and ends at line 445. The original text below can be compared with the explanation.</p>
+<p>SHA-256: <code>c3910ce8099422d783f718ab0fc0de073c5999dd6aa53dfef296cf33fbfb3255</code></p>
+<div class="highlight"><pre><span></span><code>void ConverterDW100Module::populateMetadata(const Stream *stream, ControlList &amp;meta)
+{
+    if (!isConfigured(stream))
+        return;
+
+    auto &amp;vertexMap = vertexMaps_[stream].map;
+
+    meta.set(controls::ScalerCrop, vertexMap.effectiveScalerCrop());
+
+    if (hasDewarpParams_)
+        meta.set(controls::LensDewarpEnable, vertexMap.lensDewarpEnable());
+}
+</code></pre></div>
+</details>
 </details>
 
-</article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78</code></dd><dt>Document generation time</dt><dd><code>2026-10-29 22:19:51+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>include/libcamera/internal/converter.h</code>, <code>include/libcamera/internal/converter/converter_dw100.h</code>, <code>include/libcamera/internal/converter/converter_dw100_vertexmap.h</code>, <code>src/libcamera/converter.cpp</code>, <code>src/libcamera/converter/converter_dw100.cpp</code>, <code>src/libcamera/converter/converter_dw100_vertexmap.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code></li><li>Evidence level: Code verified (static analysis, simple_compdb configuration, commit <code>212c689fcf</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status record date: 2026-10-30 · Before human review</li></ul></details><a href="../rkisp1-dewarp.md">Markdown source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="ipu3-lsc-prepare.html"><small>Previous</small>IPU3 Lens Correction Table Preparation ←</a><a class="next" href="pipeline-handler.html"><small>Next</small>Pipeline Handler →</a></nav>
+</article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78</code></dd><dt>Document generation time</dt><dd><code>2026-11-11 19:12:32+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>include/libcamera/internal/converter.h</code>, <code>include/libcamera/internal/converter/converter_dw100.h</code>, <code>include/libcamera/internal/converter/converter_dw100_vertexmap.h</code>, <code>src/libcamera/converter.cpp</code>, <code>src/libcamera/converter/converter_dw100.cpp</code>, <code>src/libcamera/converter/converter_dw100_vertexmap.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code></li><li>Evidence level: Code verified (static analysis, simple_compdb configuration, commit <code>c19d05128f</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded: 2026-11-12 · Before human review</li></ul></details><a href="../rkisp1-dewarp.md">Markdown source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="ipu3-lsc-prepare.html"><small>Previous</small>IPU3 Lens Correction Table Preparation ←</a><a class="next" href="pipeline-handler.html"><small>Next</small>Pipeline Handler →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
 <aside class="page-toc"><nav aria-label="Table of contents for this page"><p>On this page</p><div class="toc">
 <ul>
 <li><a href="#카메라별-보정값의-소유권">Ownership of per-camera calibration values</a><ul>
-<li><a href="#보정값은-카메라별로-저장하고-구성-때-전달">Calibration values are stored per camera and passed at configuration time.</a></li>
+<li><a href="#카메라별-선택적-보정값의-저장과-전달">Storage and transfer of optional per-camera correction values</a></li>
 </ul>
 </li>
 <li><a href="#튜닝-입력의-기본값과-오류">Default values and errors of tuning inputs</a><ul>
-<li><a href="#보정-파라미터의-기본값과-입력-오류">Default values and input errors of calibration parameters</a></li>
+<li><a href="#보정-입력의-기본값오류저장-분기">Default, error, and storage branches for calibration input</a></li>
 </ul>
 </li>
-<li><a href="#스트림-적용과-실행-확인-범위">Scope of stream application and execution verification</a></li>
+<li><a href="#스트림-적용과-실행-확인-범위">Scope of stream application and execution verification</a><ul>
+<li><a href="#출력별-맵과-선택적-보정값">Per-output maps and optional correction values</a></li>
+<li><a href="#지원-제어와-요청-지원-조건">Supported controls and conditions for request support</a></li>
+<li><a href="#구성된-스트림의-제어-갱신">Control updates for configured streams</a></li>
+<li><a href="#스트림-메타데이터의-조건">Conditions for stream metadata</a></li>
+<li><a href="#메인-경로의-보정-구성과-crop-전달">Calibration configuration and crop forwarding in the main path</a></li>
+</ul>
+</li>
 <li><a href="#소스-근거">Source evidence</a></li>
 </ul>
 </div>
 </nav></aside></div>
 <dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find document</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search documents, sections, terms, and code elements</label><input id="search-input" type="search" autocomplete="off" placeholder="Example: Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
 <dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Diagram element and function names"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Collapse">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to screen</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">Drag with a mouse or swipe with touch to move the diagram. "Fit to screen" shows an overview of the whole diagram.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="Zoomed diagram"><div id="diagram-canvas"></div></div></dialog>
-<script id="site-config" type="application/json">{"root": "./", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "d7f54ca11e", "language": "en"}</script><script defer src="../assets/site.js?v=dd3415510a"></script><script defer src="../assets/reader-tools.js?v=dd3415510a"></script></body></html>
+<script id="site-config" type="application/json">{"root": "./", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "10c7b0ad3c", "language": "en"}</script><script defer src="../assets/site.js?v=dd3415510a"></script><script defer src="../assets/reader-tools.js?v=dd3415510a"></script></body></html>

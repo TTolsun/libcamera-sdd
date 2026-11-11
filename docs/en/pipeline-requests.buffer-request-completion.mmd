@@ -2,8 +2,18 @@ flowchart TB
 
   v_buffer["completeBuffer#40;#41;"]
   v_remaining["Update buffer completion <br/>tracking"]
-  v_request["completeRequest#40;#41;"]
-  v_application["Return to application in <br/>submission order"]
+  v_request["Handlers may call <br/>completeRequest#40;#41; on any <br/>completed request in any <br/>order. It updates the <br/>supplied request status."]
+  v_application["Pop the head and notify the <br/>application in submission <br/>order."]
+  v_access-ends["After return, the handler <br/>must no longer access the <br/>request passed to <br/>completeRequest#40;#41;."]
+  v_head{"Is there a request at the <br/>queue head?"}
+  v_pending{"Is the head request still <br/>RequestPending?"}
+  v_dispatch["End the return loop and <br/>call <br/>doQueueRequests#40;camera#41;."]
   v_buffer -->|"Notify buffer completion"| v_remaining
   v_remaining -->|"All buffers complete → <br/>handler performs any <br/>remaining work if needed, <br/>then explicitly calls"| v_request
-  v_request -->|"Wait behind an incomplete <br/>head request"| v_application
+  v_request -->|"Check the queue after the <br/>status update."| v_head
+  v_head -->|"The queue has a head <br/>request."| v_pending
+  v_head -->|"The queue is empty."| v_dispatch
+  v_pending -->|"A pending head blocks <br/>return from the queue."| v_dispatch
+  v_pending -->|"Return the non-pending head <br/>request."| v_application
+  v_application -->|"Check the next queue head."| v_head
+  v_dispatch -->|"This applies when <br/>completeRequest#40;#41; returns."| v_access-ends

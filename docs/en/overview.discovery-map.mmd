@@ -1,9 +1,22 @@
 flowchart TB
 
-  v_manager["CameraManager entry"]
-  v_enumerate["Enumerate devices"]
-  v_handler["PipelineHandler::match#40;#41;"]
-  v_camera["Create and register Camera"]
-  v_manager -->|"start#40;#41;"| v_enumerate
-  v_enumerate -->|"Pass enumerator to match <br/>devices"| v_handler
-  v_handler -->|"When required devices are <br/>acquired"| v_camera
+  v_manager["CameraManager enumerates <br/>devices and owns the Camera <br/>objects."]
+  v_start["start#40;#41; starts the manager <br/>and enumerates devices."]
+  v_start-error["A failed start returns a <br/>negative error code."]
+  v_match["The factory creates a <br/>handler and the manager <br/>calls match."]
+  v_found{"Were all devices for this <br/>pipeline found?"}
+  v_registered["Acquire the devices, <br/>create, store and register <br/>the cameras, and return <br/>true."]
+  v_released["Acquire no devices or <br/>release all acquired <br/>devices, then return false."]
+  v_running["Before a lookup, the <br/>application ensures the <br/>manager is running."]
+  v_list["cameras#40;#41; returns the list <br/>of available cameras."]
+  v_get["get#40;id#41; returns a shared <br/>pointer to the Camera, or <br/>nullptr if it is absent."]
+  v_manager -->|"Start device discovery."| v_start
+  v_manager -->|"This is the manager’s <br/>separate device matching <br/>responsibility."| v_match
+  v_start -->|"The start failed."| v_start-error
+  v_match -->|"match checks whether the <br/>devices are available."| v_found
+  v_found -->|"All required devices are <br/>available."| v_registered
+  v_found -->|"A required device is <br/>missing."| v_released
+  v_registered -->|"A true result starts <br/>matching again with a new <br/>handler."| v_match
+  v_manager -->|"This is the separate <br/>application lookup <br/>requirement."| v_running
+  v_running -->|"Get the list."| v_list
+  v_running -->|"Look up a Camera by ID."| v_get

@@ -1,0 +1,19 @@
+flowchart TB
+
+  v_submit["queueRequestDevice returns <br/>-ENOENT if the stream <br/>buffer is missing and <br/>returns 0 if both control <br/>processing and buffer <br/>submission succeed."]
+  v_controls["processControls does not <br/>check individual <br/>processControl returns; it <br/>passes the constructed list <br/>to setControls. An empty <br/>list can also return 0, so <br/>0 does not prove that all <br/>requested controls were <br/>applied."]
+  v_queue["queueBuffer performs <br/>VIDIOC#95;QBUF. A missing <br/>cache#95; logs Fatal, so it <br/>must not be generalized as <br/>a normal negative return."]
+  v_queued["queuedBuffers#95; records <br/>buffers by index after QBUF <br/>succeeds."]
+  v_cancel["cancelRequest cancels and <br/>completes the request and <br/>follows the same rules as <br/>completeRequest."]
+  v_available["bufferAvailable handles a <br/>separate device completion <br/>event. If DQBUF fails or an <br/>unexpected buffer is <br/>returned, it returns <br/>without a bufferReady <br/>notification."]
+  v_ready["imageBufferReady records <br/>the buffer timestamp in the <br/>request, then completes the <br/>buffer and the request in <br/>that order."]
+  v_complete["The pipeline handler must <br/>explicitly complete the <br/>request on the <br/>CameraManager thread and <br/>must not access it after <br/>completeRequest returns. It <br/>may call completeRequest on <br/>complete requests without <br/>an ordering constraint, and <br/>requests are returned to <br/>the application in <br/>submission order."]
+  v_submit -->|"If the stream buffer is <br/>found, it processes the <br/>request controls. · #33;buffer <br/>#91;false#93;"| v_controls
+  v_controls -->|"If the control processing <br/>result is not negative, it <br/>queues the buffer. · ret #60; <br/>0 #91;false#93;"| v_queue
+  v_controls -->|"If control processing <br/>returns a negative value, <br/>it is returned before QBUF <br/>and the caller cancels the <br/>request. · ret #60; 0 #91;true#93;"| v_cancel
+  v_queue -->|"If buffer queueing returns <br/>a negative value after <br/>control processing, the <br/>caller cancels the request. <br/>Control rollback is not <br/>guaranteed. · ret #60; 0 #91;true#93;"| v_cancel
+  v_queue -->|"If VIDIOC#95;QBUF succeeds, it <br/>records the buffer. · ret #60; <br/>0 #91;false#93;"| v_queued
+  v_queued -->|"If a separate device <br/>completion event occurs <br/>after registration, <br/>bufferAvailable handles it. <br/>Registration itself does <br/>not guarantee an immediate <br/>notification or hardware <br/>completion."| v_available
+  v_available -->|"If DQBUF succeeds and the <br/>registered buffer is found <br/>and returned, bufferReady <br/>is emitted and the <br/>connected imageBufferReady <br/>receives the notification. <br/>· #33;buffer #91;false#93;"| v_ready
+  v_ready -->|"It calls completeRequest <br/>after signaling buffer <br/>completion with <br/>completeBuffer. Buffer <br/>completion alone does not <br/>automatically complete the <br/>request."| v_complete
+  v_cancel -->|"It completes the cancelled <br/>request."| v_complete

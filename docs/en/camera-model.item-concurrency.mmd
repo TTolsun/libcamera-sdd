@@ -1,0 +1,18 @@
+flowchart TB
+
+  v_create["createRequest#40;#41; is <br/>threadsafe and may be <br/>called only in the <br/>Configured or Running state."]
+  v_queue["Camera::queueRequest#40;#41; is <br/>threadsafe and may be <br/>called only in the Running <br/>state."]
+  v_start["Camera::start#40;#41; may be <br/>called only in the <br/>Configured state."]
+  v_stop["Camera::stop#40;#41; may be <br/>called in any state and <br/>does nothing if the camera <br/>is not running."]
+  v_caller["The caller must synchronize <br/>start and stop with other <br/>functions that affect the <br/>camera state."]
+  v_buffer["When the last buffer <br/>completes, it does not <br/>automatically complete the <br/>request; the handler must <br/>explicitly complete it with <br/>completeRequest#40;#41;."]
+  v_complete["completeRequest#40;#41; may be <br/>called on completed <br/>requests without ordering <br/>constraints, but requests <br/>are returned to the <br/>application in submission <br/>order."]
+  v_manager["The CameraManager thread is <br/>the required calling <br/>context for the pipeline <br/>completion functions."]
+  v_cancel["PipelineHandler::<br/>cancelRequest#40;#41; cancels and <br/>completes the request and <br/>follows the same rules as <br/>completeRequest#40;#41;."]
+  v_create -->|"The application must add at <br/>least one capture buffer <br/>before queuing the created <br/>request."| v_queue
+  v_caller -->|"The caller must synchronize <br/>Camera::start#40;#41; with other <br/>state-affecting functions."| v_start
+  v_caller -->|"The caller must synchronize <br/>Camera::stop#40;#41; with other <br/>state-affecting functions."| v_stop
+  v_buffer -->|"The handler must explicitly <br/>complete the request with <br/>completeRequest#40;#41;."| v_complete
+  v_buffer -->|"PipelineHandler::<br/>completeBuffer#40;#41; must be <br/>called from the <br/>CameraManager thread."| v_manager
+  v_complete -->|"completeRequest#40;#41; must be <br/>called from the <br/>CameraManager thread."| v_manager
+  v_cancel -->|"PipelineHandler::<br/>cancelRequest#40;#41; follows the <br/>same rules as <br/>completeRequest#40;#41;."| v_complete

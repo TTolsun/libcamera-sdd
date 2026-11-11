@@ -11,6 +11,7 @@
 <li><a href="#요청-생성과-완료">Request creation and completion</a><ul>
 <li><a href="#버퍼-연결-실패를-구분하는-순서">Sequence for distinguishing buffer connection failures</a></li>
 <li><a href="#접수-반환과-완료-알림">Acceptance return and completion notification</a></li>
+<li><a href="#요청-데이터의-거절-조건">Conditions for rejecting request data</a></li>
 </ul>
 </li>
 <li><a href="#소유권과-재사용">Ownership and reuse</a><ul>
@@ -18,6 +19,7 @@
 <li><a href="#타임아웃-뒤-펜스-회수">Fence reclamation after timeout</a></li>
 <li><a href="#재사용-버퍼의-요청-연결">Linking requests to reused buffers</a></li>
 <li><a href="#버퍼-재사용과-펜스-권고">Buffer reuse and fence recommendation</a></li>
+<li><a href="#addbuffer의-펜스-소유권">Fence ownership in addBuffer</a></li>
 </ul>
 </li>
 <li><a href="#클래스-관계">Class relationships</a></li>
@@ -189,6 +191,118 @@
 </table></div>
 </details>
 <!-- /sdd:visual:queue-return-completion -->
+
+<!-- sdd:visual:queued-request-data-checks -->
+<h3 id="요청-데이터의-거절-조건">Conditions for rejecting request data</h3>
+<pre class="mermaid">flowchart TB
+
+  v_camera{"After the access check &lt;br/&gt;passes, did this camera &lt;br/&gt;create the request?"}
+  v_wrong-camera["Return -EXDEV because a &lt;br/&gt;different camera created &lt;br/&gt;the request."]
+  v_status{"Is the request still &lt;br/&gt;RequestPending?"}
+  v_controls{"Does the control list use &lt;br/&gt;this camera’s control info &lt;br/&gt;map?"}
+  v_buffers{"Does the request contain at &lt;br/&gt;least one buffer?"}
+  v_streams{"Does every attached buffer &lt;br/&gt;belong to an active stream?"}
+  v_invalid["Return -EINVAL from the &lt;br/&gt;failed request-data check."]
+  v_submit["Preprocess controls, queue &lt;br/&gt;the asynchronous pipeline &lt;br/&gt;call, and return 0."]
+  v_camera --&gt;|"No."| v_wrong-camera
+  v_camera --&gt;|"Yes."| v_status
+  v_status --&gt;|"The request is not pending."| v_invalid
+  v_status --&gt;|"The request is pending."| v_controls
+  v_controls --&gt;|"The control info map &lt;br/&gt;differs."| v_invalid
+  v_controls --&gt;|"The control info map &lt;br/&gt;matches."| v_buffers
+  v_buffers --&gt;|"There are no buffers."| v_invalid
+  v_buffers --&gt;|"There are buffers."| v_streams
+  v_streams --&gt;|"A stream is absent from the &lt;br/&gt;active set."| v_invalid
+  v_streams --&gt;|"Every stream is in the &lt;br/&gt;active set."| v_submit</pre>
+<p><a href="camera-requests.queued-request-data-checks.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>After passing the access check, which values in the ownership, state, controls, and buffers of requests submitted to the queue are rejected?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="After the access check passes, did this camera create the request?">After the access check passes, did this camera create the request?</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return -EXDEV because a different camera created the request.">Return -EXDEV because a different camera created the request.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is the request still RequestPending?">Is the request still RequestPending?</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Does the control list use this camera’s control info map?">Does the control list use this camera’s control info map?</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Does the request contain at least one buffer?">Does the request contain at least one buffer?</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Does every attached buffer belong to an active stream?">Does every attached buffer belong to an active stream?</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return -EINVAL from the failed request-data check.">Return -EINVAL from the failed request-data check.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a> · <a href="#source-980d3a2f94252f0c">src/libcamera/camera.cpp:1350</a> · <a href="#source-d572e3b4aa0a295b">src/libcamera/camera.cpp:1361</a> · <a href="#source-589094bc9fe6e38d">src/libcamera/camera.cpp:1367</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Preprocess controls, queue the asynchronous pipeline call, and return 0.">Preprocess controls, queue the asynchronous pipeline call, and return 0.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No.">No.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes.">Yes.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The request is not pending.">The request is not pending.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a> · <a href="#source-980d3a2f94252f0c">src/libcamera/camera.cpp:1350</a> · <a href="#source-d572e3b4aa0a295b">src/libcamera/camera.cpp:1361</a> · <a href="#source-589094bc9fe6e38d">src/libcamera/camera.cpp:1367</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The request is pending.">The request is pending.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The control info map differs.">The control info map differs.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a> · <a href="#source-980d3a2f94252f0c">src/libcamera/camera.cpp:1350</a> · <a href="#source-d572e3b4aa0a295b">src/libcamera/camera.cpp:1361</a> · <a href="#source-589094bc9fe6e38d">src/libcamera/camera.cpp:1367</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The control info map matches.">The control info map matches.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="There are no buffers.">There are no buffers.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a> · <a href="#source-980d3a2f94252f0c">src/libcamera/camera.cpp:1350</a> · <a href="#source-d572e3b4aa0a295b">src/libcamera/camera.cpp:1361</a> · <a href="#source-589094bc9fe6e38d">src/libcamera/camera.cpp:1367</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="There are buffers.">There are buffers.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="A stream is absent from the active set.">A stream is absent from the active set.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a> · <a href="#source-980d3a2f94252f0c">src/libcamera/camera.cpp:1350</a> · <a href="#source-d572e3b4aa0a295b">src/libcamera/camera.cpp:1361</a> · <a href="#source-589094bc9fe6e38d">src/libcamera/camera.cpp:1367</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Every stream is in the active set.">Every stream is in the active set.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:queued-request-data-checks -->
 
 <p data-sdd-evidence="[[&quot;src/libcamera/request.cpp:475&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L475\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:475&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/request.cpp:475&quot;: [&quot;#source-605100b059a6864d&quot;]}"><code>Request::addBuffer()</code> first checks whether <code>!stream</code> is true. If it is, the error "Invalid stream reference" is logged, and <code>-EINVAL</code> is returned. Next, if <code>buffer-&gt;_d()-&gt;fence()</code> still exists, <code>-EEXIST</code> is returned, so a buffer that still has a fence is not registered at this stage. Finally, if <code>inserted</code> of <code>bufferMap_.try_emplace(stream, buffer)</code> is false, the log "<code>FrameBuffer</code> already set for stream" is written, and <code>-EEXIST</code> is returned.</p>
 <p data-sdd-evidence="[[&quot;src/libcamera/request.cpp:475&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L475\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:475&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera.cpp:1308&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1308\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1308&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera.cpp:1339&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1339\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1339&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/request.cpp:475&quot;: [&quot;#source-605100b059a6864d&quot;], &quot;src/libcamera/camera.cpp:1308&quot;: [&quot;#source-28d007de6ad1a8a5&quot;], &quot;src/libcamera/camera.cpp:1339&quot;: [&quot;#source-a03c9ac514bfd95e&quot;]}"><code>buffer-&gt;_d()-&gt;setRequest(this)</code> and <code>_d()-&gt;pending_.insert(buffer)</code> execute in that order only if the <code>!stream</code> check, fence check, and <code>inserted</code> check all pass and <code>bufferMap_.try_emplace</code> has <code>inserted</code> set to true. A fence-setting branch follows these two lines, and the function ends with <code>return 0;</code>. After creating a request with <code>createRequest()</code>, the application must fill that request with at least one capture buffer before calling <code>queueRequest</code>; requests with no buffers are rejected without being queued. If <code>Camera::queueRequest</code> reaches the check for the camera that created the request without returning during the access check, and the camera that created the request differs from the current camera, the function returns <code>-EXDEV</code>.</p>
@@ -425,6 +539,83 @@
 </table></div>
 </details>
 <!-- /sdd:visual:reuse-buffer-fence-distinction -->
+
+<!-- sdd:visual:add-buffer-fence-transfer -->
+<h3 id="addbuffer의-펜스-소유권">Fence ownership in addBuffer</h3>
+<pre class="mermaid">flowchart TB
+
+  v_input["The caller can supply a &lt;br/&gt;fence to addBuffer."]
+  v_result{"Did adding the buffer &lt;br/&gt;succeed?"}
+  v_caller["On failure, the caller &lt;br/&gt;retains fence ownership."]
+  v_valid{"Was a valid fence supplied?"}
+  v_buffer["Move ownership of the valid &lt;br/&gt;fence to the FrameBuffer."]
+  v_none["Without a valid fence, &lt;br/&gt;there is no fence ownership &lt;br/&gt;transfer."]
+  v_input --&gt;|"Check the result of adding &lt;br/&gt;the buffer."| v_result
+  v_result --&gt;|"Adding the buffer failed."| v_caller
+  v_result --&gt;|"Adding the buffer succeeded."| v_valid
+  v_valid --&gt;|"A valid fence was supplied."| v_buffer
+  v_valid --&gt;|"No valid fence was supplied."| v_none</pre>
+<p><a href="camera-requests.add-buffer-fence-transfer.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>Who owns a valid fence provided by the caller when addBuffer succeeds or fails?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="The caller can supply a fence to addBuffer.">The caller can supply a fence to addBuffer.</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Did adding the buffer succeed?">Did adding the buffer succeed?</span></td>
+<td><a href="#source-86a8d784a8348122">src/libcamera/request.cpp:456</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="On failure, the caller retains fence ownership.">On failure, the caller retains fence ownership.</span></td>
+<td><a href="#source-95ae69eeb085e3b1">src/libcamera/request.cpp:442</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Was a valid fence supplied?">Was a valid fence supplied?</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Move ownership of the valid fence to the FrameBuffer.">Move ownership of the valid fence to the FrameBuffer.</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Without a valid fence, there is no fence ownership transfer.">Without a valid fence, there is no fence ownership transfer.</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the result of adding the buffer.">Check the result of adding the buffer.</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a> · <a href="#source-86a8d784a8348122">src/libcamera/request.cpp:456</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Adding the buffer failed.">Adding the buffer failed.</span></td>
+<td><a href="#source-86a8d784a8348122">src/libcamera/request.cpp:456</a> · <a href="#source-95ae69eeb085e3b1">src/libcamera/request.cpp:442</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Adding the buffer succeeded.">Adding the buffer succeeded.</span></td>
+<td><a href="#source-86a8d784a8348122">src/libcamera/request.cpp:456</a> · <a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="A valid fence was supplied.">A valid fence was supplied.</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No valid fence was supplied.">No valid fence was supplied.</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:add-buffer-fence-transfer -->
 
 <p data-sdd-evidence="[[&quot;src/libcamera/request.cpp:456&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L456\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:456&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/request.cpp:462&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L462\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:462&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/request.cpp:391&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L391\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:391&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/request.cpp:393&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L393\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:393&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/request.cpp:456&quot;: [&quot;#source-86a8d784a8348122&quot;], &quot;src/libcamera/request.cpp:462&quot;: [&quot;#source-d8cf34a75a4333a7&quot;], &quot;src/libcamera/request.cpp:391&quot;: [&quot;#source-e41b7fa688c1de2e&quot;], &quot;src/libcamera/request.cpp:393&quot;: [&quot;#source-bf1ee390b8473e16&quot;]}">If <code>addBuffer</code> fails, ownership of <code>fence</code> is not taken, and the received <code>fence</code> remains unchanged. If the fence is not signalled, the request fails after a timeout. In this case, the fence remains in the buffer, and the application must retrieve this fence with <code>FrameBuffer::releaseFence()</code> before reusing the buffer in another request. <code>Request::reuse</code> calls <code>buffer-&gt;_d()-&gt;setRequest(this)</code> for each buffer in <code>bufferMap_</code> when <code>ReuseBuffers</code> is set in <code>flags</code>, to associate that buffer with the current request, and then adds that buffer to <code>_d()-&gt;pending_</code>.</p>
 <p data-sdd-evidence="[[&quot;src/libcamera/request.cpp:376&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L376\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:376&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/request.cpp:391&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L391\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:391&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/request.cpp:400&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L400\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:400&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/request.cpp:402&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L402\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:402&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/request.cpp:403&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L403\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:403&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/request.cpp:326&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L326\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:326&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/request.cpp:334&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L334\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:334&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/request.cpp:376&quot;: [&quot;#source-38494771cb29cc8c&quot;], &quot;src/libcamera/request.cpp:391&quot;: [&quot;#source-e41b7fa688c1de2e&quot;], &quot;src/libcamera/request.cpp:400&quot;: [&quot;#source-a98823fa5ec440a2&quot;], &quot;src/libcamera/request.cpp:402&quot;: [&quot;#source-c8638489aa83cfd1&quot;], &quot;src/libcamera/request.cpp:403&quot;: [&quot;#source-47569737e131b31a&quot;], &quot;src/libcamera/request.cpp:326&quot;: [&quot;#source-447804db33308244&quot;], &quot;src/libcamera/request.cpp:334&quot;: [&quot;#source-d9944a69f2dd6758&quot;]}">In <code>Request::reuse()</code>, the else branch runs when <code>flags &amp; ReuseBuffers</code> is false, and <code>bufferMap_.clear()</code> is called to clear all entries of <code>bufferMap_</code>. <code>Request::reuse</code> sets <code>status_</code> to <code>RequestPending</code>, then calls <code>clear()</code> on each of <code>controls_</code> and <code>_d()-&gt;metadata_</code>. When <code>Request::reuse()</code> is called, the <code>Request::ReuseBuffers</code> flag reuses the buffers previously added with <code>addBuffer()</code> and keeps the existing buffers. However, fences attached to buffers are not reused, and the source comment recommends avoiding this flag when fences are used.</p>
@@ -891,6 +1082,7 @@ void Request::reuse(ReuseFlag flags)
 <li><a href="#요청-생성과-완료">Request creation and completion</a><ul>
 <li><a href="#버퍼-연결-실패를-구분하는-순서">Sequence for distinguishing buffer connection failures</a></li>
 <li><a href="#접수-반환과-완료-알림">Acceptance return and completion notification</a></li>
+<li><a href="#요청-데이터의-거절-조건">Conditions for rejecting request data</a></li>
 </ul>
 </li>
 <li><a href="#소유권과-재사용">Ownership and reuse</a><ul>
@@ -898,6 +1090,7 @@ void Request::reuse(ReuseFlag flags)
 <li><a href="#타임아웃-뒤-펜스-회수">Fence reclamation after timeout</a></li>
 <li><a href="#재사용-버퍼의-요청-연결">Linking requests to reused buffers</a></li>
 <li><a href="#버퍼-재사용과-펜스-권고">Buffer reuse and fence recommendation</a></li>
+<li><a href="#addbuffer의-펜스-소유권">Fence ownership in addBuffer</a></li>
 </ul>
 </li>
 <li><a href="#클래스-관계">Class relationships</a></li>
@@ -908,4 +1101,4 @@ void Request::reuse(ReuseFlag flags)
 </nav></aside></div>
 <dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find document</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search documents, sections, terms, and code elements</label><input id="search-input" type="search" autocomplete="off" placeholder="Example: Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
 <dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Diagram element and function names"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Collapse">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to screen</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">Drag with a mouse or swipe with touch to move the diagram. "Fit to screen" shows an overview of the whole diagram.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="Zoomed diagram"><div id="diagram-canvas"></div></div></dialog>
-<script id="site-config" type="application/json">{"root": "./", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "d7f54ca11e", "language": "en"}</script><script defer src="../assets/site.js?v=dd3415510a"></script><script defer src="../assets/reader-tools.js?v=dd3415510a"></script></body></html>
+<script id="site-config" type="application/json">{"root": "./", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "10c7b0ad3c", "language": "en"}</script><script defer src="../assets/site.js?v=dd3415510a"></script><script defer src="../assets/reader-tools.js?v=dd3415510a"></script></body></html>

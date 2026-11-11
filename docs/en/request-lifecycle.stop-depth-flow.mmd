@@ -1,0 +1,19 @@
+flowchart TB
+
+  v_stop["PipelineHandlerUVC::<br/>stopDevice calls streamOff."]
+  v_entry{"streamOff checks the <br/>streaming state and queued <br/>buffers."}
+  v_ioctl{"streamOff stops watchdog#95; <br/>if needed and calls <br/>VIDIOC#95;STREAMOFF."}
+  v_failure["If ioctl returns a negative <br/>value, streamOff logs the <br/>error and returns ret."]
+  v_loop["It sets State::Stopping, <br/>then puts each queued <br/>buffer in cache#95;, cancels <br/>it, and emits bufferReady."]
+  v_cleanup["If ASSERT passes, it clears <br/>the queue, disables the <br/>notifier, sets <br/>State::Stopped, and returns <br/>0."]
+  v_returned["The three paths meet only <br/>when streamOff actually <br/>returns; ASSERT failure or <br/>abnormal callback <br/>termination does not <br/>guarantee a return."]
+  v_release["releaseBuffers returns 0 <br/>without cache#95;; otherwise <br/>it resets cache#95; and <br/>returns the result of <br/>requestBuffers, which may <br/>fail."]
+  v_stop -->|"It calls streamOff."| v_entry
+  v_entry -->|"It immediately returns 0. · <br/>state#95; #33;#61; State::Streaming <br/>#38;#38; queuedBuffers#95;.empty#40;#41; <br/>#91;true#93;"| v_returned
+  v_entry -->|"If it does not return <br/>immediately, it proceeds to <br/>ioctl. · state#95; #33;#61; <br/>State::Streaming #38;#38; <br/>queuedBuffers#95;.empty#40;#41; <br/>#91;false#93;"| v_ioctl
+  v_ioctl -->|"It logs the error and <br/>returns ret. · ret #60; 0 <br/>#91;true#93;"| v_failure
+  v_failure -->|"It joins when ret has <br/>actually been returned."| v_returned
+  v_ioctl -->|"It proceeds to process <br/>queued buffers. · ret #60; 0 <br/>#91;false#93;"| v_loop
+  v_loop -->|"If the loop completes, it <br/>proceeds to ASSERT and <br/>cleanup."| v_cleanup
+  v_cleanup -->|"It joins when cleanup <br/>completes and 0 has <br/>actually been returned."| v_returned
+  v_returned -->|"UVC calls releaseBuffers <br/>without checking the return <br/>value."| v_release

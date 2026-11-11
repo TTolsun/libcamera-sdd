@@ -1,0 +1,21 @@
+flowchart TB
+
+  v_entry["Camera::stop#40;#41; may be <br/>called in any camera state. <br/>The caller must synchronize <br/>it with other functions <br/>that affect the camera <br/>state."]
+  v_running{"Check whether the camera is <br/>running."}
+  v_noop["If the camera is not <br/>running, return 0 without <br/>changing its state."]
+  v_access{"Check access for <br/>Private::CameraRunning and <br/>whether the result is <br/>negative."}
+  v_error["If the access check result <br/>is negative, return that <br/>error code."]
+  v_stopping["Set the state to <br/>Private::CameraStopping."]
+  v_stop["Call PipelineHandler::stop <br/>synchronously. All pending <br/>requests are canceled and <br/>complete synchronously in <br/>an error state."]
+  v_pending["ASSERT checks that no <br/>requests are pending."]
+  v_configured["Set the state to <br/>Private::CameraConfigured."]
+  v_success["Return 0 after stopping."]
+  v_entry -->|"Check whether the camera is <br/>running."| v_running
+  v_running -->|"Return immediately if the <br/>camera is not running. <br/>#91;true#93;"| v_noop
+  v_running -->|"Check access if the camera <br/>is running. #91;false#93;"| v_access
+  v_access -->|"Return if the check result <br/>is negative. #91;true#93;"| v_error
+  v_access -->|"Change the state if the <br/>check result is not <br/>negative. #91;false#93;"| v_stopping
+  v_stopping -->|"Call the synchronous stop <br/>after changing the state."| v_stop
+  v_stop -->|"Check pending requests <br/>after the synchronous stop <br/>completes."| v_pending
+  v_pending -->|"Change the state after <br/>checking the requests."| v_configured
+  v_configured -->|"Return after changing the <br/>state."| v_success

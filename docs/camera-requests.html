@@ -11,6 +11,7 @@
 <li><a href="#요청-생성과-완료">요청 생성과 완료</a><ul>
 <li><a href="#버퍼-연결-실패를-구분하는-순서">버퍼 연결 실패를 구분하는 순서</a></li>
 <li><a href="#접수-반환과-완료-알림">접수 반환과 완료 알림</a></li>
+<li><a href="#요청-데이터의-거절-조건">요청 데이터의 거절 조건</a></li>
 </ul>
 </li>
 <li><a href="#소유권과-재사용">소유권과 재사용</a><ul>
@@ -18,6 +19,7 @@
 <li><a href="#타임아웃-뒤-펜스-회수">타임아웃 뒤 펜스 회수</a></li>
 <li><a href="#재사용-버퍼의-요청-연결">재사용 버퍼의 요청 연결</a></li>
 <li><a href="#버퍼-재사용과-펜스-권고">버퍼 재사용과 펜스 권고</a></li>
+<li><a href="#addbuffer의-펜스-소유권">addBuffer의 펜스 소유권</a></li>
 </ul>
 </li>
 <li><a href="#클래스-관계">클래스 관계</a></li>
@@ -189,6 +191,118 @@
 </table></div>
 </details>
 <!-- /sdd:visual:queue-return-completion -->
+
+<!-- sdd:visual:queued-request-data-checks -->
+<h3 id="요청-데이터의-거절-조건">요청 데이터의 거절 조건</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {&quot;같은 제어 맵입니다.&quot;: &quot;The control info map &lt;br/&gt;matches.&quot;, &quot;다른 제어 맵입니다.&quot;: &quot;The control info map &lt;br/&gt;differs.&quot;, &quot;대기 상태가 아닙니다.&quot;: &quot;The request is not pending.&quot;, &quot;대기 상태입니다.&quot;: &quot;The request is pending.&quot;, &quot;모든 스트림이 활성 목록에 &lt;br/&gt;있습니다.&quot;: &quot;Every stream is in the &lt;br/&gt;active set.&quot;, &quot;버퍼가 없습니다.&quot;: &quot;There are no buffers.&quot;, &quot;버퍼가 있습니다.&quot;: &quot;There are buffers.&quot;, &quot;아니오.&quot;: &quot;No.&quot;, &quot;연결된 모든 버퍼의 스트림이 &lt;br/&gt;활성 스트림입니까?&quot;: &quot;Does every attached buffer &lt;br/&gt;belong to an active stream?&quot;, &quot;예.&quot;: &quot;Yes.&quot;, &quot;요청 데이터 검사에서 &lt;br/&gt;-EINVAL을 반환합니다.&quot;: &quot;Return -EINVAL from the &lt;br/&gt;failed request-data check.&quot;, &quot;요청 상태가 &lt;br/&gt;RequestPending입니까?&quot;: &quot;Is the request still &lt;br/&gt;RequestPending?&quot;, &quot;요청에 버퍼가 한 개 이상 &lt;br/&gt;있습니까?&quot;: &quot;Does the request contain at &lt;br/&gt;least one buffer?&quot;, &quot;요청을 만든 카메라가 달라 &lt;br/&gt;-EXDEV를 반환합니다.&quot;: &quot;Return -EXDEV because a &lt;br/&gt;different camera created &lt;br/&gt;the request.&quot;, &quot;접근 검사를 통과한 요청이 &lt;br/&gt;현재 카메라에서 &lt;br/&gt;만들어졌습니까?&quot;: &quot;After the access check &lt;br/&gt;passes, did this camera &lt;br/&gt;create the request?&quot;, &quot;제어 목록의 infoMap이 현재 &lt;br/&gt;카메라의 제어 맵입니까?&quot;: &quot;Does the control list use &lt;br/&gt;this camera’s control info &lt;br/&gt;map?&quot;, &quot;제어를 사전 처리하고 &lt;br/&gt;파이프라인 큐 호출을 &lt;br/&gt;비동기로 예약한 뒤 0을 &lt;br/&gt;반환합니다.&quot;: &quot;Preprocess controls, queue &lt;br/&gt;the asynchronous pipeline &lt;br/&gt;call, and return 0.&quot;, &quot;활성 목록에 없는 스트림이 &lt;br/&gt;있습니다.&quot;: &quot;A stream is absent from the &lt;br/&gt;active set.&quot;}
+  v_camera{&quot;접근 검사를 통과한 요청이 &lt;br/&gt;현재 카메라에서 &lt;br/&gt;만들어졌습니까?&quot;}
+  v_wrong-camera[&quot;요청을 만든 카메라가 달라 &lt;br/&gt;-EXDEV를 반환합니다.&quot;]
+  v_status{&quot;요청 상태가 &lt;br/&gt;RequestPending입니까?&quot;}
+  v_controls{&quot;제어 목록의 infoMap이 현재 &lt;br/&gt;카메라의 제어 맵입니까?&quot;}
+  v_buffers{&quot;요청에 버퍼가 한 개 이상 &lt;br/&gt;있습니까?&quot;}
+  v_streams{&quot;연결된 모든 버퍼의 스트림이 &lt;br/&gt;활성 스트림입니까?&quot;}
+  v_invalid[&quot;요청 데이터 검사에서 &lt;br/&gt;-EINVAL을 반환합니다.&quot;]
+  v_submit[&quot;제어를 사전 처리하고 &lt;br/&gt;파이프라인 큐 호출을 &lt;br/&gt;비동기로 예약한 뒤 0을 &lt;br/&gt;반환합니다.&quot;]
+  v_camera --&gt;|&quot;아니오.&quot;| v_wrong-camera
+  v_camera --&gt;|&quot;예.&quot;| v_status
+  v_status --&gt;|&quot;대기 상태가 아닙니다.&quot;| v_invalid
+  v_status --&gt;|&quot;대기 상태입니다.&quot;| v_controls
+  v_controls --&gt;|&quot;다른 제어 맵입니다.&quot;| v_invalid
+  v_controls --&gt;|&quot;같은 제어 맵입니다.&quot;| v_buffers
+  v_buffers --&gt;|&quot;버퍼가 없습니다.&quot;| v_invalid
+  v_buffers --&gt;|&quot;버퍼가 있습니다.&quot;| v_streams
+  v_streams --&gt;|&quot;활성 목록에 없는 스트림이 &lt;br/&gt;있습니다.&quot;| v_invalid
+  v_streams --&gt;|&quot;모든 스트림이 활성 목록에 &lt;br/&gt;있습니다.&quot;| v_submit</pre>
+<p><a href="camera-requests.queued-request-data-checks.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>접근 검사를 통과한 뒤 큐에 제출하는 요청의 소속·상태·제어·버퍼에서 어떤 값이 거절됩니까?</p>
+<p>소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="After the access check passes, did this camera create the request?">접근 검사를 통과한 요청이 현재 카메라에서 만들어졌습니까?</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return -EXDEV because a different camera created the request.">요청을 만든 카메라가 달라 -EXDEV를 반환합니다.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is the request still RequestPending?">요청 상태가 RequestPending입니까?</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Does the control list use this camera’s control info map?">제어 목록의 infoMap이 현재 카메라의 제어 맵입니까?</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Does the request contain at least one buffer?">요청에 버퍼가 한 개 이상 있습니까?</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Does every attached buffer belong to an active stream?">연결된 모든 버퍼의 스트림이 활성 스트림입니까?</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return -EINVAL from the failed request-data check.">요청 데이터 검사에서 -EINVAL을 반환합니다.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a> · <a href="#source-980d3a2f94252f0c">src/libcamera/camera.cpp:1350</a> · <a href="#source-d572e3b4aa0a295b">src/libcamera/camera.cpp:1361</a> · <a href="#source-589094bc9fe6e38d">src/libcamera/camera.cpp:1367</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Preprocess controls, queue the asynchronous pipeline call, and return 0.">제어를 사전 처리하고 파이프라인 큐 호출을 비동기로 예약한 뒤 0을 반환합니다.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No.">아니오.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes.">예.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The request is not pending.">대기 상태가 아닙니다.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a> · <a href="#source-980d3a2f94252f0c">src/libcamera/camera.cpp:1350</a> · <a href="#source-d572e3b4aa0a295b">src/libcamera/camera.cpp:1361</a> · <a href="#source-589094bc9fe6e38d">src/libcamera/camera.cpp:1367</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The request is pending.">대기 상태입니다.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The control info map differs.">다른 제어 맵입니다.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a> · <a href="#source-980d3a2f94252f0c">src/libcamera/camera.cpp:1350</a> · <a href="#source-d572e3b4aa0a295b">src/libcamera/camera.cpp:1361</a> · <a href="#source-589094bc9fe6e38d">src/libcamera/camera.cpp:1367</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The control info map matches.">같은 제어 맵입니다.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="There are no buffers.">버퍼가 없습니다.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a> · <a href="#source-980d3a2f94252f0c">src/libcamera/camera.cpp:1350</a> · <a href="#source-d572e3b4aa0a295b">src/libcamera/camera.cpp:1361</a> · <a href="#source-589094bc9fe6e38d">src/libcamera/camera.cpp:1367</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="There are buffers.">버퍼가 있습니다.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="A stream is absent from the active set.">활성 목록에 없는 스트림이 있습니다.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a> · <a href="#source-980d3a2f94252f0c">src/libcamera/camera.cpp:1350</a> · <a href="#source-d572e3b4aa0a295b">src/libcamera/camera.cpp:1361</a> · <a href="#source-589094bc9fe6e38d">src/libcamera/camera.cpp:1367</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Every stream is in the active set.">모든 스트림이 활성 목록에 있습니다.</span></td>
+<td><a href="#source-a6565762f1627660">src/libcamera/camera.cpp:1330</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:queued-request-data-checks -->
 
 <p data-sdd-evidence="[[&quot;src/libcamera/request.cpp:475&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L475\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:475&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/request.cpp:475&quot;: [&quot;#source-605100b059a6864d&quot;]}"><code>Request::addBuffer()</code>는 먼저 <code>!stream</code> 조건을 확인하고, 참이면 "Invalid stream reference" 오류 로그를 남긴 뒤 <code>-EINVAL</code>을 반환합니다. 다음으로 <code>buffer-&gt;_d()-&gt;fence()</code>가 남아 있으면 <code>-EEXIST</code>를 반환하므로, fence가 남아 있는 버퍼는 이 단계에서 등록되지 않습니다. 마지막으로 <code>bufferMap_.try_emplace(stream, buffer)</code>의 <code>inserted</code>가 false이면, 로그 "<code>FrameBuffer</code> already set for stream"과 함께 <code>-EEXIST</code>를 반환합니다.</p>
 <p data-sdd-evidence="[[&quot;src/libcamera/request.cpp:475&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L475\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:475&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera.cpp:1308&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1308\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1308&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera.cpp:1339&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1339\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1339&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/request.cpp:475&quot;: [&quot;#source-605100b059a6864d&quot;], &quot;src/libcamera/camera.cpp:1308&quot;: [&quot;#source-28d007de6ad1a8a5&quot;], &quot;src/libcamera/camera.cpp:1339&quot;: [&quot;#source-a03c9ac514bfd95e&quot;]}"><code>!stream</code> 검사, fence 검사, <code>inserted</code> 검사를 모두 통과하고 <code>bufferMap_.try_emplace</code>가 <code>inserted</code>가 true인 경우에만 <code>buffer-&gt;_d()-&gt;setRequest(this)</code>와 <code>_d()-&gt;pending_.insert(buffer)</code>가 이 순서대로 실행됩니다. 이 두 줄 뒤에는 fence 설정 분기가 이어지고, 함수는 <code>return 0;</code>으로 끝납니다. 애플리케이션은 <code>createRequest()</code>로 요청을 만든 뒤 <code>queueRequest</code>를 호출하기 전에 그 요청에 캡처 버퍼를 하나 이상 채워야 하며, 버퍼가 없는 요청은 큐에 넣지 않고 거부됩니다. <code>Camera::queueRequest</code>는 접근 검사에서 반환하지 않고 생성 카메라 검사에 도달한 경우, 요청을 생성한 카메라가 현재 카메라와 다르면 <code>-EXDEV</code>를 반환합니다.</p>
@@ -425,6 +539,83 @@
 </table></div>
 </details>
 <!-- /sdd:visual:reuse-buffer-fence-distinction -->
+
+<!-- sdd:visual:add-buffer-fence-transfer -->
+<h3 id="addbuffer의-펜스-소유권">addBuffer의 펜스 소유권</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {&quot;버퍼 추가 결과를 확인합니다.&quot;: &quot;Check the result of adding &lt;br/&gt;the buffer.&quot;, &quot;버퍼 추가가 성공했습니까?&quot;: &quot;Did adding the buffer &lt;br/&gt;succeed?&quot;, &quot;성공했습니다.&quot;: &quot;Adding the buffer succeeded.&quot;, &quot;실패하면 펜스 소유권은 &lt;br/&gt;호출자에게 남습니다.&quot;: &quot;On failure, the caller &lt;br/&gt;retains fence ownership.&quot;, &quot;실패했습니다.&quot;: &quot;Adding the buffer failed.&quot;, &quot;유효한 펜스가 없습니다.&quot;: &quot;No valid fence was supplied.&quot;, &quot;유효한 펜스가 없으면 &lt;br/&gt;소유권을 옮기지 않습니다.&quot;: &quot;Without a valid fence, &lt;br/&gt;there is no fence ownership &lt;br/&gt;transfer.&quot;, &quot;유효한 펜스를 제공했습니까?&quot;: &quot;Was a valid fence supplied?&quot;, &quot;유효한 펜스를 제공했습니다.&quot;: &quot;A valid fence was supplied.&quot;, &quot;유효한 펜스의 소유권을 &lt;br/&gt;FrameBuffer로 옮깁니다.&quot;: &quot;Move ownership of the valid &lt;br/&gt;fence to the FrameBuffer.&quot;, &quot;호출자가 addBuffer에 펜스를 &lt;br/&gt;제공할 수 있습니다.&quot;: &quot;The caller can supply a &lt;br/&gt;fence to addBuffer.&quot;}
+  v_input[&quot;호출자가 addBuffer에 펜스를 &lt;br/&gt;제공할 수 있습니다.&quot;]
+  v_result{&quot;버퍼 추가가 성공했습니까?&quot;}
+  v_caller[&quot;실패하면 펜스 소유권은 &lt;br/&gt;호출자에게 남습니다.&quot;]
+  v_valid{&quot;유효한 펜스를 제공했습니까?&quot;}
+  v_buffer[&quot;유효한 펜스의 소유권을 &lt;br/&gt;FrameBuffer로 옮깁니다.&quot;]
+  v_none[&quot;유효한 펜스가 없으면 &lt;br/&gt;소유권을 옮기지 않습니다.&quot;]
+  v_input --&gt;|&quot;버퍼 추가 결과를 확인합니다.&quot;| v_result
+  v_result --&gt;|&quot;실패했습니다.&quot;| v_caller
+  v_result --&gt;|&quot;성공했습니다.&quot;| v_valid
+  v_valid --&gt;|&quot;유효한 펜스를 제공했습니다.&quot;| v_buffer
+  v_valid --&gt;|&quot;유효한 펜스가 없습니다.&quot;| v_none</pre>
+<p><a href="camera-requests.add-buffer-fence-transfer.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>addBuffer의 성공과 실패에 따라 호출자가 제공한 유효한 펜스를 누가 소유합니까?</p>
+<p>소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="The caller can supply a fence to addBuffer.">호출자가 addBuffer에 펜스를 제공할 수 있습니다.</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Did adding the buffer succeed?">버퍼 추가가 성공했습니까?</span></td>
+<td><a href="#source-86a8d784a8348122">src/libcamera/request.cpp:456</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="On failure, the caller retains fence ownership.">실패하면 펜스 소유권은 호출자에게 남습니다.</span></td>
+<td><a href="#source-95ae69eeb085e3b1">src/libcamera/request.cpp:442</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Was a valid fence supplied?">유효한 펜스를 제공했습니까?</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Move ownership of the valid fence to the FrameBuffer.">유효한 펜스의 소유권을 FrameBuffer로 옮깁니다.</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Without a valid fence, there is no fence ownership transfer.">유효한 펜스가 없으면 소유권을 옮기지 않습니다.</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the result of adding the buffer.">버퍼 추가 결과를 확인합니다.</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a> · <a href="#source-86a8d784a8348122">src/libcamera/request.cpp:456</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Adding the buffer failed.">실패했습니다.</span></td>
+<td><a href="#source-86a8d784a8348122">src/libcamera/request.cpp:456</a> · <a href="#source-95ae69eeb085e3b1">src/libcamera/request.cpp:442</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Adding the buffer succeeded.">성공했습니다.</span></td>
+<td><a href="#source-86a8d784a8348122">src/libcamera/request.cpp:456</a> · <a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="A valid fence was supplied.">유효한 펜스를 제공했습니다.</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No valid fence was supplied.">유효한 펜스가 없습니다.</span></td>
+<td><a href="#source-605100b059a6864d">src/libcamera/request.cpp:475</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:add-buffer-fence-transfer -->
 
 <p data-sdd-evidence="[[&quot;src/libcamera/request.cpp:456&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L456\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:456&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/request.cpp:462&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L462\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:462&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/request.cpp:391&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L391\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:391&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/request.cpp:393&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L393\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:393&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/request.cpp:456&quot;: [&quot;#source-86a8d784a8348122&quot;], &quot;src/libcamera/request.cpp:462&quot;: [&quot;#source-d8cf34a75a4333a7&quot;], &quot;src/libcamera/request.cpp:391&quot;: [&quot;#source-e41b7fa688c1de2e&quot;], &quot;src/libcamera/request.cpp:393&quot;: [&quot;#source-bf1ee390b8473e16&quot;]}"><code>addBuffer</code>가 실패하면 <code>fence</code>의 소유권은 가져가지 않으며, 전달받은 <code>fence</code>는 변경되지 않고 그대로 유지됩니다. 펜스가 신호되지 않으면 요청은 타임아웃 후 실패합니다. 이때 버퍼에는 펜스가 그대로 남아 있으며, 애플리케이션은 다른 요청에 버퍼를 재사용하기 전에 <code>FrameBuffer::releaseFence()</code>로 이 펜스를 회수해야 합니다. <code>Request::reuse</code>는 <code>flags</code>에 <code>ReuseBuffers</code>가 설정된 경우 <code>bufferMap_</code>의 각 버퍼마다 <code>buffer-&gt;_d()-&gt;setRequest(this)</code>를 호출해 그 버퍼를 현재 요청에 연결한 뒤, <code>_d()-&gt;pending_</code>에 그 버퍼를 추가합니다.</p>
 <p data-sdd-evidence="[[&quot;src/libcamera/request.cpp:376&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L376\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:376&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/request.cpp:391&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L391\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:391&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/request.cpp:400&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L400\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:400&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/request.cpp:402&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L402\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:402&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/request.cpp:403&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L403\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:403&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/request.cpp:326&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L326\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:326&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/request.cpp:334&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/request.cpp#L334\&quot;&gt;&lt;code&gt;src/libcamera/request.cpp:334&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/request.cpp:376&quot;: [&quot;#source-38494771cb29cc8c&quot;], &quot;src/libcamera/request.cpp:391&quot;: [&quot;#source-e41b7fa688c1de2e&quot;], &quot;src/libcamera/request.cpp:400&quot;: [&quot;#source-a98823fa5ec440a2&quot;], &quot;src/libcamera/request.cpp:402&quot;: [&quot;#source-c8638489aa83cfd1&quot;], &quot;src/libcamera/request.cpp:403&quot;: [&quot;#source-47569737e131b31a&quot;], &quot;src/libcamera/request.cpp:326&quot;: [&quot;#source-447804db33308244&quot;], &quot;src/libcamera/request.cpp:334&quot;: [&quot;#source-d9944a69f2dd6758&quot;]}"><code>Request::reuse()</code>에서 <code>flags &amp; ReuseBuffers</code>가 거짓이면 else 분기가 실행되며, 이때 <code>bufferMap_.clear()</code>를 호출해 <code>bufferMap_</code>의 모든 항목을 비웁니다. <code>Request::reuse</code>는 <code>status_</code>를 <code>RequestPending</code>으로 설정한 뒤, <code>controls_</code>와 <code>_d()-&gt;metadata_</code>를 각각 <code>clear()</code>합니다. <code>Request::ReuseBuffers</code> 플래그는 <code>Request::reuse()</code> 호출 시 <code>addBuffer()</code>로 이전에 추가한 버퍼를 다시 사용하여 기존 버퍼를 유지합니다. 다만 버퍼에 연결된 펜스는 재사용되지 않으며, 소스 주석은 펜스를 사용하는 경우 이 플래그를 피하도록 권고합니다.</p>
@@ -891,6 +1082,7 @@ void Request::reuse(ReuseFlag flags)
 <li><a href="#요청-생성과-완료">요청 생성과 완료</a><ul>
 <li><a href="#버퍼-연결-실패를-구분하는-순서">버퍼 연결 실패를 구분하는 순서</a></li>
 <li><a href="#접수-반환과-완료-알림">접수 반환과 완료 알림</a></li>
+<li><a href="#요청-데이터의-거절-조건">요청 데이터의 거절 조건</a></li>
 </ul>
 </li>
 <li><a href="#소유권과-재사용">소유권과 재사용</a><ul>
@@ -898,6 +1090,7 @@ void Request::reuse(ReuseFlag flags)
 <li><a href="#타임아웃-뒤-펜스-회수">타임아웃 뒤 펜스 회수</a></li>
 <li><a href="#재사용-버퍼의-요청-연결">재사용 버퍼의 요청 연결</a></li>
 <li><a href="#버퍼-재사용과-펜스-권고">버퍼 재사용과 펜스 권고</a></li>
+<li><a href="#addbuffer의-펜스-소유권">addBuffer의 펜스 소유권</a></li>
 </ul>
 </li>
 <li><a href="#클래스-관계">클래스 관계</a></li>
@@ -908,4 +1101,4 @@ void Request::reuse(ReuseFlag flags)
 </nav></aside></div>
 <dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">문서 찾기</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><label for="search-input">문서·절·용어·코드 요소 검색</label><input id="search-input" type="search" autocomplete="off" placeholder="예: Pipeline, IPA, 클래스 관계"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
 <dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">클래스 관계</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">요소 찾기</label><input id="node-search" type="search" placeholder="그림 요소·함수 이름"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="축소">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="확대">+</button><button id="zoom-fit">화면에 맞춤</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">마우스로 끌거나 터치로 밀어서 그림을 이동합니다. '화면에 맞춤'은 그림 전체를 보는 개요 보기입니다.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="확대된 다이어그램"><div id="diagram-canvas"></div></div></dialog>
-<script id="site-config" type="application/json">{"root": "./", "mermaid": "assets/mermaid/mermaid.esm.min.mjs", "terms": "0c4c51ad91"}</script><script defer src="./assets/site.js?v=dd3415510a"></script><script defer src="./assets/reader-tools.js?v=dd3415510a"></script></body></html>
+<script id="site-config" type="application/json">{"root": "./", "mermaid": "assets/mermaid/mermaid.esm.min.mjs", "terms": "e624f47117"}</script><script defer src="./assets/site.js?v=dd3415510a"></script><script defer src="./assets/reader-tools.js?v=dd3415510a"></script></body></html>

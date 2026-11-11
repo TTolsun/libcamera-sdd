@@ -1,0 +1,27 @@
+flowchart TB
+
+  v_access{"Check access with <br/>isAccessAllowed. Call only <br/>while the camera is Running."}
+  v_access_error["Return a negative ret <br/>immediately. The documented <br/>errors include -ENODEV and <br/>-EACCES."]
+  v_camera{"Check whether this camera <br/>created request."}
+  v_wrong_camera["Return -EXDEV immediately <br/>if request belongs to <br/>another camera."]
+  v_status{"Check whether the status of <br/>request is <br/>Request::RequestPending."}
+  v_controls{"Check infoMap to validate <br/>the control list of request."}
+  v_buffers{"Check buffers. The caller <br/>must add at least one <br/>capture buffer before <br/>queuing."}
+  v_stream{"Check whether each buffer#39;s <br/>stream is in activeStreams#95;."}
+  v_invalid["On a failed check, return <br/>-EINVAL immediately without <br/>queuing request."]
+  v_patch["After all stream checks, <br/>patchControlList <br/>preprocesses AeEnable."]
+  v_queued["Invoke <br/>PipelineHandler::<br/>queueRequest with <br/>ConnectionTypeQueued and <br/>return 0."]
+  v_access -->|"Return immediately if the <br/>access result is negative. <br/>#91;true#93;"| v_access_error
+  v_access -->|"Check the camera if the <br/>access result is not <br/>negative. #91;false#93;"| v_camera
+  v_camera -->|"Return if request does not <br/>belong to this camera. <br/>#91;true#93;"| v_wrong_camera
+  v_camera -->|"Check status if request <br/>belongs to this camera. <br/>#91;false#93;"| v_status
+  v_status -->|"Return if status is not <br/>Request::RequestPending. <br/>#91;true#93;"| v_invalid
+  v_status -->|"Check controls if status is <br/>Request::RequestPending. <br/>#91;false#93;"| v_controls
+  v_controls -->|"Return if infoMap differs <br/>from the camera controls. <br/>#91;true#93;"| v_invalid
+  v_controls -->|"Check buffers if infoMap <br/>matches the camera <br/>controls. #91;false#93;"| v_buffers
+  v_buffers -->|"Return if there are no <br/>buffers. #91;true#93;"| v_invalid
+  v_buffers -->|"Check each stream if <br/>buffers are present. #91;false#93;"| v_stream
+  v_stream -->|"Return if stream is absent <br/>from activeStreams#95;. #91;true#93;"| v_invalid
+  v_stream -->|"Check the next stream if <br/>this one is active and a <br/>buffer remains. #91;false#93;"| v_stream
+  v_stream -->|"End the loop and preprocess <br/>if the last stream is <br/>active. #91;false#93;"| v_patch
+  v_patch -->|"After preprocessing, make <br/>the queued call and return <br/>0."| v_queued

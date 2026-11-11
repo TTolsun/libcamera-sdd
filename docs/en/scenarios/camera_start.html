@@ -8,8 +8,14 @@
 <main id="main"><p class="breadcrumb">For Developer <span>/</span> Starting Capture</p><h1>Capture start</h1><div class="page-state"><span class="review-state">Before human review</span><span>Automated check passed</span><span class="generation-method">Authored: extracted structure and draft written by the model</span><a class="state-help" href="#page-evidence">State description ↓</a></div>
 <details class="mobile-toc"><summary>Table of contents of this page</summary><div class="toc">
 <ul>
-<li><a href="#요청을-제출할-캡처-세션을-시작하기">Starting a capture session to submit requests to</a></li>
-<li><a href="#시작-제어값과-파이프라인-결과-반영">Reflecting start control values and pipeline results</a></li>
+<li><a href="#요청을-제출할-캡처-세션을-시작하기">Starting a capture session to submit requests to</a><ul>
+<li><a href="#요청을-제출할-캡처-세션을-시작하기의-관계와-경계">The relationship and boundaries involved in starting a capture session to which requests will be submitted</a></li>
+</ul>
+</li>
+<li><a href="#시작-제어값과-파이프라인-결과-반영">Reflecting start control values and pipeline results</a><ul>
+<li><a href="#시작-제어값과-파이프라인-결과-반영의-관계와-경계">The relationship and boundaries between startup control values and the application of pipeline results</a></li>
+</ul>
+</li>
 <li><a href="#소스-근거">Source evidence</a></li>
 <li><a href="#주요-확인-지점">Key check points</a></li>
 <li><a href="#주요-호출-관계">Key call relationships</a></li>
@@ -24,13 +30,249 @@
 </details>
 <div class="previous-route" id="이-흐름에서-확인할-것"><p>Destination of the previous link</p><a href="#요청을-제출할-캡처-세션을-시작하기">Starting a capture session to submit requests to</a></div>
 <h2 id="요청을-제출할-캡처-세션을-시작하기">Starting a capture session to submit requests to</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1383&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1383\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1383&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1383&quot;: [&quot;#source-1bb135021258e6a5&quot;]}"><code>Camera::start()</code> starts a camera capture session. A list of <code>controls</code> may optionally be passed. The passed <code>controls</code> are applied before the camera is started. After the camera starts, the application may queue requests to the camera for processing, and processed requests are returned to the application. The capture session continues until the capture session is terminated by <code>stop()</code>.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1383&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1383\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1383&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1383&quot;: [&quot;#source-1bb135021258e6a5&quot;]}"><code>start()</code> may be called only in the <code>Configured</code> state defined in <code>camera_operation</code>. The caller must synchronize <code>start()</code> with other functions that affect the camera state. If the camera has been disconnected from the system, the return value is <code>-ENODEV</code>; if the camera is not in a state where it can start, the return value is <code>-EACCES</code>.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1383&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1383\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1383&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1383&quot;: [&quot;#source-1bb135021258e6a5&quot;]}"><code>Camera::start()</code> starts a camera capture session and optionally receives a list of <code>controls</code> to apply before starting. Once the camera has started, the application may queue requests for the camera to process and return to the application until the capture session is terminated with <code>stop()</code>. The caller must call this function only when the camera is in the <code>Configured</code> state and must synchronize the call with other functions that affect the camera state. The function returns <code>-ENODEV</code> if the camera has been disconnected from the system, or <code>-EACCES</code> if the camera is not in a state where it can be started.</p>
+<!-- sdd:visual:item-session -->
+<h3 id="요청을-제출할-캡처-세션을-시작하기의-관계와-경계">The relationship and boundaries involved in starting a capture session to which requests will be submitted</h3>
+<pre class="mermaid">flowchart TB
+
+  v_start["Camera::start starts a &lt;br/&gt;camera capture session."]
+  v_configured["The start function may only &lt;br/&gt;be called when the camera &lt;br/&gt;is Configured."]
+  v_controls["The controls list is &lt;br/&gt;optional and is applied &lt;br/&gt;before the camera starts if &lt;br/&gt;provided."]
+  v_caller["The caller must synchronize &lt;br/&gt;the start function with &lt;br/&gt;other functions affecting &lt;br/&gt;camera state."]
+  v_enodev["-ENODEV means the camera &lt;br/&gt;has been disconnected from &lt;br/&gt;the system."]
+  v_eacces["-EACCES means the camera is &lt;br/&gt;not in a state where it can &lt;br/&gt;be started."]
+  v_requests["Once the camera starts, the &lt;br/&gt;application can queue &lt;br/&gt;requests for processing and &lt;br/&gt;return to it."]
+  v_stop["stop#40;#41; terminates the &lt;br/&gt;capture session."]
+  v_configured --&gt;|"Configured is a &lt;br/&gt;precondition for calling &lt;br/&gt;the start function."| v_start
+  v_controls --&gt;|"Optional controls are &lt;br/&gt;applied before starting."| v_start
+  v_caller --&gt;|"The caller must synchronize &lt;br/&gt;start with other &lt;br/&gt;state-affecting functions."| v_start
+  v_start --&gt;|"The start function returns &lt;br/&gt;-ENODEV if the camera is &lt;br/&gt;disconnected."| v_enodev
+  v_start --&gt;|"The start function returns &lt;br/&gt;-EACCES if the camera &lt;br/&gt;cannot be started."| v_eacces
+  v_start --&gt;|"Once the camera starts, the &lt;br/&gt;application can queue &lt;br/&gt;requests."| v_requests
+  v_requests --&gt;|"The application can queue &lt;br/&gt;requests until stop#40;#41; ends &lt;br/&gt;the session."| v_stop</pre>
+<p><a href="camera_start.item-session.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>How are the Configured precondition, optional control values, startup errors, request submission, and stop connected in a capture session?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Camera::start starts a camera capture session.">Camera::start starts a camera capture session.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The start function may only be called when the camera is Configured.">The start function may only be called when the camera is Configured.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The controls list is optional and is applied before the camera starts if provided.">The controls list is optional and is applied before the camera starts if provided.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The caller must synchronize the start function with other functions affecting camera state.">The caller must synchronize the start function with other functions affecting camera state.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="-ENODEV means the camera has been disconnected from the system.">-ENODEV means the camera has been disconnected from the system.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="-EACCES means the camera is not in a state where it can be started.">-EACCES means the camera is not in a state where it can be started.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Once the camera starts, the application can queue requests for processing and return to it.">Once the camera starts, the application can queue requests for processing and return to it.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="stop() terminates the capture session.">stop() terminates the capture session.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Configured is a precondition for calling the start function.">Configured is a precondition for calling the start function.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Optional controls are applied before starting.">Optional controls are applied before starting.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The caller must synchronize start with other state-affecting functions.">The caller must synchronize start with other state-affecting functions.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The start function returns -ENODEV if the camera is disconnected.">The start function returns -ENODEV if the camera is disconnected.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The start function returns -EACCES if the camera cannot be started.">The start function returns -EACCES if the camera cannot be started.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Once the camera starts, the application can queue requests.">Once the camera starts, the application can queue requests.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The application can queue requests until stop() ends the session.">The application can queue requests until stop() ends the session.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:item-session -->
+
 
 <details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>1</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-1bb135021258e6a5" aria-label="src/libcamera/camera.cpp:1383 excerpt"><code>L1383</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:1383" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1383">Full source <code>L1383</code></a></span></li></ul></details><h2 id="시작-제어값과-파이프라인-결과-반영">Reflecting start control values and pipeline results</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1400&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1400\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1400&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline_handler.cpp:343&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L343\&quot;&gt;&lt;code&gt;src/libcamera/pipeline_handler.cpp:343&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1400&quot;: [&quot;#source-05691b4c81e7ee1c&quot;], &quot;src/libcamera/pipeline_handler.cpp:343&quot;: [&quot;#source-490ad21ef2a56108&quot;]}">If <code>controls</code> exists, <code>Camera::start</code> preprocesses the copy <code>copy</code> made with <code>ControlList copy(*controls);</code> using <code>patchControlList(copy)</code>, and passes this copy to <code>invokeMethod</code>. If <code>controls</code> is <code>nullptr</code>, it passes <code>nullptr</code> without copying or preprocessing. Both branches call <code>PipelineHandler::start</code> through <code>invokeMethod</code> with the <code>ConnectionTypeBlocking</code> connection type. The <code>PipelineHandler::start</code> documentation states that this function is called from the <code>CameraManager</code> thread, and describes the intended caller as the <code>Camera</code> class.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1400&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1400\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1400&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1400&quot;: [&quot;#source-05691b4c81e7ee1c&quot;]}">In <code>Camera::start</code>, if <code>ret</code> is not 0, <code>ret</code> is returned as is according to <code>if (ret) return ret;</code>, and <code>d-&gt;setState(Private::CameraRunning)</code> is not reached. If <code>ret</code> is 0, <code>d-&gt;setState(Private::CameraRunning)</code> is called to update the state to <code>CameraRunning</code>, and then execution reaches <code>return 0;</code>.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1400&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1400\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1400&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/base/log.cpp:1022&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/base/log.cpp#L1022\&quot;&gt;&lt;code&gt;src/libcamera/base/log.cpp:1022&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1400&quot;: [&quot;#source-05691b4c81e7ee1c&quot;], &quot;src/libcamera/base/log.cpp:1022&quot;: [&quot;#source-47a6ef3943a7b53c&quot;]}"><code>ASSERT(d-&gt;requestSequence_ == 0);</code> runs after the <code>isAccessAllowed</code> check block and before the <code>controls</code> branch. If the check expression is false, <code>ASSERT</code> logs a Fatal-level error message and aborts program execution, unlike a path that returns an error code, such as <code>ret</code>. If <code>NDEBUG</code> is defined before <code>log.h</code> is included, <code>ASSERT()</code> generates no code.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1400&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1400\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1400&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline_handler.cpp:343&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L343\&quot;&gt;&lt;code&gt;src/libcamera/pipeline_handler.cpp:343&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1400&quot;: [&quot;#source-05691b4c81e7ee1c&quot;], &quot;src/libcamera/pipeline_handler.cpp:343&quot;: [&quot;#source-490ad21ef2a56108&quot;]}">If <code>controls</code> is present, <code>Camera::start</code> makes a copy of <code>ControlList</code>, preprocesses it with <code>patchControlList</code>, and passes the copy; otherwise, it passes <code>nullptr</code>. In both branches, it calls <code>PipelineHandler::start</code> with <code>ConnectionTypeBlocking</code>, and that function is called from the <code>CameraManager</code> thread. If the call result <code>ret</code> is nonzero, <code>Camera::start</code> returns <code>ret</code> unchanged without setting the <code>CameraRunning</code> state; if <code>ret</code> is zero, it sets the <code>CameraRunning</code> state and returns 0.</p>
+<!-- sdd:visual:item-activation -->
+<h3 id="시작-제어값과-파이프라인-결과-반영의-관계와-경계">The relationship and boundaries between startup control values and the application of pipeline results</h3>
+<pre class="mermaid">flowchart TB
+
+  v_access{"It checks whether the &lt;br/&gt;CameraConfigured access &lt;br/&gt;result is negative."}
+  v_returned["It returns a negative &lt;br/&gt;access result or a nonzero &lt;br/&gt;pipeline result unchanged."]
+  v_assertion["When enabled, ASSERT checks &lt;br/&gt;whether requestSequence#95; is &lt;br/&gt;zero."]
+  v_fatal["If the ASSERT condition is &lt;br/&gt;false, it logs a Fatal &lt;br/&gt;error and aborts execution."]
+  v_ndebug["If NDEBUG is defined before &lt;br/&gt;including log.h, ASSERT &lt;br/&gt;generates no code."]
+  v_controls{"It chooses what to pass &lt;br/&gt;based on whether controls &lt;br/&gt;is present."}
+  v_copy["It copies controls and &lt;br/&gt;applies patchControlList to &lt;br/&gt;copy."]
+  v_null["It passes nullptr when &lt;br/&gt;controls is absent."]
+  v_invoke["PipelineHandler::start runs &lt;br/&gt;on the CameraManager thread &lt;br/&gt;via ConnectionTypeBlocking."]
+  v_result{"It checks whether the &lt;br/&gt;pipeline call result ret is &lt;br/&gt;zero."}
+  v_running["If the result is zero, it &lt;br/&gt;sets the state to &lt;br/&gt;Private::CameraRunning."]
+  v_access --&gt;|"It returns the negative &lt;br/&gt;result unchanged. #91;true#93;"| v_returned
+  v_access --&gt;|"If the result is not &lt;br/&gt;negative, execution reaches &lt;br/&gt;ASSERT. #91;false#93;"| v_assertion
+  v_assertion --&gt;|"If the enabled assertion is &lt;br/&gt;false, execution aborts."| v_fatal
+  v_assertion --&gt;|"ASSERT code generation &lt;br/&gt;depends on the NDEBUG &lt;br/&gt;definition."| v_ndebug
+  v_assertion --&gt;|"If execution continues, it &lt;br/&gt;checks controls."| v_controls
+  v_controls --&gt;|"If controls is present, it &lt;br/&gt;copies and patches it. &lt;br/&gt;#91;true#93;"| v_copy
+  v_controls --&gt;|"If controls is absent, it &lt;br/&gt;uses nullptr. #91;false#93;"| v_null
+  v_copy --&gt;|"It passes the address of &lt;br/&gt;the patched copy. #91;true#93;"| v_invoke
+  v_null --&gt;|"It passes nullptr. #91;false#93;"| v_invoke
+  v_invoke --&gt;|"It stores the call result &lt;br/&gt;in ret and checks it."| v_result
+  v_result --&gt;|"If the result is nonzero, &lt;br/&gt;it returns it unchanged. &lt;br/&gt;#91;true#93;"| v_returned
+  v_result --&gt;|"If the result is zero, it &lt;br/&gt;updates the state. #91;false#93;"| v_running</pre>
+<p><a href="camera_start.item-activation.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>How do ASSERT, control-value branches, blocking pipeline calls, and return-value branches lead to returning the original error or updating CameraRunning?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="It checks whether the CameraConfigured access result is negative.">It checks whether the CameraConfigured access result is negative.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It returns a negative access result or a nonzero pipeline result unchanged.">It returns a negative access result or a nonzero pipeline result unchanged.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="When enabled, ASSERT checks whether requestSequence_ is zero.">When enabled, ASSERT checks whether requestSequence_ is zero.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a> · <a href="#source-47a6ef3943a7b53c">src/libcamera/base/log.cpp:1022</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the ASSERT condition is false, it logs a Fatal error and aborts execution.">If the ASSERT condition is false, it logs a Fatal error and aborts execution.</span></td>
+<td><a href="#source-47a6ef3943a7b53c">src/libcamera/base/log.cpp:1022</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If NDEBUG is defined before including log.h, ASSERT generates no code.">If NDEBUG is defined before including log.h, ASSERT generates no code.</span></td>
+<td><a href="#source-47a6ef3943a7b53c">src/libcamera/base/log.cpp:1022</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It chooses what to pass based on whether controls is present.">It chooses what to pass based on whether controls is present.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It copies controls and applies patchControlList to copy.">It copies controls and applies patchControlList to copy.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It passes nullptr when controls is absent.">It passes nullptr when controls is absent.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="PipelineHandler::start runs on the CameraManager thread via ConnectionTypeBlocking.">PipelineHandler::start runs on the CameraManager thread via ConnectionTypeBlocking.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a> · <a href="#source-490ad21ef2a56108">src/libcamera/pipeline_handler.cpp:343</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It checks whether the pipeline call result ret is zero.">It checks whether the pipeline call result ret is zero.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the result is zero, it sets the state to Private::CameraRunning.">If the result is zero, it sets the state to Private::CameraRunning.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It returns the negative result unchanged. · ret &lt; 0 [true]">It returns the negative result unchanged. · ret &lt; 0 [true]</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the result is not negative, execution reaches ASSERT. · ret &lt; 0 [false]">If the result is not negative, execution reaches ASSERT. · ret &lt; 0 [false]</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the enabled assertion is false, execution aborts.">If the enabled assertion is false, execution aborts.</span></td>
+<td><a href="#source-47a6ef3943a7b53c">src/libcamera/base/log.cpp:1022</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="ASSERT code generation depends on the NDEBUG definition.">ASSERT code generation depends on the NDEBUG definition.</span></td>
+<td><a href="#source-47a6ef3943a7b53c">src/libcamera/base/log.cpp:1022</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If execution continues, it checks controls.">If execution continues, it checks controls.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a> · <a href="#source-47a6ef3943a7b53c">src/libcamera/base/log.cpp:1022</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If controls is present, it copies and patches it. · controls [true]">If controls is present, it copies and patches it. · controls [true]</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If controls is absent, it uses nullptr. · controls [false]">If controls is absent, it uses nullptr. · controls [false]</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It passes the address of the patched copy. · controls [true]">It passes the address of the patched copy. · controls [true]</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It passes nullptr. · controls [false]">It passes nullptr. · controls [false]</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It stores the call result in ret and checks it.">It stores the call result in ret and checks it.</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the result is nonzero, it returns it unchanged. · ret [true]">If the result is nonzero, it returns it unchanged. · ret [true]</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the result is zero, it updates the state. · ret [false]">If the result is zero, it updates the state. · ret [false]</span></td>
+<td><a href="#source-05691b4c81e7ee1c">src/libcamera/camera.cpp:1400</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:item-activation -->
+
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1400&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1400\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1400&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/base/log.cpp:1022&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/base/log.cpp#L1022\&quot;&gt;&lt;code&gt;src/libcamera/base/log.cpp:1022&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1400&quot;: [&quot;#source-05691b4c81e7ee1c&quot;], &quot;src/libcamera/base/log.cpp:1022&quot;: [&quot;#source-47a6ef3943a7b53c&quot;]}"><code>Camera::start</code> executes <code>ASSERT(d-&gt;requestSequence_ == 0)</code> before calling <code>PipelineHandler::start</code>. If this check fails, <code>ASSERT</code> logs an error message at the <code>Fatal</code> log level and aborts program execution, behaving differently from a normal error return. If <code>NDEBUG</code> is defined before <code>log.h</code> is included, <code>ASSERT</code> generates no code.</p>
 
 
 <details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>3</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-05691b4c81e7ee1c" aria-label="src/libcamera/camera.cpp:1400 excerpt"><code>L1400</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:1400" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1400">Full source <code>L1400</code></a></span></li><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="#source-490ad21ef2a56108" aria-label="src/libcamera/pipeline_handler.cpp:343 excerpt"><code>L343</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:343" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/pipeline_handler.cpp#L343">Full source <code>L343</code></a></span></li><li><code>src/libcamera/base/log.cpp</code><span class="evidence-lines"><a href="#source-47a6ef3943a7b53c" aria-label="src/libcamera/base/log.cpp:1022 excerpt"><code>L1022</code> excerpt</a> · <a aria-label="src/libcamera/base/log.cpp:1022" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/base/log.cpp#L1022">Full source <code>L1022</code></a></span></li></ul></details><h2 id="소스-근거">Source evidence</h2>
@@ -597,12 +839,18 @@
 </table></div>
 </details>
 
-</article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78</code></dd><dt>Document generation time</dt><dd><code>2026-10-30 17:20:43+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/claude/claude-haiku-5-5</code></dd><dt>Contracts between documents</dt><dd><a href="../../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>src/libcamera/base/log.cpp</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/controls.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code></li><li>Evidence level: Code verified (static analysis, simple_compdb configuration, commit <code>212c689fcf</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status record date: 2026-10-31 · Before human review</li></ul></details><a href="../../scenarios/camera_start.md">Markdown source ↗</a> <a href="camera_start.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="configure.html"><small>Previous</small> Stream Configuration ←</a><a class="next" href="queue_request.html"><small>Next</small> request submission →</a></nav>
+</article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78</code></dd><dt>Document generation time</dt><dd><code>2026-11-04 05:03:21+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>src/libcamera/base/log.cpp</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/controls.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code></li><li>Evidence level: Code verified (static analysis, simple_compdb configuration, commit <code>293d751a81</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status record date: 2026-11-04 · Before human review</li></ul></details><a href="../../scenarios/camera_start.md">Markdown source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="configure.html"><small>Previous</small> Stream Configuration ←</a><a class="next" href="queue_request.html"><small>Next</small> request submission →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
 <aside class="page-toc"><nav aria-label="Table of contents for this page"><p>On this page</p><div class="toc">
 <ul>
-<li><a href="#요청을-제출할-캡처-세션을-시작하기">Starting a capture session to submit requests to</a></li>
-<li><a href="#시작-제어값과-파이프라인-결과-반영">Reflecting start control values and pipeline results</a></li>
+<li><a href="#요청을-제출할-캡처-세션을-시작하기">Starting a capture session to submit requests to</a><ul>
+<li><a href="#요청을-제출할-캡처-세션을-시작하기의-관계와-경계">The relationship and boundaries involved in starting a capture session to which requests will be submitted</a></li>
+</ul>
+</li>
+<li><a href="#시작-제어값과-파이프라인-결과-반영">Reflecting start control values and pipeline results</a><ul>
+<li><a href="#시작-제어값과-파이프라인-결과-반영의-관계와-경계">The relationship and boundaries between startup control values and the application of pipeline results</a></li>
+</ul>
+</li>
 <li><a href="#소스-근거">Source evidence</a></li>
 <li><a href="#주요-확인-지점">Key check points</a></li>
 <li><a href="#주요-호출-관계">Key call relationships</a></li>
@@ -613,4 +861,4 @@
 </nav></aside></div>
 <dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find document</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search documents, sections, terms, and code elements</label><input id="search-input" type="search" autocomplete="off" placeholder="Example: Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
 <dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Diagram element and function names"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Collapse">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to screen</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">Drag with a mouse or swipe with touch to move the diagram. "Fit to screen" shows an overview of the whole diagram.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="Zoomed diagram"><div id="diagram-canvas"></div></div></dialog>
-<script id="site-config" type="application/json">{"root": "../", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "d7f54ca11e", "language": "en"}</script><script defer src="../../assets/site.js?v=dd3415510a"></script><script defer src="../../assets/reader-tools.js?v=dd3415510a"></script></body></html>
+<script id="site-config" type="application/json">{"root": "../", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "10c7b0ad3c", "language": "en"}</script><script defer src="../../assets/site.js?v=dd3415510a"></script><script defer src="../../assets/reader-tools.js?v=dd3415510a"></script></body></html>

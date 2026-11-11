@@ -1,0 +1,24 @@
+flowchart TB
+
+  v_insert["callData#95;.insert attempts <br/>to insert cookie as the key <br/>and {response, false} as <br/>the value."]
+  v_iter["Use result.first as iter; <br/>do not test result.second. <br/>An existing cookie can make <br/>iter reference an existing <br/>entry."]
+  v_send["The send method of socket#95; <br/>sends message and stores <br/>the result in ret."]
+  v_ret{"Check whether ret is <br/>nonzero."}
+  v_send_failure["The erase method of <br/>callData#95; removes the iter <br/>entry, then the function <br/>returns ret."]
+  v_start["The start method of timeout <br/>starts a 2000ms timer."]
+  v_done{"Check done in the iter <br/>entry."}
+  v_timer{"Check whether the timer is <br/>running using the isRunning <br/>method of timeout."}
+  v_timed_out["Log the timeout, erase the <br/>iter entry from callData#95;, <br/>and return -ETIMEDOUT."]
+  v_events["The eventDispatcher of the <br/>current thread runs <br/>processEvents."]
+  v_success["Erase the iter entry from <br/>callData#95; and return 0."]
+  v_insert -->|"Select the iterator from <br/>the insertion attempt <br/>result."| v_iter
+  v_iter -->|"Send message after the <br/>selection."| v_send
+  v_send -->|"Check the send result."| v_ret
+  v_ret -->|"If the send result is <br/>nonzero, clean up and <br/>return. · ret #91;true#93;"| v_send_failure
+  v_ret -->|"If the send result is zero, <br/>start the timer. · ret <br/>#91;false#93;"| v_start
+  v_start -->|"Check done after starting <br/>the timer."| v_done
+  v_done -->|"If done is false, check the <br/>timer. · #33;iter-#62;second.done <br/>#91;true#93;"| v_timer
+  v_done -->|"If done is true, clean up <br/>and return. · <br/>#33;iter-#62;second.done #91;false#93;"| v_success
+  v_timer -->|"If the timer is not <br/>running, handle the <br/>timeout. · <br/>#33;timeout.isRunning#40;#41; #91;true#93;"| v_timed_out
+  v_timer -->|"If the timer is running, <br/>process events. · <br/>#33;timeout.isRunning#40;#41; #91;false#93;"| v_events
+  v_events -->|"Check done again after <br/>processing events."| v_done

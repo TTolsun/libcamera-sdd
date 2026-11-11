@@ -8,9 +8,18 @@
 <main id="main"><p class="breadcrumb">For Developer <span>/</span> FrameBufferAllocator failures and reference lifetimes</p><h1>FrameBufferAllocator Failures and Reference Lifetime</h1><div class="page-state"><span class="review-state">Before human review</span><span>Automated check passed</span><span class="generation-method">Authored: extracted structure and draft written by the model</span><a class="state-help" href="#page-evidence">State description ↓</a></div>
 <details class="mobile-toc"><summary>Table of contents of this page</summary><div class="toc">
 <ul>
-<li><a href="#할당-전에-확인할-카메라-상태와-스트림">Camera state and streams to check before allocation</a></li>
-<li><a href="#buffers-반환-참조의-유효기간">Validity period of the reference returned by buffers</a></li>
-<li><a href="#중복-할당과-내보내기-실패를-구분하기">Distinguishing duplicate allocation from export failure</a></li>
+<li><a href="#할당-전에-확인할-카메라-상태와-스트림">Camera state and streams to check before allocation</a><ul>
+<li><a href="#할당-전에-확인할-카메라-상태와-스트림의-관계와-경계">The relationship and boundaries between camera state and streams to check before allocation</a></li>
+</ul>
+</li>
+<li><a href="#buffers-반환-참조의-유효기간">Validity period of the reference returned by buffers</a><ul>
+<li><a href="#buffers-반환-참조의-유효기간의-관계와-경계">Relationship and boundaries of the lifetime of the reference returned by buffers</a></li>
+</ul>
+</li>
+<li><a href="#중복-할당과-내보내기-실패를-구분하기">Distinguishing duplicate allocation from export failure</a><ul>
+<li><a href="#중복-할당과-내보내기-실패를-구분하기의-관계와-경계">Relationships and boundaries in distinguishing duplicate allocation from export failure</a></li>
+</ul>
+</li>
 <li><a href="#free의-스트림-조회와-반환값">Stream lookup and return value of free</a></li>
 <li><a href="#소스-근거">Source evidence</a></li>
 </ul>
@@ -22,17 +31,268 @@
 </details>
 
 <h2 id="할당-전에-확인할-카메라-상태와-스트림">Camera state and streams to check before allocation</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/framebuffer_allocator.cpp:72&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L72\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:72&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/framebuffer_allocator.cpp:81&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L81\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:81&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/framebuffer_allocator.cpp:72&quot;: [&quot;#source-4f32d036f2dee319&quot;], &quot;src/libcamera/framebuffer_allocator.cpp:81&quot;: [&quot;#source-224d9d0ce4f1ad7f&quot;]}">Before calling <code>allocate()</code>, the camera must be preconfigured with <code>Camera::configure()</code> and must be stopped, and the stream must belong to the active camera configuration. If the camera is in a state where buffers cannot be allocated, <code>-EACCES</code> is returned, and if <code>stream</code> does not belong to the camera or is not part of the active camera configuration, <code>-EINVAL</code> is returned.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/framebuffer_allocator.cpp:72&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L72\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:72&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/framebuffer_allocator.cpp:81&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L81\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:81&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/framebuffer_allocator.cpp:72&quot;: [&quot;#source-4f32d036f2dee319&quot;], &quot;src/libcamera/framebuffer_allocator.cpp:81&quot;: [&quot;#source-224d9d0ce4f1ad7f&quot;]}">Before calling <code>allocate()</code>, the camera must already have been configured with <code>Camera::configure()</code> and must be stopped, and the stream must belong to the active camera configuration. <code>-EACCES</code> is returned when the camera is not in a state where it can allocate buffers, and <code>-EINVAL</code> is returned when the stream does not belong to the camera or is not included in the active camera configuration.</p>
+<!-- sdd:visual:item-allocation-preconditions -->
+<h3 id="할당-전에-확인할-카메라-상태와-스트림의-관계와-경계">The relationship and boundaries between camera state and streams to check before allocation</h3>
+<pre class="mermaid">flowchart TB
+
+  v_camera_precondition["Before allocate#40;#41;, Camera &lt;br/&gt;must have been configured &lt;br/&gt;with Camera::configure#40;#41; &lt;br/&gt;and stopped."]
+  v_stream["The stream must be part of &lt;br/&gt;the active camera &lt;br/&gt;configuration."]
+  v_camera["Check whether the camera is &lt;br/&gt;in a state where buffers &lt;br/&gt;can be allocated."]
+  v_eacces["If the camera cannot &lt;br/&gt;allocate buffers in its &lt;br/&gt;current state, -EACCES is &lt;br/&gt;returned."]
+  v_einval["If stream does not belong &lt;br/&gt;to the camera or its active &lt;br/&gt;configuration, -EINVAL is &lt;br/&gt;returned."]
+  v_camera_precondition --&gt;|"The stream must be part of &lt;br/&gt;the active camera &lt;br/&gt;configuration."| v_stream
+  v_camera --&gt;|"The stream must belong to &lt;br/&gt;the camera."| v_stream
+  v_camera --&gt;|"If the camera cannot &lt;br/&gt;allocate buffers in its &lt;br/&gt;state, -EACCES is returned."| v_eacces
+  v_stream --&gt;|"If stream does not belong &lt;br/&gt;to the camera, -EINVAL is &lt;br/&gt;returned."| v_einval
+  v_stream --&gt;|"If stream is not in the &lt;br/&gt;active configuration, &lt;br/&gt;-EINVAL is returned."| v_einval</pre>
+<p><a href="framebuffer-allocator.item-allocation-preconditions.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>What conditions must the camera and streams meet before allocate() is called, and under what conditions are -EACCES and -EINVAL returned?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Before allocate(), Camera must have been configured with Camera::configure() and stopped.">Before allocate(), Camera must have been configured with Camera::configure() and stopped.</span></td>
+<td><a href="#source-4f32d036f2dee319">src/libcamera/framebuffer_allocator.cpp:72</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The stream must be part of the active camera configuration.">The stream must be part of the active camera configuration.</span></td>
+<td><a href="#source-4f32d036f2dee319">src/libcamera/framebuffer_allocator.cpp:72</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether the camera is in a state where buffers can be allocated.">Check whether the camera is in a state where buffers can be allocated.</span></td>
+<td><a href="#source-224d9d0ce4f1ad7f">src/libcamera/framebuffer_allocator.cpp:81</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the camera cannot allocate buffers in its current state, -EACCES is returned.">If the camera cannot allocate buffers in its current state, -EACCES is returned.</span></td>
+<td><a href="#source-224d9d0ce4f1ad7f">src/libcamera/framebuffer_allocator.cpp:81</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If stream does not belong to the camera or its active configuration, -EINVAL is returned.">If stream does not belong to the camera or its active configuration, -EINVAL is returned.</span></td>
+<td><a href="#source-224d9d0ce4f1ad7f">src/libcamera/framebuffer_allocator.cpp:81</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The stream must be part of the active camera configuration.">The stream must be part of the active camera configuration.</span></td>
+<td><a href="#source-4f32d036f2dee319">src/libcamera/framebuffer_allocator.cpp:72</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The stream must belong to the camera.">The stream must belong to the camera.</span></td>
+<td><a href="#source-224d9d0ce4f1ad7f">src/libcamera/framebuffer_allocator.cpp:81</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the camera cannot allocate buffers in its state, -EACCES is returned.">If the camera cannot allocate buffers in its state, -EACCES is returned.</span></td>
+<td><a href="#source-224d9d0ce4f1ad7f">src/libcamera/framebuffer_allocator.cpp:81</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If stream does not belong to the camera, -EINVAL is returned.">If stream does not belong to the camera, -EINVAL is returned.</span></td>
+<td><a href="#source-224d9d0ce4f1ad7f">src/libcamera/framebuffer_allocator.cpp:81</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If stream is not in the active configuration, -EINVAL is returned.">If stream is not in the active configuration, -EINVAL is returned.</span></td>
+<td><a href="#source-224d9d0ce4f1ad7f">src/libcamera/framebuffer_allocator.cpp:81</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:item-allocation-preconditions -->
+
 
 <details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>2</span></summary><ul><li><code>src/libcamera/framebuffer_allocator.cpp</code><span class="evidence-lines"><a href="#source-4f32d036f2dee319" aria-label="src/libcamera/framebuffer_allocator.cpp:72 excerpt"><code>L72</code> excerpt</a> · <a aria-label="src/libcamera/framebuffer_allocator.cpp:72" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L72">Full source <code>L72</code></a> · <a href="#source-224d9d0ce4f1ad7f" aria-label="src/libcamera/framebuffer_allocator.cpp:81 excerpt"><code>L81</code> excerpt</a> · <a aria-label="src/libcamera/framebuffer_allocator.cpp:81" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L81">Full source <code>L81</code></a></span></li></ul></details><h2 id="buffers-반환-참조의-유효기간">Validity period of the reference returned by buffers</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/framebuffer_allocator.cpp:141&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L141\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:141&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/framebuffer_allocator.cpp:142&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L142\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:142&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/framebuffer_allocator.cpp:141&quot;: [&quot;#source-68023250094ce1a8&quot;], &quot;src/libcamera/framebuffer_allocator.cpp:142&quot;: [&quot;#source-d60c5ad57e6699de&quot;]}"><code>buffers()</code> must only be called after buffer allocation for that stream has succeeded with <code>allocate()</code>. The buffers returned by <code>buffers()</code> are valid until <code>free()</code> is called for the same stream or the <code>FrameBufferAllocator</code> instance is destroyed.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/framebuffer_allocator.cpp:141&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L141\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:141&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/framebuffer_allocator.cpp:142&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L142\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:142&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/framebuffer_allocator.cpp:141&quot;: [&quot;#source-68023250094ce1a8&quot;], &quot;src/libcamera/framebuffer_allocator.cpp:142&quot;: [&quot;#source-d60c5ad57e6699de&quot;]}"><code>buffers()</code> must be called only after buffers have been successfully allocated for the stream with <code>allocate()</code>. The buffers returned by <code>buffers()</code> remain valid until <code>free()</code> is called for the same stream or the <code>FrameBufferAllocator</code> instance is destroyed.</p>
+<!-- sdd:visual:item-reference-lifetime -->
+<h3 id="buffers-반환-참조의-유효기간의-관계와-경계">Relationship and boundaries of the lifetime of the reference returned by buffers</h3>
+<pre class="mermaid">flowchart TB
+
+  v_allocate["Successfully allocate &lt;br/&gt;buffers for the stream with &lt;br/&gt;allocate#40;#41;."]
+  v_buffers["Call buffers#40;#41; only after &lt;br/&gt;successfully allocating &lt;br/&gt;buffers for the stream."]
+  v_returned["Returned buffers are valid &lt;br/&gt;until the first of the two &lt;br/&gt;events below."]
+  v_free["Calling free#40;#41; for the same &lt;br/&gt;stream is an event that &lt;br/&gt;ends validity."]
+  v_allocator["Destruction of the &lt;br/&gt;FrameBufferAllocator &lt;br/&gt;instance is an event that &lt;br/&gt;ends validity."]
+  v_allocate --&gt;|"Call buffers#40;#41; only after &lt;br/&gt;successful allocation."| v_buffers
+  v_buffers --&gt;|"Returned buffers are valid &lt;br/&gt;until the first of the two &lt;br/&gt;events below."| v_returned
+  v_returned --&gt;|"Calling free#40;#41; for the same &lt;br/&gt;stream can end validity."| v_free
+  v_returned --&gt;|"Destruction of the &lt;br/&gt;FrameBufferAllocator &lt;br/&gt;instance can end validity."| v_allocator</pre>
+<p><a href="framebuffer-allocator.item-reference-lifetime.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>When can buffers() be called, and what event ends the lifetime of the returned buffers?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Successfully allocate buffers for the stream with allocate().">Successfully allocate buffers for the stream with allocate().</span></td>
+<td><a href="#source-68023250094ce1a8">src/libcamera/framebuffer_allocator.cpp:141</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call buffers() only after successfully allocating buffers for the stream.">Call buffers() only after successfully allocating buffers for the stream.</span></td>
+<td><a href="#source-68023250094ce1a8">src/libcamera/framebuffer_allocator.cpp:141</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Returned buffers are valid until the first of the two events below.">Returned buffers are valid until the first of the two events below.</span></td>
+<td><a href="#source-d60c5ad57e6699de">src/libcamera/framebuffer_allocator.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Calling free() for the same stream is an event that ends validity.">Calling free() for the same stream is an event that ends validity.</span></td>
+<td><a href="#source-d60c5ad57e6699de">src/libcamera/framebuffer_allocator.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Destruction of the FrameBufferAllocator instance is an event that ends validity.">Destruction of the FrameBufferAllocator instance is an event that ends validity.</span></td>
+<td><a href="#source-d60c5ad57e6699de">src/libcamera/framebuffer_allocator.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call buffers() only after successful allocation.">Call buffers() only after successful allocation.</span></td>
+<td><a href="#source-68023250094ce1a8">src/libcamera/framebuffer_allocator.cpp:141</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Returned buffers are valid until the first of the two events below.">Returned buffers are valid until the first of the two events below.</span></td>
+<td><a href="#source-d60c5ad57e6699de">src/libcamera/framebuffer_allocator.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Calling free() for the same stream can end validity.">Calling free() for the same stream can end validity.</span></td>
+<td><a href="#source-d60c5ad57e6699de">src/libcamera/framebuffer_allocator.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Destruction of the FrameBufferAllocator instance can end validity.">Destruction of the FrameBufferAllocator instance can end validity.</span></td>
+<td><a href="#source-d60c5ad57e6699de">src/libcamera/framebuffer_allocator.cpp:142</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:item-reference-lifetime -->
+
 
 <details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>2</span></summary><ul><li><code>src/libcamera/framebuffer_allocator.cpp</code><span class="evidence-lines"><a href="#source-68023250094ce1a8" aria-label="src/libcamera/framebuffer_allocator.cpp:141 excerpt"><code>L141</code> excerpt</a> · <a aria-label="src/libcamera/framebuffer_allocator.cpp:141" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L141">Full source <code>L141</code></a> · <a href="#source-d60c5ad57e6699de" aria-label="src/libcamera/framebuffer_allocator.cpp:142 excerpt"><code>L142</code> excerpt</a> · <a aria-label="src/libcamera/framebuffer_allocator.cpp:142" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L142">Full source <code>L142</code></a></span></li></ul></details><h2 id="중복-할당과-내보내기-실패를-구분하기">Distinguishing duplicate allocation from export failure</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/framebuffer_allocator.cpp:86&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L86\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:86&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/framebuffer_allocator.cpp:86&quot;: [&quot;#source-78a6c2f7dbdebb0f&quot;]}">If the <code>inserted</code> of <code>try_emplace</code> is <code>false</code>, <code>FrameBufferAllocator::allocate()</code> logs the "Buffers already allocated for stream" error and returns <code>-EBUSY</code>. The value returned by <code>camera_-&gt;exportFrameBuffers(stream, &amp;it-&gt;second)</code> is stored in the variable <code>ret</code>. Therefore, <code>exportFrameBuffers()</code> is a function, and <code>ret</code> is the variable that holds that return value. If <code>ret</code> is negative, that is, <code>ret &lt; 0</code>, <code>allocate()</code> runs <code>buffers_.erase(it)</code> to remove the <code>buffers_</code> entry that <code>it</code> points to.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/framebuffer_allocator.cpp:95&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L95\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:95&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/framebuffer_allocator.cpp:95&quot;: [&quot;#source-c091763d679ea029&quot;]}"><code>FrameBufferAllocator::allocate</code> returns <code>ret</code>, the result of calling <code>exportFrameBuffers</code>, unchanged regardless of whether the value is negative.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/framebuffer_allocator.cpp:86&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L86\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:86&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/framebuffer_allocator.cpp:95&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L95\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:95&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/framebuffer_allocator.cpp:86&quot;: [&quot;#source-78a6c2f7dbdebb0f&quot;], &quot;src/libcamera/framebuffer_allocator.cpp:95&quot;: [&quot;#source-c091763d679ea029&quot;]}">If <code>inserted</code> from <code>try_emplace</code> is false, <code>FrameBufferAllocator::allocate</code> logs an error stating that the buffers have already been allocated and returns <code>-EBUSY</code>. <code>FrameBufferAllocator::allocate()</code> stores the return value of <code>exportFrameBuffers()</code> in <code>ret</code> and, if <code>ret</code> is negative, removes the corresponding <code>buffers_</code> entry using <code>buffers_.erase(it)</code>. When <code>FrameBufferAllocator::allocate</code> calls <code>exportFrameBuffers</code>, it returns the resulting <code>ret</code> regardless of whether the value is negative.</p>
+<!-- sdd:visual:item-allocation-failure -->
+<h3 id="중복-할당과-내보내기-실패를-구분하기의-관계와-경계">Relationships and boundaries in distinguishing duplicate allocation from export failure</h3>
+<pre class="mermaid">flowchart TB
+
+  v_insert{"Check the insertion result &lt;br/&gt;of &lt;br/&gt;buffers#95;.try#95;emplace#40;stream#41;&lt;br/&gt;."}
+  v_busy["Log the duplicate &lt;br/&gt;allocation and return &lt;br/&gt;-EBUSY; keep the existing &lt;br/&gt;buffers#95; entry."]
+  v_export["Export buffers to the new &lt;br/&gt;entry and save the result &lt;br/&gt;in ret."]
+  v_invalid{"Check ret for a &lt;br/&gt;configuration error."}
+  v_log["Log that stream is not part &lt;br/&gt;of the active configuration."]
+  v_failure{"Check whether the export &lt;br/&gt;result indicates failure."}
+  v_erase["Erase the new buffers#95; &lt;br/&gt;entry when export fails."]
+  v_result["Return the export result &lt;br/&gt;ret."]
+  v_insert --&gt;|"If insertion fails, return &lt;br/&gt;for duplicate allocation. &lt;br/&gt;#91;true#93;"| v_busy
+  v_insert --&gt;|"If insertion succeeds, &lt;br/&gt;export the buffers. #91;false#93;"| v_export
+  v_export --&gt;|"Check the export result."| v_invalid
+  v_invalid --&gt;|"If it is a configuration &lt;br/&gt;error, log it. #91;true#93;"| v_log
+  v_invalid --&gt;|"Otherwise, check for &lt;br/&gt;failure. #91;false#93;"| v_failure
+  v_log --&gt;|"After logging, check for &lt;br/&gt;failure."| v_failure
+  v_failure --&gt;|"If export fails, erase the &lt;br/&gt;entry. #91;true#93;"| v_erase
+  v_erase --&gt;|"After erasing the entry, &lt;br/&gt;return ret."| v_result
+  v_failure --&gt;|"Otherwise, return ret &lt;br/&gt;without erasing the entry. &lt;br/&gt;#91;false#93;"| v_result</pre>
+<p><a href="framebuffer-allocator.item-allocation-failure.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>How do duplicate allocation and export failure differ in processing flow, return values, and handling of buffers_ entries?</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Check the insertion result of buffers_.try_emplace(stream).">Check the insertion result of buffers_.try_emplace(stream).</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Log the duplicate allocation and return -EBUSY; keep the existing buffers_ entry.">Log the duplicate allocation and return -EBUSY; keep the existing buffers_ entry.</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Export buffers to the new entry and save the result in ret.">Export buffers to the new entry and save the result in ret.</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check ret for a configuration error.">Check ret for a configuration error.</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Log that stream is not part of the active configuration.">Log that stream is not part of the active configuration.</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether the export result indicates failure.">Check whether the export result indicates failure.</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Erase the new buffers_ entry when export fails.">Erase the new buffers_ entry when export fails.</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return the export result ret.">Return the export result ret.</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If insertion fails, return for duplicate allocation. · !inserted [true]">If insertion fails, return for duplicate allocation. · !inserted [true]</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If insertion succeeds, export the buffers. · !inserted [false]">If insertion succeeds, export the buffers. · !inserted [false]</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the export result.">Check the export result.</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If it is a configuration error, log it. · ret == -EINVAL [true]">If it is a configuration error, log it. · ret == -EINVAL [true]</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Otherwise, check for failure. · ret == -EINVAL [false]">Otherwise, check for failure. · ret == -EINVAL [false]</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After logging, check for failure.">After logging, check for failure.</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If export fails, erase the entry. · ret &lt; 0 [true]">If export fails, erase the entry. · ret &lt; 0 [true]</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After erasing the entry, return ret.">After erasing the entry, return ret.</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Otherwise, return ret without erasing the entry. · ret &lt; 0 [false]">Otherwise, return ret without erasing the entry. · ret &lt; 0 [false]</span></td>
+<td><a href="#source-78a6c2f7dbdebb0f">src/libcamera/framebuffer_allocator.cpp:86</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:item-allocation-failure -->
+
 
 <details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>2</span></summary><ul><li><code>src/libcamera/framebuffer_allocator.cpp</code><span class="evidence-lines"><a href="#source-78a6c2f7dbdebb0f" aria-label="src/libcamera/framebuffer_allocator.cpp:86 excerpt"><code>L86</code> excerpt</a> · <a aria-label="src/libcamera/framebuffer_allocator.cpp:86" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L86">Full source <code>L86</code></a> · <a href="#source-c091763d679ea029" aria-label="src/libcamera/framebuffer_allocator.cpp:95 excerpt"><code>L95</code> excerpt</a> · <a aria-label="src/libcamera/framebuffer_allocator.cpp:95" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L95">Full source <code>L95</code></a></span></li></ul></details><h2 id="free의-스트림-조회와-반환값">Stream lookup and return value of free</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/framebuffer_allocator.cpp:119&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L119\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:119&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/framebuffer_allocator.cpp:119&quot;: [&quot;#source-fe0210ae47a5ebe2&quot;]}">If <code>stream</code> is not found, that is, if <code>iter</code> equals <code>buffers_.end()</code>, the function returns <code>-EINVAL</code> and does not remove the entry in <code>buffers_</code>. If the stream is found, the function deletes that entry with <code>buffers_.erase(iter)</code> and then returns <code>0</code>.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/framebuffer_allocator.cpp:119&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L119\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:119&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/framebuffer_allocator.cpp:119&quot;: [&quot;#source-fe0210ae47a5ebe2&quot;]}">If <code>FrameBufferAllocator::free</code> cannot find the stream, it returns <code>-EINVAL</code> and does not remove the <code>buffers_</code> entry; if it finds the stream, it removes the corresponding <code>buffers_</code> entry and returns <code>0</code>.</p>
 
 
 <details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>1</span></summary><ul><li><code>src/libcamera/framebuffer_allocator.cpp</code><span class="evidence-lines"><a href="#source-fe0210ae47a5ebe2" aria-label="src/libcamera/framebuffer_allocator.cpp:119 excerpt"><code>L119</code> excerpt</a> · <a aria-label="src/libcamera/framebuffer_allocator.cpp:119" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L119">Full source <code>L119</code></a></span></li></ul></details><h2 id="소스-근거">Source evidence</h2>
@@ -61,7 +321,7 @@
 <p><a id="source-68023250094ce1a8"></a></p>
 <details class="note">
 <summary>Source evidence: src/libcamera/framebuffer_allocator.cpp:141</summary>
-<p>This is an excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L141"><code>src/libcamera/framebuffer_allocator.cpp:141</code></a>. The end line is 142, and the original text below can be compared with the description.</p>
+<p>This excerpt starts at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/framebuffer_allocator.cpp#L141"><code>src/libcamera/framebuffer_allocator.cpp:141</code></a> and ends at line 142. The original text below can be compared with the description.</p>
 <p>SHA-256: <code>a12056e800d2035f519dc58a4be3dc5e3c9d51920102cc9bc27c60a32790a663</code></p>
 <div class="highlight"><pre><span></span><code>This function shall only be called after successfully allocating buffers for
  * \a stream with allocate().
@@ -139,13 +399,22 @@
 </details>
 </details>
 
-</article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78</code></dd><dt>Document generation time</dt><dd><code>2026-10-30 15:19:58+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/claude/claude-haiku-5-5</code></dd><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence file: <code>src/libcamera/framebuffer_allocator.cpp</code></li><li>Evidence level: Code verified (static analysis, simple_compdb configuration, commit <code>212c689fcf</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status record date: 2026-10-31 · Before human review</li></ul></details><a href="../framebuffer-allocator.md">Markdown source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="ipa-module-validation.html"><small>Previous</small>IPA Module Information Check and Missing Signature Files ←</a><a class="next" href="camera-model.html"><small><span>Next</span> · <span>Camera and request model</span></small><span>Responsibilities of Camera, Request, and buffer references</span> →</a></nav>
+</article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78</code></dd><dt>Document generation time</dt><dd><code>2026-11-11 21:04:22+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence file: <code>src/libcamera/framebuffer_allocator.cpp</code></li><li>Evidence level: Code verified (static analysis, simple_compdb configuration, commit <code>c19d05128f</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded: 2026-11-12 · Before human review</li></ul></details><a href="../framebuffer-allocator.md">Markdown source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="ipa-module-validation.html"><small>Previous</small>IPA Module Information Check and Missing Signature Files ←</a><a class="next" href="camera-model.html"><small><span>Next</span> · <span>Camera and request model</span></small><span>Responsibilities of Camera, Request, and buffer references</span> →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
 <aside class="page-toc"><nav aria-label="Table of contents for this page"><p>On this page</p><div class="toc">
 <ul>
-<li><a href="#할당-전에-확인할-카메라-상태와-스트림">Camera state and streams to check before allocation</a></li>
-<li><a href="#buffers-반환-참조의-유효기간">Validity period of the reference returned by buffers</a></li>
-<li><a href="#중복-할당과-내보내기-실패를-구분하기">Distinguishing duplicate allocation from export failure</a></li>
+<li><a href="#할당-전에-확인할-카메라-상태와-스트림">Camera state and streams to check before allocation</a><ul>
+<li><a href="#할당-전에-확인할-카메라-상태와-스트림의-관계와-경계">The relationship and boundaries between camera state and streams to check before allocation</a></li>
+</ul>
+</li>
+<li><a href="#buffers-반환-참조의-유효기간">Validity period of the reference returned by buffers</a><ul>
+<li><a href="#buffers-반환-참조의-유효기간의-관계와-경계">Relationship and boundaries of the lifetime of the reference returned by buffers</a></li>
+</ul>
+</li>
+<li><a href="#중복-할당과-내보내기-실패를-구분하기">Distinguishing duplicate allocation from export failure</a><ul>
+<li><a href="#중복-할당과-내보내기-실패를-구분하기의-관계와-경계">Relationships and boundaries in distinguishing duplicate allocation from export failure</a></li>
+</ul>
+</li>
 <li><a href="#free의-스트림-조회와-반환값">Stream lookup and return value of free</a></li>
 <li><a href="#소스-근거">Source evidence</a></li>
 </ul>
@@ -153,4 +422,4 @@
 </nav></aside></div>
 <dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find document</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search documents, sections, terms, and code elements</label><input id="search-input" type="search" autocomplete="off" placeholder="Example: Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
 <dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Diagram element and function names"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Collapse">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to screen</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">Drag with a mouse or swipe with touch to move the diagram. "Fit to screen" shows an overview of the whole diagram.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="Zoomed diagram"><div id="diagram-canvas"></div></div></dialog>
-<script id="site-config" type="application/json">{"root": "./", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "d7f54ca11e", "language": "en"}</script><script defer src="../assets/site.js?v=dd3415510a"></script><script defer src="../assets/reader-tools.js?v=dd3415510a"></script></body></html>
+<script id="site-config" type="application/json">{"root": "./", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "10c7b0ad3c", "language": "en"}</script><script defer src="../assets/site.js?v=dd3415510a"></script><script defer src="../assets/reader-tools.js?v=dd3415510a"></script></body></html>

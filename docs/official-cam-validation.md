@@ -2096,7 +2096,7 @@ generated_design:
     new_grounding_review: false
     receipts:
     - d644a067d0f8415d9f1cbcf4d7e51196/014.receipt.json
-  body_sha256: cee05f97bdc4cb79cc6718b473fbabb28683125543b995067a85638b3a2de014
+  body_sha256: cab80bb5023e14e842c89a5d851f6fc7b40ca2b7eed52d3160394d1120fbed39
 generated_visuals:
   schema: 1
   records:
@@ -2493,78 +2493,88 @@ generated_visuals:
         original_input_fingerprint: 3b920344914d95da55aa4ca8c10b07847b90b545df517d8e10ec3700c8a15d1b
         new_inference: false
     initial-submission:
-      input_fingerprint: a4fc05e333418d18f1df66669472e720dfa59c0f22c77bb500afd3a22ba4e9b8
+      input_fingerprint: 26207b261bb2a193804b815d53350251fbb3dbc68b1364f871965e31fb3622ed
       draft:
         nodes:
         - id: start_check
           symbol: Camera::start
-          label: 카메라 시작 결과 판정
+          label: 카메라 시작 결과 확인
           label_en: Check camera start result
           shape: decision
           quote_ids:
-          - cam-request-buffers:10
           - camera-queue:2
+          - cam-request-buffers:0
         - id: start_fail
-          symbol: Camera::start
-          label: sink_가 있으면 중지, 시작 오류 반환, 카메라 중지 없음
-          label_en: Stop sink_ if any, return error, no camera stop
+          symbol: CameraSession::startCapture
+          label: sink가 있으면 중지 후 시작 오류 반환, 카메라 중지 없음
+          label_en: Stop sink if present, return start error, no camera stop
           shape: box
           quote_ids:
-          - cam-request-buffers:10
-          - camera-queue:2
+          - cam-request-buffers:0
         - id: remaining
           symbol: requests_
-          label: 남은 초기 요청 여부 판정
+          label: 처리할 초기 요청이 남았는지 확인
           label_en: Check whether initial requests remain
           shape: decision
           quote_ids:
-          - cam-request-buffers:11
+          - cam-request-buffers:0
         - id: limit_check
           symbol: CameraSession::queueRequest
-          label: 제출 한도 도달 여부 판정
-          label_en: Check whether submission limit is reached
+          label: 한도가 있고 큐 API 호출 시도 횟수가 도달했는지 확인
+          label_en: Check if limit is set and queue API call attempts reached it
           shape: decision
           quote_ids:
-          - cam-request-buffers:14
-        - id: camera_queue
-          symbol: Camera::queueRequest
-          label: 제출 횟수 1 증가 후 카메라 큐 호출 시도, 실행 상태 검사
-          label_en: Count +1, try camera queue call; check running
+          - cam-request-buffers:0
+        - id: control_merge
+          symbol: queueCount_
+          label: 스크립트 있을 때만 제어 병합, 큐 API 호출 시도 횟수는 항상 1 증가
+          label_en: Merge controls only if script exists; always +1 queue API call
+            attempts
           shape: process
           quote_ids:
-          - cam-request-buffers:16
-          - cam-request-buffers:17
-          - camera-queue:0
-        - id: helper_ret
-          symbol: CameraSession::queueRequest
-          label: 제출 결과 음수 오류 판정
-          label_en: Check submit result for negative error
+          - cam-request-buffers:0
+        - id: camera_queue_check
+          symbol: Camera::queueRequest
+          label: 카메라 실행 상태, 요청 소유, 요청 유효성 검사 통과 여부
+          label_en: Check camera Running state, request owner, request validity
           shape: decision
           quote_ids:
-          - cam-request-buffers:11
-          - cam-request-buffers:14
-        - id: stop_err
-          symbol: stop
-          label: 이미 시작한 카메라 중지, sink_가 있으면 중지, 제출 오류 반환
-          label_en: Stop started camera, sink_ if any; return error
-          shape: box
-          quote_ids:
-          - cam-request-buffers:11
-        - id: ok_result
-          symbol: Camera::queueRequest
-          label: 비동기 호출 등록됨, 0 반환 결과
-          label_en: Async call scheduled; returns 0
+          - camera-queue:0
+        - id: queue_error
+          symbol: EINVAL
+          label: 검사 실패 시 음수 오류 코드 반환
+          label_en: On check failure, return negative error code
           shape: box
           quote_ids:
           - camera-queue:0
-          - cam-request-buffers:17
-        - id: done
-          symbol: requests_
-          label: 남은 초기 요청 없으면 순회 정상 종료
-          label_en: No initial requests left; loop ends normally
+        - id: queue_async
+          symbol: PipelineHandler::queueRequest
+          label: 파이프라인 큐 호출을 비동기로 등록하고 API는 0 반환
+          label_en: Async pipeline queue call scheduled; API returns 0
           shape: box
           quote_ids:
-          - cam-request-buffers:11
+          - camera-queue:0
+        - id: caller_check
+          symbol: ret
+          label: queueRequest 결과가 음수 오류인지 확인
+          label_en: Check if queueRequest result is a negative error
+          shape: decision
+          quote_ids:
+          - cam-request-buffers:0
+        - id: stop_on_error
+          symbol: stop
+          label: 카메라를 중지하고, sink가 있으면 중지한 뒤 오류 반환
+          label_en: Stop camera, stop sink if present, then return error
+          shape: box
+          quote_ids:
+          - cam-request-buffers:0
+        - id: done
+          symbol: std::cout
+          label: 요청 순회 정상 종료, 한도 유무별 캡처 안내 출력 후 0 반환
+          label_en: Loop ends normally; print capture notice by limit, return 0
+          shape: box
+          quote_ids:
+          - cam-request-buffers:0
         edges:
         - from: start_check
           to: start_fail
@@ -2572,7 +2582,7 @@ generated_visuals:
           label_en: start failed
           condition_ref: c8:true
           quote_ids:
-          - cam-request-buffers:10
+          - cam-request-buffers:0
           - camera-queue:2
         - from: start_check
           to: remaining
@@ -2580,75 +2590,88 @@ generated_visuals:
           label_en: start succeeded
           condition_ref: c8:false
           quote_ids:
-          - cam-request-buffers:10
-          - cam-request-buffers:11
+          - cam-request-buffers:0
           - camera-queue:2
         - from: remaining
           to: limit_check
           label: 요청 남음
-          label_en: request remains
+          label_en: requests remain
           condition_ref: always
           quote_ids:
-          - cam-request-buffers:11
-          - cam-request-buffers:14
+          - cam-request-buffers:0
         - from: remaining
           to: done
           label: 요청 없음, 순회 종료
           label_en: none left, loop ends
           condition_ref: always
           quote_ids:
-          - cam-request-buffers:11
+          - cam-request-buffers:0
         - from: limit_check
-          to: camera_queue
-          label: 미설정 또는 미달, 호출
-          label_en: unset or below, call
+          to: control_merge
+          label: 미설정 또는 미달
+          label_en: unset or below
           condition_ref: c2:false
           quote_ids:
-          - cam-request-buffers:14
-          - cam-request-buffers:16
-          - camera-queue:0
+          - cam-request-buffers:0
         - from: limit_check
-          to: remaining
-          label: 한도 도달, 호출 생략, 0 반환
+          to: caller_check
+          label: 한도 도달, 호출 없이 0
           label_en: 'at limit: 0, no call'
           condition_ref: c2:true
           quote_ids:
-          - cam-request-buffers:14
-          - cam-request-buffers:11
-        - from: camera_queue
-          to: helper_ret
-          label: 호출 결과 반환
-          label_en: returns call result
+          - cam-request-buffers:0
+        - from: control_merge
+          to: camera_queue_check
+          label: 카메라 큐 요청 호출
+          label_en: calls camera queue
           condition_ref: always
           quote_ids:
-          - cam-request-buffers:14
-          - cam-request-buffers:17
+          - cam-request-buffers:0
           - camera-queue:0
-        - from: helper_ret
-          to: stop_err
-          label: 음수 오류 반환 시
-          label_en: if negative error
+        - from: camera_queue_check
+          to: queue_error
+          label: 검사 실패, 오류
+          label_en: 'fails: return error'
+          condition_ref: always
+          quote_ids:
+          - camera-queue:0
+        - from: camera_queue_check
+          to: queue_async
+          label: 검사 통과, 비동기 호출
+          label_en: 'passes: async call'
+          condition_ref: always
+          quote_ids:
+          - camera-queue:0
+        - from: queue_error
+          to: caller_check
+          label: 호출자에게 오류 전달
+          label_en: error to caller
+          condition_ref: always
+          quote_ids:
+          - camera-queue:0
+          - cam-request-buffers:0
+        - from: queue_async
+          to: caller_check
+          label: 0 반환 후 호출자 검사
+          label_en: then caller checks
+          condition_ref: always
+          quote_ids:
+          - camera-queue:0
+          - cam-request-buffers:0
+        - from: caller_check
+          to: stop_on_error
+          label: 음수 오류
+          label_en: negative error
           condition_ref: c9:true
           quote_ids:
-          - cam-request-buffers:11
-          - cam-request-buffers:14
-        - from: helper_ret
-          to: ok_result
-          label: 음수 아님
-          label_en: non-negative
+          - cam-request-buffers:0
+        - from: caller_check
+          to: remaining
+          label: 음수 아니면 다음 요청
+          label_en: 'non-negative: next'
           condition_ref: c9:false
           quote_ids:
-          - cam-request-buffers:11
-          - cam-request-buffers:14
-          - camera-queue:0
-        - from: ok_result
-          to: remaining
-          label: 남은 요청 확인
-          label_en: check remaining
-          condition_ref: always
-          quote_ids:
-          - camera-queue:0
-          - cam-request-buffers:11
+          - cam-request-buffers:0
       graph:
         id: initial-submission
         topic: initial-submission
@@ -2659,15 +2682,10 @@ generated_visuals:
         condition_display: evidence
         nodes:
         - id: start_check
-          label: 카메라 시작 결과 판정
+          label: 카메라 시작 결과 확인
           label_en: Check camera start result
           shape: decision
           evidence:
-          - source: initial-submission/cam-request-buffers
-            sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "ret = camera_->start();\n\tif (ret) {\n\t\tstd::cout << \"Failed\
-              \ to start capture\" << std::endl;\n\t\tif (sink_)\n\t\t\tsink_->stop();\n\
-              \t\treturn ret;\n\t}"
           - source: initial-submission/camera-queue
             sha256: 886535d24df67a4b6f18fd5ed7b1db02e74e189ebfcb7ddd396eb86cf30980ef
             quote: "int Camera::queueRequest(Request *request)\n{\n\tPrivate *const\
@@ -2704,86 +2722,222 @@ generated_visuals:
               \ error code otherwise\n * \\retval -ENODEV The camera has been disconnected\
               \ from the system\n * \\retval -EACCES The camera is not in a state\
               \ where it can be started\n */\nint Camera::start("
+          - source: initial-submission/cam-request-buffers
+            sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
+            quote: "int CameraSession::startCapture()\n{\n\tint ret;\n\n\t/* Identify\
+              \ the stream with the least number of buffers. */\n\tunsigned int nbuffers\
+              \ = UINT_MAX;\n\tfor (StreamConfiguration &cfg : *config_) {\n\t\tret\
+              \ = allocator_->allocate(cfg.stream());\n\t\tif (ret < 0) {\n\t\t\t\
+              std::cerr << \"Can't allocate buffers\" << std::endl;\n\t\t\treturn\
+              \ -ENOMEM;\n\t\t}\n\n\t\tunsigned int allocated = allocator_->buffers(cfg.stream()).size();\n\
+              \t\tnbuffers = std::min(nbuffers, allocated);\n\t}\n\n\t/*\n\t * TODO:\
+              \ make cam tool smarter to support still capture by for\n\t * example\
+              \ pushing a button. For now run all streams all the time.\n\t */\n\n\
+              \tfor (unsigned int i = 0; i < nbuffers; i++) {\n\t\tstd::unique_ptr<Request>\
+              \ request = camera_->createRequest();\n\t\tif (!request) {\n\t\t\tstd::cerr\
+              \ << \"Can't create request\" << std::endl;\n\t\t\treturn -ENOMEM;\n\
+              \t\t}\n\n\t\tfor (StreamConfiguration &cfg : *config_) {\n\t\t\tStream\
+              \ *stream = cfg.stream();\n\t\t\tconst std::vector<std::unique_ptr<FrameBuffer>>\
+              \ &buffers =\n\t\t\t\tallocator_->buffers(stream);\n\t\t\tconst std::unique_ptr<FrameBuffer>\
+              \ &buffer = buffers[i];\n\n\t\t\tret = request->addBuffer(stream, buffer.get());\n\
+              \t\t\tif (ret < 0) {\n\t\t\t\tstd::cerr << \"Can't set buffer for request\"\
+              \n\t\t\t\t\t  << std::endl;\n\t\t\t\treturn ret;\n\t\t\t}\n\n\t\t\t\
+              if (sink_)\n\t\t\t\tsink_->mapBuffer(buffer.get());\n\t\t}\n\n\t\trequests_.push_back(std::move(request));\n\
+              \t}\n\n\tif (sink_) {\n\t\tret = sink_->start();\n\t\tif (ret) {\n\t\
+              \t\tstd::cout << \"Failed to start frame sink\" << std::endl;\n\t\t\t\
+              return ret;\n\t\t}\n\t}\n\n\tret = camera_->start();\n\tif (ret) {\n\
+              \t\tstd::cout << \"Failed to start capture\" << std::endl;\n\t\tif (sink_)\n\
+              \t\t\tsink_->stop();\n\t\treturn ret;\n\t}\n\n\tfor (std::unique_ptr<Request>\
+              \ &request : requests_) {\n\t\tret = queueRequest(request.get());\n\t\
+              \tif (ret < 0) {\n\t\t\tstd::cerr << \"Can't queue request\" << std::endl;\n\
+              \t\t\tcamera_->stop();\n\t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\
+              \t\treturn ret;\n\t\t}\n\t}\n\n\tif (captureLimit_)\n\t\tstd::cout <<\
+              \ \"cam\" << cameraIndex_\n\t\t\t  << \": Capture \" << captureLimit_\
+              \ << \" frames\"\n\t\t\t  << std::endl;\n\telse\n\t\tstd::cout << \"\
+              cam\" << cameraIndex_\n\t\t\t  << \": Capture until user interrupts\
+              \ by SIGINT\"\n\t\t\t  << std::endl;\n\n\treturn 0;\n}\n\nint CameraSession::queueRequest(Request\
+              \ *request)\n{\n\tif (captureLimit_ && queueCount_ >= captureLimit_)\n\
+              \t\treturn 0;\n\n\tif (script_)\n\t\trequest->controls().merge(script_->frameControls(queueCount_),\n\
+              \t\t\t\t\t  ControlList::MergePolicy::OverwriteExisting);\n\n\tqueueCount_++;\n\
+              \n\treturn camera_->queueRequest(request);\n}\n\nvoid CameraSession::requestComplete("
         - id: start_fail
-          label: sink_가 있으면 중지, 시작 오류 반환, 카메라 중지 없음
-          label_en: Stop sink_ if any, return error, no camera stop
+          label: sink가 있으면 중지 후 시작 오류 반환, 카메라 중지 없음
+          label_en: Stop sink if present, return start error, no camera stop
           shape: box
           evidence:
           - source: initial-submission/cam-request-buffers
             sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "ret = camera_->start();\n\tif (ret) {\n\t\tstd::cout << \"Failed\
-              \ to start capture\" << std::endl;\n\t\tif (sink_)\n\t\t\tsink_->stop();\n\
-              \t\treturn ret;\n\t}"
-          - source: initial-submission/camera-queue
-            sha256: 886535d24df67a4b6f18fd5ed7b1db02e74e189ebfcb7ddd396eb86cf30980ef
-            quote: "int Camera::queueRequest(Request *request)\n{\n\tPrivate *const\
-              \ d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\
-              \tif (ret < 0)\n\t\treturn ret;\n\n\t/* Requests can only be queued\
-              \ to the camera that created them. */\n\tif (request->_d()->camera()\
-              \ != this) {\n\t\tLOG(Camera, Error) << \"Request was not created by\
-              \ this camera\";\n\t\treturn -EXDEV;\n\t}\n\n\tif (request->status()\
-              \ != Request::RequestPending) {\n\t\tLOG(Camera, Error) << request->toString()\
-              \ << \" is not valid\";\n\t\treturn -EINVAL;\n\t}\n\n\t/* Make sure\
-              \ the Request has a valid control list. */\n\tif (request->controls().infoMap()\
-              \ != &controls()) {\n\t\tLOG(Camera, Error) << \"Overwriting Request::controls()\
-              \ is not allowed\";\n\t\treturn -EINVAL;\n\t}\n\n\t/*\n\t * The camera\
-              \ state may change until the end of the function. No locking\n\t * is\
-              \ however needed as PipelineHandler::queueRequest() will handle\n\t\
-              \ * this.\n\t */\n\n\tif (request->buffers().empty()) {\n\t\tLOG(Camera,\
-              \ Error) << \"Request contains no buffers\";\n\t\treturn -EINVAL;\n\t\
-              }\n\n\tfor (const auto &[stream, buffer] : request->buffers()) {\n\t\
-              \tif (d->activeStreams_.find(stream) == d->activeStreams_.end()) {\n\
-              \t\t\tLOG(Camera, Error) << \"Invalid request\";\n\t\t\treturn -EINVAL;\n\
-              \t\t}\n\t}\n\n\t/* Pre-process AeEnable. */\n\tpatchControlList(request->controls());\n\
-              \n\td->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t \
-              \      ConnectionTypeQueued, request);\n\n\treturn 0;\n}\n\n/**\n *\
-              \ \\brief Start capture from camera\n * \\param[in] controls Controls\
-              \ to be applied before starting the Camera\n *\n * Start the camera\
-              \ capture session, optionally providing a list of controls to\n * apply\
-              \ before starting. Once the camera is started the application can queue\n\
-              \ * requests to the camera to process and return to the application\
-              \ until the\n * capture session is terminated with \\a stop().\n *\n\
-              \ * \\context This function may only be called when the camera is in\
-              \ the\n * Configured state as defined in \\ref camera_operation, and\
-              \ shall be\n * synchronized by the caller with other functions that\
-              \ affect the camera\n * state.\n *\n * \\return 0 on success or a negative\
-              \ error code otherwise\n * \\retval -ENODEV The camera has been disconnected\
-              \ from the system\n * \\retval -EACCES The camera is not in a state\
-              \ where it can be started\n */\nint Camera::start("
+            quote: "int CameraSession::startCapture()\n{\n\tint ret;\n\n\t/* Identify\
+              \ the stream with the least number of buffers. */\n\tunsigned int nbuffers\
+              \ = UINT_MAX;\n\tfor (StreamConfiguration &cfg : *config_) {\n\t\tret\
+              \ = allocator_->allocate(cfg.stream());\n\t\tif (ret < 0) {\n\t\t\t\
+              std::cerr << \"Can't allocate buffers\" << std::endl;\n\t\t\treturn\
+              \ -ENOMEM;\n\t\t}\n\n\t\tunsigned int allocated = allocator_->buffers(cfg.stream()).size();\n\
+              \t\tnbuffers = std::min(nbuffers, allocated);\n\t}\n\n\t/*\n\t * TODO:\
+              \ make cam tool smarter to support still capture by for\n\t * example\
+              \ pushing a button. For now run all streams all the time.\n\t */\n\n\
+              \tfor (unsigned int i = 0; i < nbuffers; i++) {\n\t\tstd::unique_ptr<Request>\
+              \ request = camera_->createRequest();\n\t\tif (!request) {\n\t\t\tstd::cerr\
+              \ << \"Can't create request\" << std::endl;\n\t\t\treturn -ENOMEM;\n\
+              \t\t}\n\n\t\tfor (StreamConfiguration &cfg : *config_) {\n\t\t\tStream\
+              \ *stream = cfg.stream();\n\t\t\tconst std::vector<std::unique_ptr<FrameBuffer>>\
+              \ &buffers =\n\t\t\t\tallocator_->buffers(stream);\n\t\t\tconst std::unique_ptr<FrameBuffer>\
+              \ &buffer = buffers[i];\n\n\t\t\tret = request->addBuffer(stream, buffer.get());\n\
+              \t\t\tif (ret < 0) {\n\t\t\t\tstd::cerr << \"Can't set buffer for request\"\
+              \n\t\t\t\t\t  << std::endl;\n\t\t\t\treturn ret;\n\t\t\t}\n\n\t\t\t\
+              if (sink_)\n\t\t\t\tsink_->mapBuffer(buffer.get());\n\t\t}\n\n\t\trequests_.push_back(std::move(request));\n\
+              \t}\n\n\tif (sink_) {\n\t\tret = sink_->start();\n\t\tif (ret) {\n\t\
+              \t\tstd::cout << \"Failed to start frame sink\" << std::endl;\n\t\t\t\
+              return ret;\n\t\t}\n\t}\n\n\tret = camera_->start();\n\tif (ret) {\n\
+              \t\tstd::cout << \"Failed to start capture\" << std::endl;\n\t\tif (sink_)\n\
+              \t\t\tsink_->stop();\n\t\treturn ret;\n\t}\n\n\tfor (std::unique_ptr<Request>\
+              \ &request : requests_) {\n\t\tret = queueRequest(request.get());\n\t\
+              \tif (ret < 0) {\n\t\t\tstd::cerr << \"Can't queue request\" << std::endl;\n\
+              \t\t\tcamera_->stop();\n\t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\
+              \t\treturn ret;\n\t\t}\n\t}\n\n\tif (captureLimit_)\n\t\tstd::cout <<\
+              \ \"cam\" << cameraIndex_\n\t\t\t  << \": Capture \" << captureLimit_\
+              \ << \" frames\"\n\t\t\t  << std::endl;\n\telse\n\t\tstd::cout << \"\
+              cam\" << cameraIndex_\n\t\t\t  << \": Capture until user interrupts\
+              \ by SIGINT\"\n\t\t\t  << std::endl;\n\n\treturn 0;\n}\n\nint CameraSession::queueRequest(Request\
+              \ *request)\n{\n\tif (captureLimit_ && queueCount_ >= captureLimit_)\n\
+              \t\treturn 0;\n\n\tif (script_)\n\t\trequest->controls().merge(script_->frameControls(queueCount_),\n\
+              \t\t\t\t\t  ControlList::MergePolicy::OverwriteExisting);\n\n\tqueueCount_++;\n\
+              \n\treturn camera_->queueRequest(request);\n}\n\nvoid CameraSession::requestComplete("
         - id: remaining
-          label: 남은 초기 요청 여부 판정
+          label: 처리할 초기 요청이 남았는지 확인
           label_en: Check whether initial requests remain
           shape: decision
           evidence:
           - source: initial-submission/cam-request-buffers
             sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "for (std::unique_ptr<Request> &request : requests_) {\n\t\tret\
-              \ = queueRequest(request.get());\n\t\tif (ret < 0) {\n\t\t\tstd::cerr\
-              \ << \"Can't queue request\" << std::endl;\n\t\t\tcamera_->stop();\n\
-              \t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\t\treturn ret;\n\t\t}\n\
-              \t}"
+            quote: "int CameraSession::startCapture()\n{\n\tint ret;\n\n\t/* Identify\
+              \ the stream with the least number of buffers. */\n\tunsigned int nbuffers\
+              \ = UINT_MAX;\n\tfor (StreamConfiguration &cfg : *config_) {\n\t\tret\
+              \ = allocator_->allocate(cfg.stream());\n\t\tif (ret < 0) {\n\t\t\t\
+              std::cerr << \"Can't allocate buffers\" << std::endl;\n\t\t\treturn\
+              \ -ENOMEM;\n\t\t}\n\n\t\tunsigned int allocated = allocator_->buffers(cfg.stream()).size();\n\
+              \t\tnbuffers = std::min(nbuffers, allocated);\n\t}\n\n\t/*\n\t * TODO:\
+              \ make cam tool smarter to support still capture by for\n\t * example\
+              \ pushing a button. For now run all streams all the time.\n\t */\n\n\
+              \tfor (unsigned int i = 0; i < nbuffers; i++) {\n\t\tstd::unique_ptr<Request>\
+              \ request = camera_->createRequest();\n\t\tif (!request) {\n\t\t\tstd::cerr\
+              \ << \"Can't create request\" << std::endl;\n\t\t\treturn -ENOMEM;\n\
+              \t\t}\n\n\t\tfor (StreamConfiguration &cfg : *config_) {\n\t\t\tStream\
+              \ *stream = cfg.stream();\n\t\t\tconst std::vector<std::unique_ptr<FrameBuffer>>\
+              \ &buffers =\n\t\t\t\tallocator_->buffers(stream);\n\t\t\tconst std::unique_ptr<FrameBuffer>\
+              \ &buffer = buffers[i];\n\n\t\t\tret = request->addBuffer(stream, buffer.get());\n\
+              \t\t\tif (ret < 0) {\n\t\t\t\tstd::cerr << \"Can't set buffer for request\"\
+              \n\t\t\t\t\t  << std::endl;\n\t\t\t\treturn ret;\n\t\t\t}\n\n\t\t\t\
+              if (sink_)\n\t\t\t\tsink_->mapBuffer(buffer.get());\n\t\t}\n\n\t\trequests_.push_back(std::move(request));\n\
+              \t}\n\n\tif (sink_) {\n\t\tret = sink_->start();\n\t\tif (ret) {\n\t\
+              \t\tstd::cout << \"Failed to start frame sink\" << std::endl;\n\t\t\t\
+              return ret;\n\t\t}\n\t}\n\n\tret = camera_->start();\n\tif (ret) {\n\
+              \t\tstd::cout << \"Failed to start capture\" << std::endl;\n\t\tif (sink_)\n\
+              \t\t\tsink_->stop();\n\t\treturn ret;\n\t}\n\n\tfor (std::unique_ptr<Request>\
+              \ &request : requests_) {\n\t\tret = queueRequest(request.get());\n\t\
+              \tif (ret < 0) {\n\t\t\tstd::cerr << \"Can't queue request\" << std::endl;\n\
+              \t\t\tcamera_->stop();\n\t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\
+              \t\treturn ret;\n\t\t}\n\t}\n\n\tif (captureLimit_)\n\t\tstd::cout <<\
+              \ \"cam\" << cameraIndex_\n\t\t\t  << \": Capture \" << captureLimit_\
+              \ << \" frames\"\n\t\t\t  << std::endl;\n\telse\n\t\tstd::cout << \"\
+              cam\" << cameraIndex_\n\t\t\t  << \": Capture until user interrupts\
+              \ by SIGINT\"\n\t\t\t  << std::endl;\n\n\treturn 0;\n}\n\nint CameraSession::queueRequest(Request\
+              \ *request)\n{\n\tif (captureLimit_ && queueCount_ >= captureLimit_)\n\
+              \t\treturn 0;\n\n\tif (script_)\n\t\trequest->controls().merge(script_->frameControls(queueCount_),\n\
+              \t\t\t\t\t  ControlList::MergePolicy::OverwriteExisting);\n\n\tqueueCount_++;\n\
+              \n\treturn camera_->queueRequest(request);\n}\n\nvoid CameraSession::requestComplete("
         - id: limit_check
-          label: 제출 한도 도달 여부 판정
-          label_en: Check whether submission limit is reached
+          label: 한도가 있고 큐 API 호출 시도 횟수가 도달했는지 확인
+          label_en: Check if limit is set and queue API call attempts reached it
           shape: decision
           evidence:
           - source: initial-submission/cam-request-buffers
             sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "int CameraSession::queueRequest(Request *request)\n{\n\tif (captureLimit_\
-              \ && queueCount_ >= captureLimit_)\n\t\treturn 0;"
-        - id: camera_queue
-          label: 제출 횟수 1 증가 후 카메라 큐 호출 시도, 실행 상태 검사
-          label_en: Count +1, try camera queue call; check running
+            quote: "int CameraSession::startCapture()\n{\n\tint ret;\n\n\t/* Identify\
+              \ the stream with the least number of buffers. */\n\tunsigned int nbuffers\
+              \ = UINT_MAX;\n\tfor (StreamConfiguration &cfg : *config_) {\n\t\tret\
+              \ = allocator_->allocate(cfg.stream());\n\t\tif (ret < 0) {\n\t\t\t\
+              std::cerr << \"Can't allocate buffers\" << std::endl;\n\t\t\treturn\
+              \ -ENOMEM;\n\t\t}\n\n\t\tunsigned int allocated = allocator_->buffers(cfg.stream()).size();\n\
+              \t\tnbuffers = std::min(nbuffers, allocated);\n\t}\n\n\t/*\n\t * TODO:\
+              \ make cam tool smarter to support still capture by for\n\t * example\
+              \ pushing a button. For now run all streams all the time.\n\t */\n\n\
+              \tfor (unsigned int i = 0; i < nbuffers; i++) {\n\t\tstd::unique_ptr<Request>\
+              \ request = camera_->createRequest();\n\t\tif (!request) {\n\t\t\tstd::cerr\
+              \ << \"Can't create request\" << std::endl;\n\t\t\treturn -ENOMEM;\n\
+              \t\t}\n\n\t\tfor (StreamConfiguration &cfg : *config_) {\n\t\t\tStream\
+              \ *stream = cfg.stream();\n\t\t\tconst std::vector<std::unique_ptr<FrameBuffer>>\
+              \ &buffers =\n\t\t\t\tallocator_->buffers(stream);\n\t\t\tconst std::unique_ptr<FrameBuffer>\
+              \ &buffer = buffers[i];\n\n\t\t\tret = request->addBuffer(stream, buffer.get());\n\
+              \t\t\tif (ret < 0) {\n\t\t\t\tstd::cerr << \"Can't set buffer for request\"\
+              \n\t\t\t\t\t  << std::endl;\n\t\t\t\treturn ret;\n\t\t\t}\n\n\t\t\t\
+              if (sink_)\n\t\t\t\tsink_->mapBuffer(buffer.get());\n\t\t}\n\n\t\trequests_.push_back(std::move(request));\n\
+              \t}\n\n\tif (sink_) {\n\t\tret = sink_->start();\n\t\tif (ret) {\n\t\
+              \t\tstd::cout << \"Failed to start frame sink\" << std::endl;\n\t\t\t\
+              return ret;\n\t\t}\n\t}\n\n\tret = camera_->start();\n\tif (ret) {\n\
+              \t\tstd::cout << \"Failed to start capture\" << std::endl;\n\t\tif (sink_)\n\
+              \t\t\tsink_->stop();\n\t\treturn ret;\n\t}\n\n\tfor (std::unique_ptr<Request>\
+              \ &request : requests_) {\n\t\tret = queueRequest(request.get());\n\t\
+              \tif (ret < 0) {\n\t\t\tstd::cerr << \"Can't queue request\" << std::endl;\n\
+              \t\t\tcamera_->stop();\n\t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\
+              \t\treturn ret;\n\t\t}\n\t}\n\n\tif (captureLimit_)\n\t\tstd::cout <<\
+              \ \"cam\" << cameraIndex_\n\t\t\t  << \": Capture \" << captureLimit_\
+              \ << \" frames\"\n\t\t\t  << std::endl;\n\telse\n\t\tstd::cout << \"\
+              cam\" << cameraIndex_\n\t\t\t  << \": Capture until user interrupts\
+              \ by SIGINT\"\n\t\t\t  << std::endl;\n\n\treturn 0;\n}\n\nint CameraSession::queueRequest(Request\
+              \ *request)\n{\n\tif (captureLimit_ && queueCount_ >= captureLimit_)\n\
+              \t\treturn 0;\n\n\tif (script_)\n\t\trequest->controls().merge(script_->frameControls(queueCount_),\n\
+              \t\t\t\t\t  ControlList::MergePolicy::OverwriteExisting);\n\n\tqueueCount_++;\n\
+              \n\treturn camera_->queueRequest(request);\n}\n\nvoid CameraSession::requestComplete("
+        - id: control_merge
+          label: 스크립트 있을 때만 제어 병합, 큐 API 호출 시도 횟수는 항상 1 증가
+          label_en: Merge controls only if script exists; always +1 queue API call
+            attempts
           shape: box
           evidence:
           - source: initial-submission/cam-request-buffers
             sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: queueCount_++;
-          - source: initial-submission/cam-request-buffers
-            sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: 'return camera_->queueRequest(request);
-
-              }'
+            quote: "int CameraSession::startCapture()\n{\n\tint ret;\n\n\t/* Identify\
+              \ the stream with the least number of buffers. */\n\tunsigned int nbuffers\
+              \ = UINT_MAX;\n\tfor (StreamConfiguration &cfg : *config_) {\n\t\tret\
+              \ = allocator_->allocate(cfg.stream());\n\t\tif (ret < 0) {\n\t\t\t\
+              std::cerr << \"Can't allocate buffers\" << std::endl;\n\t\t\treturn\
+              \ -ENOMEM;\n\t\t}\n\n\t\tunsigned int allocated = allocator_->buffers(cfg.stream()).size();\n\
+              \t\tnbuffers = std::min(nbuffers, allocated);\n\t}\n\n\t/*\n\t * TODO:\
+              \ make cam tool smarter to support still capture by for\n\t * example\
+              \ pushing a button. For now run all streams all the time.\n\t */\n\n\
+              \tfor (unsigned int i = 0; i < nbuffers; i++) {\n\t\tstd::unique_ptr<Request>\
+              \ request = camera_->createRequest();\n\t\tif (!request) {\n\t\t\tstd::cerr\
+              \ << \"Can't create request\" << std::endl;\n\t\t\treturn -ENOMEM;\n\
+              \t\t}\n\n\t\tfor (StreamConfiguration &cfg : *config_) {\n\t\t\tStream\
+              \ *stream = cfg.stream();\n\t\t\tconst std::vector<std::unique_ptr<FrameBuffer>>\
+              \ &buffers =\n\t\t\t\tallocator_->buffers(stream);\n\t\t\tconst std::unique_ptr<FrameBuffer>\
+              \ &buffer = buffers[i];\n\n\t\t\tret = request->addBuffer(stream, buffer.get());\n\
+              \t\t\tif (ret < 0) {\n\t\t\t\tstd::cerr << \"Can't set buffer for request\"\
+              \n\t\t\t\t\t  << std::endl;\n\t\t\t\treturn ret;\n\t\t\t}\n\n\t\t\t\
+              if (sink_)\n\t\t\t\tsink_->mapBuffer(buffer.get());\n\t\t}\n\n\t\trequests_.push_back(std::move(request));\n\
+              \t}\n\n\tif (sink_) {\n\t\tret = sink_->start();\n\t\tif (ret) {\n\t\
+              \t\tstd::cout << \"Failed to start frame sink\" << std::endl;\n\t\t\t\
+              return ret;\n\t\t}\n\t}\n\n\tret = camera_->start();\n\tif (ret) {\n\
+              \t\tstd::cout << \"Failed to start capture\" << std::endl;\n\t\tif (sink_)\n\
+              \t\t\tsink_->stop();\n\t\treturn ret;\n\t}\n\n\tfor (std::unique_ptr<Request>\
+              \ &request : requests_) {\n\t\tret = queueRequest(request.get());\n\t\
+              \tif (ret < 0) {\n\t\t\tstd::cerr << \"Can't queue request\" << std::endl;\n\
+              \t\t\tcamera_->stop();\n\t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\
+              \t\treturn ret;\n\t\t}\n\t}\n\n\tif (captureLimit_)\n\t\tstd::cout <<\
+              \ \"cam\" << cameraIndex_\n\t\t\t  << \": Capture \" << captureLimit_\
+              \ << \" frames\"\n\t\t\t  << std::endl;\n\telse\n\t\tstd::cout << \"\
+              cam\" << cameraIndex_\n\t\t\t  << \": Capture until user interrupts\
+              \ by SIGINT\"\n\t\t\t  << std::endl;\n\n\treturn 0;\n}\n\nint CameraSession::queueRequest(Request\
+              \ *request)\n{\n\tif (captureLimit_ && queueCount_ >= captureLimit_)\n\
+              \t\treturn 0;\n\n\tif (script_)\n\t\trequest->controls().merge(script_->frameControls(queueCount_),\n\
+              \t\t\t\t\t  ControlList::MergePolicy::OverwriteExisting);\n\n\tqueueCount_++;\n\
+              \n\treturn camera_->queueRequest(request);\n}\n\nvoid CameraSession::requestComplete("
+        - id: camera_queue_check
+          label: 카메라 실행 상태, 요청 소유, 요청 유효성 검사 통과 여부
+          label_en: Check camera Running state, request owner, request validity
+          shape: decision
+          evidence:
           - source: initial-submission/camera-queue
             sha256: 886535d24df67a4b6f18fd5ed7b1db02e74e189ebfcb7ddd396eb86cf30980ef
             quote: "int Camera::queueRequest(Request *request)\n{\n\tPrivate *const\
@@ -2818,37 +2972,9 @@ generated_visuals:
               \ shall be\n * synchronized by the caller with other functions that\
               \ affect the camera\n * state.\n *\n * \\return 0 on success or a negative\
               \ error code otherwise"
-        - id: helper_ret
-          label: 제출 결과 음수 오류 판정
-          label_en: Check submit result for negative error
-          shape: decision
-          evidence:
-          - source: initial-submission/cam-request-buffers
-            sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "for (std::unique_ptr<Request> &request : requests_) {\n\t\tret\
-              \ = queueRequest(request.get());\n\t\tif (ret < 0) {\n\t\t\tstd::cerr\
-              \ << \"Can't queue request\" << std::endl;\n\t\t\tcamera_->stop();\n\
-              \t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\t\treturn ret;\n\t\t}\n\
-              \t}"
-          - source: initial-submission/cam-request-buffers
-            sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "int CameraSession::queueRequest(Request *request)\n{\n\tif (captureLimit_\
-              \ && queueCount_ >= captureLimit_)\n\t\treturn 0;"
-        - id: stop_err
-          label: 이미 시작한 카메라 중지, sink_가 있으면 중지, 제출 오류 반환
-          label_en: Stop started camera, sink_ if any; return error
-          shape: box
-          evidence:
-          - source: initial-submission/cam-request-buffers
-            sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "for (std::unique_ptr<Request> &request : requests_) {\n\t\tret\
-              \ = queueRequest(request.get());\n\t\tif (ret < 0) {\n\t\t\tstd::cerr\
-              \ << \"Can't queue request\" << std::endl;\n\t\t\tcamera_->stop();\n\
-              \t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\t\treturn ret;\n\t\t}\n\
-              \t}"
-        - id: ok_result
-          label: 비동기 호출 등록됨, 0 반환 결과
-          label_en: Async call scheduled; returns 0
+        - id: queue_error
+          label: 검사 실패 시 음수 오류 코드 반환
+          label_en: On check failure, return negative error code
           shape: box
           evidence:
           - source: initial-submission/camera-queue
@@ -2885,23 +3011,174 @@ generated_visuals:
               \ shall be\n * synchronized by the caller with other functions that\
               \ affect the camera\n * state.\n *\n * \\return 0 on success or a negative\
               \ error code otherwise"
+        - id: queue_async
+          label: 파이프라인 큐 호출을 비동기로 등록하고 API는 0 반환
+          label_en: Async pipeline queue call scheduled; API returns 0
+          shape: box
+          evidence:
+          - source: initial-submission/camera-queue
+            sha256: 886535d24df67a4b6f18fd5ed7b1db02e74e189ebfcb7ddd396eb86cf30980ef
+            quote: "int Camera::queueRequest(Request *request)\n{\n\tPrivate *const\
+              \ d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\
+              \tif (ret < 0)\n\t\treturn ret;\n\n\t/* Requests can only be queued\
+              \ to the camera that created them. */\n\tif (request->_d()->camera()\
+              \ != this) {\n\t\tLOG(Camera, Error) << \"Request was not created by\
+              \ this camera\";\n\t\treturn -EXDEV;\n\t}\n\n\tif (request->status()\
+              \ != Request::RequestPending) {\n\t\tLOG(Camera, Error) << request->toString()\
+              \ << \" is not valid\";\n\t\treturn -EINVAL;\n\t}\n\n\t/* Make sure\
+              \ the Request has a valid control list. */\n\tif (request->controls().infoMap()\
+              \ != &controls()) {\n\t\tLOG(Camera, Error) << \"Overwriting Request::controls()\
+              \ is not allowed\";\n\t\treturn -EINVAL;\n\t}\n\n\t/*\n\t * The camera\
+              \ state may change until the end of the function. No locking\n\t * is\
+              \ however needed as PipelineHandler::queueRequest() will handle\n\t\
+              \ * this.\n\t */\n\n\tif (request->buffers().empty()) {\n\t\tLOG(Camera,\
+              \ Error) << \"Request contains no buffers\";\n\t\treturn -EINVAL;\n\t\
+              }\n\n\tfor (const auto &[stream, buffer] : request->buffers()) {\n\t\
+              \tif (d->activeStreams_.find(stream) == d->activeStreams_.end()) {\n\
+              \t\t\tLOG(Camera, Error) << \"Invalid request\";\n\t\t\treturn -EINVAL;\n\
+              \t\t}\n\t}\n\n\t/* Pre-process AeEnable. */\n\tpatchControlList(request->controls());\n\
+              \n\td->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t \
+              \      ConnectionTypeQueued, request);\n\n\treturn 0;\n}\n\n/**\n *\
+              \ \\brief Start capture from camera\n * \\param[in] controls Controls\
+              \ to be applied before starting the Camera\n *\n * Start the camera\
+              \ capture session, optionally providing a list of controls to\n * apply\
+              \ before starting. Once the camera is started the application can queue\n\
+              \ * requests to the camera to process and return to the application\
+              \ until the\n * capture session is terminated with \\a stop().\n *\n\
+              \ * \\context This function may only be called when the camera is in\
+              \ the\n * Configured state as defined in \\ref camera_operation, and\
+              \ shall be\n * synchronized by the caller with other functions that\
+              \ affect the camera\n * state.\n *\n * \\return 0 on success or a negative\
+              \ error code otherwise"
+        - id: caller_check
+          label: queueRequest 결과가 음수 오류인지 확인
+          label_en: Check if queueRequest result is a negative error
+          shape: decision
+          evidence:
           - source: initial-submission/cam-request-buffers
             sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: 'return camera_->queueRequest(request);
-
-              }'
+            quote: "int CameraSession::startCapture()\n{\n\tint ret;\n\n\t/* Identify\
+              \ the stream with the least number of buffers. */\n\tunsigned int nbuffers\
+              \ = UINT_MAX;\n\tfor (StreamConfiguration &cfg : *config_) {\n\t\tret\
+              \ = allocator_->allocate(cfg.stream());\n\t\tif (ret < 0) {\n\t\t\t\
+              std::cerr << \"Can't allocate buffers\" << std::endl;\n\t\t\treturn\
+              \ -ENOMEM;\n\t\t}\n\n\t\tunsigned int allocated = allocator_->buffers(cfg.stream()).size();\n\
+              \t\tnbuffers = std::min(nbuffers, allocated);\n\t}\n\n\t/*\n\t * TODO:\
+              \ make cam tool smarter to support still capture by for\n\t * example\
+              \ pushing a button. For now run all streams all the time.\n\t */\n\n\
+              \tfor (unsigned int i = 0; i < nbuffers; i++) {\n\t\tstd::unique_ptr<Request>\
+              \ request = camera_->createRequest();\n\t\tif (!request) {\n\t\t\tstd::cerr\
+              \ << \"Can't create request\" << std::endl;\n\t\t\treturn -ENOMEM;\n\
+              \t\t}\n\n\t\tfor (StreamConfiguration &cfg : *config_) {\n\t\t\tStream\
+              \ *stream = cfg.stream();\n\t\t\tconst std::vector<std::unique_ptr<FrameBuffer>>\
+              \ &buffers =\n\t\t\t\tallocator_->buffers(stream);\n\t\t\tconst std::unique_ptr<FrameBuffer>\
+              \ &buffer = buffers[i];\n\n\t\t\tret = request->addBuffer(stream, buffer.get());\n\
+              \t\t\tif (ret < 0) {\n\t\t\t\tstd::cerr << \"Can't set buffer for request\"\
+              \n\t\t\t\t\t  << std::endl;\n\t\t\t\treturn ret;\n\t\t\t}\n\n\t\t\t\
+              if (sink_)\n\t\t\t\tsink_->mapBuffer(buffer.get());\n\t\t}\n\n\t\trequests_.push_back(std::move(request));\n\
+              \t}\n\n\tif (sink_) {\n\t\tret = sink_->start();\n\t\tif (ret) {\n\t\
+              \t\tstd::cout << \"Failed to start frame sink\" << std::endl;\n\t\t\t\
+              return ret;\n\t\t}\n\t}\n\n\tret = camera_->start();\n\tif (ret) {\n\
+              \t\tstd::cout << \"Failed to start capture\" << std::endl;\n\t\tif (sink_)\n\
+              \t\t\tsink_->stop();\n\t\treturn ret;\n\t}\n\n\tfor (std::unique_ptr<Request>\
+              \ &request : requests_) {\n\t\tret = queueRequest(request.get());\n\t\
+              \tif (ret < 0) {\n\t\t\tstd::cerr << \"Can't queue request\" << std::endl;\n\
+              \t\t\tcamera_->stop();\n\t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\
+              \t\treturn ret;\n\t\t}\n\t}\n\n\tif (captureLimit_)\n\t\tstd::cout <<\
+              \ \"cam\" << cameraIndex_\n\t\t\t  << \": Capture \" << captureLimit_\
+              \ << \" frames\"\n\t\t\t  << std::endl;\n\telse\n\t\tstd::cout << \"\
+              cam\" << cameraIndex_\n\t\t\t  << \": Capture until user interrupts\
+              \ by SIGINT\"\n\t\t\t  << std::endl;\n\n\treturn 0;\n}\n\nint CameraSession::queueRequest(Request\
+              \ *request)\n{\n\tif (captureLimit_ && queueCount_ >= captureLimit_)\n\
+              \t\treturn 0;\n\n\tif (script_)\n\t\trequest->controls().merge(script_->frameControls(queueCount_),\n\
+              \t\t\t\t\t  ControlList::MergePolicy::OverwriteExisting);\n\n\tqueueCount_++;\n\
+              \n\treturn camera_->queueRequest(request);\n}\n\nvoid CameraSession::requestComplete("
+        - id: stop_on_error
+          label: 카메라를 중지하고, sink가 있으면 중지한 뒤 오류 반환
+          label_en: Stop camera, stop sink if present, then return error
+          shape: box
+          evidence:
+          - source: initial-submission/cam-request-buffers
+            sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
+            quote: "int CameraSession::startCapture()\n{\n\tint ret;\n\n\t/* Identify\
+              \ the stream with the least number of buffers. */\n\tunsigned int nbuffers\
+              \ = UINT_MAX;\n\tfor (StreamConfiguration &cfg : *config_) {\n\t\tret\
+              \ = allocator_->allocate(cfg.stream());\n\t\tif (ret < 0) {\n\t\t\t\
+              std::cerr << \"Can't allocate buffers\" << std::endl;\n\t\t\treturn\
+              \ -ENOMEM;\n\t\t}\n\n\t\tunsigned int allocated = allocator_->buffers(cfg.stream()).size();\n\
+              \t\tnbuffers = std::min(nbuffers, allocated);\n\t}\n\n\t/*\n\t * TODO:\
+              \ make cam tool smarter to support still capture by for\n\t * example\
+              \ pushing a button. For now run all streams all the time.\n\t */\n\n\
+              \tfor (unsigned int i = 0; i < nbuffers; i++) {\n\t\tstd::unique_ptr<Request>\
+              \ request = camera_->createRequest();\n\t\tif (!request) {\n\t\t\tstd::cerr\
+              \ << \"Can't create request\" << std::endl;\n\t\t\treturn -ENOMEM;\n\
+              \t\t}\n\n\t\tfor (StreamConfiguration &cfg : *config_) {\n\t\t\tStream\
+              \ *stream = cfg.stream();\n\t\t\tconst std::vector<std::unique_ptr<FrameBuffer>>\
+              \ &buffers =\n\t\t\t\tallocator_->buffers(stream);\n\t\t\tconst std::unique_ptr<FrameBuffer>\
+              \ &buffer = buffers[i];\n\n\t\t\tret = request->addBuffer(stream, buffer.get());\n\
+              \t\t\tif (ret < 0) {\n\t\t\t\tstd::cerr << \"Can't set buffer for request\"\
+              \n\t\t\t\t\t  << std::endl;\n\t\t\t\treturn ret;\n\t\t\t}\n\n\t\t\t\
+              if (sink_)\n\t\t\t\tsink_->mapBuffer(buffer.get());\n\t\t}\n\n\t\trequests_.push_back(std::move(request));\n\
+              \t}\n\n\tif (sink_) {\n\t\tret = sink_->start();\n\t\tif (ret) {\n\t\
+              \t\tstd::cout << \"Failed to start frame sink\" << std::endl;\n\t\t\t\
+              return ret;\n\t\t}\n\t}\n\n\tret = camera_->start();\n\tif (ret) {\n\
+              \t\tstd::cout << \"Failed to start capture\" << std::endl;\n\t\tif (sink_)\n\
+              \t\t\tsink_->stop();\n\t\treturn ret;\n\t}\n\n\tfor (std::unique_ptr<Request>\
+              \ &request : requests_) {\n\t\tret = queueRequest(request.get());\n\t\
+              \tif (ret < 0) {\n\t\t\tstd::cerr << \"Can't queue request\" << std::endl;\n\
+              \t\t\tcamera_->stop();\n\t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\
+              \t\treturn ret;\n\t\t}\n\t}\n\n\tif (captureLimit_)\n\t\tstd::cout <<\
+              \ \"cam\" << cameraIndex_\n\t\t\t  << \": Capture \" << captureLimit_\
+              \ << \" frames\"\n\t\t\t  << std::endl;\n\telse\n\t\tstd::cout << \"\
+              cam\" << cameraIndex_\n\t\t\t  << \": Capture until user interrupts\
+              \ by SIGINT\"\n\t\t\t  << std::endl;\n\n\treturn 0;\n}\n\nint CameraSession::queueRequest(Request\
+              \ *request)\n{\n\tif (captureLimit_ && queueCount_ >= captureLimit_)\n\
+              \t\treturn 0;\n\n\tif (script_)\n\t\trequest->controls().merge(script_->frameControls(queueCount_),\n\
+              \t\t\t\t\t  ControlList::MergePolicy::OverwriteExisting);\n\n\tqueueCount_++;\n\
+              \n\treturn camera_->queueRequest(request);\n}\n\nvoid CameraSession::requestComplete("
         - id: done
-          label: 남은 초기 요청 없으면 순회 정상 종료
-          label_en: No initial requests left; loop ends normally
+          label: 요청 순회 정상 종료, 한도 유무별 캡처 안내 출력 후 0 반환
+          label_en: Loop ends normally; print capture notice by limit, return 0
           shape: box
           evidence:
           - source: initial-submission/cam-request-buffers
             sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "for (std::unique_ptr<Request> &request : requests_) {\n\t\tret\
-              \ = queueRequest(request.get());\n\t\tif (ret < 0) {\n\t\t\tstd::cerr\
-              \ << \"Can't queue request\" << std::endl;\n\t\t\tcamera_->stop();\n\
-              \t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\t\treturn ret;\n\t\t}\n\
-              \t}"
+            quote: "int CameraSession::startCapture()\n{\n\tint ret;\n\n\t/* Identify\
+              \ the stream with the least number of buffers. */\n\tunsigned int nbuffers\
+              \ = UINT_MAX;\n\tfor (StreamConfiguration &cfg : *config_) {\n\t\tret\
+              \ = allocator_->allocate(cfg.stream());\n\t\tif (ret < 0) {\n\t\t\t\
+              std::cerr << \"Can't allocate buffers\" << std::endl;\n\t\t\treturn\
+              \ -ENOMEM;\n\t\t}\n\n\t\tunsigned int allocated = allocator_->buffers(cfg.stream()).size();\n\
+              \t\tnbuffers = std::min(nbuffers, allocated);\n\t}\n\n\t/*\n\t * TODO:\
+              \ make cam tool smarter to support still capture by for\n\t * example\
+              \ pushing a button. For now run all streams all the time.\n\t */\n\n\
+              \tfor (unsigned int i = 0; i < nbuffers; i++) {\n\t\tstd::unique_ptr<Request>\
+              \ request = camera_->createRequest();\n\t\tif (!request) {\n\t\t\tstd::cerr\
+              \ << \"Can't create request\" << std::endl;\n\t\t\treturn -ENOMEM;\n\
+              \t\t}\n\n\t\tfor (StreamConfiguration &cfg : *config_) {\n\t\t\tStream\
+              \ *stream = cfg.stream();\n\t\t\tconst std::vector<std::unique_ptr<FrameBuffer>>\
+              \ &buffers =\n\t\t\t\tallocator_->buffers(stream);\n\t\t\tconst std::unique_ptr<FrameBuffer>\
+              \ &buffer = buffers[i];\n\n\t\t\tret = request->addBuffer(stream, buffer.get());\n\
+              \t\t\tif (ret < 0) {\n\t\t\t\tstd::cerr << \"Can't set buffer for request\"\
+              \n\t\t\t\t\t  << std::endl;\n\t\t\t\treturn ret;\n\t\t\t}\n\n\t\t\t\
+              if (sink_)\n\t\t\t\tsink_->mapBuffer(buffer.get());\n\t\t}\n\n\t\trequests_.push_back(std::move(request));\n\
+              \t}\n\n\tif (sink_) {\n\t\tret = sink_->start();\n\t\tif (ret) {\n\t\
+              \t\tstd::cout << \"Failed to start frame sink\" << std::endl;\n\t\t\t\
+              return ret;\n\t\t}\n\t}\n\n\tret = camera_->start();\n\tif (ret) {\n\
+              \t\tstd::cout << \"Failed to start capture\" << std::endl;\n\t\tif (sink_)\n\
+              \t\t\tsink_->stop();\n\t\treturn ret;\n\t}\n\n\tfor (std::unique_ptr<Request>\
+              \ &request : requests_) {\n\t\tret = queueRequest(request.get());\n\t\
+              \tif (ret < 0) {\n\t\t\tstd::cerr << \"Can't queue request\" << std::endl;\n\
+              \t\t\tcamera_->stop();\n\t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\
+              \t\treturn ret;\n\t\t}\n\t}\n\n\tif (captureLimit_)\n\t\tstd::cout <<\
+              \ \"cam\" << cameraIndex_\n\t\t\t  << \": Capture \" << captureLimit_\
+              \ << \" frames\"\n\t\t\t  << std::endl;\n\telse\n\t\tstd::cout << \"\
+              cam\" << cameraIndex_\n\t\t\t  << \": Capture until user interrupts\
+              \ by SIGINT\"\n\t\t\t  << std::endl;\n\n\treturn 0;\n}\n\nint CameraSession::queueRequest(Request\
+              \ *request)\n{\n\tif (captureLimit_ && queueCount_ >= captureLimit_)\n\
+              \t\treturn 0;\n\n\tif (script_)\n\t\trequest->controls().merge(script_->frameControls(queueCount_),\n\
+              \t\t\t\t\t  ControlList::MergePolicy::OverwriteExisting);\n\n\tqueueCount_++;\n\
+              \n\treturn camera_->queueRequest(request);\n}\n\nvoid CameraSession::requestComplete("
         edges:
         - from: start_check
           to: start_fail
@@ -2910,9 +3187,42 @@ generated_visuals:
           evidence:
           - source: initial-submission/cam-request-buffers
             sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "ret = camera_->start();\n\tif (ret) {\n\t\tstd::cout << \"Failed\
-              \ to start capture\" << std::endl;\n\t\tif (sink_)\n\t\t\tsink_->stop();\n\
-              \t\treturn ret;\n\t}"
+            quote: "int CameraSession::startCapture()\n{\n\tint ret;\n\n\t/* Identify\
+              \ the stream with the least number of buffers. */\n\tunsigned int nbuffers\
+              \ = UINT_MAX;\n\tfor (StreamConfiguration &cfg : *config_) {\n\t\tret\
+              \ = allocator_->allocate(cfg.stream());\n\t\tif (ret < 0) {\n\t\t\t\
+              std::cerr << \"Can't allocate buffers\" << std::endl;\n\t\t\treturn\
+              \ -ENOMEM;\n\t\t}\n\n\t\tunsigned int allocated = allocator_->buffers(cfg.stream()).size();\n\
+              \t\tnbuffers = std::min(nbuffers, allocated);\n\t}\n\n\t/*\n\t * TODO:\
+              \ make cam tool smarter to support still capture by for\n\t * example\
+              \ pushing a button. For now run all streams all the time.\n\t */\n\n\
+              \tfor (unsigned int i = 0; i < nbuffers; i++) {\n\t\tstd::unique_ptr<Request>\
+              \ request = camera_->createRequest();\n\t\tif (!request) {\n\t\t\tstd::cerr\
+              \ << \"Can't create request\" << std::endl;\n\t\t\treturn -ENOMEM;\n\
+              \t\t}\n\n\t\tfor (StreamConfiguration &cfg : *config_) {\n\t\t\tStream\
+              \ *stream = cfg.stream();\n\t\t\tconst std::vector<std::unique_ptr<FrameBuffer>>\
+              \ &buffers =\n\t\t\t\tallocator_->buffers(stream);\n\t\t\tconst std::unique_ptr<FrameBuffer>\
+              \ &buffer = buffers[i];\n\n\t\t\tret = request->addBuffer(stream, buffer.get());\n\
+              \t\t\tif (ret < 0) {\n\t\t\t\tstd::cerr << \"Can't set buffer for request\"\
+              \n\t\t\t\t\t  << std::endl;\n\t\t\t\treturn ret;\n\t\t\t}\n\n\t\t\t\
+              if (sink_)\n\t\t\t\tsink_->mapBuffer(buffer.get());\n\t\t}\n\n\t\trequests_.push_back(std::move(request));\n\
+              \t}\n\n\tif (sink_) {\n\t\tret = sink_->start();\n\t\tif (ret) {\n\t\
+              \t\tstd::cout << \"Failed to start frame sink\" << std::endl;\n\t\t\t\
+              return ret;\n\t\t}\n\t}\n\n\tret = camera_->start();\n\tif (ret) {\n\
+              \t\tstd::cout << \"Failed to start capture\" << std::endl;\n\t\tif (sink_)\n\
+              \t\t\tsink_->stop();\n\t\treturn ret;\n\t}\n\n\tfor (std::unique_ptr<Request>\
+              \ &request : requests_) {\n\t\tret = queueRequest(request.get());\n\t\
+              \tif (ret < 0) {\n\t\t\tstd::cerr << \"Can't queue request\" << std::endl;\n\
+              \t\t\tcamera_->stop();\n\t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\
+              \t\treturn ret;\n\t\t}\n\t}\n\n\tif (captureLimit_)\n\t\tstd::cout <<\
+              \ \"cam\" << cameraIndex_\n\t\t\t  << \": Capture \" << captureLimit_\
+              \ << \" frames\"\n\t\t\t  << std::endl;\n\telse\n\t\tstd::cout << \"\
+              cam\" << cameraIndex_\n\t\t\t  << \": Capture until user interrupts\
+              \ by SIGINT\"\n\t\t\t  << std::endl;\n\n\treturn 0;\n}\n\nint CameraSession::queueRequest(Request\
+              \ *request)\n{\n\tif (captureLimit_ && queueCount_ >= captureLimit_)\n\
+              \t\treturn 0;\n\n\tif (script_)\n\t\trequest->controls().merge(script_->frameControls(queueCount_),\n\
+              \t\t\t\t\t  ControlList::MergePolicy::OverwriteExisting);\n\n\tqueueCount_++;\n\
+              \n\treturn camera_->queueRequest(request);\n}\n\nvoid CameraSession::requestComplete("
           - source: initial-submission/camera-queue
             sha256: 886535d24df67a4b6f18fd5ed7b1db02e74e189ebfcb7ddd396eb86cf30980ef
             quote: "int Camera::queueRequest(Request *request)\n{\n\tPrivate *const\
@@ -2956,16 +3266,42 @@ generated_visuals:
           evidence:
           - source: initial-submission/cam-request-buffers
             sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "ret = camera_->start();\n\tif (ret) {\n\t\tstd::cout << \"Failed\
-              \ to start capture\" << std::endl;\n\t\tif (sink_)\n\t\t\tsink_->stop();\n\
-              \t\treturn ret;\n\t}"
-          - source: initial-submission/cam-request-buffers
-            sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "for (std::unique_ptr<Request> &request : requests_) {\n\t\tret\
-              \ = queueRequest(request.get());\n\t\tif (ret < 0) {\n\t\t\tstd::cerr\
-              \ << \"Can't queue request\" << std::endl;\n\t\t\tcamera_->stop();\n\
-              \t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\t\treturn ret;\n\t\t}\n\
-              \t}"
+            quote: "int CameraSession::startCapture()\n{\n\tint ret;\n\n\t/* Identify\
+              \ the stream with the least number of buffers. */\n\tunsigned int nbuffers\
+              \ = UINT_MAX;\n\tfor (StreamConfiguration &cfg : *config_) {\n\t\tret\
+              \ = allocator_->allocate(cfg.stream());\n\t\tif (ret < 0) {\n\t\t\t\
+              std::cerr << \"Can't allocate buffers\" << std::endl;\n\t\t\treturn\
+              \ -ENOMEM;\n\t\t}\n\n\t\tunsigned int allocated = allocator_->buffers(cfg.stream()).size();\n\
+              \t\tnbuffers = std::min(nbuffers, allocated);\n\t}\n\n\t/*\n\t * TODO:\
+              \ make cam tool smarter to support still capture by for\n\t * example\
+              \ pushing a button. For now run all streams all the time.\n\t */\n\n\
+              \tfor (unsigned int i = 0; i < nbuffers; i++) {\n\t\tstd::unique_ptr<Request>\
+              \ request = camera_->createRequest();\n\t\tif (!request) {\n\t\t\tstd::cerr\
+              \ << \"Can't create request\" << std::endl;\n\t\t\treturn -ENOMEM;\n\
+              \t\t}\n\n\t\tfor (StreamConfiguration &cfg : *config_) {\n\t\t\tStream\
+              \ *stream = cfg.stream();\n\t\t\tconst std::vector<std::unique_ptr<FrameBuffer>>\
+              \ &buffers =\n\t\t\t\tallocator_->buffers(stream);\n\t\t\tconst std::unique_ptr<FrameBuffer>\
+              \ &buffer = buffers[i];\n\n\t\t\tret = request->addBuffer(stream, buffer.get());\n\
+              \t\t\tif (ret < 0) {\n\t\t\t\tstd::cerr << \"Can't set buffer for request\"\
+              \n\t\t\t\t\t  << std::endl;\n\t\t\t\treturn ret;\n\t\t\t}\n\n\t\t\t\
+              if (sink_)\n\t\t\t\tsink_->mapBuffer(buffer.get());\n\t\t}\n\n\t\trequests_.push_back(std::move(request));\n\
+              \t}\n\n\tif (sink_) {\n\t\tret = sink_->start();\n\t\tif (ret) {\n\t\
+              \t\tstd::cout << \"Failed to start frame sink\" << std::endl;\n\t\t\t\
+              return ret;\n\t\t}\n\t}\n\n\tret = camera_->start();\n\tif (ret) {\n\
+              \t\tstd::cout << \"Failed to start capture\" << std::endl;\n\t\tif (sink_)\n\
+              \t\t\tsink_->stop();\n\t\treturn ret;\n\t}\n\n\tfor (std::unique_ptr<Request>\
+              \ &request : requests_) {\n\t\tret = queueRequest(request.get());\n\t\
+              \tif (ret < 0) {\n\t\t\tstd::cerr << \"Can't queue request\" << std::endl;\n\
+              \t\t\tcamera_->stop();\n\t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\
+              \t\treturn ret;\n\t\t}\n\t}\n\n\tif (captureLimit_)\n\t\tstd::cout <<\
+              \ \"cam\" << cameraIndex_\n\t\t\t  << \": Capture \" << captureLimit_\
+              \ << \" frames\"\n\t\t\t  << std::endl;\n\telse\n\t\tstd::cout << \"\
+              cam\" << cameraIndex_\n\t\t\t  << \": Capture until user interrupts\
+              \ by SIGINT\"\n\t\t\t  << std::endl;\n\n\treturn 0;\n}\n\nint CameraSession::queueRequest(Request\
+              \ *request)\n{\n\tif (captureLimit_ && queueCount_ >= captureLimit_)\n\
+              \t\treturn 0;\n\n\tif (script_)\n\t\trequest->controls().merge(script_->frameControls(queueCount_),\n\
+              \t\t\t\t\t  ControlList::MergePolicy::OverwriteExisting);\n\n\tqueueCount_++;\n\
+              \n\treturn camera_->queueRequest(request);\n}\n\nvoid CameraSession::requestComplete("
           - source: initial-submission/camera-queue
             sha256: 886535d24df67a4b6f18fd5ed7b1db02e74e189ebfcb7ddd396eb86cf30980ef
             quote: "int Camera::queueRequest(Request *request)\n{\n\tPrivate *const\
@@ -3005,19 +3341,46 @@ generated_visuals:
         - from: remaining
           to: limit_check
           label: 요청 남음
-          label_en: request remains
+          label_en: requests remain
           evidence:
           - source: initial-submission/cam-request-buffers
             sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "for (std::unique_ptr<Request> &request : requests_) {\n\t\tret\
-              \ = queueRequest(request.get());\n\t\tif (ret < 0) {\n\t\t\tstd::cerr\
-              \ << \"Can't queue request\" << std::endl;\n\t\t\tcamera_->stop();\n\
-              \t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\t\treturn ret;\n\t\t}\n\
-              \t}"
-          - source: initial-submission/cam-request-buffers
-            sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "int CameraSession::queueRequest(Request *request)\n{\n\tif (captureLimit_\
-              \ && queueCount_ >= captureLimit_)\n\t\treturn 0;"
+            quote: "int CameraSession::startCapture()\n{\n\tint ret;\n\n\t/* Identify\
+              \ the stream with the least number of buffers. */\n\tunsigned int nbuffers\
+              \ = UINT_MAX;\n\tfor (StreamConfiguration &cfg : *config_) {\n\t\tret\
+              \ = allocator_->allocate(cfg.stream());\n\t\tif (ret < 0) {\n\t\t\t\
+              std::cerr << \"Can't allocate buffers\" << std::endl;\n\t\t\treturn\
+              \ -ENOMEM;\n\t\t}\n\n\t\tunsigned int allocated = allocator_->buffers(cfg.stream()).size();\n\
+              \t\tnbuffers = std::min(nbuffers, allocated);\n\t}\n\n\t/*\n\t * TODO:\
+              \ make cam tool smarter to support still capture by for\n\t * example\
+              \ pushing a button. For now run all streams all the time.\n\t */\n\n\
+              \tfor (unsigned int i = 0; i < nbuffers; i++) {\n\t\tstd::unique_ptr<Request>\
+              \ request = camera_->createRequest();\n\t\tif (!request) {\n\t\t\tstd::cerr\
+              \ << \"Can't create request\" << std::endl;\n\t\t\treturn -ENOMEM;\n\
+              \t\t}\n\n\t\tfor (StreamConfiguration &cfg : *config_) {\n\t\t\tStream\
+              \ *stream = cfg.stream();\n\t\t\tconst std::vector<std::unique_ptr<FrameBuffer>>\
+              \ &buffers =\n\t\t\t\tallocator_->buffers(stream);\n\t\t\tconst std::unique_ptr<FrameBuffer>\
+              \ &buffer = buffers[i];\n\n\t\t\tret = request->addBuffer(stream, buffer.get());\n\
+              \t\t\tif (ret < 0) {\n\t\t\t\tstd::cerr << \"Can't set buffer for request\"\
+              \n\t\t\t\t\t  << std::endl;\n\t\t\t\treturn ret;\n\t\t\t}\n\n\t\t\t\
+              if (sink_)\n\t\t\t\tsink_->mapBuffer(buffer.get());\n\t\t}\n\n\t\trequests_.push_back(std::move(request));\n\
+              \t}\n\n\tif (sink_) {\n\t\tret = sink_->start();\n\t\tif (ret) {\n\t\
+              \t\tstd::cout << \"Failed to start frame sink\" << std::endl;\n\t\t\t\
+              return ret;\n\t\t}\n\t}\n\n\tret = camera_->start();\n\tif (ret) {\n\
+              \t\tstd::cout << \"Failed to start capture\" << std::endl;\n\t\tif (sink_)\n\
+              \t\t\tsink_->stop();\n\t\treturn ret;\n\t}\n\n\tfor (std::unique_ptr<Request>\
+              \ &request : requests_) {\n\t\tret = queueRequest(request.get());\n\t\
+              \tif (ret < 0) {\n\t\t\tstd::cerr << \"Can't queue request\" << std::endl;\n\
+              \t\t\tcamera_->stop();\n\t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\
+              \t\treturn ret;\n\t\t}\n\t}\n\n\tif (captureLimit_)\n\t\tstd::cout <<\
+              \ \"cam\" << cameraIndex_\n\t\t\t  << \": Capture \" << captureLimit_\
+              \ << \" frames\"\n\t\t\t  << std::endl;\n\telse\n\t\tstd::cout << \"\
+              cam\" << cameraIndex_\n\t\t\t  << \": Capture until user interrupts\
+              \ by SIGINT\"\n\t\t\t  << std::endl;\n\n\treturn 0;\n}\n\nint CameraSession::queueRequest(Request\
+              \ *request)\n{\n\tif (captureLimit_ && queueCount_ >= captureLimit_)\n\
+              \t\treturn 0;\n\n\tif (script_)\n\t\trequest->controls().merge(script_->frameControls(queueCount_),\n\
+              \t\t\t\t\t  ControlList::MergePolicy::OverwriteExisting);\n\n\tqueueCount_++;\n\
+              \n\treturn camera_->queueRequest(request);\n}\n\nvoid CameraSession::requestComplete("
         - from: remaining
           to: done
           label: 요청 없음, 순회 종료
@@ -3025,90 +3388,173 @@ generated_visuals:
           evidence:
           - source: initial-submission/cam-request-buffers
             sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "for (std::unique_ptr<Request> &request : requests_) {\n\t\tret\
-              \ = queueRequest(request.get());\n\t\tif (ret < 0) {\n\t\t\tstd::cerr\
-              \ << \"Can't queue request\" << std::endl;\n\t\t\tcamera_->stop();\n\
-              \t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\t\treturn ret;\n\t\t}\n\
-              \t}"
+            quote: "int CameraSession::startCapture()\n{\n\tint ret;\n\n\t/* Identify\
+              \ the stream with the least number of buffers. */\n\tunsigned int nbuffers\
+              \ = UINT_MAX;\n\tfor (StreamConfiguration &cfg : *config_) {\n\t\tret\
+              \ = allocator_->allocate(cfg.stream());\n\t\tif (ret < 0) {\n\t\t\t\
+              std::cerr << \"Can't allocate buffers\" << std::endl;\n\t\t\treturn\
+              \ -ENOMEM;\n\t\t}\n\n\t\tunsigned int allocated = allocator_->buffers(cfg.stream()).size();\n\
+              \t\tnbuffers = std::min(nbuffers, allocated);\n\t}\n\n\t/*\n\t * TODO:\
+              \ make cam tool smarter to support still capture by for\n\t * example\
+              \ pushing a button. For now run all streams all the time.\n\t */\n\n\
+              \tfor (unsigned int i = 0; i < nbuffers; i++) {\n\t\tstd::unique_ptr<Request>\
+              \ request = camera_->createRequest();\n\t\tif (!request) {\n\t\t\tstd::cerr\
+              \ << \"Can't create request\" << std::endl;\n\t\t\treturn -ENOMEM;\n\
+              \t\t}\n\n\t\tfor (StreamConfiguration &cfg : *config_) {\n\t\t\tStream\
+              \ *stream = cfg.stream();\n\t\t\tconst std::vector<std::unique_ptr<FrameBuffer>>\
+              \ &buffers =\n\t\t\t\tallocator_->buffers(stream);\n\t\t\tconst std::unique_ptr<FrameBuffer>\
+              \ &buffer = buffers[i];\n\n\t\t\tret = request->addBuffer(stream, buffer.get());\n\
+              \t\t\tif (ret < 0) {\n\t\t\t\tstd::cerr << \"Can't set buffer for request\"\
+              \n\t\t\t\t\t  << std::endl;\n\t\t\t\treturn ret;\n\t\t\t}\n\n\t\t\t\
+              if (sink_)\n\t\t\t\tsink_->mapBuffer(buffer.get());\n\t\t}\n\n\t\trequests_.push_back(std::move(request));\n\
+              \t}\n\n\tif (sink_) {\n\t\tret = sink_->start();\n\t\tif (ret) {\n\t\
+              \t\tstd::cout << \"Failed to start frame sink\" << std::endl;\n\t\t\t\
+              return ret;\n\t\t}\n\t}\n\n\tret = camera_->start();\n\tif (ret) {\n\
+              \t\tstd::cout << \"Failed to start capture\" << std::endl;\n\t\tif (sink_)\n\
+              \t\t\tsink_->stop();\n\t\treturn ret;\n\t}\n\n\tfor (std::unique_ptr<Request>\
+              \ &request : requests_) {\n\t\tret = queueRequest(request.get());\n\t\
+              \tif (ret < 0) {\n\t\t\tstd::cerr << \"Can't queue request\" << std::endl;\n\
+              \t\t\tcamera_->stop();\n\t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\
+              \t\treturn ret;\n\t\t}\n\t}\n\n\tif (captureLimit_)\n\t\tstd::cout <<\
+              \ \"cam\" << cameraIndex_\n\t\t\t  << \": Capture \" << captureLimit_\
+              \ << \" frames\"\n\t\t\t  << std::endl;\n\telse\n\t\tstd::cout << \"\
+              cam\" << cameraIndex_\n\t\t\t  << \": Capture until user interrupts\
+              \ by SIGINT\"\n\t\t\t  << std::endl;\n\n\treturn 0;\n}\n\nint CameraSession::queueRequest(Request\
+              \ *request)\n{\n\tif (captureLimit_ && queueCount_ >= captureLimit_)\n\
+              \t\treturn 0;\n\n\tif (script_)\n\t\trequest->controls().merge(script_->frameControls(queueCount_),\n\
+              \t\t\t\t\t  ControlList::MergePolicy::OverwriteExisting);\n\n\tqueueCount_++;\n\
+              \n\treturn camera_->queueRequest(request);\n}\n\nvoid CameraSession::requestComplete("
         - from: limit_check
-          to: camera_queue
-          label: 미설정 또는 미달, 호출 · captureLimit_ && queueCount_ >= captureLimit_ [false]
-          label_en: unset or below, call · captureLimit_ && queueCount_ >= captureLimit_
+          to: control_merge
+          label: 미설정 또는 미달 · captureLimit_ && queueCount_ >= captureLimit_ [false]
+          label_en: unset or below · captureLimit_ && queueCount_ >= captureLimit_
             [false]
           evidence:
           - source: initial-submission/cam-request-buffers
             sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "int CameraSession::queueRequest(Request *request)\n{\n\tif (captureLimit_\
-              \ && queueCount_ >= captureLimit_)\n\t\treturn 0;"
-          - source: initial-submission/cam-request-buffers
-            sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: queueCount_++;
-          - source: initial-submission/camera-queue
-            sha256: 886535d24df67a4b6f18fd5ed7b1db02e74e189ebfcb7ddd396eb86cf30980ef
-            quote: "int Camera::queueRequest(Request *request)\n{\n\tPrivate *const\
-              \ d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\
-              \tif (ret < 0)\n\t\treturn ret;\n\n\t/* Requests can only be queued\
-              \ to the camera that created them. */\n\tif (request->_d()->camera()\
-              \ != this) {\n\t\tLOG(Camera, Error) << \"Request was not created by\
-              \ this camera\";\n\t\treturn -EXDEV;\n\t}\n\n\tif (request->status()\
-              \ != Request::RequestPending) {\n\t\tLOG(Camera, Error) << request->toString()\
-              \ << \" is not valid\";\n\t\treturn -EINVAL;\n\t}\n\n\t/* Make sure\
-              \ the Request has a valid control list. */\n\tif (request->controls().infoMap()\
-              \ != &controls()) {\n\t\tLOG(Camera, Error) << \"Overwriting Request::controls()\
-              \ is not allowed\";\n\t\treturn -EINVAL;\n\t}\n\n\t/*\n\t * The camera\
-              \ state may change until the end of the function. No locking\n\t * is\
-              \ however needed as PipelineHandler::queueRequest() will handle\n\t\
-              \ * this.\n\t */\n\n\tif (request->buffers().empty()) {\n\t\tLOG(Camera,\
-              \ Error) << \"Request contains no buffers\";\n\t\treturn -EINVAL;\n\t\
-              }\n\n\tfor (const auto &[stream, buffer] : request->buffers()) {\n\t\
-              \tif (d->activeStreams_.find(stream) == d->activeStreams_.end()) {\n\
-              \t\t\tLOG(Camera, Error) << \"Invalid request\";\n\t\t\treturn -EINVAL;\n\
-              \t\t}\n\t}\n\n\t/* Pre-process AeEnable. */\n\tpatchControlList(request->controls());\n\
-              \n\td->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t \
-              \      ConnectionTypeQueued, request);\n\n\treturn 0;\n}\n\n/**\n *\
-              \ \\brief Start capture from camera\n * \\param[in] controls Controls\
-              \ to be applied before starting the Camera\n *\n * Start the camera\
-              \ capture session, optionally providing a list of controls to\n * apply\
-              \ before starting. Once the camera is started the application can queue\n\
-              \ * requests to the camera to process and return to the application\
-              \ until the\n * capture session is terminated with \\a stop().\n *\n\
-              \ * \\context This function may only be called when the camera is in\
-              \ the\n * Configured state as defined in \\ref camera_operation, and\
-              \ shall be\n * synchronized by the caller with other functions that\
-              \ affect the camera\n * state.\n *\n * \\return 0 on success or a negative\
-              \ error code otherwise"
+            quote: "int CameraSession::startCapture()\n{\n\tint ret;\n\n\t/* Identify\
+              \ the stream with the least number of buffers. */\n\tunsigned int nbuffers\
+              \ = UINT_MAX;\n\tfor (StreamConfiguration &cfg : *config_) {\n\t\tret\
+              \ = allocator_->allocate(cfg.stream());\n\t\tif (ret < 0) {\n\t\t\t\
+              std::cerr << \"Can't allocate buffers\" << std::endl;\n\t\t\treturn\
+              \ -ENOMEM;\n\t\t}\n\n\t\tunsigned int allocated = allocator_->buffers(cfg.stream()).size();\n\
+              \t\tnbuffers = std::min(nbuffers, allocated);\n\t}\n\n\t/*\n\t * TODO:\
+              \ make cam tool smarter to support still capture by for\n\t * example\
+              \ pushing a button. For now run all streams all the time.\n\t */\n\n\
+              \tfor (unsigned int i = 0; i < nbuffers; i++) {\n\t\tstd::unique_ptr<Request>\
+              \ request = camera_->createRequest();\n\t\tif (!request) {\n\t\t\tstd::cerr\
+              \ << \"Can't create request\" << std::endl;\n\t\t\treturn -ENOMEM;\n\
+              \t\t}\n\n\t\tfor (StreamConfiguration &cfg : *config_) {\n\t\t\tStream\
+              \ *stream = cfg.stream();\n\t\t\tconst std::vector<std::unique_ptr<FrameBuffer>>\
+              \ &buffers =\n\t\t\t\tallocator_->buffers(stream);\n\t\t\tconst std::unique_ptr<FrameBuffer>\
+              \ &buffer = buffers[i];\n\n\t\t\tret = request->addBuffer(stream, buffer.get());\n\
+              \t\t\tif (ret < 0) {\n\t\t\t\tstd::cerr << \"Can't set buffer for request\"\
+              \n\t\t\t\t\t  << std::endl;\n\t\t\t\treturn ret;\n\t\t\t}\n\n\t\t\t\
+              if (sink_)\n\t\t\t\tsink_->mapBuffer(buffer.get());\n\t\t}\n\n\t\trequests_.push_back(std::move(request));\n\
+              \t}\n\n\tif (sink_) {\n\t\tret = sink_->start();\n\t\tif (ret) {\n\t\
+              \t\tstd::cout << \"Failed to start frame sink\" << std::endl;\n\t\t\t\
+              return ret;\n\t\t}\n\t}\n\n\tret = camera_->start();\n\tif (ret) {\n\
+              \t\tstd::cout << \"Failed to start capture\" << std::endl;\n\t\tif (sink_)\n\
+              \t\t\tsink_->stop();\n\t\treturn ret;\n\t}\n\n\tfor (std::unique_ptr<Request>\
+              \ &request : requests_) {\n\t\tret = queueRequest(request.get());\n\t\
+              \tif (ret < 0) {\n\t\t\tstd::cerr << \"Can't queue request\" << std::endl;\n\
+              \t\t\tcamera_->stop();\n\t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\
+              \t\treturn ret;\n\t\t}\n\t}\n\n\tif (captureLimit_)\n\t\tstd::cout <<\
+              \ \"cam\" << cameraIndex_\n\t\t\t  << \": Capture \" << captureLimit_\
+              \ << \" frames\"\n\t\t\t  << std::endl;\n\telse\n\t\tstd::cout << \"\
+              cam\" << cameraIndex_\n\t\t\t  << \": Capture until user interrupts\
+              \ by SIGINT\"\n\t\t\t  << std::endl;\n\n\treturn 0;\n}\n\nint CameraSession::queueRequest(Request\
+              \ *request)\n{\n\tif (captureLimit_ && queueCount_ >= captureLimit_)\n\
+              \t\treturn 0;\n\n\tif (script_)\n\t\trequest->controls().merge(script_->frameControls(queueCount_),\n\
+              \t\t\t\t\t  ControlList::MergePolicy::OverwriteExisting);\n\n\tqueueCount_++;\n\
+              \n\treturn camera_->queueRequest(request);\n}\n\nvoid CameraSession::requestComplete("
         - from: limit_check
-          to: remaining
-          label: 한도 도달, 호출 생략, 0 반환 · captureLimit_ && queueCount_ >= captureLimit_
-            [true]
+          to: caller_check
+          label: 한도 도달, 호출 없이 0 · captureLimit_ && queueCount_ >= captureLimit_ [true]
           label_en: 'at limit: 0, no call · captureLimit_ && queueCount_ >= captureLimit_
             [true]'
           evidence:
           - source: initial-submission/cam-request-buffers
             sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "int CameraSession::queueRequest(Request *request)\n{\n\tif (captureLimit_\
-              \ && queueCount_ >= captureLimit_)\n\t\treturn 0;"
-          - source: initial-submission/cam-request-buffers
-            sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "for (std::unique_ptr<Request> &request : requests_) {\n\t\tret\
-              \ = queueRequest(request.get());\n\t\tif (ret < 0) {\n\t\t\tstd::cerr\
-              \ << \"Can't queue request\" << std::endl;\n\t\t\tcamera_->stop();\n\
-              \t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\t\treturn ret;\n\t\t}\n\
-              \t}"
-        - from: camera_queue
-          to: helper_ret
-          label: 호출 결과 반환
-          label_en: returns call result
+            quote: "int CameraSession::startCapture()\n{\n\tint ret;\n\n\t/* Identify\
+              \ the stream with the least number of buffers. */\n\tunsigned int nbuffers\
+              \ = UINT_MAX;\n\tfor (StreamConfiguration &cfg : *config_) {\n\t\tret\
+              \ = allocator_->allocate(cfg.stream());\n\t\tif (ret < 0) {\n\t\t\t\
+              std::cerr << \"Can't allocate buffers\" << std::endl;\n\t\t\treturn\
+              \ -ENOMEM;\n\t\t}\n\n\t\tunsigned int allocated = allocator_->buffers(cfg.stream()).size();\n\
+              \t\tnbuffers = std::min(nbuffers, allocated);\n\t}\n\n\t/*\n\t * TODO:\
+              \ make cam tool smarter to support still capture by for\n\t * example\
+              \ pushing a button. For now run all streams all the time.\n\t */\n\n\
+              \tfor (unsigned int i = 0; i < nbuffers; i++) {\n\t\tstd::unique_ptr<Request>\
+              \ request = camera_->createRequest();\n\t\tif (!request) {\n\t\t\tstd::cerr\
+              \ << \"Can't create request\" << std::endl;\n\t\t\treturn -ENOMEM;\n\
+              \t\t}\n\n\t\tfor (StreamConfiguration &cfg : *config_) {\n\t\t\tStream\
+              \ *stream = cfg.stream();\n\t\t\tconst std::vector<std::unique_ptr<FrameBuffer>>\
+              \ &buffers =\n\t\t\t\tallocator_->buffers(stream);\n\t\t\tconst std::unique_ptr<FrameBuffer>\
+              \ &buffer = buffers[i];\n\n\t\t\tret = request->addBuffer(stream, buffer.get());\n\
+              \t\t\tif (ret < 0) {\n\t\t\t\tstd::cerr << \"Can't set buffer for request\"\
+              \n\t\t\t\t\t  << std::endl;\n\t\t\t\treturn ret;\n\t\t\t}\n\n\t\t\t\
+              if (sink_)\n\t\t\t\tsink_->mapBuffer(buffer.get());\n\t\t}\n\n\t\trequests_.push_back(std::move(request));\n\
+              \t}\n\n\tif (sink_) {\n\t\tret = sink_->start();\n\t\tif (ret) {\n\t\
+              \t\tstd::cout << \"Failed to start frame sink\" << std::endl;\n\t\t\t\
+              return ret;\n\t\t}\n\t}\n\n\tret = camera_->start();\n\tif (ret) {\n\
+              \t\tstd::cout << \"Failed to start capture\" << std::endl;\n\t\tif (sink_)\n\
+              \t\t\tsink_->stop();\n\t\treturn ret;\n\t}\n\n\tfor (std::unique_ptr<Request>\
+              \ &request : requests_) {\n\t\tret = queueRequest(request.get());\n\t\
+              \tif (ret < 0) {\n\t\t\tstd::cerr << \"Can't queue request\" << std::endl;\n\
+              \t\t\tcamera_->stop();\n\t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\
+              \t\treturn ret;\n\t\t}\n\t}\n\n\tif (captureLimit_)\n\t\tstd::cout <<\
+              \ \"cam\" << cameraIndex_\n\t\t\t  << \": Capture \" << captureLimit_\
+              \ << \" frames\"\n\t\t\t  << std::endl;\n\telse\n\t\tstd::cout << \"\
+              cam\" << cameraIndex_\n\t\t\t  << \": Capture until user interrupts\
+              \ by SIGINT\"\n\t\t\t  << std::endl;\n\n\treturn 0;\n}\n\nint CameraSession::queueRequest(Request\
+              \ *request)\n{\n\tif (captureLimit_ && queueCount_ >= captureLimit_)\n\
+              \t\treturn 0;\n\n\tif (script_)\n\t\trequest->controls().merge(script_->frameControls(queueCount_),\n\
+              \t\t\t\t\t  ControlList::MergePolicy::OverwriteExisting);\n\n\tqueueCount_++;\n\
+              \n\treturn camera_->queueRequest(request);\n}\n\nvoid CameraSession::requestComplete("
+        - from: control_merge
+          to: camera_queue_check
+          label: 카메라 큐 요청 호출
+          label_en: calls camera queue
           evidence:
           - source: initial-submission/cam-request-buffers
             sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "int CameraSession::queueRequest(Request *request)\n{\n\tif (captureLimit_\
-              \ && queueCount_ >= captureLimit_)\n\t\treturn 0;"
-          - source: initial-submission/cam-request-buffers
-            sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: 'return camera_->queueRequest(request);
-
-              }'
+            quote: "int CameraSession::startCapture()\n{\n\tint ret;\n\n\t/* Identify\
+              \ the stream with the least number of buffers. */\n\tunsigned int nbuffers\
+              \ = UINT_MAX;\n\tfor (StreamConfiguration &cfg : *config_) {\n\t\tret\
+              \ = allocator_->allocate(cfg.stream());\n\t\tif (ret < 0) {\n\t\t\t\
+              std::cerr << \"Can't allocate buffers\" << std::endl;\n\t\t\treturn\
+              \ -ENOMEM;\n\t\t}\n\n\t\tunsigned int allocated = allocator_->buffers(cfg.stream()).size();\n\
+              \t\tnbuffers = std::min(nbuffers, allocated);\n\t}\n\n\t/*\n\t * TODO:\
+              \ make cam tool smarter to support still capture by for\n\t * example\
+              \ pushing a button. For now run all streams all the time.\n\t */\n\n\
+              \tfor (unsigned int i = 0; i < nbuffers; i++) {\n\t\tstd::unique_ptr<Request>\
+              \ request = camera_->createRequest();\n\t\tif (!request) {\n\t\t\tstd::cerr\
+              \ << \"Can't create request\" << std::endl;\n\t\t\treturn -ENOMEM;\n\
+              \t\t}\n\n\t\tfor (StreamConfiguration &cfg : *config_) {\n\t\t\tStream\
+              \ *stream = cfg.stream();\n\t\t\tconst std::vector<std::unique_ptr<FrameBuffer>>\
+              \ &buffers =\n\t\t\t\tallocator_->buffers(stream);\n\t\t\tconst std::unique_ptr<FrameBuffer>\
+              \ &buffer = buffers[i];\n\n\t\t\tret = request->addBuffer(stream, buffer.get());\n\
+              \t\t\tif (ret < 0) {\n\t\t\t\tstd::cerr << \"Can't set buffer for request\"\
+              \n\t\t\t\t\t  << std::endl;\n\t\t\t\treturn ret;\n\t\t\t}\n\n\t\t\t\
+              if (sink_)\n\t\t\t\tsink_->mapBuffer(buffer.get());\n\t\t}\n\n\t\trequests_.push_back(std::move(request));\n\
+              \t}\n\n\tif (sink_) {\n\t\tret = sink_->start();\n\t\tif (ret) {\n\t\
+              \t\tstd::cout << \"Failed to start frame sink\" << std::endl;\n\t\t\t\
+              return ret;\n\t\t}\n\t}\n\n\tret = camera_->start();\n\tif (ret) {\n\
+              \t\tstd::cout << \"Failed to start capture\" << std::endl;\n\t\tif (sink_)\n\
+              \t\t\tsink_->stop();\n\t\treturn ret;\n\t}\n\n\tfor (std::unique_ptr<Request>\
+              \ &request : requests_) {\n\t\tret = queueRequest(request.get());\n\t\
+              \tif (ret < 0) {\n\t\t\tstd::cerr << \"Can't queue request\" << std::endl;\n\
+              \t\t\tcamera_->stop();\n\t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\
+              \t\treturn ret;\n\t\t}\n\t}\n\n\tif (captureLimit_)\n\t\tstd::cout <<\
+              \ \"cam\" << cameraIndex_\n\t\t\t  << \": Capture \" << captureLimit_\
+              \ << \" frames\"\n\t\t\t  << std::endl;\n\telse\n\t\tstd::cout << \"\
+              cam\" << cameraIndex_\n\t\t\t  << \": Capture until user interrupts\
+              \ by SIGINT\"\n\t\t\t  << std::endl;\n\n\treturn 0;\n}\n\nint CameraSession::queueRequest(Request\
+              \ *request)\n{\n\tif (captureLimit_ && queueCount_ >= captureLimit_)\n\
+              \t\treturn 0;\n\n\tif (script_)\n\t\trequest->controls().merge(script_->frameControls(queueCount_),\n\
+              \t\t\t\t\t  ControlList::MergePolicy::OverwriteExisting);\n\n\tqueueCount_++;\n\
+              \n\treturn camera_->queueRequest(request);\n}\n\nvoid CameraSession::requestComplete("
           - source: initial-submission/camera-queue
             sha256: 886535d24df67a4b6f18fd5ed7b1db02e74e189ebfcb7ddd396eb86cf30980ef
             quote: "int Camera::queueRequest(Request *request)\n{\n\tPrivate *const\
@@ -3143,38 +3589,11 @@ generated_visuals:
               \ shall be\n * synchronized by the caller with other functions that\
               \ affect the camera\n * state.\n *\n * \\return 0 on success or a negative\
               \ error code otherwise"
-        - from: helper_ret
-          to: stop_err
-          label: 음수 오류 반환 시 · ret < 0 [true]
-          label_en: if negative error · ret < 0 [true]
+        - from: camera_queue_check
+          to: queue_error
+          label: 검사 실패, 오류
+          label_en: 'fails: return error'
           evidence:
-          - source: initial-submission/cam-request-buffers
-            sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "for (std::unique_ptr<Request> &request : requests_) {\n\t\tret\
-              \ = queueRequest(request.get());\n\t\tif (ret < 0) {\n\t\t\tstd::cerr\
-              \ << \"Can't queue request\" << std::endl;\n\t\t\tcamera_->stop();\n\
-              \t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\t\treturn ret;\n\t\t}\n\
-              \t}"
-          - source: initial-submission/cam-request-buffers
-            sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "int CameraSession::queueRequest(Request *request)\n{\n\tif (captureLimit_\
-              \ && queueCount_ >= captureLimit_)\n\t\treturn 0;"
-        - from: helper_ret
-          to: ok_result
-          label: 음수 아님 · ret < 0 [false]
-          label_en: non-negative · ret < 0 [false]
-          evidence:
-          - source: initial-submission/cam-request-buffers
-            sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "for (std::unique_ptr<Request> &request : requests_) {\n\t\tret\
-              \ = queueRequest(request.get());\n\t\tif (ret < 0) {\n\t\t\tstd::cerr\
-              \ << \"Can't queue request\" << std::endl;\n\t\t\tcamera_->stop();\n\
-              \t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\t\treturn ret;\n\t\t}\n\
-              \t}"
-          - source: initial-submission/cam-request-buffers
-            sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "int CameraSession::queueRequest(Request *request)\n{\n\tif (captureLimit_\
-              \ && queueCount_ >= captureLimit_)\n\t\treturn 0;"
           - source: initial-submission/camera-queue
             sha256: 886535d24df67a4b6f18fd5ed7b1db02e74e189ebfcb7ddd396eb86cf30980ef
             quote: "int Camera::queueRequest(Request *request)\n{\n\tPrivate *const\
@@ -3209,61 +3628,290 @@ generated_visuals:
               \ shall be\n * synchronized by the caller with other functions that\
               \ affect the camera\n * state.\n *\n * \\return 0 on success or a negative\
               \ error code otherwise"
-        - from: ok_result
+        - from: camera_queue_check
+          to: queue_async
+          label: 검사 통과, 비동기 호출
+          label_en: 'passes: async call'
+          evidence:
+          - source: initial-submission/camera-queue
+            sha256: 886535d24df67a4b6f18fd5ed7b1db02e74e189ebfcb7ddd396eb86cf30980ef
+            quote: "int Camera::queueRequest(Request *request)\n{\n\tPrivate *const\
+              \ d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\
+              \tif (ret < 0)\n\t\treturn ret;\n\n\t/* Requests can only be queued\
+              \ to the camera that created them. */\n\tif (request->_d()->camera()\
+              \ != this) {\n\t\tLOG(Camera, Error) << \"Request was not created by\
+              \ this camera\";\n\t\treturn -EXDEV;\n\t}\n\n\tif (request->status()\
+              \ != Request::RequestPending) {\n\t\tLOG(Camera, Error) << request->toString()\
+              \ << \" is not valid\";\n\t\treturn -EINVAL;\n\t}\n\n\t/* Make sure\
+              \ the Request has a valid control list. */\n\tif (request->controls().infoMap()\
+              \ != &controls()) {\n\t\tLOG(Camera, Error) << \"Overwriting Request::controls()\
+              \ is not allowed\";\n\t\treturn -EINVAL;\n\t}\n\n\t/*\n\t * The camera\
+              \ state may change until the end of the function. No locking\n\t * is\
+              \ however needed as PipelineHandler::queueRequest() will handle\n\t\
+              \ * this.\n\t */\n\n\tif (request->buffers().empty()) {\n\t\tLOG(Camera,\
+              \ Error) << \"Request contains no buffers\";\n\t\treturn -EINVAL;\n\t\
+              }\n\n\tfor (const auto &[stream, buffer] : request->buffers()) {\n\t\
+              \tif (d->activeStreams_.find(stream) == d->activeStreams_.end()) {\n\
+              \t\t\tLOG(Camera, Error) << \"Invalid request\";\n\t\t\treturn -EINVAL;\n\
+              \t\t}\n\t}\n\n\t/* Pre-process AeEnable. */\n\tpatchControlList(request->controls());\n\
+              \n\td->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t \
+              \      ConnectionTypeQueued, request);\n\n\treturn 0;\n}\n\n/**\n *\
+              \ \\brief Start capture from camera\n * \\param[in] controls Controls\
+              \ to be applied before starting the Camera\n *\n * Start the camera\
+              \ capture session, optionally providing a list of controls to\n * apply\
+              \ before starting. Once the camera is started the application can queue\n\
+              \ * requests to the camera to process and return to the application\
+              \ until the\n * capture session is terminated with \\a stop().\n *\n\
+              \ * \\context This function may only be called when the camera is in\
+              \ the\n * Configured state as defined in \\ref camera_operation, and\
+              \ shall be\n * synchronized by the caller with other functions that\
+              \ affect the camera\n * state.\n *\n * \\return 0 on success or a negative\
+              \ error code otherwise"
+        - from: queue_error
+          to: caller_check
+          label: 호출자에게 오류 전달
+          label_en: error to caller
+          evidence:
+          - source: initial-submission/camera-queue
+            sha256: 886535d24df67a4b6f18fd5ed7b1db02e74e189ebfcb7ddd396eb86cf30980ef
+            quote: "int Camera::queueRequest(Request *request)\n{\n\tPrivate *const\
+              \ d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\
+              \tif (ret < 0)\n\t\treturn ret;\n\n\t/* Requests can only be queued\
+              \ to the camera that created them. */\n\tif (request->_d()->camera()\
+              \ != this) {\n\t\tLOG(Camera, Error) << \"Request was not created by\
+              \ this camera\";\n\t\treturn -EXDEV;\n\t}\n\n\tif (request->status()\
+              \ != Request::RequestPending) {\n\t\tLOG(Camera, Error) << request->toString()\
+              \ << \" is not valid\";\n\t\treturn -EINVAL;\n\t}\n\n\t/* Make sure\
+              \ the Request has a valid control list. */\n\tif (request->controls().infoMap()\
+              \ != &controls()) {\n\t\tLOG(Camera, Error) << \"Overwriting Request::controls()\
+              \ is not allowed\";\n\t\treturn -EINVAL;\n\t}\n\n\t/*\n\t * The camera\
+              \ state may change until the end of the function. No locking\n\t * is\
+              \ however needed as PipelineHandler::queueRequest() will handle\n\t\
+              \ * this.\n\t */\n\n\tif (request->buffers().empty()) {\n\t\tLOG(Camera,\
+              \ Error) << \"Request contains no buffers\";\n\t\treturn -EINVAL;\n\t\
+              }\n\n\tfor (const auto &[stream, buffer] : request->buffers()) {\n\t\
+              \tif (d->activeStreams_.find(stream) == d->activeStreams_.end()) {\n\
+              \t\t\tLOG(Camera, Error) << \"Invalid request\";\n\t\t\treturn -EINVAL;\n\
+              \t\t}\n\t}\n\n\t/* Pre-process AeEnable. */\n\tpatchControlList(request->controls());\n\
+              \n\td->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t \
+              \      ConnectionTypeQueued, request);\n\n\treturn 0;\n}\n\n/**\n *\
+              \ \\brief Start capture from camera\n * \\param[in] controls Controls\
+              \ to be applied before starting the Camera\n *\n * Start the camera\
+              \ capture session, optionally providing a list of controls to\n * apply\
+              \ before starting. Once the camera is started the application can queue\n\
+              \ * requests to the camera to process and return to the application\
+              \ until the\n * capture session is terminated with \\a stop().\n *\n\
+              \ * \\context This function may only be called when the camera is in\
+              \ the\n * Configured state as defined in \\ref camera_operation, and\
+              \ shall be\n * synchronized by the caller with other functions that\
+              \ affect the camera\n * state.\n *\n * \\return 0 on success or a negative\
+              \ error code otherwise"
+          - source: initial-submission/cam-request-buffers
+            sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
+            quote: "int CameraSession::startCapture()\n{\n\tint ret;\n\n\t/* Identify\
+              \ the stream with the least number of buffers. */\n\tunsigned int nbuffers\
+              \ = UINT_MAX;\n\tfor (StreamConfiguration &cfg : *config_) {\n\t\tret\
+              \ = allocator_->allocate(cfg.stream());\n\t\tif (ret < 0) {\n\t\t\t\
+              std::cerr << \"Can't allocate buffers\" << std::endl;\n\t\t\treturn\
+              \ -ENOMEM;\n\t\t}\n\n\t\tunsigned int allocated = allocator_->buffers(cfg.stream()).size();\n\
+              \t\tnbuffers = std::min(nbuffers, allocated);\n\t}\n\n\t/*\n\t * TODO:\
+              \ make cam tool smarter to support still capture by for\n\t * example\
+              \ pushing a button. For now run all streams all the time.\n\t */\n\n\
+              \tfor (unsigned int i = 0; i < nbuffers; i++) {\n\t\tstd::unique_ptr<Request>\
+              \ request = camera_->createRequest();\n\t\tif (!request) {\n\t\t\tstd::cerr\
+              \ << \"Can't create request\" << std::endl;\n\t\t\treturn -ENOMEM;\n\
+              \t\t}\n\n\t\tfor (StreamConfiguration &cfg : *config_) {\n\t\t\tStream\
+              \ *stream = cfg.stream();\n\t\t\tconst std::vector<std::unique_ptr<FrameBuffer>>\
+              \ &buffers =\n\t\t\t\tallocator_->buffers(stream);\n\t\t\tconst std::unique_ptr<FrameBuffer>\
+              \ &buffer = buffers[i];\n\n\t\t\tret = request->addBuffer(stream, buffer.get());\n\
+              \t\t\tif (ret < 0) {\n\t\t\t\tstd::cerr << \"Can't set buffer for request\"\
+              \n\t\t\t\t\t  << std::endl;\n\t\t\t\treturn ret;\n\t\t\t}\n\n\t\t\t\
+              if (sink_)\n\t\t\t\tsink_->mapBuffer(buffer.get());\n\t\t}\n\n\t\trequests_.push_back(std::move(request));\n\
+              \t}\n\n\tif (sink_) {\n\t\tret = sink_->start();\n\t\tif (ret) {\n\t\
+              \t\tstd::cout << \"Failed to start frame sink\" << std::endl;\n\t\t\t\
+              return ret;\n\t\t}\n\t}\n\n\tret = camera_->start();\n\tif (ret) {\n\
+              \t\tstd::cout << \"Failed to start capture\" << std::endl;\n\t\tif (sink_)\n\
+              \t\t\tsink_->stop();\n\t\treturn ret;\n\t}\n\n\tfor (std::unique_ptr<Request>\
+              \ &request : requests_) {\n\t\tret = queueRequest(request.get());\n\t\
+              \tif (ret < 0) {\n\t\t\tstd::cerr << \"Can't queue request\" << std::endl;\n\
+              \t\t\tcamera_->stop();\n\t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\
+              \t\treturn ret;\n\t\t}\n\t}\n\n\tif (captureLimit_)\n\t\tstd::cout <<\
+              \ \"cam\" << cameraIndex_\n\t\t\t  << \": Capture \" << captureLimit_\
+              \ << \" frames\"\n\t\t\t  << std::endl;\n\telse\n\t\tstd::cout << \"\
+              cam\" << cameraIndex_\n\t\t\t  << \": Capture until user interrupts\
+              \ by SIGINT\"\n\t\t\t  << std::endl;\n\n\treturn 0;\n}\n\nint CameraSession::queueRequest(Request\
+              \ *request)\n{\n\tif (captureLimit_ && queueCount_ >= captureLimit_)\n\
+              \t\treturn 0;\n\n\tif (script_)\n\t\trequest->controls().merge(script_->frameControls(queueCount_),\n\
+              \t\t\t\t\t  ControlList::MergePolicy::OverwriteExisting);\n\n\tqueueCount_++;\n\
+              \n\treturn camera_->queueRequest(request);\n}\n\nvoid CameraSession::requestComplete("
+        - from: queue_async
+          to: caller_check
+          label: 0 반환 후 호출자 검사
+          label_en: then caller checks
+          evidence:
+          - source: initial-submission/camera-queue
+            sha256: 886535d24df67a4b6f18fd5ed7b1db02e74e189ebfcb7ddd396eb86cf30980ef
+            quote: "int Camera::queueRequest(Request *request)\n{\n\tPrivate *const\
+              \ d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\
+              \tif (ret < 0)\n\t\treturn ret;\n\n\t/* Requests can only be queued\
+              \ to the camera that created them. */\n\tif (request->_d()->camera()\
+              \ != this) {\n\t\tLOG(Camera, Error) << \"Request was not created by\
+              \ this camera\";\n\t\treturn -EXDEV;\n\t}\n\n\tif (request->status()\
+              \ != Request::RequestPending) {\n\t\tLOG(Camera, Error) << request->toString()\
+              \ << \" is not valid\";\n\t\treturn -EINVAL;\n\t}\n\n\t/* Make sure\
+              \ the Request has a valid control list. */\n\tif (request->controls().infoMap()\
+              \ != &controls()) {\n\t\tLOG(Camera, Error) << \"Overwriting Request::controls()\
+              \ is not allowed\";\n\t\treturn -EINVAL;\n\t}\n\n\t/*\n\t * The camera\
+              \ state may change until the end of the function. No locking\n\t * is\
+              \ however needed as PipelineHandler::queueRequest() will handle\n\t\
+              \ * this.\n\t */\n\n\tif (request->buffers().empty()) {\n\t\tLOG(Camera,\
+              \ Error) << \"Request contains no buffers\";\n\t\treturn -EINVAL;\n\t\
+              }\n\n\tfor (const auto &[stream, buffer] : request->buffers()) {\n\t\
+              \tif (d->activeStreams_.find(stream) == d->activeStreams_.end()) {\n\
+              \t\t\tLOG(Camera, Error) << \"Invalid request\";\n\t\t\treturn -EINVAL;\n\
+              \t\t}\n\t}\n\n\t/* Pre-process AeEnable. */\n\tpatchControlList(request->controls());\n\
+              \n\td->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t \
+              \      ConnectionTypeQueued, request);\n\n\treturn 0;\n}\n\n/**\n *\
+              \ \\brief Start capture from camera\n * \\param[in] controls Controls\
+              \ to be applied before starting the Camera\n *\n * Start the camera\
+              \ capture session, optionally providing a list of controls to\n * apply\
+              \ before starting. Once the camera is started the application can queue\n\
+              \ * requests to the camera to process and return to the application\
+              \ until the\n * capture session is terminated with \\a stop().\n *\n\
+              \ * \\context This function may only be called when the camera is in\
+              \ the\n * Configured state as defined in \\ref camera_operation, and\
+              \ shall be\n * synchronized by the caller with other functions that\
+              \ affect the camera\n * state.\n *\n * \\return 0 on success or a negative\
+              \ error code otherwise"
+          - source: initial-submission/cam-request-buffers
+            sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
+            quote: "int CameraSession::startCapture()\n{\n\tint ret;\n\n\t/* Identify\
+              \ the stream with the least number of buffers. */\n\tunsigned int nbuffers\
+              \ = UINT_MAX;\n\tfor (StreamConfiguration &cfg : *config_) {\n\t\tret\
+              \ = allocator_->allocate(cfg.stream());\n\t\tif (ret < 0) {\n\t\t\t\
+              std::cerr << \"Can't allocate buffers\" << std::endl;\n\t\t\treturn\
+              \ -ENOMEM;\n\t\t}\n\n\t\tunsigned int allocated = allocator_->buffers(cfg.stream()).size();\n\
+              \t\tnbuffers = std::min(nbuffers, allocated);\n\t}\n\n\t/*\n\t * TODO:\
+              \ make cam tool smarter to support still capture by for\n\t * example\
+              \ pushing a button. For now run all streams all the time.\n\t */\n\n\
+              \tfor (unsigned int i = 0; i < nbuffers; i++) {\n\t\tstd::unique_ptr<Request>\
+              \ request = camera_->createRequest();\n\t\tif (!request) {\n\t\t\tstd::cerr\
+              \ << \"Can't create request\" << std::endl;\n\t\t\treturn -ENOMEM;\n\
+              \t\t}\n\n\t\tfor (StreamConfiguration &cfg : *config_) {\n\t\t\tStream\
+              \ *stream = cfg.stream();\n\t\t\tconst std::vector<std::unique_ptr<FrameBuffer>>\
+              \ &buffers =\n\t\t\t\tallocator_->buffers(stream);\n\t\t\tconst std::unique_ptr<FrameBuffer>\
+              \ &buffer = buffers[i];\n\n\t\t\tret = request->addBuffer(stream, buffer.get());\n\
+              \t\t\tif (ret < 0) {\n\t\t\t\tstd::cerr << \"Can't set buffer for request\"\
+              \n\t\t\t\t\t  << std::endl;\n\t\t\t\treturn ret;\n\t\t\t}\n\n\t\t\t\
+              if (sink_)\n\t\t\t\tsink_->mapBuffer(buffer.get());\n\t\t}\n\n\t\trequests_.push_back(std::move(request));\n\
+              \t}\n\n\tif (sink_) {\n\t\tret = sink_->start();\n\t\tif (ret) {\n\t\
+              \t\tstd::cout << \"Failed to start frame sink\" << std::endl;\n\t\t\t\
+              return ret;\n\t\t}\n\t}\n\n\tret = camera_->start();\n\tif (ret) {\n\
+              \t\tstd::cout << \"Failed to start capture\" << std::endl;\n\t\tif (sink_)\n\
+              \t\t\tsink_->stop();\n\t\treturn ret;\n\t}\n\n\tfor (std::unique_ptr<Request>\
+              \ &request : requests_) {\n\t\tret = queueRequest(request.get());\n\t\
+              \tif (ret < 0) {\n\t\t\tstd::cerr << \"Can't queue request\" << std::endl;\n\
+              \t\t\tcamera_->stop();\n\t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\
+              \t\treturn ret;\n\t\t}\n\t}\n\n\tif (captureLimit_)\n\t\tstd::cout <<\
+              \ \"cam\" << cameraIndex_\n\t\t\t  << \": Capture \" << captureLimit_\
+              \ << \" frames\"\n\t\t\t  << std::endl;\n\telse\n\t\tstd::cout << \"\
+              cam\" << cameraIndex_\n\t\t\t  << \": Capture until user interrupts\
+              \ by SIGINT\"\n\t\t\t  << std::endl;\n\n\treturn 0;\n}\n\nint CameraSession::queueRequest(Request\
+              \ *request)\n{\n\tif (captureLimit_ && queueCount_ >= captureLimit_)\n\
+              \t\treturn 0;\n\n\tif (script_)\n\t\trequest->controls().merge(script_->frameControls(queueCount_),\n\
+              \t\t\t\t\t  ControlList::MergePolicy::OverwriteExisting);\n\n\tqueueCount_++;\n\
+              \n\treturn camera_->queueRequest(request);\n}\n\nvoid CameraSession::requestComplete("
+        - from: caller_check
+          to: stop_on_error
+          label: 음수 오류 · ret < 0 [true]
+          label_en: negative error · ret < 0 [true]
+          evidence:
+          - source: initial-submission/cam-request-buffers
+            sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
+            quote: "int CameraSession::startCapture()\n{\n\tint ret;\n\n\t/* Identify\
+              \ the stream with the least number of buffers. */\n\tunsigned int nbuffers\
+              \ = UINT_MAX;\n\tfor (StreamConfiguration &cfg : *config_) {\n\t\tret\
+              \ = allocator_->allocate(cfg.stream());\n\t\tif (ret < 0) {\n\t\t\t\
+              std::cerr << \"Can't allocate buffers\" << std::endl;\n\t\t\treturn\
+              \ -ENOMEM;\n\t\t}\n\n\t\tunsigned int allocated = allocator_->buffers(cfg.stream()).size();\n\
+              \t\tnbuffers = std::min(nbuffers, allocated);\n\t}\n\n\t/*\n\t * TODO:\
+              \ make cam tool smarter to support still capture by for\n\t * example\
+              \ pushing a button. For now run all streams all the time.\n\t */\n\n\
+              \tfor (unsigned int i = 0; i < nbuffers; i++) {\n\t\tstd::unique_ptr<Request>\
+              \ request = camera_->createRequest();\n\t\tif (!request) {\n\t\t\tstd::cerr\
+              \ << \"Can't create request\" << std::endl;\n\t\t\treturn -ENOMEM;\n\
+              \t\t}\n\n\t\tfor (StreamConfiguration &cfg : *config_) {\n\t\t\tStream\
+              \ *stream = cfg.stream();\n\t\t\tconst std::vector<std::unique_ptr<FrameBuffer>>\
+              \ &buffers =\n\t\t\t\tallocator_->buffers(stream);\n\t\t\tconst std::unique_ptr<FrameBuffer>\
+              \ &buffer = buffers[i];\n\n\t\t\tret = request->addBuffer(stream, buffer.get());\n\
+              \t\t\tif (ret < 0) {\n\t\t\t\tstd::cerr << \"Can't set buffer for request\"\
+              \n\t\t\t\t\t  << std::endl;\n\t\t\t\treturn ret;\n\t\t\t}\n\n\t\t\t\
+              if (sink_)\n\t\t\t\tsink_->mapBuffer(buffer.get());\n\t\t}\n\n\t\trequests_.push_back(std::move(request));\n\
+              \t}\n\n\tif (sink_) {\n\t\tret = sink_->start();\n\t\tif (ret) {\n\t\
+              \t\tstd::cout << \"Failed to start frame sink\" << std::endl;\n\t\t\t\
+              return ret;\n\t\t}\n\t}\n\n\tret = camera_->start();\n\tif (ret) {\n\
+              \t\tstd::cout << \"Failed to start capture\" << std::endl;\n\t\tif (sink_)\n\
+              \t\t\tsink_->stop();\n\t\treturn ret;\n\t}\n\n\tfor (std::unique_ptr<Request>\
+              \ &request : requests_) {\n\t\tret = queueRequest(request.get());\n\t\
+              \tif (ret < 0) {\n\t\t\tstd::cerr << \"Can't queue request\" << std::endl;\n\
+              \t\t\tcamera_->stop();\n\t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\
+              \t\treturn ret;\n\t\t}\n\t}\n\n\tif (captureLimit_)\n\t\tstd::cout <<\
+              \ \"cam\" << cameraIndex_\n\t\t\t  << \": Capture \" << captureLimit_\
+              \ << \" frames\"\n\t\t\t  << std::endl;\n\telse\n\t\tstd::cout << \"\
+              cam\" << cameraIndex_\n\t\t\t  << \": Capture until user interrupts\
+              \ by SIGINT\"\n\t\t\t  << std::endl;\n\n\treturn 0;\n}\n\nint CameraSession::queueRequest(Request\
+              \ *request)\n{\n\tif (captureLimit_ && queueCount_ >= captureLimit_)\n\
+              \t\treturn 0;\n\n\tif (script_)\n\t\trequest->controls().merge(script_->frameControls(queueCount_),\n\
+              \t\t\t\t\t  ControlList::MergePolicy::OverwriteExisting);\n\n\tqueueCount_++;\n\
+              \n\treturn camera_->queueRequest(request);\n}\n\nvoid CameraSession::requestComplete("
+        - from: caller_check
           to: remaining
-          label: 남은 요청 확인
-          label_en: check remaining
+          label: 음수 아니면 다음 요청 · ret < 0 [false]
+          label_en: 'non-negative: next · ret < 0 [false]'
           evidence:
-          - source: initial-submission/camera-queue
-            sha256: 886535d24df67a4b6f18fd5ed7b1db02e74e189ebfcb7ddd396eb86cf30980ef
-            quote: "int Camera::queueRequest(Request *request)\n{\n\tPrivate *const\
-              \ d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\
-              \tif (ret < 0)\n\t\treturn ret;\n\n\t/* Requests can only be queued\
-              \ to the camera that created them. */\n\tif (request->_d()->camera()\
-              \ != this) {\n\t\tLOG(Camera, Error) << \"Request was not created by\
-              \ this camera\";\n\t\treturn -EXDEV;\n\t}\n\n\tif (request->status()\
-              \ != Request::RequestPending) {\n\t\tLOG(Camera, Error) << request->toString()\
-              \ << \" is not valid\";\n\t\treturn -EINVAL;\n\t}\n\n\t/* Make sure\
-              \ the Request has a valid control list. */\n\tif (request->controls().infoMap()\
-              \ != &controls()) {\n\t\tLOG(Camera, Error) << \"Overwriting Request::controls()\
-              \ is not allowed\";\n\t\treturn -EINVAL;\n\t}\n\n\t/*\n\t * The camera\
-              \ state may change until the end of the function. No locking\n\t * is\
-              \ however needed as PipelineHandler::queueRequest() will handle\n\t\
-              \ * this.\n\t */\n\n\tif (request->buffers().empty()) {\n\t\tLOG(Camera,\
-              \ Error) << \"Request contains no buffers\";\n\t\treturn -EINVAL;\n\t\
-              }\n\n\tfor (const auto &[stream, buffer] : request->buffers()) {\n\t\
-              \tif (d->activeStreams_.find(stream) == d->activeStreams_.end()) {\n\
-              \t\t\tLOG(Camera, Error) << \"Invalid request\";\n\t\t\treturn -EINVAL;\n\
-              \t\t}\n\t}\n\n\t/* Pre-process AeEnable. */\n\tpatchControlList(request->controls());\n\
-              \n\td->pipe_->invokeMethod(&PipelineHandler::queueRequest,\n\t\t\t \
-              \      ConnectionTypeQueued, request);\n\n\treturn 0;\n}\n\n/**\n *\
-              \ \\brief Start capture from camera\n * \\param[in] controls Controls\
-              \ to be applied before starting the Camera\n *\n * Start the camera\
-              \ capture session, optionally providing a list of controls to\n * apply\
-              \ before starting. Once the camera is started the application can queue\n\
-              \ * requests to the camera to process and return to the application\
-              \ until the\n * capture session is terminated with \\a stop().\n *\n\
-              \ * \\context This function may only be called when the camera is in\
-              \ the\n * Configured state as defined in \\ref camera_operation, and\
-              \ shall be\n * synchronized by the caller with other functions that\
-              \ affect the camera\n * state.\n *\n * \\return 0 on success or a negative\
-              \ error code otherwise"
           - source: initial-submission/cam-request-buffers
             sha256: 37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417
-            quote: "for (std::unique_ptr<Request> &request : requests_) {\n\t\tret\
-              \ = queueRequest(request.get());\n\t\tif (ret < 0) {\n\t\t\tstd::cerr\
-              \ << \"Can't queue request\" << std::endl;\n\t\t\tcamera_->stop();\n\
-              \t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\t\treturn ret;\n\t\t}\n\
-              \t}"
+            quote: "int CameraSession::startCapture()\n{\n\tint ret;\n\n\t/* Identify\
+              \ the stream with the least number of buffers. */\n\tunsigned int nbuffers\
+              \ = UINT_MAX;\n\tfor (StreamConfiguration &cfg : *config_) {\n\t\tret\
+              \ = allocator_->allocate(cfg.stream());\n\t\tif (ret < 0) {\n\t\t\t\
+              std::cerr << \"Can't allocate buffers\" << std::endl;\n\t\t\treturn\
+              \ -ENOMEM;\n\t\t}\n\n\t\tunsigned int allocated = allocator_->buffers(cfg.stream()).size();\n\
+              \t\tnbuffers = std::min(nbuffers, allocated);\n\t}\n\n\t/*\n\t * TODO:\
+              \ make cam tool smarter to support still capture by for\n\t * example\
+              \ pushing a button. For now run all streams all the time.\n\t */\n\n\
+              \tfor (unsigned int i = 0; i < nbuffers; i++) {\n\t\tstd::unique_ptr<Request>\
+              \ request = camera_->createRequest();\n\t\tif (!request) {\n\t\t\tstd::cerr\
+              \ << \"Can't create request\" << std::endl;\n\t\t\treturn -ENOMEM;\n\
+              \t\t}\n\n\t\tfor (StreamConfiguration &cfg : *config_) {\n\t\t\tStream\
+              \ *stream = cfg.stream();\n\t\t\tconst std::vector<std::unique_ptr<FrameBuffer>>\
+              \ &buffers =\n\t\t\t\tallocator_->buffers(stream);\n\t\t\tconst std::unique_ptr<FrameBuffer>\
+              \ &buffer = buffers[i];\n\n\t\t\tret = request->addBuffer(stream, buffer.get());\n\
+              \t\t\tif (ret < 0) {\n\t\t\t\tstd::cerr << \"Can't set buffer for request\"\
+              \n\t\t\t\t\t  << std::endl;\n\t\t\t\treturn ret;\n\t\t\t}\n\n\t\t\t\
+              if (sink_)\n\t\t\t\tsink_->mapBuffer(buffer.get());\n\t\t}\n\n\t\trequests_.push_back(std::move(request));\n\
+              \t}\n\n\tif (sink_) {\n\t\tret = sink_->start();\n\t\tif (ret) {\n\t\
+              \t\tstd::cout << \"Failed to start frame sink\" << std::endl;\n\t\t\t\
+              return ret;\n\t\t}\n\t}\n\n\tret = camera_->start();\n\tif (ret) {\n\
+              \t\tstd::cout << \"Failed to start capture\" << std::endl;\n\t\tif (sink_)\n\
+              \t\t\tsink_->stop();\n\t\treturn ret;\n\t}\n\n\tfor (std::unique_ptr<Request>\
+              \ &request : requests_) {\n\t\tret = queueRequest(request.get());\n\t\
+              \tif (ret < 0) {\n\t\t\tstd::cerr << \"Can't queue request\" << std::endl;\n\
+              \t\t\tcamera_->stop();\n\t\t\tif (sink_)\n\t\t\t\tsink_->stop();\n\t\
+              \t\treturn ret;\n\t\t}\n\t}\n\n\tif (captureLimit_)\n\t\tstd::cout <<\
+              \ \"cam\" << cameraIndex_\n\t\t\t  << \": Capture \" << captureLimit_\
+              \ << \" frames\"\n\t\t\t  << std::endl;\n\telse\n\t\tstd::cout << \"\
+              cam\" << cameraIndex_\n\t\t\t  << \": Capture until user interrupts\
+              \ by SIGINT\"\n\t\t\t  << std::endl;\n\n\treturn 0;\n}\n\nint CameraSession::queueRequest(Request\
+              \ *request)\n{\n\tif (captureLimit_ && queueCount_ >= captureLimit_)\n\
+              \t\treturn 0;\n\n\tif (script_)\n\t\trequest->controls().merge(script_->frameControls(queueCount_),\n\
+              \t\t\t\t\t  ControlList::MergePolicy::OverwriteExisting);\n\n\tqueueCount_++;\n\
+              \n\treturn camera_->queueRequest(request);\n}\n\nvoid CameraSession::requestComplete("
         producer: cli/claude/claude-haiku-5-5
       producer: cli/claude/claude-haiku-5-5
-      generation_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
-      citation_binding_policy: identifier-boundaries-v1
-      reused: true
-      citation_binding_revalidation:
-        policy: identifier-and-guard-boundaries-v2
-        original_input_fingerprint: a4fc05e333418d18f1df66669472e720dfa59c0f22c77bb500afd3a22ba4e9b8
-        new_inference: false
+      generation_commit: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
+      citation_binding_policy: identifier-and-guard-boundaries-v2
+      reused: false
     virtual-frame-path:
       input_fingerprint: b1bda1ccbafe597005d84315a1e395ec8a9e7bb1ea8fde0532dcab7aea0ca0d3
       draft:
@@ -6664,8 +7312,121 @@ generated_visuals:
         policy: identifier-and-guard-boundaries-v2
         original_input_fingerprint: 2e10a408e7d5e700125947772c0e41b050987d4b1518ce642d8b8955dc0d5149
         new_inference: false
-  body_sha256: cee05f97bdc4cb79cc6718b473fbabb28683125543b995067a85638b3a2de014
+  body_sha256: cab80bb5023e14e842c89a5d851f6fc7b40ca2b7eed52d3160394d1120fbed39
 revalidated_from: be7e83e91348250c015aad6d6f59f1468555bae8
+managed_visual_refresh:
+- schema: 2
+  source_commit: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
+  original_manuscript_sha256: 3216d8a80b2cbcceb7946e37ea735af9bd875ccf0740daf9a8c1b0ac698e29d8
+  previous_body_sha256: cee05f97bdc4cb79cc6718b473fbabb28683125543b995067a85638b3a2de014
+  body_sha256: 13b7ab6a13b58d79dfeee5c2e627e203dadf84504f9660b45c0d7e9ca8c3a4dd
+  visual_definitions_sha256: 6f33d973885261bed624c7b88626cf060148e8b6c9860434ef23a2c932eaead1
+  preserved_outside_body_sha256: 44b0fa6a0a0484ccf3726625225d3b9ac255c54800b10ebd9474068a510f6be3
+  owned_edit_regions:
+  - original_start_byte: 4601
+    original_end_byte: 14383
+    original_sha256: 5df95a203e5b59d2e62af0c79c8cf2d16058f5bcc7ca29a5be25ed34d7c4aaa6
+    replacement_sha256: 5df95a203e5b59d2e62af0c79c8cf2d16058f5bcc7ca29a5be25ed34d7c4aaa6
+    visual_ids:
+    - virtual-frame-path
+  - original_start_byte: 14385
+    original_end_byte: 22392
+    original_sha256: a0994b3566acb949e005c46dfeb7ef27a5063ad6612b90c116d9993b7efcfb58
+    replacement_sha256: a0994b3566acb949e005c46dfeb7ef27a5063ad6612b90c116d9993b7efcfb58
+    visual_ids:
+    - request-completion-order
+  - original_start_byte: 25578
+    original_end_byte: 31640
+    original_sha256: 1aeef3268d4925911793c3b9fde18d405e2e236eca78b9be03eca903023bbf61
+    replacement_sha256: 1aeef3268d4925911793c3b9fde18d405e2e236eca78b9be03eca903023bbf61
+    visual_ids:
+    - submission-gate
+  - original_start_byte: 32865
+    original_end_byte: 40913
+    original_sha256: 86c2031d3854d6e8715ca397d4a100653556d6188da3ffacaf17004f7d1d3e03
+    replacement_sha256: 419a5f6115854ae21532f1ca33f8ce233f0a2dc3b6ac4258f2793ac8d632f336
+    visual_ids:
+    - initial-submission
+  - original_start_byte: 42176
+    original_end_byte: 50687
+    original_sha256: 233bb5294db86e81c0f6a67f97897fddeea80aa938e3074826f91b4d94e351f3
+    replacement_sha256: 233bb5294db86e81c0f6a67f97897fddeea80aa938e3074826f91b4d94e351f3
+    visual_ids:
+    - completion-flow
+  - original_start_byte: 57341
+    original_end_byte: 71303
+    original_sha256: b667c31c149736e294413e404eb9404c8b491c483d2db81c4f0b492cc8c90829
+    replacement_sha256: b667c31c149736e294413e404eb9404c8b491c483d2db81c4f0b492cc8c90829
+    visual_ids:
+    - reproduction-flow
+  added_visuals: []
+  scope: Separately generated native graph replacement; original prose/authorship
+    retained
+  new_inference: false
+  semantic_approval: false
+  human_review: unchanged
+  graph_records_replaced: true
+  previous_native_records_sha256: 93cd3a8ecea53f6e324f570806278cc88943284b4c1499c09214cf6f3250130a
+  current_native_records_sha256: 558ecc90bb6ab40b84bc97aa806b2e46cfee07f53a5348c0b147bcc254e62da2
+- schema: 1
+  source_commit: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
+  original_manuscript_sha256: a1a2ea2670840727f9d986cd2b26cd5b3da62eda325fee0164e205dbea2438e0
+  previous_body_sha256: 13b7ab6a13b58d79dfeee5c2e627e203dadf84504f9660b45c0d7e9ca8c3a4dd
+  body_sha256: cab80bb5023e14e842c89a5d851f6fc7b40ca2b7eed52d3160394d1120fbed39
+  visual_definitions_sha256: 8c931c7f71648fa803f3db406e5cd2f329ab70f5f0fbea3397e86aec4582e383
+  unchanged_native_records_sha256: 558ecc90bb6ab40b84bc97aa806b2e46cfee07f53a5348c0b147bcc254e62da2
+  preserved_outside_body_sha256: 44b0fa6a0a0484ccf3726625225d3b9ac255c54800b10ebd9474068a510f6be3
+  owned_edit_regions:
+  - original_start_byte: 2585
+    original_end_byte: 2585
+    original_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+    replacement_sha256: 548c27debc4897adca793d0963305c04b5561930cf970ed75c03b6671eb73f45
+    visual_ids:
+    - observed-kernel-boundaries
+  - original_start_byte: 4601
+    original_end_byte: 14383
+    original_sha256: 5df95a203e5b59d2e62af0c79c8cf2d16058f5bcc7ca29a5be25ed34d7c4aaa6
+    replacement_sha256: 7991772e65d0ff2a2babd3960414b60205208e78101df9e63220d0347ef6dae4
+    visual_ids:
+    - virtual-dmabuf-attachment
+    - virtual-frame-path
+  - original_start_byte: 14385
+    original_end_byte: 22392
+    original_sha256: a0994b3566acb949e005c46dfeb7ef27a5063ad6612b90c116d9993b7efcfb58
+    replacement_sha256: a0994b3566acb949e005c46dfeb7ef27a5063ad6612b90c116d9993b7efcfb58
+    visual_ids:
+    - request-completion-order
+  - original_start_byte: 25578
+    original_end_byte: 31640
+    original_sha256: 1aeef3268d4925911793c3b9fde18d405e2e236eca78b9be03eca903023bbf61
+    replacement_sha256: 1aeef3268d4925911793c3b9fde18d405e2e236eca78b9be03eca903023bbf61
+    visual_ids:
+    - submission-gate
+  - original_start_byte: 32865
+    original_end_byte: 43040
+    original_sha256: 419a5f6115854ae21532f1ca33f8ce233f0a2dc3b6ac4258f2793ac8d632f336
+    replacement_sha256: 419a5f6115854ae21532f1ca33f8ce233f0a2dc3b6ac4258f2793ac8d632f336
+    visual_ids:
+    - initial-submission
+  - original_start_byte: 44303
+    original_end_byte: 52814
+    original_sha256: 233bb5294db86e81c0f6a67f97897fddeea80aa938e3074826f91b4d94e351f3
+    replacement_sha256: 233bb5294db86e81c0f6a67f97897fddeea80aa938e3074826f91b4d94e351f3
+    visual_ids:
+    - completion-flow
+  - original_start_byte: 59468
+    original_end_byte: 73430
+    original_sha256: b667c31c149736e294413e404eb9404c8b491c483d2db81c4f0b492cc8c90829
+    replacement_sha256: b667c31c149736e294413e404eb9404c8b491c483d2db81c4f0b492cc8c90829
+    visual_ids:
+    - reproduction-flow
+  added_visuals:
+  - observed-kernel-boundaries
+  - virtual-dmabuf-attachment
+  scope: Configured figure reassembly only; figure authorship remains per visual
+  new_inference: false
+  semantic_approval: false
+  human_review: unchanged
 ---
 
 # WSL 공식 cam 가상 캡처 확인
@@ -6687,6 +7448,43 @@ revalidated_from: be7e83e91348250c015aad6d6f59f1468555bae8
 
 이번 기준 재현에서 기본 WSL 커널은 DMA-BUF 할당기를 노출하지 않아 공식 cam이 버퍼를 할당하지 못했습니다. `product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1`, `product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1`
 
+<!-- sdd:visual:observed-kernel-boundaries -->
+### 기본 커널·시험 커널·복구 후 관측 범위
+
+```mermaid
+flowchart TB
+%% sdd:translations {"공식 cam 관측": "Official cam observation", "공식 cam의 Virtual2 캡처는 <br/>세 실행에서 각각 3프레임을 <br/>완료했습니다.": "Official cam completed <br/>three Virtual2 frames in <br/>each of three runs.", "기본 WSL 커널은 DMA-BUF <br/>할당기를 노출하지 <br/>않았습니다.": "The default WSL kernel did <br/>not expose a DMA-BUF <br/>allocator.", "기본 커널을 복구했고 <br/>.wslconfig는 없었습니다.": "The default kernel was <br/>restored and .wslconfig was <br/>absent.", "별도 DMA-BUF 프로브는 <br/>4,096바이트를 할당하고 <br/>CPU로 접근했습니다.": "The separate DMA-BUF probe <br/>allocated 4,096 bytes and <br/>accessed them on the CPU.", "별도 프로브 관측": "Separate probe observation", "시험 WSL2 커널에 udmabuf이 <br/>내장돼 있었습니다.": "The test WSL2 kernel had <br/>built-in udmabuf.", "시험 구성": "Test configuration", "시험 후 복구": "Restored after the trial"}
+  v_baseline["기본 WSL 커널은 DMA-BUF <br/>할당기를 노출하지 <br/>않았습니다."]
+  v_trial["시험 WSL2 커널에 udmabuf이 <br/>내장돼 있었습니다."]
+  v_camera["공식 cam의 Virtual2 캡처는 <br/>세 실행에서 각각 3프레임을 <br/>완료했습니다."]
+  v_cpu["별도 DMA-BUF 프로브는 <br/>4,096바이트를 할당하고 <br/>CPU로 접근했습니다."]
+  v_restored["기본 커널을 복구했고 <br/>.wslconfig는 없었습니다."]
+  v_baseline -->|"시험 구성"| v_trial
+  v_trial -->|"공식 cam 관측"| v_camera
+  v_trial -->|"별도 프로브 관측"| v_cpu
+  v_trial -->|"시험 후 복구"| v_restored
+```
+
+[Mermaid 원문](official-cam-validation.observed-kernel-boundaries.mmd)
+
+??? note "그림 근거와 확인 범위"
+    어느 커널에서 공식 cam과 별도 DMA-BUF 프로브를 관찰했으며 시험 종료 시 어떤 상태였습니까?
+    
+    소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.
+    
+    | 요소·전이 | 소스 근거 |
+    |---|---|
+    | <span data-sdd-label-en="The default WSL kernel did not expose a DMA-BUF allocator.">기본 WSL 커널은 DMA-BUF 할당기를 노출하지 않았습니다.</span> | [product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1](#source-10812730226e86cc) |
+    | <span data-sdd-label-en="The test WSL2 kernel had built-in udmabuf.">시험 WSL2 커널에 udmabuf이 내장돼 있었습니다.</span> | [product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1](#source-10812730226e86cc) |
+    | <span data-sdd-label-en="Official cam completed three Virtual2 frames in each of three runs.">공식 cam의 Virtual2 캡처는 세 실행에서 각각 3프레임을 완료했습니다.</span> | [product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1](#source-10812730226e86cc) · [product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1](#source-d84e6ca3abcfec11) |
+    | <span data-sdd-label-en="The separate DMA-BUF probe allocated 4,096 bytes and accessed them on the CPU.">별도 DMA-BUF 프로브는 4,096바이트를 할당하고 CPU로 접근했습니다.</span> | [product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1](#source-10812730226e86cc) |
+    | <span data-sdd-label-en="The default kernel was restored and .wslconfig was absent.">기본 커널을 복구했고 .wslconfig는 없었습니다.</span> | [product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1](#source-10812730226e86cc) |
+    | <span data-sdd-label-en="Test configuration">시험 구성</span> | [product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1](#source-10812730226e86cc) |
+    | <span data-sdd-label-en="Official cam observation">공식 cam 관측</span> | [product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1](#source-10812730226e86cc) |
+    | <span data-sdd-label-en="Separate probe observation">별도 프로브 관측</span> | [product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1](#source-10812730226e86cc) |
+    | <span data-sdd-label-en="Restored after the trial">시험 후 복구</span> | [product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1](#source-10812730226e86cc) |
+<!-- /sdd:visual:observed-kernel-boundaries -->
+
 소스 293d751a를 수정하지 않은 공식 cam이 WSL2 시험 커널에서 Virtual2 400x300 NV12 가상 카메라 구성으로 세 개의 독립 프로세스에서 각각 실행되었습니다. 각 실행에서 3프레임 정상 완료와 udmabuf 할당 성공이 관측되었고, 별도 DMA-BUF 프로브의 CPU 접근 성공은 이 cam 할당 관찰과 구분되어 기록되었습니다. 시험은 기본 커널로 원복된 상태로 마쳐져, 현재 상태에서는 이 구성을 그대로 재실행할 수 없습니다. `product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1`, `product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1`
 
 근거 원문: [product-evidence/libcamera-official-cam-trial/execution-contract.txt:1](#source-6722470b9620a771) · [product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1](#source-d84e6ca3abcfec11) · [product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1](#source-10812730226e86cc)
@@ -6694,6 +7492,47 @@ revalidated_from: be7e83e91348250c015aad6d6f59f1468555bae8
 ## 가상 파이프라인이 영상을 만들고 요청 완료를 알립니다
 
 고정 libcamera 소스에서 분석한 virtual 파이프라인 핸들러는 테스트용 가상 카메라를 흉내 내며, 실제 센서 대신 소프트웨어 테스트 패턴이나 이미지 입력을 영상으로 지원합니다. 이번에 선택한 Virtual2 구성은 400x300 lines 패턴을 공급하는 사례이며, 이 구성 하나가 virtual 기능 전체를 정하지는 않습니다. 할당이 성공한 뒤 cam은 실제 DMA-BUF 버퍼를 요청에 붙여 요청 전달을 준비합니다. 소프트웨어 요청 처리에서 CPU가 NV12 변환과 매핑된 버퍼 쓰기를 함께 시도하는 경로입니다. `src/libcamera/pipeline/virtual/README.md:3`, `src/libcamera/pipeline/virtual/data/virtual.yaml:28`, `src/libcamera/framebuffer_allocator.cpp:86`, `src/libcamera/pipeline/virtual/virtual.cpp:356`, `src/apps/cam/camera_session.cpp:356`, `src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47`
+
+<!-- sdd:visual:virtual-dmabuf-attachment -->
+### 가상 DMA-BUF 할당과 cam 요청 연결
+
+```mermaid
+flowchart TB
+%% sdd:translations {"cam은 구성된 스트림에 <br/>allocate#40;#41;를 호출합니다.": "cam calls allocate#40;#41; for <br/>the configured stream.", "cam은 새 요청에 해당 <br/>인덱스의 스트림 버퍼를 <br/>addBuffer#40;#41;로 연결합니다.": "cam uses addBuffer#40;#41; to <br/>attach the indexed stream <br/>buffer to the new request.", "가상 DMA-BUF 할당기가 <br/>유효합니까?": "Is the virtual DMA-BUF <br/>allocator valid?", "가상 파이프라인은 <br/>-ENOBUFS를 반환하고 cam은 <br/>할당 실패로 -ENOMEM을 <br/>반환합니다.": "The virtual pipeline <br/>returns -ENOBUFS and cam <br/>returns -ENOMEM for <br/>allocation failure.", "가상 파이프라인은 플레인 <br/>크기와 구성의 버퍼 수로 <br/>내보냅니다.": "The virtual pipeline <br/>exports using plane sizes <br/>and the configured buffer <br/>count.", "검사 통과 후": "After checks pass", "아니오": "No", "예": "Yes", "카메라는 구성 상태와 활성 <br/>스트림을 검사한 뒤 <br/>파이프라인에 동기 <br/>위임합니다.": "Camera checks configured <br/>state and active stream, <br/>then calls the pipeline <br/>with blocking delivery.", "카메라로 전달": "Pass to Camera", "할당 성공 후": "After successful allocation"}
+  v_allocate["cam은 구성된 스트림에 <br/>allocate#40;#41;를 호출합니다."]
+  v_camera_export["카메라는 구성 상태와 활성 <br/>스트림을 검사한 뒤 <br/>파이프라인에 동기 <br/>위임합니다."]
+  v_virtual_guard{"가상 DMA-BUF 할당기가 <br/>유효합니까?"}
+  v_failure["가상 파이프라인은 <br/>-ENOBUFS를 반환하고 cam은 <br/>할당 실패로 -ENOMEM을 <br/>반환합니다."]
+  v_export["가상 파이프라인은 플레인 <br/>크기와 구성의 버퍼 수로 <br/>내보냅니다."]
+  v_attach["cam은 새 요청에 해당 <br/>인덱스의 스트림 버퍼를 <br/>addBuffer#40;#41;로 연결합니다."]
+  v_allocate -->|"카메라로 전달"| v_camera_export
+  v_camera_export -->|"검사 통과 후"| v_virtual_guard
+  v_virtual_guard -->|"아니오"| v_failure
+  v_virtual_guard -->|"예"| v_export
+  v_export -->|"할당 성공 후"| v_attach
+```
+
+[Mermaid 원문](official-cam-validation.virtual-dmabuf-attachment.mmd)
+
+??? note "그림 근거와 확인 범위"
+    가상 파이프라인이 DMA-BUF를 내보내고 cam이 요청에 연결하기까지 어떤 호출과 조건을 거칩니까?
+    
+    소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.
+    
+    | 요소·전이 | 소스 근거 |
+    |---|---|
+    | <span data-sdd-label-en="cam calls allocate() for the configured stream.">cam은 구성된 스트림에 allocate&#40;&#41;를 호출합니다.</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
+    | <span data-sdd-label-en="Camera checks configured state and active stream, then calls the pipeline with blocking delivery.">카메라는 구성 상태와 활성 스트림을 검사한 뒤 파이프라인에 동기 위임합니다.</span> | [src/libcamera/camera.cpp:963](#source-80fd4657ae4c65d1) |
+    | <span data-sdd-label-en="Is the virtual DMA-BUF allocator valid?">가상 DMA-BUF 할당기가 유효합니까?</span> | [src/libcamera/pipeline/virtual/virtual.cpp:356](#source-1868fec3abf482b8) |
+    | <span data-sdd-label-en="The virtual pipeline returns -ENOBUFS and cam returns -ENOMEM for allocation failure.">가상 파이프라인은 -ENOBUFS를 반환하고 cam은 할당 실패로 -ENOMEM을 반환합니다.</span> | [src/libcamera/pipeline/virtual/virtual.cpp:356](#source-1868fec3abf482b8) · [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
+    | <span data-sdd-label-en="The virtual pipeline exports using plane sizes and the configured buffer count.">가상 파이프라인은 플레인 크기와 구성의 버퍼 수로 내보냅니다.</span> | [src/libcamera/pipeline/virtual/virtual.cpp:356](#source-1868fec3abf482b8) |
+    | <span data-sdd-label-en="cam uses addBuffer() to attach the indexed stream buffer to the new request.">cam은 새 요청에 해당 인덱스의 스트림 버퍼를 addBuffer&#40;&#41;로 연결합니다.</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
+    | <span data-sdd-label-en="Pass to Camera">카메라로 전달</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) · [src/libcamera/framebuffer_allocator.cpp:86](#source-e91194807faa9e0c) · [src/libcamera/camera.cpp:963](#source-80fd4657ae4c65d1) |
+    | <span data-sdd-label-en="After checks pass">검사 통과 후</span> | [src/libcamera/camera.cpp:963](#source-80fd4657ae4c65d1) · [src/libcamera/pipeline/virtual/virtual.cpp:356](#source-1868fec3abf482b8) |
+    | <span data-sdd-label-en="No">아니오</span> | [src/libcamera/pipeline/virtual/virtual.cpp:356](#source-1868fec3abf482b8) · [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
+    | <span data-sdd-label-en="Yes">예</span> | [src/libcamera/pipeline/virtual/virtual.cpp:356](#source-1868fec3abf482b8) |
+    | <span data-sdd-label-en="After successful allocation">할당 성공 후</span> | [src/libcamera/pipeline/virtual/virtual.cpp:356](#source-1868fec3abf482b8) · [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
+<!-- /sdd:visual:virtual-dmabuf-attachment -->
 
 <!-- sdd:visual:virtual-frame-path -->
 ### Virtual2 줄 패턴 NV12 변환·기록 시도 흐름
@@ -6895,26 +7734,31 @@ cam은 요청 준비와 카메라 시작 뒤 한도 안에서만 제출하고, �
 
 ```mermaid
 flowchart TB
-%% sdd:translations {"sink#95;가 있으면 중지, 시작 <br/>오류 반환, 카메라 중지 없음": "Stop sink#95; if any, return <br/>error, no camera stop", "남은 요청 확인": "check remaining", "남은 초기 요청 없으면 순회 <br/>정상 종료": "No initial requests left; <br/>loop ends normally", "남은 초기 요청 여부 판정": "Check whether initial <br/>requests remain", "미설정 또는 미달, 호출 <br/>#91;false#93;": "unset or below, call #91;false#93;", "비동기 호출 등록됨, 0 반환 <br/>결과": "Async call scheduled; <br/>returns 0", "시작 성공 #91;false#93;": "start succeeded #91;false#93;", "시작 실패 #91;true#93;": "start failed #91;true#93;", "요청 남음": "request remains", "요청 없음, 순회 종료": "none left, loop ends", "음수 아님 #91;false#93;": "non-negative #91;false#93;", "음수 오류 반환 시 #91;true#93;": "if negative error #91;true#93;", "이미 시작한 카메라 중지, <br/>sink#95;가 있으면 중지, 제출 <br/>오류 반환": "Stop started camera, sink#95; <br/>if any; return error", "제출 결과 음수 오류 판정": "Check submit result for <br/>negative error", "제출 한도 도달 여부 판정": "Check whether submission <br/>limit is reached", "제출 횟수 1 증가 후 카메라 <br/>큐 호출 시도, 실행 상태 검사": "Count +1, try camera queue <br/>call; check running", "카메라 시작 결과 판정": "Check camera start result", "한도 도달, 호출 생략, 0 <br/>반환 #91;true#93;": "at limit: 0, no call #91;true#93;", "호출 결과 반환": "returns call result"}
-  v_start_check{"카메라 시작 결과 판정"}
-  v_start_fail["sink#95;가 있으면 중지, 시작 <br/>오류 반환, 카메라 중지 없음"]
-  v_remaining{"남은 초기 요청 여부 판정"}
-  v_limit_check{"제출 한도 도달 여부 판정"}
-  v_camera_queue["제출 횟수 1 증가 후 카메라 <br/>큐 호출 시도, 실행 상태 검사"]
-  v_helper_ret{"제출 결과 음수 오류 판정"}
-  v_stop_err["이미 시작한 카메라 중지, <br/>sink#95;가 있으면 중지, 제출 <br/>오류 반환"]
-  v_ok_result["비동기 호출 등록됨, 0 반환 <br/>결과"]
-  v_done["남은 초기 요청 없으면 순회 <br/>정상 종료"]
+%% sdd:translations {"0 반환 후 호출자 검사": "then caller checks", "queueRequest 결과가 음수 <br/>오류인지 확인": "Check if queueRequest <br/>result is a negative error", "sink가 있으면 중지 후 시작 <br/>오류 반환, 카메라 중지 없음": "Stop sink if present, <br/>return start error, no <br/>camera stop", "검사 실패 시 음수 오류 코드 <br/>반환": "On check failure, return <br/>negative error code", "검사 실패, 오류": "fails: return error", "검사 통과, 비동기 호출": "passes: async call", "미설정 또는 미달 #91;false#93;": "unset or below #91;false#93;", "스크립트 있을 때만 제어 <br/>병합, 큐 API 호출 시도 <br/>횟수는 항상 1 증가": "Merge controls only if <br/>script exists; always +1 <br/>queue API call attempts", "시작 성공 #91;false#93;": "start succeeded #91;false#93;", "시작 실패 #91;true#93;": "start failed #91;true#93;", "요청 남음": "requests remain", "요청 순회 정상 종료, 한도 <br/>유무별 캡처 안내 출력 후 0 <br/>반환": "Loop ends normally; print <br/>capture notice by limit, <br/>return 0", "요청 없음, 순회 종료": "none left, loop ends", "음수 아니면 다음 요청 <br/>#91;false#93;": "non-negative: next #91;false#93;", "음수 오류 #91;true#93;": "negative error #91;true#93;", "처리할 초기 요청이 남았는지 <br/>확인": "Check whether initial <br/>requests remain", "카메라 시작 결과 확인": "Check camera start result", "카메라 실행 상태, 요청 <br/>소유, 요청 유효성 검사 통과 <br/>여부": "Check camera Running state, <br/>request owner, request <br/>validity", "카메라 큐 요청 호출": "calls camera queue", "카메라를 중지하고, sink가 <br/>있으면 중지한 뒤 오류 반환": "Stop camera, stop sink if <br/>present, then return error", "파이프라인 큐 호출을 <br/>비동기로 등록하고 API는 0 <br/>반환": "Async pipeline queue call <br/>scheduled; API returns 0", "한도 도달, 호출 없이 0 <br/>#91;true#93;": "at limit: 0, no call #91;true#93;", "한도가 있고 큐 API 호출 <br/>시도 횟수가 도달했는지 확인": "Check if limit is set and <br/>queue API call attempts <br/>reached it", "호출자에게 오류 전달": "error to caller"}
+  v_start_check{"카메라 시작 결과 확인"}
+  v_start_fail["sink가 있으면 중지 후 시작 <br/>오류 반환, 카메라 중지 없음"]
+  v_remaining{"처리할 초기 요청이 남았는지 <br/>확인"}
+  v_limit_check{"한도가 있고 큐 API 호출 <br/>시도 횟수가 도달했는지 확인"}
+  v_control_merge["스크립트 있을 때만 제어 <br/>병합, 큐 API 호출 시도 <br/>횟수는 항상 1 증가"]
+  v_camera_queue_check{"카메라 실행 상태, 요청 <br/>소유, 요청 유효성 검사 통과 <br/>여부"}
+  v_queue_error["검사 실패 시 음수 오류 코드 <br/>반환"]
+  v_queue_async["파이프라인 큐 호출을 <br/>비동기로 등록하고 API는 0 <br/>반환"]
+  v_caller_check{"queueRequest 결과가 음수 <br/>오류인지 확인"}
+  v_stop_on_error["카메라를 중지하고, sink가 <br/>있으면 중지한 뒤 오류 반환"]
+  v_done["요청 순회 정상 종료, 한도 <br/>유무별 캡처 안내 출력 후 0 <br/>반환"]
   v_start_check -->|"시작 실패 #91;true#93;"| v_start_fail
   v_start_check -->|"시작 성공 #91;false#93;"| v_remaining
   v_remaining -->|"요청 남음"| v_limit_check
   v_remaining -->|"요청 없음, 순회 종료"| v_done
-  v_limit_check -->|"미설정 또는 미달, 호출 <br/>#91;false#93;"| v_camera_queue
-  v_limit_check -->|"한도 도달, 호출 생략, 0 <br/>반환 #91;true#93;"| v_remaining
-  v_camera_queue -->|"호출 결과 반환"| v_helper_ret
-  v_helper_ret -->|"음수 오류 반환 시 #91;true#93;"| v_stop_err
-  v_helper_ret -->|"음수 아님 #91;false#93;"| v_ok_result
-  v_ok_result -->|"남은 요청 확인"| v_remaining
+  v_limit_check -->|"미설정 또는 미달 #91;false#93;"| v_control_merge
+  v_limit_check -->|"한도 도달, 호출 없이 0 <br/>#91;true#93;"| v_caller_check
+  v_control_merge -->|"카메라 큐 요청 호출"| v_camera_queue_check
+  v_camera_queue_check -->|"검사 실패, 오류"| v_queue_error
+  v_camera_queue_check -->|"검사 통과, 비동기 호출"| v_queue_async
+  v_queue_error -->|"호출자에게 오류 전달"| v_caller_check
+  v_queue_async -->|"0 반환 후 호출자 검사"| v_caller_check
+  v_caller_check -->|"음수 오류 #91;true#93;"| v_stop_on_error
+  v_caller_check -->|"음수 아니면 다음 요청 <br/>#91;false#93;"| v_remaining
 ```
 
 [Mermaid 원문](official-cam-validation.initial-submission.mmd)
@@ -6930,25 +7774,30 @@ flowchart TB
     
     | 요소·전이 | 소스 근거 |
     |---|---|
-    | <span data-sdd-label-en="Check camera start result">카메라 시작 결과 판정</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) · [src/libcamera/camera.cpp:1330](#source-d6d48aa78159fb58) |
-    | <span data-sdd-label-en="Stop sink_ if any, return error, no camera stop">sink&#95;가 있으면 중지, 시작 오류 반환, 카메라 중지 없음</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) · [src/libcamera/camera.cpp:1330](#source-d6d48aa78159fb58) |
-    | <span data-sdd-label-en="Check whether initial requests remain">남은 초기 요청 여부 판정</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
-    | <span data-sdd-label-en="Check whether submission limit is reached">제출 한도 도달 여부 판정</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
-    | <span data-sdd-label-en="Count +1, try camera queue call; check running">제출 횟수 1 증가 후 카메라 큐 호출 시도, 실행 상태 검사</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) · [src/libcamera/camera.cpp:1330](#source-d6d48aa78159fb58) |
-    | <span data-sdd-label-en="Check submit result for negative error">제출 결과 음수 오류 판정</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
-    | <span data-sdd-label-en="Stop started camera, sink_ if any; return error">이미 시작한 카메라 중지, sink&#95;가 있으면 중지, 제출 오류 반환</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
-    | <span data-sdd-label-en="Async call scheduled; returns 0">비동기 호출 등록됨, 0 반환 결과</span> | [src/libcamera/camera.cpp:1330](#source-d6d48aa78159fb58) · [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
-    | <span data-sdd-label-en="No initial requests left; loop ends normally">남은 초기 요청 없으면 순회 정상 종료</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
+    | <span data-sdd-label-en="Check camera start result">카메라 시작 결과 확인</span> | [src/libcamera/camera.cpp:1330](#source-d6d48aa78159fb58) · [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
+    | <span data-sdd-label-en="Stop sink if present, return start error, no camera stop">sink가 있으면 중지 후 시작 오류 반환, 카메라 중지 없음</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
+    | <span data-sdd-label-en="Check whether initial requests remain">처리할 초기 요청이 남았는지 확인</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
+    | <span data-sdd-label-en="Check if limit is set and queue API call attempts reached it">한도가 있고 큐 API 호출 시도 횟수가 도달했는지 확인</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
+    | <span data-sdd-label-en="Merge controls only if script exists; always +1 queue API call attempts">스크립트 있을 때만 제어 병합, 큐 API 호출 시도 횟수는 항상 1 증가</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
+    | <span data-sdd-label-en="Check camera Running state, request owner, request validity">카메라 실행 상태, 요청 소유, 요청 유효성 검사 통과 여부</span> | [src/libcamera/camera.cpp:1330](#source-d6d48aa78159fb58) |
+    | <span data-sdd-label-en="On check failure, return negative error code">검사 실패 시 음수 오류 코드 반환</span> | [src/libcamera/camera.cpp:1330](#source-d6d48aa78159fb58) |
+    | <span data-sdd-label-en="Async pipeline queue call scheduled; API returns 0">파이프라인 큐 호출을 비동기로 등록하고 API는 0 반환</span> | [src/libcamera/camera.cpp:1330](#source-d6d48aa78159fb58) |
+    | <span data-sdd-label-en="Check if queueRequest result is a negative error">queueRequest 결과가 음수 오류인지 확인</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
+    | <span data-sdd-label-en="Stop camera, stop sink if present, then return error">카메라를 중지하고, sink가 있으면 중지한 뒤 오류 반환</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
+    | <span data-sdd-label-en="Loop ends normally; print capture notice by limit, return 0">요청 순회 정상 종료, 한도 유무별 캡처 안내 출력 후 0 반환</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
     | <span data-sdd-label-en="start failed · ret [true]">시작 실패 · ret &#91;true&#93;</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) · [src/libcamera/camera.cpp:1330](#source-d6d48aa78159fb58) |
     | <span data-sdd-label-en="start succeeded · ret [false]">시작 성공 · ret &#91;false&#93;</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) · [src/libcamera/camera.cpp:1330](#source-d6d48aa78159fb58) |
-    | <span data-sdd-label-en="request remains">요청 남음</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
+    | <span data-sdd-label-en="requests remain">요청 남음</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
     | <span data-sdd-label-en="none left, loop ends">요청 없음, 순회 종료</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
-    | <span data-sdd-label-en="unset or below, call · captureLimit_ &amp;&amp; queueCount_ &gt;= captureLimit_ [false]">미설정 또는 미달, 호출 · captureLimit&#95; &amp;&amp; queueCount&#95; &gt;= captureLimit&#95; &#91;false&#93;</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) · [src/libcamera/camera.cpp:1330](#source-d6d48aa78159fb58) |
-    | <span data-sdd-label-en="at limit: 0, no call · captureLimit_ &amp;&amp; queueCount_ &gt;= captureLimit_ [true]">한도 도달, 호출 생략, 0 반환 · captureLimit&#95; &amp;&amp; queueCount&#95; &gt;= captureLimit&#95; &#91;true&#93;</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
-    | <span data-sdd-label-en="returns call result">호출 결과 반환</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) · [src/libcamera/camera.cpp:1330](#source-d6d48aa78159fb58) |
-    | <span data-sdd-label-en="if negative error · ret &lt; 0 [true]">음수 오류 반환 시 · ret &lt; 0 &#91;true&#93;</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
-    | <span data-sdd-label-en="non-negative · ret &lt; 0 [false]">음수 아님 · ret &lt; 0 &#91;false&#93;</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) · [src/libcamera/camera.cpp:1330](#source-d6d48aa78159fb58) |
-    | <span data-sdd-label-en="check remaining">남은 요청 확인</span> | [src/libcamera/camera.cpp:1330](#source-d6d48aa78159fb58) · [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
+    | <span data-sdd-label-en="unset or below · captureLimit_ &amp;&amp; queueCount_ &gt;= captureLimit_ [false]">미설정 또는 미달 · captureLimit&#95; &amp;&amp; queueCount&#95; &gt;= captureLimit&#95; &#91;false&#93;</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
+    | <span data-sdd-label-en="at limit: 0, no call · captureLimit_ &amp;&amp; queueCount_ &gt;= captureLimit_ [true]">한도 도달, 호출 없이 0 · captureLimit&#95; &amp;&amp; queueCount&#95; &gt;= captureLimit&#95; &#91;true&#93;</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
+    | <span data-sdd-label-en="calls camera queue">카메라 큐 요청 호출</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) · [src/libcamera/camera.cpp:1330](#source-d6d48aa78159fb58) |
+    | <span data-sdd-label-en="fails: return error">검사 실패, 오류</span> | [src/libcamera/camera.cpp:1330](#source-d6d48aa78159fb58) |
+    | <span data-sdd-label-en="passes: async call">검사 통과, 비동기 호출</span> | [src/libcamera/camera.cpp:1330](#source-d6d48aa78159fb58) |
+    | <span data-sdd-label-en="error to caller">호출자에게 오류 전달</span> | [src/libcamera/camera.cpp:1330](#source-d6d48aa78159fb58) · [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
+    | <span data-sdd-label-en="then caller checks">0 반환 후 호출자 검사</span> | [src/libcamera/camera.cpp:1330](#source-d6d48aa78159fb58) · [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
+    | <span data-sdd-label-en="negative error · ret &lt; 0 [true]">음수 오류 · ret &lt; 0 &#91;true&#93;</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
+    | <span data-sdd-label-en="non-negative: next · ret &lt; 0 [false]">음수 아니면 다음 요청 · ret &lt; 0 &#91;false&#93;</span> | [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) |
 <!-- /sdd:visual:initial-submission -->
 
 근거 원문: [src/apps/cam/camera_session.cpp:356](#source-4175eaf02282069c) · [src/libcamera/camera.cpp:1330](#source-d6d48aa78159fb58) · [product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1](#source-67134777ea4213e0) · [product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1](#source-e326d2b05d8f4ef8) · [product-evidence/libcamera-official-cam-trial/invocation-options.txt:1](#source-077dc6a73bad3108) · [product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1](#source-5a006a90fe9f46ad)

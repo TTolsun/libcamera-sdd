@@ -1,0 +1,26 @@
+flowchart TB
+
+  v_swap["swap moves waitingRequests#95; <br/>to a local queue so <br/>stopDevice#39;s <br/>completeRequest cannot <br/>cause them to be requeued."]
+  v_device["stopDevice is called to <br/>stop the pipeline and let <br/>queued requests complete; <br/>this call alone does not <br/>verify device stop."]
+  v_loop{"Does the local <br/>waitingRequests queue <br/>contain a request?"}
+  v_cancel["Take the request with <br/>front, remove it with pop, <br/>and directly call its <br/>Private cancel."]
+  v_docancel["doCancelRequest cancels <br/>pending buffers, emits <br/>camera#39;s bufferCompleted <br/>for each, sets cancelled#95; <br/>true, clears pending#95; and <br/>notifiers#95;, then resets <br/>timer#95;."]
+  v_queue["doQueueRequest adds the <br/>request to camera#39;s <br/>queuedRequests#95;, stores its <br/>requestSequence#95; in <br/>sequence#95;, then increments <br/>the camera counter."]
+  v_cancelled{"Is the request#39;s cancelled#95; <br/>set?"}
+  v_complete["The cancelled request goes <br/>to completeRequest instead <br/>of queueRequestDevice."]
+  v_assert["Enabled ASSERTs check that <br/>camera#39;s queuedRequests#95; <br/>and waitingRequests#95; are <br/>empty and abort on failure; <br/>assertions may be compiled <br/>out."]
+  v_reset["After enabled ASSERTs pass, <br/>or if they are compiled <br/>out, reset camera#39;s <br/>requestSequence#95; to zero."]
+  v_contract["completeRequest returns <br/>requests to the application <br/>in submission order; calls <br/>on complete requests have <br/>no ordering constraint."]
+  v_duty["The caller must invoke <br/>completeRequest on the <br/>CameraManager thread and <br/>must not access the request <br/>after it returns."]
+  v_swap -->|"Call it after separating <br/>the requests."| v_device
+  v_device -->|"Start the loop if <br/>stopDevice returns normally."| v_loop
+  v_loop -->|"Process a request if one <br/>remains. #91;true#93;"| v_cancel
+  v_cancel -->|"Call it if the enabled <br/>RequestPending ASSERT <br/>passes or its check is <br/>compiled out."| v_docancel
+  v_queue -->|"Check after tracking and <br/>sequence assignment."| v_cancelled
+  v_cancelled -->|"Complete the request if it <br/>is already cancelled. #91;true#93;"| v_complete
+  v_complete -->|"Return to the local queue <br/>loop if doQueueRequest <br/>returns normally."| v_loop
+  v_loop -->|"Proceed when the local <br/>queue is empty. #91;false#93;"| v_assert
+  v_assert -->|"Proceed if enabled checks <br/>pass or the checks are <br/>compiled out."| v_reset
+  v_complete -->|"The completion ordering <br/>contract applies to this <br/>call."| v_contract
+  v_contract -->|"The caller must also follow <br/>these duties."| v_duty
+  v_docancel -->|"After doCancelRequest and <br/>cancel return normally, <br/>pass the same request to <br/>doQueueRequest."| v_queue
