@@ -1,14 +1,13 @@
 ---
-generated_at: 2026-10-29T20:32:05+00:00
-source_commit: be7e83e91348250c015aad6d6f59f1468555bae8
+generated_at: 2026-11-11T17:51:40+00:00
+source_commit: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
 status: ok
 section: ipa-algorithms
 generation_method: facts-and-llm
-evidence_fingerprint: e0bfed2683a61706754cd60033511eea6d6532d291d795dcc8f039aa0748b182
+evidence_fingerprint: 4e0e0d04b32fc0f2f763c63e23eefe53e93b2e1219722a64c7692a620e56f80c
 semantic_review: human-review-required
 agent: cli/codex/gpt-6.1-terra
-generated_design: {"schema": 1, "input_fingerprint": "e0bfed2683a61706754cd60033511eea6d6532d291d795dcc8f039aa0748b182", "answers": {"tuning": [{"text": "RKISP1과 Mali-C55는 센서 모델 이름에 `.yaml`을 붙인 파일 이름과 대체 이름 `uncalibrated.yaml`을 `configurationFile()`에 전달합니다.", "evidence": ["rkisp1-tuning", "mali-c55-tuning"], "covers": ["tuning"], "kind": "behavior", "quote": "/* The IPA tuning file is made from the sensor name. */\n\tstd::string ipaTuningFile =\n\t\tipa_->configurationFile(sensor_->model() + \".yaml\", \"uncalibrated.yaml\");"}, {"text": "`IPAProxy::configurationFile()`은 먼저 IPA 모듈 이름과 요청한 파일 이름으로 설정 파일을 검색하고, 경로를 찾으면 이를 반환합니다. 찾지 못하고 대체 이름이 비어 있으면 오류를 기록하고 빈 문자열을 반환합니다. 대체 이름이 비어 있지 않으면 그 이름으로 파일을 검색하고 경고를 기록합니다.", "evidence": ["fallback"], "covers": ["tuning"], "kind": "behavior", "quote": "std::string IPAProxy::configurationFile(const std::string &name,\n\t\t\t\t\tconst std::string &fallbackName) const\n{\n\t/*\n\t * The IPA module name can be used as-is to build directory names as it\n\t * has been validated when loading the module.\n\t */\n\tconst std::string ipaName = ipam_->info().name;\n\tstd::string confPath = ipaConfigurationFile(ipaName, name, configPaths_);\n\tif (!confPath.empty()) {\n\t\tLOG(IPAProxy, Info) << \"Using tuning file \" << confPath;\n\t\treturn confPath;\n\t}"}, {"text": "두 `uncalibrated.yaml`에는 `Agc`, `Awb`, `BlackLevelCorrection`, `Ccm`이 나열되어 있으며, RKISP1 파일에는 `GammaOutCorrection`도 나열되어 있습니다.", "evidence": ["rkisp1-uncalibrated", "mali-c55-uncalibrated"], "covers": ["tuning"], "kind": "behavior", "quote": "# SPDX-License-Identifier: CC0-1.0\n%YAML 1.1\n---\nversion: 1\nalgorithms:\n  - Agc:\n  - Awb:\n  - BlackLevelCorrection:\n  - Ccm:\n  - GammaOutCorrection:\n..."}], "dma-import": [{"text": "`createDMABufTexture2D()`는 `GL_RED`와 `GL_LUMINANCE`를 각각 `DRM_FORMAT_R8`에 대응합니다. `GL_RG`는 `DRM_FORMAT_GR88`에 대응하고, `GL_RGBA`는 `DRM_FORMAT_ARGB8888`에 대응합니다.", "evidence": ["import"], "covers": ["dma-import"], "kind": "behavior", "quote": "switch (eglImage.format_) {\n\tcase GL_RED:\n\tcase GL_LUMINANCE:\n\t\tdrm_format = DRM_FORMAT_R8;\n\t\tbreak;\n\tcase GL_RG:\n\t\tdrm_format = DRM_FORMAT_GR88;\n\t\tbreak;\n\tcase GL_RGBA:\n\t\tdrm_format = DRM_FORMAT_ARGB8888;\n\t\tbreak;\n\tdefault:\n\t\tLOG(eGL, Error) << \"unhandled GL format\";\n\t\treturn -ENODEV;\n\t}", "part_id": "formats"}, {"text": "`createDMABufTexture2D()`의 `switch` 문에서 `default` 분기는 오류 수준으로 `unhandled GL format`을 기록하고 `-ENODEV`를 반환합니다. 이 분기에는 `dmabuf_import_failed_` 플래그 대입이 없습니다.", "evidence": ["import"], "covers": ["dma-import"], "kind": "behavior", "quote": "switch (eglImage.format_) {\n\tcase GL_RED:\n\tcase GL_LUMINANCE:\n\t\tdrm_format = DRM_FORMAT_R8;\n\t\tbreak;\n\tcase GL_RG:\n\t\tdrm_format = DRM_FORMAT_GR88;\n\t\tbreak;\n\tcase GL_RGBA:\n\t\tdrm_format = DRM_FORMAT_ARGB8888;\n\t\tbreak;\n\tdefault:\n\t\tLOG(eGL, Error) << \"unhandled GL format\";\n\t\treturn -ENODEV;\n\t}", "part_id": "unsupported"}, {"text": "`createDMABufTexture2D()`에서 `eglCreateImageKHR()`의 결과가 `EGL_NO_IMAGE_KHR`이면 디버그 로그에 `eglCreateImageKHR fail`을 기록합니다. 이어서 `eglImage.dmabuf_import_failed_`에 `true`를 대입하고 `-ENODEV`를 반환합니다.", "evidence": ["import"], "covers": ["dma-import"], "kind": "behavior", "quote": "if (image == EGL_NO_IMAGE_KHR) {\n\t\tLOG(eGL, Debug) << \"eglCreateImageKHR fail\";\n\t\teglImage.dmabuf_import_failed_ = true;\n\t\treturn -ENODEV;\n\t}", "part_id": "image-failure"}, {"text": "`createInputDMABufTexture2D()`는 `createDMABufTexture2D()`의 마지막 인자로 `false`를 전달하고, `createOutputDMABufTexture2D()`는 `true`를 전달합니다.", "evidence": ["import"], "covers": ["dma-import"], "kind": "behavior", "quote": "return createDMABufTexture2D(eglImage, fd, false);\n}", "part_id": "wrappers"}, {"text": "`createDMABufTexture2D()`는 `ret`을 0으로 초기화합니다. 앞선 오류 분기에서 반환하지 않은 경로에서 `output`이 참이면 `attachTextureToFBO(eglImage)`를 호출해 텍스처를 framebuffer에 연결하고 그 반환값을 `ret`에 대입합니다. `output`이 거짓이면 `ret`은 초기값 0을 유지하며, 함수는 최종적으로 `ret`을 반환합니다.", "evidence": ["import"], "covers": ["dma-import"], "kind": "behavior", "quote": "if (output)\n\t\tret = attachTextureToFBO(eglImage);", "part_id": "framebuffer"}], "softisp-lsc": [{"text": "두 셰이더의 `main()`은 먼저 `rgb`에서 `blacklevel`을 빼고 `1.0 - blacklevel`로 나눕니다. `APPLY_LSC`가 정의된 경우 그다음 렌즈 음영 보정을 적용합니다. 패킹 셰이더는 `lsc_tex`를 `textureOut` 좌표로, 언패킹 셰이더는 `center.xy` 좌표로 샘플링하고, 각각 샘플의 RGB 값에 `4.0`을 곱한 값을 `rgb`에 곱합니다. 이 배율은 `UQ<2, 6>` 값을 부동소수점으로 변환하는 데 사용합니다.", "evidence": ["packed-shader", "unpacked-shader"], "covers": ["softisp-lsc"], "kind": "behavior", "quote": "rgb = (rgb - blacklevel) / (1.0 - blacklevel);\n\n#if defined(APPLY_LSC)\n        /* Multiple by 4.0 for UQ<2, 6> -> float conversion:\n         * texture2D(...) = original_float * 2^6 (quantization) * 1/2^8 (texture byte to float)\n         * => original_float = texture2D(...) / 2^6 * 2^8 = texture2D(...) * 2^2\n         */\n        rgb = rgb * (texture2D(lsc_tex, textureOut).rgb * 4.0);\n#endif\n\n\t/* Apply AWB gains, and saturate each channel at sensor range */\n\trgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));\n\n\t/* Colour Correction Matrix */\n\trgb = ccm * rgb;\n\n\t/*\n\t * Contrast\n\t * contrastExp 0..2 contrast to 0..infinity; avoid actual infinity at tan(pi/2)\n\t */\n\trgb = clamp(rgb, 0.0, 1.0);\n\trgb.r = apply_contrast(rgb.r);\n\trgb.g = apply_contrast(rgb.g);\n\trgb.b = apply_contrast(rgb.b);\n\n\t/* Apply gamma after colour correction */\n\trgb = pow(rgb, vec3(gamma));\n\n#if defined (SWAP_BLUE)\n\tgl_FragColor = vec4(rgb.bgr, 1.0);\n#else\n\tgl_FragColor = vec4(rgb, 1.0);\n#endif\n}"}, {"text": "두 셰이더의 `main()`은 그다음 `awb` 이득을 곱하고 각 채널을 0과 1 사이로 제한한 뒤 `ccm` 색 보정 행렬을 적용합니다. 이어서 `rgb`를 다시 0과 1 사이로 제한하고 각 채널에 `apply_contrast`를 적용한 다음 `gamma` 거듭제곱을 적용합니다.", "evidence": ["unpacked-shader", "packed-shader"], "covers": ["softisp-lsc"], "kind": "behavior", "quote": "rgb = (rgb - blacklevel) / (1.0 - blacklevel);\n\n#if defined(APPLY_LSC)\n    /* Multiple by 4.0 for UQ<2, 6> -> float conversion */\n    rgb = rgb * (texture2D(lsc_tex, center.xy).rgb * 4.0);\n#endif\n\n    /* Apply AWB gains, and saturate each channel at sensor range */\n    rgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));\n\n    /* Colour Correction Matrix */\n    rgb = ccm * rgb;\n\n    /*\n     * Contrast\n     */\n    rgb = clamp(rgb, 0.0, 1.0);\n    rgb.r = apply_contrast(rgb.r);\n    rgb.g = apply_contrast(rgb.g);\n    rgb.b = apply_contrast(rgb.b);\n\n    /* Apply gamma after colour correction */\n    rgb = pow(rgb, vec3(gamma));\n\n#if defined (SWAP_BLUE)\n    gl_FragColor = vec4(rgb.bgr, 1.0);\n#else\n    gl_FragColor = vec4(rgb, 1.0);\n#endif\n}"}, {"text": "`IPASoftIspInterface.init()` 선언은 `fdStats`와 `fdParams`를 `libcamera.SharedFD` 인자로 받고, 반환값에 `lscEnabled`를 포함합니다. 이 선언은 별도의 LSC 버퍼 인자나 해당 버퍼와 `lsc_tex`의 연결을 명시하지 않습니다.", "evidence": ["softisp-interface"], "covers": ["softisp-lsc"], "kind": "limitation", "quote": "interface IPASoftIspInterface {\n\tinit(libcamera.IPASettings settings,\n\t     libcamera.SharedFD fdStats,\n\t     libcamera.SharedFD fdParams,\n\t     libcamera.IPACameraSensorInfo sensorInfo,\n\t     libcamera.ControlInfoMap sensorControls)\n\t\t=> (int32 ret,\n\t\t    libcamera.ControlInfoMap ipaControls,\n\t\t    bool ccmEnabled, bool lscEnabled);\n\tstart() => (int32 ret);\n\tstop();\n\tconfigure(IPAConfigInfo configInfo)\n\t\t=> (int32 ret, libcamera.ControlInfoMap ipaControls);"}]}, "topic_inputs": {"tuning": "b1548be40b7700775f5069f02015ed654422edf2a45b294cb33aa4e49e519dbb", "dma-import": "0108fc6fa01f6e9af79a16abaf1eb2b14efd2bca8db8dc37b3d31559c2c4f125", "softisp-lsc": "51582d1c08e68b9ae4ed0268b2fce31fc192f1be778180cc13388b8384d44a6b"}, "reused_topics": [], "replayed_units": [], "generated_topics": ["tuning", "dma-import", "softisp-lsc"], "topic_agents": {"tuning": "cli/codex/gpt-6.1-terra", "dma-import": "cli/codex/gpt-6.1-terra", "softisp-lsc": "cli/codex/gpt-6.1-terra"}, "grounding_review": "passed", "grounding_policy": "3c9673abb403dee9aa554ee5b3c549ebfe95bb18ec0e9cd7bf6e495e060439c2", "validation_policy": {"manuscript": "e0c429a5c80a01c34563ce00a616df89d8f75c735f8669bcbd1f75d84cce82a6", "semantic": "571896e4854c21322a1ce4580107c235cae5a9f94e71adc8c97a7e2897405968", "duplicates": "d4af3d834d8b1c99a6c9311612712a64112c30fa4621b375904d172f361285b8", "design_contracts": "9f54ecddce57c7a9caa6c02af77904b57eff2471f2a052951c1cffd18256a4f0", "validate": "78d29ffd1bf6235067edf5a0c7d9b1290f1f11e90599605a0e192e90be5f3372", "reader_profiles": "ad9005d08295212371f59e8934ace86786c0683f7a4c416301ee0e0cadc8b797", "contract_schema": "fecc4ee78a481139776e562c164c0da9a3e5edf0a64a72be1d1c8feddee3cd08", "answer_contracts": "1e0d24e0cf26ded53ecec2e5a6fbc51836bac6e17530318a9fa7cffaa936c00b", "reader_scope": "1b9c26b10b74ae8cf034f5863cbac2114e1d844e5d8332eb1f10562a18371782", "product_context": "9db4d42a710b4a71a7d2bb16f69db06926409281dc1a200c796e77d5deaa25a0", "design_response": "74ebb2d21768d6bdd4ef7611c1c539526a7e72e6a58604c82e8305003d24f8b7", "design_validation": "b8133c78a8eb42fd5194c2756bb649b396ec54b40c49b72544bdbbcaf3366c57"}, "validation_model": "44197615786b818e4d9150110e74bef6772ea4f261a58d27ac12f379abaeb439", "style_policy": {"fluent-korean.md": "ce5aa71e58371e3fc02ff8cb165e07c9234f5166f6541423a91cc4cb40878975", "i-have-adhd.md": "3170b16ace00aecb0dd7feb54c0b5aa642e7502acda06ecd24fd89a11c7127e9", "README.md": "f8fd5a3d8041c23fc68b93ff32b8727e98393383b5099032eb00ad0013e7611c"}, "checkpoint_units": [{"checkpoint": "65721a9f37d4eb391b56f2e95ec96e76e10fea107bcd9859f07619ca2320ad0e.json", "topic": "tuning", "part": null, "subpart": null, "revalidated": false, "new_grounding_review": false, "receipts": ["60b1bf48442840808eecd0e46851648e/229.receipt.json", "60b1bf48442840808eecd0e46851648e/230.receipt.json", "60b1bf48442840808eecd0e46851648e/231.receipt.json"]}, {"checkpoint": "8d288ed44e810b08bf760a0b518e9143d8889384b7f24adfc09a053b6aa54c87.json", "topic": "dma-import", "part": "formats", "subpart": null, "revalidated": false, "new_grounding_review": false, "receipts": ["60b1bf48442840808eecd0e46851648e/232.receipt.json", "60b1bf48442840808eecd0e46851648e/233.receipt.json"]}, {"checkpoint": "1334837fb70e0b1ee734b73e2a29e098728a94bf57b640c50420011bda80e507.json", "topic": "dma-import", "part": "unsupported", "subpart": null, "revalidated": false, "new_grounding_review": false, "receipts": ["60b1bf48442840808eecd0e46851648e/234.receipt.json", "60b1bf48442840808eecd0e46851648e/235.receipt.json"]}, {"checkpoint": "39b3ea88177e6bfd50b15ac048857abefe3c92712f8faeda03cf2c9b14035e8d.json", "topic": "dma-import", "part": "image-failure", "subpart": null, "revalidated": false, "new_grounding_review": false, "receipts": ["60b1bf48442840808eecd0e46851648e/236.receipt.json", "60b1bf48442840808eecd0e46851648e/237.receipt.json"]}, {"checkpoint": "f5e2f493fff3d2fafe9ddafc1d9a63c4d2aad358fdef6416f5dead6566fa4c87.json", "topic": "dma-import", "part": "wrappers", "subpart": null, "revalidated": false, "new_grounding_review": false, "receipts": ["60b1bf48442840808eecd0e46851648e/238.receipt.json", "60b1bf48442840808eecd0e46851648e/239.receipt.json"]}, {"checkpoint": "4b23d3f2d1b36483244f3ddd19e0b55ec053f0ed4b2301f4668718ac524e795d.json", "topic": "dma-import", "part": "framebuffer", "subpart": null, "revalidated": false, "new_grounding_review": false, "receipts": ["60b1bf48442840808eecd0e46851648e/240.receipt.json", "60b1bf48442840808eecd0e46851648e/241.receipt.json"]}, {"checkpoint": "8736609b11b18d353a1474918bbdbb6721fe14683b2f17efca2aae34b607bcee.json", "topic": "softisp-lsc", "part": null, "subpart": null, "revalidated": false, "new_grounding_review": false, "receipts": ["60b1bf48442840808eecd0e46851648e/242.receipt.json", "60b1bf48442840808eecd0e46851648e/243.receipt.json"]}], "body_sha256": "f0d55921ca10e7ef4994195b0a93358ee68ebdb7bc6a6b0f49b211961d35fc7d"}
-revalidated_from: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
+generated_design: {"schema": 1, "input_fingerprint": "4e0e0d04b32fc0f2f763c63e23eefe53e93b2e1219722a64c7692a620e56f80c", "answers": {"tuning": [{"text": "RKISP1과 Mali-C55는 각각 센서 모델 이름에 `.yaml`을 붙인 파일 이름과 대체 이름 `uncalibrated.yaml`을 `IPAProxy::configurationFile()`에 전달합니다. `IPAProxy::configurationFile()`은 먼저 요청한 이름을 검색하고 경로를 찾으면 그 경로를 반환합니다. 찾지 못하고 대체 이름이 비어 있으면 빈 문자열을 반환하며, 대체 이름이 있으면 그 이름으로 검색하고 경고를 기록합니다.", "evidence": ["rkisp1-tuning", "mali-c55-tuning", "fallback"], "covers": ["tuning"], "kind": "behavior", "quote": "std::string IPAProxy::configurationFile(const std::string &name,\n\t\t\t\t\tconst std::string &fallbackName) const\n{\n\t/*\n\t * The IPA module name can be used as-is to build directory names as it\n\t * has been validated when loading the module.\n\t */\n\tconst std::string ipaName = ipam_->info().name;\n\tstd::string confPath = ipaConfigurationFile(ipaName, name, configPaths_);\n\tif (!confPath.empty()) {\n\t\tLOG(IPAProxy, Info) << \"Using tuning file \" << confPath;\n\t\treturn confPath;\n\t}"}, {"text": "두 `uncalibrated.yaml`에는 공통으로 `Agc`, `Awb`, `BlackLevelCorrection`, `Ccm`이 나열되어 있습니다. 감마 항목은 RKISP1에서 `GammaOutCorrection`, Mali-C55에서 `Gamma`입니다. Mali-C55의 알고리즘 빌드 목록에는 `gamma.cpp`가 포함되어 있으며, 이는 YAML의 `Gamma` 항목과 구분되는 빌드 목록의 내용입니다.", "evidence": ["rkisp1-uncalibrated", "mali-c55-uncalibrated", "mali-c55-algorithm-build"], "covers": ["tuning"], "kind": "behavior", "quote": "# SPDX-License-Identifier: CC0-1.0\n%YAML 1.1\n---\nversion: 1\nalgorithms:\n  - Agc:\n  - Awb:\n  - BlackLevelCorrection:\n  - Ccm:\n  - GammaOutCorrection:\n..."}], "dma-import": [{"text": "`createDMABufTexture2D()`는 `GL_RED`와 `GL_LUMINANCE`를 각각 `DRM_FORMAT_R8`에 대응합니다. `GL_RG`는 `DRM_FORMAT_GR88`에, `GL_RGBA`는 `DRM_FORMAT_ARGB8888`에 대응합니다.", "evidence": ["import"], "covers": ["dma-import"], "kind": "behavior", "quote": "switch (eglImage.format_) {\n\tcase GL_RED:\n\tcase GL_LUMINANCE:\n\t\tdrm_format = DRM_FORMAT_R8;\n\t\tbreak;\n\tcase GL_RG:\n\t\tdrm_format = DRM_FORMAT_GR88;\n\t\tbreak;\n\tcase GL_RGBA:\n\t\tdrm_format = DRM_FORMAT_ARGB8888;\n\t\tbreak;\n\tdefault:\n\t\tLOG(eGL, Error) << \"unhandled GL format\";\n\t\treturn -ENODEV;\n\t}", "part_id": "formats"}, {"text": "`createDMABufTexture2D()`의 `switch`에서 처리하지 않는 형식은 `default` 분기로 갑니다. 이 분기는 오류 수준으로 `unhandled GL format`을 로그에 기록하고 `-ENODEV`를 반환합니다. 이 분기에는 `dmabuf_import_failed_`에 값을 대입하는 코드가 없습니다.", "evidence": ["import"], "covers": ["dma-import"], "kind": "behavior", "quote": "switch (eglImage.format_) {\n\tcase GL_RED:\n\tcase GL_LUMINANCE:\n\t\tdrm_format = DRM_FORMAT_R8;\n\t\tbreak;\n\tcase GL_RG:\n\t\tdrm_format = DRM_FORMAT_GR88;\n\t\tbreak;\n\tcase GL_RGBA:\n\t\tdrm_format = DRM_FORMAT_ARGB8888;\n\t\tbreak;\n\tdefault:\n\t\tLOG(eGL, Error) << \"unhandled GL format\";\n\t\treturn -ENODEV;\n\t}", "part_id": "unsupported"}, {"text": "`createDMABufTexture2D()`는 `eglCreateImageKHR()`의 결과가 `EGL_NO_IMAGE_KHR`이면 디버그 로그에 `eglCreateImageKHR fail`을 기록합니다. 이어서 `eglImage.dmabuf_import_failed_`에 `true`를 대입하고 `-ENODEV`를 반환합니다.", "evidence": ["import"], "covers": ["dma-import"], "kind": "behavior", "quote": "if (image == EGL_NO_IMAGE_KHR) {\n\t\tLOG(eGL, Debug) << \"eglCreateImageKHR fail\";\n\t\teglImage.dmabuf_import_failed_ = true;\n\t\treturn -ENODEV;\n\t}", "part_id": "image-failure"}, {"text": "`createInputDMABufTexture2D()`는 `createDMABufTexture2D()`의 마지막 인자로 `false`를 전달합니다. `createOutputDMABufTexture2D()`는 마지막 인자로 `true`를 전달합니다.", "evidence": ["import"], "covers": ["dma-import"], "kind": "behavior", "quote": "return createDMABufTexture2D(eglImage, fd, false);\n}", "part_id": "wrappers"}, {"text": "`createDMABufTexture2D()`는 처리할 수 없는 GL 형식이거나 EGL 이미지 생성에 실패하면 앞서 `-ENODEV`를 반환합니다. 이 오류 분기에서 반환하지 않은 경로에서 `output`이 참이면 `attachTextureToFBO(eglImage)`를 호출해 텍스처를 프레임버퍼 객체에 연결하고, 그 반환값을 `ret`에 대입합니다. `output`이 거짓이면 `ret`은 초기값인 0을 유지하며, 함수는 마지막에 `ret`을 반환합니다.", "evidence": ["import"], "covers": ["dma-import"], "kind": "behavior", "quote": "if (output)\n\t\tret = attachTextureToFBO(eglImage);", "part_id": "framebuffer"}], "softisp-lsc": [{"text": "두 셰이더의 `main`은 구성된 `rgb`에서 `blacklevel`을 빼고 `1.0 - blacklevel`로 나눕니다. `APPLY_LSC`가 정의된 경우 그다음 `lsc_tex`에서 읽은 RGB 값에 `4.0`을 곱해 `rgb`에 적용합니다. packed 셰이더는 `textureOut`을, unpacked 셰이더는 `center.xy`를 텍스처 좌표로 사용하며, `4.0`은 `UQ<2, 6>` 값을 실수로 변환하는 배율입니다.", "evidence": ["packed-shader", "unpacked-shader"], "covers": ["softisp-lsc"], "kind": "behavior", "quote": "rgb = (rgb - blacklevel) / (1.0 - blacklevel);\n\n#if defined(APPLY_LSC)\n        /* Multiple by 4.0 for UQ<2, 6> -> float conversion:\n         * texture2D(...) = original_float * 2^6 (quantization) * 1/2^8 (texture byte to float)\n         * => original_float = texture2D(...) / 2^6 * 2^8 = texture2D(...) * 2^2\n         */\n        rgb = rgb * (texture2D(lsc_tex, textureOut).rgb * 4.0);\n#endif\n\n\t/* Apply AWB gains, and saturate each channel at sensor range */\n\trgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));\n\n\t/* Colour Correction Matrix */\n\trgb = ccm * rgb;\n\n\t/*\n\t * Contrast\n\t * contrastExp 0..2 contrast to 0..infinity; avoid actual infinity at tan(pi/2)\n\t */\n\trgb = clamp(rgb, 0.0, 1.0);\n\trgb.r = apply_contrast(rgb.r);\n\trgb.g = apply_contrast(rgb.g);\n\trgb.b = apply_contrast(rgb.b);\n\n\t/* Apply gamma after colour correction */\n\trgb = pow(rgb, vec3(gamma));\n\n#if defined (SWAP_BLUE)\n\tgl_FragColor = vec4(rgb.bgr, 1.0);\n#else\n\tgl_FragColor = vec4(rgb, 1.0);\n#endif\n}"}, {"text": "두 셰이더의 `main`은 그다음 `awb` 이득을 곱하고 각 채널을 0과 1 사이로 제한한 뒤 `ccm` 색 보정을 적용합니다. 이어서 다시 값을 0과 1 사이로 제한하고 각 채널에 `apply_contrast`를 적용한 후 `gamma` 거듭제곱을 적용합니다.", "evidence": ["packed-shader", "unpacked-shader"], "covers": ["softisp-lsc"], "kind": "behavior", "quote": "rgb = (rgb - blacklevel) / (1.0 - blacklevel);\n\n#if defined(APPLY_LSC)\n    /* Multiple by 4.0 for UQ<2, 6> -> float conversion */\n    rgb = rgb * (texture2D(lsc_tex, center.xy).rgb * 4.0);\n#endif\n\n    /* Apply AWB gains, and saturate each channel at sensor range */\n    rgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));\n\n    /* Colour Correction Matrix */\n    rgb = ccm * rgb;\n\n    /*\n     * Contrast\n     */\n    rgb = clamp(rgb, 0.0, 1.0);\n    rgb.r = apply_contrast(rgb.r);\n    rgb.g = apply_contrast(rgb.g);\n    rgb.b = apply_contrast(rgb.b);\n\n    /* Apply gamma after colour correction */\n    rgb = pow(rgb, vec3(gamma));\n\n#if defined (SWAP_BLUE)\n    gl_FragColor = vec4(rgb.bgr, 1.0);\n#else\n    gl_FragColor = vec4(rgb, 1.0);\n#endif\n}"}, {"text": "`IPASoftIspInterface.init` 선언은 `fdStats`와 `fdParams`를 인자로 받고 `lscEnabled`를 반환값으로 포함합니다. 이 선언은 이 항목들과 셰이더의 `lsc_tex` 사이의 연결을 명시하지 않습니다.", "evidence": ["softisp-interface"], "covers": ["softisp-lsc"], "kind": "behavior", "quote": "interface IPASoftIspInterface {\n\tinit(libcamera.IPASettings settings,\n\t     libcamera.SharedFD fdStats,\n\t     libcamera.SharedFD fdParams,\n\t     libcamera.IPACameraSensorInfo sensorInfo,\n\t     libcamera.ControlInfoMap sensorControls)\n\t\t=> (int32 ret,\n\t\t    libcamera.ControlInfoMap ipaControls,\n\t\t    bool ccmEnabled, bool lscEnabled);\n\tstart() => (int32 ret);\n\tstop();\n\tconfigure(IPAConfigInfo configInfo)\n\t\t=> (int32 ret, libcamera.ControlInfoMap ipaControls);"}]}, "topic_inputs": {"tuning": "9cf496eb13a2b4c11818b66650bc8bd49d88c59cc832927717c5a4a6e4c9a393", "dma-import": "a6b31253ad3982ad93e4d0dd1c6482b9553c39834bac1883ffd71a6e12f02352", "softisp-lsc": "16ca1f5eec246f4f81a03013afa2064e290c4d142fda1ecad860226e96693d73"}, "reused_topics": ["tuning", "dma-import"], "replayed_units": [], "generated_topics": ["softisp-lsc"], "topic_agents": {"tuning": "cli/codex/gpt-6.1-terra", "dma-import": "cli/codex/gpt-6.1-terra", "softisp-lsc": "cli/codex/gpt-6.1-terra"}, "grounding_review": "passed", "grounding_policy": "3c9673abb403dee9aa554ee5b3c549ebfe95bb18ec0e9cd7bf6e495e060439c2", "validation_policy": {"manuscript": "367d18b95f8f0d01a15ae0f4d1b70f7e13e4d0298df4215e2c449ac4905db6f9", "semantic": "571896e4854c21322a1ce4580107c235cae5a9f94e71adc8c97a7e2897405968", "duplicates": "93f0e8b5bdc1b40bf4ab38168e92c2772aa36747bec6add25921fbb90b909e38", "design_contracts": "9f54ecddce57c7a9caa6c02af77904b57eff2471f2a052951c1cffd18256a4f0", "validate": "78d29ffd1bf6235067edf5a0c7d9b1290f1f11e90599605a0e192e90be5f3372", "reader_profiles": "ad9005d08295212371f59e8934ace86786c0683f7a4c416301ee0e0cadc8b797", "contract_schema": "d0f7ab4c48fcf52409935931eb9b93aacd48af4b19e9bb816fa496f1214fdb2f", "answer_contracts": "a39c9a8818afc47e059141d486337c0f12a7fd34319e2b6f7674fc428bc83e2b", "reader_scope": "1b9c26b10b74ae8cf034f5863cbac2114e1d844e5d8332eb1f10562a18371782", "product_context": "050c20aa2fdcceae10c6275fbb5f850f616ab5051bb67ccbcb4a204877a238d9", "explanation": "69bcaa207ef39d20f6a47ac201c3edf119f59b333e85131dea1bce85eef4006b", "design_response": "a7c199bc52bcc0e749ef01186e50bca98107473d5c82e2248712f465d02e1e69", "design_validation": "92ddb9a65c909173ff4c7cb627dff83e71c10c8258c51344ef0eb1a7a023937f"}, "validation_model": "0d1544a2ea90f295c2aed62fab60f29f7788e623a953b6f7d5089373b8b41d94", "style_policy": {"fluent-korean.md": "ce5aa71e58371e3fc02ff8cb165e07c9234f5166f6541423a91cc4cb40878975", "i-have-adhd.md": "3170b16ace00aecb0dd7feb54c0b5aa642e7502acda06ecd24fd89a11c7127e9", "README.md": "b87a84b1bc31079837dc4dc4527ce02c9dc2cbc3a26ff7e99e0872941d213995"}, "reuse_lineage": {"source_commit": "c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78", "body_sha256": "735147fb0cfbaf1f1fae1140122885d84ae19ee7932352133315c822725af94f", "topics": ["tuning", "dma-import"], "validation": "current source, contract and editorial checks; human review pending"}, "body_sha256": "4637662df3e4b9200ac1764e79f701122ad6697510dded790a812731dfd51cc8"}
 ---
 
 # IPA 튜닝과 소프트웨어 ISP
@@ -21,29 +20,154 @@ revalidated_from: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
 
 ## 보정 전 튜닝 파일
 
-RKISP1과 Mali-C55는 센서 모델 이름에 `.yaml`을 붙인 파일 이름과 대체 이름 `uncalibrated.yaml`을 `configurationFile()`에 전달합니다. `IPAProxy::configurationFile()`은 먼저 IPA 모듈 이름과 요청한 파일 이름으로 설정 파일을 검색하고, 경로를 찾으면 이를 반환합니다. 찾지 못하고 대체 이름이 비어 있으면 오류를 기록하고 빈 문자열을 반환합니다. 대체 이름이 비어 있지 않으면 그 이름으로 파일을 검색하고 경고를 기록합니다. `src/libcamera/pipeline/rkisp1/rkisp1.cpp:406`, `src/libcamera/pipeline/mali-c55/mali-c55.cpp:468`, `src/libcamera/ipa_proxy.cpp:174`
+RKISP1과 Mali-C55는 각각 센서 모델 이름에 `.yaml`을 붙인 파일 이름과 대체 이름 `uncalibrated.yaml`을 `IPAProxy::configurationFile()`에 전달합니다. `IPAProxy::configurationFile()`은 먼저 요청한 이름을 검색하고 경로를 찾으면 그 경로를 반환합니다. 찾지 못하고 대체 이름이 비어 있으면 빈 문자열을 반환하며, 대체 이름이 있으면 그 이름으로 검색하고 경고를 기록합니다. `src/libcamera/pipeline/rkisp1/rkisp1.cpp:406`, `src/libcamera/pipeline/mali-c55/mali-c55.cpp:468`, `src/libcamera/ipa_proxy.cpp:174`
 
-두 `uncalibrated.yaml`에는 `Agc`, `Awb`, `BlackLevelCorrection`, `Ccm`이 나열되어 있으며, RKISP1 파일에는 `GammaOutCorrection`도 나열되어 있습니다. `src/ipa/rkisp1/data/uncalibrated.yaml:1`, `src/ipa/mali-c55/data/uncalibrated.yaml:1`
+<!-- sdd:visual:ipa-tuning-file-fallback -->
+### IPA 튜닝 파일 검색 순서
 
-근거 원문: [src/libcamera/pipeline/rkisp1/rkisp1.cpp:406](#source-a117437c7ec61db3) · [src/libcamera/pipeline/mali-c55/mali-c55.cpp:468](#source-efc0c3fc5cf7acef) · [src/libcamera/ipa_proxy.cpp:174](#source-4000376c954f5327) · [src/ipa/rkisp1/data/uncalibrated.yaml:1](#source-c3d57577d02a4dc3) · [src/ipa/mali-c55/data/uncalibrated.yaml:1](#source-9146c9052851a10f)
+```mermaid
+flowchart TB
+%% sdd:translations {"검색 결과 확인": "Check the result", "대체 이름으로 검색하고 경고 <br/>기록": "Look up the fallback name <br/>and log a warning", "대체 이름이 비었는가?": "Is the fallback name empty?", "아니요": "No", "예": "Yes", "오류 기록 후 빈 경로 반환": "Log an error and return an <br/>empty path", "요청 경로 반환": "Return the requested path", "요청 경로가 있는가?": "Requested path found?", "요청한 이름으로 검색": "Look up the requested name"}
+  v_lookup["요청한 이름으로 검색"]
+  v_found{"요청 경로가 있는가?"}
+  v_requested["요청 경로 반환"]
+  v_fallback{"대체 이름이 비었는가?"}
+  v_missing["오류 기록 후 빈 경로 반환"]
+  v_alternative["대체 이름으로 검색하고 경고 <br/>기록"]
+  v_lookup -->|"검색 결과 확인"| v_found
+  v_found -->|"예"| v_requested
+  v_found -->|"아니요"| v_fallback
+  v_fallback -->|"예"| v_missing
+  v_fallback -->|"아니요"| v_alternative
+```
+
+[Mermaid 원문](ipa-algorithms.ipa-tuning-file-fallback.mmd)
+
+??? note "그림 근거와 확인 범위"
+    요청한 튜닝 파일을 찾지 못하면 어떤 조건에서 대체 이름을 검색하나요?
+    
+    소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.
+    
+    | 요소·전이 | 소스 근거 |
+    |---|---|
+    | <span data-sdd-label-en="Look up the requested name">요청한 이름으로 검색</span> | [src/libcamera/ipa_proxy.cpp:174](#source-4000376c954f5327) |
+    | <span data-sdd-label-en="Requested path found?">요청 경로가 있는가?</span> | [src/libcamera/ipa_proxy.cpp:174](#source-4000376c954f5327) |
+    | <span data-sdd-label-en="Return the requested path">요청 경로 반환</span> | [src/libcamera/ipa_proxy.cpp:174](#source-4000376c954f5327) |
+    | <span data-sdd-label-en="Is the fallback name empty?">대체 이름이 비었는가?</span> | [src/libcamera/ipa_proxy.cpp:174](#source-4000376c954f5327) |
+    | <span data-sdd-label-en="Log an error and return an empty path">오류 기록 후 빈 경로 반환</span> | [src/libcamera/ipa_proxy.cpp:174](#source-4000376c954f5327) |
+    | <span data-sdd-label-en="Look up the fallback name and log a warning">대체 이름으로 검색하고 경고 기록</span> | [src/libcamera/ipa_proxy.cpp:174](#source-4000376c954f5327) |
+    | <span data-sdd-label-en="Check the result">검색 결과 확인</span> | [src/libcamera/ipa_proxy.cpp:174](#source-4000376c954f5327) |
+    | <span data-sdd-label-en="Yes">예</span> | [src/libcamera/ipa_proxy.cpp:174](#source-4000376c954f5327) |
+    | <span data-sdd-label-en="No">아니요</span> | [src/libcamera/ipa_proxy.cpp:174](#source-4000376c954f5327) |
+    | <span data-sdd-label-en="Yes">예</span> | [src/libcamera/ipa_proxy.cpp:174](#source-4000376c954f5327) |
+    | <span data-sdd-label-en="No">아니요</span> | [src/libcamera/ipa_proxy.cpp:174](#source-4000376c954f5327) |
+<!-- /sdd:visual:ipa-tuning-file-fallback -->
+
+두 `uncalibrated.yaml`에는 공통으로 `Agc`, `Awb`, `BlackLevelCorrection`, `Ccm`이 나열되어 있습니다. 감마 항목은 RKISP1에서 `GammaOutCorrection`, Mali-C55에서 `Gamma`입니다. Mali-C55의 알고리즘 빌드 목록에는 `gamma.cpp`가 포함되어 있으며, 이는 YAML의 `Gamma` 항목과 구분되는 빌드 목록의 내용입니다. `src/ipa/rkisp1/data/uncalibrated.yaml:1`, `src/ipa/mali-c55/data/uncalibrated.yaml:1`, `src/ipa/mali-c55/algorithms/meson.build:1`
+
+근거 원문: [src/libcamera/pipeline/rkisp1/rkisp1.cpp:406](#source-a117437c7ec61db3) · [src/libcamera/pipeline/mali-c55/mali-c55.cpp:468](#source-efc0c3fc5cf7acef) · [src/libcamera/ipa_proxy.cpp:174](#source-4000376c954f5327) · [src/ipa/rkisp1/data/uncalibrated.yaml:1](#source-c3d57577d02a4dc3) · [src/ipa/mali-c55/data/uncalibrated.yaml:1](#source-2aca0607eacef985) · [src/ipa/mali-c55/algorithms/meson.build:1](#source-f8b760d0d191cbea)
 
 ## 소프트웨어 ISP 입력 버퍼의 텍스처 형식
 
-`createDMABufTexture2D()`는 `GL_RED`와 `GL_LUMINANCE`를 각각 `DRM_FORMAT_R8`에 대응합니다. `GL_RG`는 `DRM_FORMAT_GR88`에 대응하고, `GL_RGBA`는 `DRM_FORMAT_ARGB8888`에 대응합니다. `createDMABufTexture2D()`의 `switch` 문에서 `default` 분기는 오류 수준으로 `unhandled GL format`을 기록하고 `-ENODEV`를 반환합니다. 이 분기에는 `dmabuf_import_failed_` 플래그 대입이 없습니다. `src/libcamera/egl.cpp:174`
+`createDMABufTexture2D()`는 `GL_RED`와 `GL_LUMINANCE`를 각각 `DRM_FORMAT_R8`에 대응합니다. `GL_RG`는 `DRM_FORMAT_GR88`에, `GL_RGBA`는 `DRM_FORMAT_ARGB8888`에 대응합니다. `src/libcamera/egl.cpp:174`
 
-`createDMABufTexture2D()`에서 `eglCreateImageKHR()`의 결과가 `EGL_NO_IMAGE_KHR`이면 디버그 로그에 `eglCreateImageKHR fail`을 기록합니다. 이어서 `eglImage.dmabuf_import_failed_`에 `true`를 대입하고 `-ENODEV`를 반환합니다. `createInputDMABufTexture2D()`는 `createDMABufTexture2D()`의 마지막 인자로 `false`를 전달하고, `createOutputDMABufTexture2D()`는 `true`를 전달합니다. `src/libcamera/egl.cpp:174`
+<!-- sdd:visual:softisp-dmabuf-import-paths -->
+### DMA-BUF 가져오기 분기
 
-`createDMABufTexture2D()`는 `ret`을 0으로 초기화합니다. 앞선 오류 분기에서 반환하지 않은 경로에서 `output`이 참이면 `attachTextureToFBO(eglImage)`를 호출해 텍스처를 framebuffer에 연결하고 그 반환값을 `ret`에 대입합니다. `output`이 거짓이면 `ret`은 초기값 0을 유지하며, 함수는 최종적으로 `ret`을 반환합니다. `src/libcamera/egl.cpp:174`
+```mermaid
+flowchart TB
+%% sdd:translations {"-ENODEV 반환": "Return -ENODEV", "0 반환": "Return 0", "EGL 이미지 생성에 <br/>실패했는가?": "Did EGL image creation fail?", "GL 형식을 지원하는가?": "Is the GL format supported?", "실패 플래그 설정 후 -ENODEV <br/>반환": "Set the failure flag and <br/>return -ENODEV", "아니요": "No", "예": "Yes", "예, DRM 형식 선택": "Yes, select the DRM format", "출력 텍스처인가?": "Is this an output texture?", "프레임버퍼 연결 결과 반환": "Return the framebuffer <br/>attachment result"}
+  v_format{"GL 형식을 지원하는가?"}
+  v_unknown["-ENODEV 반환"]
+  v_image{"EGL 이미지 생성에 <br/>실패했는가?"}
+  v_failed["실패 플래그 설정 후 -ENODEV <br/>반환"]
+  v_output{"출력 텍스처인가?"}
+  v_attach["프레임버퍼 연결 결과 반환"]
+  v_success["0 반환"]
+  v_format -->|"아니요"| v_unknown
+  v_format -->|"예, DRM 형식 선택"| v_image
+  v_image -->|"예"| v_failed
+  v_image -->|"아니요"| v_output
+  v_output -->|"예"| v_attach
+  v_output -->|"아니요"| v_success
+```
+
+[Mermaid 원문](ipa-algorithms.softisp-dmabuf-import-paths.mmd)
+
+??? note "그림 근거와 확인 범위"
+    GL 형식과 EGL 이미지 검사에서 각각 어떻게 실패하며, 언제 프레임버퍼를 연결하나요?
+    
+    소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.
+    
+    | 요소·전이 | 소스 근거 |
+    |---|---|
+    | <span data-sdd-label-en="Is the GL format supported?">GL 형식을 지원하는가?</span> | [src/libcamera/egl.cpp:174](#source-8cc12a6ba8b0dced) |
+    | <span data-sdd-label-en="Return -ENODEV">-ENODEV 반환</span> | [src/libcamera/egl.cpp:174](#source-8cc12a6ba8b0dced) |
+    | <span data-sdd-label-en="Did EGL image creation fail?">EGL 이미지 생성에 실패했는가?</span> | [src/libcamera/egl.cpp:174](#source-8cc12a6ba8b0dced) |
+    | <span data-sdd-label-en="Set the failure flag and return -ENODEV">실패 플래그 설정 후 -ENODEV 반환</span> | [src/libcamera/egl.cpp:174](#source-8cc12a6ba8b0dced) |
+    | <span data-sdd-label-en="Is this an output texture?">출력 텍스처인가?</span> | [src/libcamera/egl.cpp:174](#source-8cc12a6ba8b0dced) |
+    | <span data-sdd-label-en="Return the framebuffer attachment result">프레임버퍼 연결 결과 반환</span> | [src/libcamera/egl.cpp:174](#source-8cc12a6ba8b0dced) |
+    | <span data-sdd-label-en="Return 0">0 반환</span> | [src/libcamera/egl.cpp:174](#source-8cc12a6ba8b0dced) |
+    | <span data-sdd-label-en="No">아니요</span> | [src/libcamera/egl.cpp:174](#source-8cc12a6ba8b0dced) |
+    | <span data-sdd-label-en="Yes, select the DRM format">예, DRM 형식 선택</span> | [src/libcamera/egl.cpp:174](#source-8cc12a6ba8b0dced) |
+    | <span data-sdd-label-en="Yes">예</span> | [src/libcamera/egl.cpp:174](#source-8cc12a6ba8b0dced) |
+    | <span data-sdd-label-en="No">아니요</span> | [src/libcamera/egl.cpp:174](#source-8cc12a6ba8b0dced) |
+    | <span data-sdd-label-en="Yes">예</span> | [src/libcamera/egl.cpp:174](#source-8cc12a6ba8b0dced) |
+    | <span data-sdd-label-en="No">아니요</span> | [src/libcamera/egl.cpp:174](#source-8cc12a6ba8b0dced) |
+<!-- /sdd:visual:softisp-dmabuf-import-paths -->
+
+`createDMABufTexture2D()`의 `switch`에서 처리하지 않는 형식은 `default` 분기로 갑니다. 이 분기는 오류 수준으로 `unhandled GL format`을 로그에 기록하고 `-ENODEV`를 반환합니다. 이 분기에는 `dmabuf_import_failed_`에 값을 대입하는 코드가 없습니다. `src/libcamera/egl.cpp:174`
+
+`createDMABufTexture2D()`는 `eglCreateImageKHR()`의 결과가 `EGL_NO_IMAGE_KHR`이면 디버그 로그에 `eglCreateImageKHR fail`을 기록합니다. 이어서 `eglImage.dmabuf_import_failed_`에 `true`를 대입하고 `-ENODEV`를 반환합니다. `createInputDMABufTexture2D()`는 `createDMABufTexture2D()`의 마지막 인자로 `false`를 전달합니다. `createOutputDMABufTexture2D()`는 마지막 인자로 `true`를 전달합니다. `src/libcamera/egl.cpp:174`
+
+`createDMABufTexture2D()`는 처리할 수 없는 GL 형식이거나 EGL 이미지 생성에 실패하면 앞서 `-ENODEV`를 반환합니다. 이 오류 분기에서 반환하지 않은 경로에서 `output`이 참이면 `attachTextureToFBO(eglImage)`를 호출해 텍스처를 프레임버퍼 객체에 연결하고, 그 반환값을 `ret`에 대입합니다. `output`이 거짓이면 `ret`은 초기값인 0을 유지하며, 함수는 마지막에 `ret`을 반환합니다. `src/libcamera/egl.cpp:174`
 
 근거 원문: [src/libcamera/egl.cpp:174](#source-8cc12a6ba8b0dced)
 
 ## 소프트웨어 ISP 셰이더의 렌즈 음영 보정
 
-두 셰이더의 `main()`은 먼저 `rgb`에서 `blacklevel`을 빼고 `1.0 - blacklevel`로 나눕니다. `APPLY_LSC`가 정의된 경우 그다음 렌즈 음영 보정을 적용합니다. 패킹 셰이더는 `lsc_tex`를 `textureOut` 좌표로, 언패킹 셰이더는 `center.xy` 좌표로 샘플링하고, 각각 샘플의 RGB 값에 `4.0`을 곱한 값을 `rgb`에 곱합니다. 이 배율은 `UQ<2, 6>` 값을 부동소수점으로 변환하는 데 사용합니다. `src/libcamera/shaders/bayer_1x_packed.frag:237`, `src/libcamera/shaders/bayer_unpacked.frag:140`
+두 셰이더의 `main`은 구성된 `rgb`에서 `blacklevel`을 빼고 `1.0 - blacklevel`로 나눕니다. `APPLY_LSC`가 정의된 경우 그다음 `lsc_tex`에서 읽은 RGB 값에 `4.0`을 곱해 `rgb`에 적용합니다. packed 셰이더는 `textureOut`을, unpacked 셰이더는 `center.xy`를 텍스처 좌표로 사용하며, `4.0`은 `UQ<2, 6>` 값을 실수로 변환하는 배율입니다. `src/libcamera/shaders/bayer_1x_packed.frag:237`, `src/libcamera/shaders/bayer_unpacked.frag:140`
 
-두 셰이더의 `main()`은 그다음 `awb` 이득을 곱하고 각 채널을 0과 1 사이로 제한한 뒤 `ccm` 색 보정 행렬을 적용합니다. 이어서 `rgb`를 다시 0과 1 사이로 제한하고 각 채널에 `apply_contrast`를 적용한 다음 `gamma` 거듭제곱을 적용합니다. `src/libcamera/shaders/bayer_unpacked.frag:140`, `src/libcamera/shaders/bayer_1x_packed.frag:237`
+<!-- sdd:visual:softisp-lsc-shader-order -->
+### 셰이더의 렌즈 음영 보정 위치
 
-실행 확인 항목: `IPASoftIspInterface.init()` 선언은 `fdStats`와 `fdParams`를 `libcamera.SharedFD` 인자로 받고, 반환값에 `lscEnabled`를 포함합니다. 이 선언은 별도의 LSC 버퍼 인자나 해당 버퍼와 `lsc_tex`의 연결을 명시하지 않습니다. `include/libcamera/ipa/softisp.mojom:1`
+```mermaid
+flowchart TB
+%% sdd:translations {"APPLY#95;LSC가 정의됐는가?": "Is APPLY#95;LSC defined?", "AWB 이득 곱셈과 범위 제한": "Apply AWB gains and clamp", "AWB 적용 후": "After AWB", "CCM, 범위 제한, 대비, 감마 <br/>순서": "CCM, clamp, contrast, then <br/>gamma", "lsc#95;tex의 RGB에 4.0을 곱해 <br/>적용": "Apply lsc#95;tex RGB scaled by <br/>4.0", "블랙 레벨 정규화": "Normalize the black level", "블랙 레벨 처리 후": "After black-level correction", "아니요": "No", "예": "Yes", "음영 보정 후": "After lens shading <br/>correction"}
+  v_black["블랙 레벨 정규화"]
+  v_condition{"APPLY#95;LSC가 정의됐는가?"}
+  v_lsc["lsc#95;tex의 RGB에 4.0을 곱해 <br/>적용"]
+  v_awb["AWB 이득 곱셈과 범위 제한"]
+  v_color["CCM, 범위 제한, 대비, 감마 <br/>순서"]
+  v_black -->|"블랙 레벨 처리 후"| v_condition
+  v_condition -->|"예"| v_lsc
+  v_condition -->|"아니요"| v_awb
+  v_lsc -->|"음영 보정 후"| v_awb
+  v_awb -->|"AWB 적용 후"| v_color
+```
+
+[Mermaid 원문](ipa-algorithms.softisp-lsc-shader-order.mmd)
+
+??? note "그림 근거와 확인 범위"
+    두 셰이더에서 어떤 조건일 때 렌즈 음영을 보정하며, 전후에는 무엇을 처리하나요?
+    
+    소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.
+    
+    | 요소·전이 | 소스 근거 |
+    |---|---|
+    | <span data-sdd-label-en="Normalize the black level">블랙 레벨 정규화</span> | [src/libcamera/shaders/bayer_1x_packed.frag:237](#source-68d470282c445049) · [src/libcamera/shaders/bayer_unpacked.frag:140](#source-86d4a7688119bd37) |
+    | <span data-sdd-label-en="Is APPLY_LSC defined?">APPLY&#95;LSC가 정의됐는가?</span> | [src/libcamera/shaders/bayer_1x_packed.frag:237](#source-68d470282c445049) · [src/libcamera/shaders/bayer_unpacked.frag:140](#source-86d4a7688119bd37) |
+    | <span data-sdd-label-en="Apply lsc_tex RGB scaled by 4.0">lsc&#95;tex의 RGB에 4.0을 곱해 적용</span> | [src/libcamera/shaders/bayer_1x_packed.frag:237](#source-68d470282c445049) · [src/libcamera/shaders/bayer_unpacked.frag:140](#source-86d4a7688119bd37) |
+    | <span data-sdd-label-en="Apply AWB gains and clamp">AWB 이득 곱셈과 범위 제한</span> | [src/libcamera/shaders/bayer_1x_packed.frag:237](#source-68d470282c445049) · [src/libcamera/shaders/bayer_unpacked.frag:140](#source-86d4a7688119bd37) |
+    | <span data-sdd-label-en="CCM, clamp, contrast, then gamma">CCM, 범위 제한, 대비, 감마 순서</span> | [src/libcamera/shaders/bayer_1x_packed.frag:237](#source-68d470282c445049) · [src/libcamera/shaders/bayer_unpacked.frag:140](#source-86d4a7688119bd37) |
+    | <span data-sdd-label-en="After black-level correction">블랙 레벨 처리 후</span> | [src/libcamera/shaders/bayer_1x_packed.frag:237](#source-68d470282c445049) · [src/libcamera/shaders/bayer_unpacked.frag:140](#source-86d4a7688119bd37) |
+    | <span data-sdd-label-en="Yes">예</span> | [src/libcamera/shaders/bayer_1x_packed.frag:237](#source-68d470282c445049) · [src/libcamera/shaders/bayer_unpacked.frag:140](#source-86d4a7688119bd37) |
+    | <span data-sdd-label-en="No">아니요</span> | [src/libcamera/shaders/bayer_1x_packed.frag:237](#source-68d470282c445049) · [src/libcamera/shaders/bayer_unpacked.frag:140](#source-86d4a7688119bd37) |
+    | <span data-sdd-label-en="After lens shading correction">음영 보정 후</span> | [src/libcamera/shaders/bayer_1x_packed.frag:237](#source-68d470282c445049) · [src/libcamera/shaders/bayer_unpacked.frag:140](#source-86d4a7688119bd37) |
+    | <span data-sdd-label-en="After AWB">AWB 적용 후</span> | [src/libcamera/shaders/bayer_1x_packed.frag:237](#source-68d470282c445049) · [src/libcamera/shaders/bayer_unpacked.frag:140](#source-86d4a7688119bd37) |
+<!-- /sdd:visual:softisp-lsc-shader-order -->
+
+두 셰이더의 `main`은 그다음 `awb` 이득을 곱하고 각 채널을 0과 1 사이로 제한한 뒤 `ccm` 색 보정을 적용합니다. 이어서 다시 값을 0과 1 사이로 제한하고 각 채널에 `apply_contrast`를 적용한 후 `gamma` 거듭제곱을 적용합니다. `IPASoftIspInterface.init` 선언은 `fdStats`와 `fdParams`를 인자로 받고 `lscEnabled`를 반환값으로 포함합니다. 이 선언은 이 항목들과 셰이더의 `lsc_tex` 사이의 연결을 명시하지 않습니다. `src/libcamera/shaders/bayer_1x_packed.frag:237`, `src/libcamera/shaders/bayer_unpacked.frag:140`, `include/libcamera/ipa/softisp.mojom:1`
 
 근거 원문: [src/libcamera/shaders/bayer_1x_packed.frag:237](#source-68d470282c445049) · [src/libcamera/shaders/bayer_unpacked.frag:140](#source-86d4a7688119bd37) · [include/libcamera/ipa/softisp.mojom:1](#source-df8e8976167a0311)
 
@@ -53,7 +177,7 @@ RKISP1과 Mali-C55는 센서 모델 이름에 `.yaml`을 붙인 파일 이름과
     | 설계 질문 | 설명 위치 | 확인 범위 |
     |---|---|---|
     | 센서별 튜닝 파일이 없으면 어떤 파일과 알고리즘이 쓰입니까? | [보정 전 튜닝 파일](#보정-전-튜닝-파일) | 코드 근거와 설명 연결 |
-    | 소프트웨어 ISP의 GPU 셰이더는 렌즈 음영 보정을 어느 단계에 적용합니까? | [소프트웨어 ISP 셰이더의 렌즈 음영 보정](#소프트웨어-isp-셰이더의-렌즈-음영-보정) | 코드 근거와 설명 연결 · 실행 확인 항목 별도 |
+    | 소프트웨어 ISP의 GPU 셰이더는 렌즈 음영 보정을 어느 단계에 적용합니까? | [소프트웨어 ISP 셰이더의 렌즈 음영 보정](#소프트웨어-isp-셰이더의-렌즈-음영-보정) | 코드 근거와 설명 연결 |
     | 소프트웨어 ISP의 입력 버퍼를 텍스처로 가져올 때 형식과 실패 처리는 어떻게 연결됩니까? | [소프트웨어 ISP 입력 버퍼의 텍스처 형식](#소프트웨어-isp-입력-버퍼의-텍스처-형식) | 코드 근거와 설명 연결 |
 
 ## 소스 근거
@@ -142,12 +266,12 @@ RKISP1과 Mali-C55는 센서 모델 이름에 `.yaml`을 붙인 파일 이름과
     ...
     ```
 
-<a id="source-9146c9052851a10f"></a>
+<a id="source-2aca0607eacef985"></a>
 
 ??? note "소스 근거: src/ipa/mali-c55/data/uncalibrated.yaml:1"
-    `src/ipa/mali-c55/data/uncalibrated.yaml:1`에서 시작하는 발췌입니다. 종료 줄은 10이며, 아래 원문을 설명과 대조할 수 있습니다.
+    `src/ipa/mali-c55/data/uncalibrated.yaml:1`에서 시작하는 발췌입니다. 종료 줄은 11이며, 아래 원문을 설명과 대조할 수 있습니다.
     
-    SHA-256: `532d8234c4d0a6d5429c8a8f8df85d151b0701e965fb7372abc71fe70d2bed82`
+    SHA-256: `146853b0c8245c36b27863ac10c2edcaeed14bb5624c0eb523a0b75d226199e1`
     
     ```text
     # SPDX-License-Identifier: CC0-1.0
@@ -159,7 +283,28 @@ RKISP1과 Mali-C55는 센서 모델 이름에 `.yaml`을 붙인 파일 이름과
       - Awb:
       - BlackLevelCorrection:
       - Ccm:
+      - Gamma:
     ...
+    ```
+
+<a id="source-f8b760d0d191cbea"></a>
+
+??? note "소스 근거: src/ipa/mali-c55/algorithms/meson.build:1"
+    `src/ipa/mali-c55/algorithms/meson.build:1`에서 시작하는 발췌입니다. 종료 줄은 10이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `3928a9bc4320438e89a6a3545559afe1f9b45195e24421219df8014c30f33778`
+    
+    ```text
+    # SPDX-License-Identifier: CC0-1.0
+    
+    mali_c55_ipa_algorithms = files([
+        'agc.cpp',
+        'awb.cpp',
+        'blc.cpp',
+        'ccm.cpp',
+        'gamma.cpp',
+        'lsc.cpp',
+    ])
     ```
 
 <a id="source-8cc12a6ba8b0dced"></a>
@@ -454,9 +599,9 @@ flowchart LR
 ??? note "근거와 검토 정보"
     - 생성 방식: 추출 사실과 LLM 설명
     - 검증 범위: 표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.
-    - 근거 파일: `include/libcamera/internal/ipa_manager.h`, `include/libcamera/internal/ipa_module.h`, `include/libcamera/internal/ipa_proxy.h`, `include/libcamera/ipa/softisp.mojom`, `src/ipa/ipu3/ipu3.cpp`, `src/ipa/mali-c55/data/uncalibrated.yaml`, `src/ipa/rkisp1/data/uncalibrated.yaml`, `src/ipa/rkisp1/rkisp1.cpp`, `src/libcamera/egl.cpp`, `src/libcamera/ipa_manager.cpp`, `src/libcamera/ipa_module.cpp`, `src/libcamera/ipa_proxy.cpp`, `src/libcamera/pipeline/mali-c55/mali-c55.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/shaders/bayer_1x_packed.frag`, `src/libcamera/shaders/bayer_unpacked.frag`
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `212c689fcf`)
+    - 근거 파일: `include/libcamera/internal/ipa_manager.h`, `include/libcamera/internal/ipa_module.h`, `include/libcamera/internal/ipa_proxy.h`, `include/libcamera/ipa/softisp.mojom`, `src/ipa/ipu3/ipu3.cpp`, `src/ipa/mali-c55/algorithms/meson.build`, `src/ipa/mali-c55/data/uncalibrated.yaml`, `src/ipa/rkisp1/data/uncalibrated.yaml`, `src/ipa/rkisp1/rkisp1.cpp`, `src/libcamera/egl.cpp`, `src/libcamera/ipa_manager.cpp`, `src/libcamera/ipa_module.cpp`, `src/libcamera/ipa_proxy.cpp`, `src/libcamera/pipeline/mali-c55/mali-c55.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/shaders/bayer_1x_packed.frag`, `src/libcamera/shaders/bayer_unpacked.frag`
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `c19d05128f`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-10-30 · 사람 검토 전
+    - 검토 상태 기록일: 2026-11-12 · 사람 검토 전
 
 다음 단계: [IPU3 LSC와 상태 연결](ipu3-lsc.md)
