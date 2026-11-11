@@ -4,7 +4,7 @@
   "contracts": [
     {
       "id": "request-completion",
-      "input_sha256": "cafd261ef1aea12e988e625536a0ff8f2a2928b26f89676ee099799ae185d5ea",
+      "input_sha256": "8dcb57b7f0d589acb6fe9c18ac96daf382bdfb40e71944a223ac3ec3788b27b1",
       "findings": [
         {
           "claim_id": "vendor-overview.md/benefits/1",
@@ -1192,16 +1192,19 @@
         {
           "claim_id": "pipeline-requests.md/completion/7",
           "peers": [
+            "request-lifecycle.md/resources/3",
             "request-lifecycle.md/resources/9",
+            "catalog/1d473fe3c4859e79",
+            "catalog/1d473fe3c4859e79/en",
             "catalog/8849527c32c5db09",
             "catalog/8849527c32c5db09/en"
           ],
           "status": "compatible",
-          "condition": "대기 중인 요청을 취소하는 경로입니다.",
-          "actor": "파이프라인 핸들러와 요청의 내부 취소 함수입니다.",
-          "timing": "각 대기 버퍼의 취소와 알림 후 취소 플래그를 설정하고 목록을 비운 다음 completeRequest를 호출합니다.",
-          "scope": "버퍼 완료 알림과 명시적 요청 완료 호출의 순서입니다.",
-          "reason": "내부 취소와 후속 완료 호출이 소스 및 비교 문서의 취소 경로와 일치합니다.",
+          "condition": "취소 대상 요청은 RequestPending 상태이며 대기 버퍼가 있을 수 있습니다.",
+          "actor": "파이프라인 핸들러와 요청 내부 구현",
+          "timing": "내부 취소와 버퍼 알림 뒤 completeRequest가 내부 complete를 호출합니다.",
+          "scope": "요청 상태 전이와 대기 버퍼 취소에 관한 소스 계약입니다.",
+          "reason": "취소 순서와 cancelled_에 따른 상태 선택은 관련 한국어·영어 비교 문장과 소스에 부합합니다.",
           "sources": [
             {
               "source_id": "request-lifecycle/resources/cancel-rules",
@@ -1210,9 +1213,17 @@
             {
               "source_id": "pipeline-requests/completion/pending-cancel-code",
               "source_quote": "void Request::Private::doCancelRequest()\n{\n\tRequest *request = _o<Request>();\n\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tbuffer->_d()->cancel();\n\t\tcamera_->bufferCompleted.emit(request, buffer);\n\t}\n\n\tcancelled_ = true;\n\tpending_.clear();\n\tnotifiers_.clear();\n\ttimer_.reset();\n}\n\n/**\n * \\brief Cancel a queued request\n *\n * Mark the request and its associated buffers as cancelled and complete it.\n *\n * Set each pending buffer in error state and emit the buffer completion signal\n * before completing the Request.\n */\nvoid Request::Private::cancel()\n{\n\tLIBCAMERA_TRACEPOINT(request_cancel, this);\n\n\tRequest *request = _o<Request>();\n\tASSERT(request->status() == RequestPending);\n\n\tdoCancelRequest();\n}\n\n/**\n * \\brief Reset the request internal data to default values"
+            },
+            {
+              "source_id": "request-lifecycle/journey/request-notice",
+              "source_quote": "\\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}\n\n/**\n * \\brief Cancel request and signal its completion"
+            },
+            {
+              "source_id": "pipeline-requests/completion/cancel-status-transition",
+              "source_quote": "void Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()"
             }
           ],
-          "claim_quote": "cancelRequest는 요청을 내부 취소한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 요청과 버퍼에 대해 bufferCompleted를 발생시킨 뒤, 요청을 취소 상태로 표시하고 대기 버퍼 목록을 비웁니다."
+          "claim_quote": "cancelRequest는 내부 취소를 먼저 수행한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 버퍼의 bufferCompleted를 발생시킨 다음, `cancelled_`를 true로 설정하고 대기 버퍼 목록을 비웁니다. 이후 completeRequest에서 호출하는 `Request::Private::complete()`는 `cancelled_`에 따라 요청 상태에 RequestCancelled를 대입합니다."
         },
         {
           "claim_id": "pipeline-requests.md/queue/7",
@@ -1223,19 +1234,15 @@
             "catalog/eb18d16701104f88/en"
           ],
           "status": "compatible",
-          "condition": "doQueueRequest에서 요청의 cancelled_가 참인 경우입니다.",
-          "actor": "파이프라인 핸들러입니다.",
-          "timing": "큐 추가와 순번 지정 후 completeRequest를 호출하고 반환합니다.",
-          "scope": "취소 플래그가 설정된 요청의 분기입니다.",
-          "reason": "소스의 조건과 호출 및 반환 순서가 비교 문서와 일치합니다.",
+          "condition": "doQueueRequest에서 해당 요청의 cancelled_가 참인 경우입니다.",
+          "actor": "파이프라인 핸들러",
+          "timing": "요청을 큐에 추가하고 순번을 지정한 뒤 completeRequest를 호출하고 반환합니다.",
+          "scope": "이미 취소된 요청의 디스패치 분기입니다.",
+          "reason": "축약된 cancelled_ 표기는 같은 요청의 멤버를 가리키며, 호출과 반환 순서는 비교 문장과 소스에 부합합니다.",
           "sources": [
             {
               "source_id": "pipeline-requests/queue/submit-code",
               "source_quote": "void PipelineHandler::doQueueRequest(Request *request)\n{\n\tLIBCAMERA_TRACEPOINT(request_device_queue, request);\n\n\tCamera *camera = request->_d()->camera();\n\tCamera::Private *data = camera->_d();\n\tdata->queuedRequests_.push_back(request);\n\n\trequest->_d()->sequence_ = data->requestSequence_++;\n\n\tif (request->_d()->cancelled_) {\n\t\tcompleteRequest(request);\n\t\treturn;\n\t}\n\n\tint ret = queueRequestDevice(camera, request);\n\tif (ret)\n\t\tcancelRequest(request);\n}\n\n/**\n * \\brief Queue prepared requests to the device"
-            },
-            {
-              "source_id": "vendor-integration/shutdown/stop-rationale",
-              "source_quote": "void PipelineHandler::stop(Camera *camera)\n{\n\t/*\n\t * Take all waiting requests so that they are not requeued in response\n\t * to completeRequest() being called inside stopDevice(). Cancel them\n\t * after the device to keep them in order.\n\t */\n\tCamera::Private *data = camera->_d();\n\tstd::queue<Request *> waitingRequests;\n\twaitingRequests.swap(data->waitingRequests_);\n\n\t/* Stop the pipeline handler and let the queued requests complete. */\n\tstopDevice(camera);\n\n\t/* Cancel and signal as complete all waiting requests. */\n\twhile (!waitingRequests.empty()) {\n\t\tRequest *request = waitingRequests.front();\n\t\twaitingRequests.pop();\n\n\t\t/*\n\t\t * Cancel all requests by marking them as cancelled and calling\n\t\t * doQueueRequest() instead of cancelRequest(). This ensures\n\t\t * that the requests get a sequence number and are temporarily\n\t\t * added to queuedRequests_ so they can be properly completed in\n\t\t * completeRequest().\n\t\t */\n\t\trequest->_d()->cancel();\n\t\tdoQueueRequest(request);\n\t}\n\n\t/* Make sure no requests are pending. */\n\tASSERT(data->queuedRequests_.empty());\n\tASSERT(data->waitingRequests_.empty());\n\n\tdata->requestSequence_ = 0;\n}"
             }
           ],
           "claim_quote": "doQueueRequest에서 이미 취소된 요청을 뜻하는 `cancelled_` 조건이 참이면 completeRequest(request)를 호출하고 doQueueRequest에서 반환합니다."
@@ -1249,11 +1256,11 @@
             "catalog/eb18d16701104f88/en"
           ],
           "status": "compatible",
-          "condition": "cancelled_가 참인 분기와 거짓인 분기를 구분합니다.",
-          "actor": "파이프라인 핸들러의 doQueueRequest와 조사자입니다.",
-          "timing": "취소 플래그 검사 후 완료하고 반환하거나, 장치 큐 함수의 반환값을 검사합니다.",
-          "scope": "기존 호출과 오류 분기를 조사하는 계획입니다.",
-          "reason": "두 분기와 0이 아닌 반환값에 대한 취소 호출은 소스 및 비교 문서와 일치하며, 관찰 계획이 실행 결과를 주장하지 않습니다.",
+          "condition": "cancelled_가 참인 경로와 거짓이면서 장치 큐 반환값이 0이 아닌 경로를 구분합니다.",
+          "actor": "파이프라인 핸들러와 조사자",
+          "timing": "취소 플래그 검사 후 해당 분기를 따르며, 장치 큐 호출은 플래그가 거짓일 때 이루어집니다.",
+          "scope": "소스에 나타난 분기의 조사와 동작입니다.",
+          "reason": "두 분기와 반환값 조건이 비교 문장과 소스에 일치하며, 관찰 계획을 실행 결과로 주장하지 않습니다.",
           "sources": [
             {
               "source_id": "request-lifecycle/journey/dispatch",
@@ -1283,19 +1290,19 @@
             "catalog/fd5675e647c8331c/en"
           ],
           "status": "compatible",
-          "condition": "completeBuffer로 요청의 버퍼 완료를 처리하는 경우입니다.",
-          "actor": "파이프라인 핸들러가 호출하고 카메라가 버퍼 알림을 발생시킵니다.",
-          "timing": "알림 발생 후 내부 추적을 갱신하며, 마지막 버퍼 완료 후에도 요청을 명시적으로 완료해야 합니다.",
-          "scope": "버퍼 완료 함수의 반환 계약과 요청 완료 의무이며 실제 콜백 실행을 증명하지 않습니다.",
-          "reason": "인자, 처리 순서, 반환값과 별도 완료 의무가 소스 및 비교 문서와 일치합니다.",
+          "condition": "파이프라인 핸들러가 요청의 버퍼에 대해 completeBuffer를 호출하는 경우입니다.",
+          "actor": "파이프라인 핸들러가 알림과 완료 처리를 수행하고 조사자가 호출을 관찰합니다.",
+          "timing": "버퍼 알림을 emit한 뒤 내부 추적을 갱신하며, 마지막 버퍼 완료와 요청 완료 함수 호출은 별개입니다.",
+          "scope": "completeBuffer의 반환 계약과 명시적 요청 완료 의무입니다. 실제 콜백 실행이나 스레드 측정 결과는 아닙니다.",
+          "reason": "버퍼별 알림, 반환값과 별도 요청 완료 의무가 소스 및 비교 문장에 부합합니다. 관찰 계획은 실행된 검증을 주장하지 않습니다.",
           "sources": [
             {
               "source_id": "request-lifecycle/journey/completion",
               "source_quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)\n{\n\tCamera *camera = request->_d()->camera();\n\tcamera->bufferCompleted.emit(request, buffer);\n\treturn request->_d()->completeBuffer(buffer);\n}\n\n/**\n * \\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}\n\n/**\n * \\brief Cancel request and signal its completion\n * \\param[in] request The request to cancel\n *\n * This function cancels and completes the request. The same rules as for\n * completeRequest() apply.\n */\nvoid PipelineHandler::cancelRequest(Request *request)\n{\n\trequest->_d()->cancel();\n\tcompleteRequest(request);\n}\n\n/**\n * \\brief Retrieve the absolute path to a platform configuration file"
             },
             {
-              "source_id": "request-lifecycle/resources/internal-completion",
-              "source_quote": "\\brief Complete a buffer for the request\n * \\param[in] buffer The buffer that has completed\n *\n * A request tracks the status of all buffers it contains through a set of\n * pending buffers. This function removes the \\a buffer from the set to mark it\n * as complete. All buffers associate with the request shall be marked as\n * complete by calling this function once and once only before reporting the\n * request as complete with the complete() function.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool Request::Private::completeBuffer(FrameBuffer *buffer)\n{\n\tLIBCAMERA_TRACEPOINT(request_complete_buffer, this, buffer);\n\n\tint ret = pending_.erase(buffer);\n\tASSERT(ret == 1);\n\n\tbuffer->_d()->setRequest(nullptr);\n\n\tif (buffer->metadata().status == FrameMetadata::FrameCancelled)\n\t\tcancelled_ = true;\n\n\treturn !hasPendingBuffers();\n}\n\n/**\n * \\brief Complete a queued request\n *\n * Mark the request as complete by updating its status to RequestComplete,\n * unless buffers have been cancelled in which case the status is set to\n * RequestCancelled.\n */\nvoid Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()\n{\n\tRequest *request = _o<Request>();\n\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tbuffer->_d()->cancel();\n\t\tcamera_->bufferCompleted.emit(request, buffer);\n\t}\n\n\tcancelled_ = true;\n\tpending_.clear();\n\tnotifiers_.clear();\n\ttimer_.reset();\n}\n\n/**\n * \\brief Cancel a queued request\n *\n * Mark the request and its associated buffers as cancelled and complete it.\n *\n * Set each pending buffer in error state and emit the buffer completion signal\n * before completing the Request.\n */\nvoid Request::Private::cancel()\n{\n\tLIBCAMERA_TRACEPOINT(request_cancel, this);\n\n\tRequest *request = _o<Request>();\n\tASSERT(request->status() == RequestPending);\n\n\tdoCancelRequest();\n}\n\n/**\n * \\brief Reset the request internal data to default values"
+              "source_id": "request-lifecycle/resources/buffer-duty",
+              "source_quote": "\\brief Add a FrameBuffer with its associated Stream to the Request\n * \\param[in] stream The stream the buffer belongs to\n * \\param[in] buffer The FrameBuffer to add to the request\n * \\param[in] fence The optional fence\n *\n * A reference to the buffer is stored in the request. The caller is responsible\n * for ensuring that the buffer will remain valid until the request complete\n * callback is called.\n *\n * A request can only contain one buffer per stream. If a buffer has already\n * been added to the request for the same stream, this function returns -EEXIST.\n *\n * A Fence can be optionally associated with the \\a buffer.\n *\n * When a valid Fence is provided to this function, \\a fence is moved to \\a\n * buffer and this Request will only be queued to the device once the\n * fences of all its buffers have been correctly signalled. Ownership of the\n * fence will only be taken in case of success, otherwise the fence will\n * be left unmodified.\n *\n * If the \\a fence associated with \\a buffer isn't signalled, the request will\n * fail after a timeout. The buffer will still contain the fence, which\n * applications must retrieve with FrameBuffer::releaseFence() before the buffer\n * can be reused in another request. Attempting to add a buffer that still\n * contains a fence to a request will result in this function returning -EEXIST.\n *\n * \\sa FrameBuffer::releaseFence()\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -EEXIST The request already contains a buffer for the stream\n *  or the buffer still references a fence\n * \\retval -EINVAL The buffer does not reference a valid Stream\n */\nint Request::addBuffer(const Stream *stream, FrameBuffer *buffer,"
             }
           ],
           "claim_quote": "조사할 때 기존 `completeBuffer` 호출에서 `request`와 `buffer`를 전달하는 `bufferCompleted` 알림과 반환값을 관찰합니다. 이 함수는 알림을 보낸 뒤 요청 내부의 버퍼 완료 상태를 갱신하며, 요청에 포함된 모든 버퍼가 완료되면 `true`를, 그렇지 않으면 `false`를 반환합니다. 마지막 버퍼가 완료되어도 요청은 자동으로 완료되지 않으므로 파이프라인 핸들러가 `completeRequest`를 별도로 호출해야 합니다."
@@ -1303,11 +1310,14 @@
         {
           "claim_id": "request-diagnosis.md/diagnosis/6",
           "peers": [
+            "request-lifecycle.md/journey/0",
             "request-lifecycle.md/resources/5",
             "request-lifecycle.md/resources/6",
             "request-lifecycle.md/resources/7",
             "request-lifecycle.md/resources/9",
             "request-lifecycle.md/stopping/5",
+            "catalog/09aa8625cc5ac438",
+            "catalog/09aa8625cc5ac438/en",
             "catalog/fe87ee7dd45629fa",
             "catalog/fe87ee7dd45629fa/en",
             "catalog/319bbcd279b3708d",
@@ -1320,19 +1330,15 @@
             "catalog/ef402afeb5dae4b5/en"
           ],
           "status": "compatible",
-          "condition": "큐가 비어 있지 않을 때 선두의 상태를 검사합니다.",
+          "condition": "큐가 비어 있지 않을 때 선두 요청의 Pending 여부에 따라 분기합니다.",
           "actor": "파이프라인 핸들러가 큐를 처리하고 카메라의 requestComplete를 호출합니다.",
-          "timing": "선두가 대기 중이면 반복을 중단하고, 그렇지 않으면 버퍼 조건 검사 후 제거와 알림 호출을 수행합니다.",
-          "scope": "함수 내부 큐 처리와 제출 순서에 따른 애플리케이션 반환입니다.",
-          "reason": "선두 대기에 따른 지연과 검사·제거·호출 순서가 소스 및 조건부 비교 사례와 일치합니다.",
+          "timing": "선두가 Pending이면 반복을 중단하고, 그렇지 않으면 대기 버퍼 부재를 검사한 뒤 제거 및 통지합니다.",
+          "scope": "제출 순서에 따른 애플리케이션 반환과 소스 기반 조사 계획입니다.",
+          "reason": "선두 차단과 검사·제거·통지 순서가 소스 및 비교 문장과 부합합니다. 함수 호출 순서와 애플리케이션 반환 순서를 혼동하지 않습니다.",
           "sources": [
             {
               "source_id": "request-lifecycle/journey/completion",
               "source_quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)\n{\n\tCamera *camera = request->_d()->camera();\n\tcamera->bufferCompleted.emit(request, buffer);\n\treturn request->_d()->completeBuffer(buffer);\n}\n\n/**\n * \\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}\n\n/**\n * \\brief Cancel request and signal its completion\n * \\param[in] request The request to cancel\n *\n * This function cancels and completes the request. The same rules as for\n * completeRequest() apply.\n */\nvoid PipelineHandler::cancelRequest(Request *request)\n{\n\trequest->_d()->cancel();\n\tcompleteRequest(request);\n}\n\n/**\n * \\brief Retrieve the absolute path to a platform configuration file"
-            },
-            {
-              "source_id": "request-lifecycle/journey/request-notice",
-              "source_quote": "\\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}\n\n/**\n * \\brief Cancel request and signal its completion"
             }
           ],
           "claim_quote": "`completeRequest()`의 조사에서는 큐 선두 요청의 상태가 `Request::RequestPending`인지 관찰합니다. 해당 상태이면 `break`로 반복문을 벗어나 선두 요청이 큐에 남고, 제출 순서에 따라 뒤에서 이미 완료된 요청도 `requestComplete()`로 반환되지 않는 분기를 살펴봅니다. 선두가 해당 상태가 아니면 `ASSERT(!req->hasPendingBuffers());`가 대기 중인 버퍼가 없다는 부정 조건을 검사한 뒤 `pop_front()`로 선두를 제거하고 `requestComplete(req)`를 호출하는 순서를 관찰합니다."
@@ -1348,11 +1354,11 @@
             "catalog/d978c8b30a4e498d/en"
           ],
           "status": "compatible",
-          "condition": "Camera::queueRequest의 검사를 통과한 성공 경로입니다.",
+          "condition": "Camera::queueRequest가 입력 검사를 통과한 성공 경로와 큐에 들어간 요청에 적용됩니다.",
           "actor": "카메라가 파이프라인 핸들러 호출을 예약하고 완료 신호를 제공합니다.",
-          "timing": "비동기 호출 예약 후 0을 반환하며 요청 완료는 별도로 통지합니다.",
-          "scope": "요청 접수와 API의 완료 통지 보장입니다.",
-          "reason": "축약된 pipe_ 호출은 해당 함수의 동일한 파이프라인 멤버를 가리킵니다. 반환값은 전달 예약의 성공을 나타내며 완료를 뜻하지 않고, 완료 신호에 관한 설명은 API 계약과 일치합니다.",
+          "timing": "큐 연결 호출을 예약한 뒤 0을 반환하며 요청 완료 통지는 별도입니다.",
+          "scope": "접수 성공과 완료 통지의 API 계약이며 장치 처리 완료를 증명하지 않습니다.",
+          "reason": "축약된 pipe_ 호출은 소스의 동일한 파이프라인 멤버 호출을 가리킵니다. 반환값과 완료 신호의 구분은 비교 문장과 소스에 부합합니다.",
           "sources": [
             {
               "source_id": "scenario-queue_request/acceptance/queue",
@@ -3173,11 +3179,11 @@
             "catalog/eb18d16701104f88/en"
           ],
           "status": "compatible",
-          "condition": "The waiting queue is nonempty; capacity, preparation and cancellation branches are evaluated as stated.",
+          "condition": "The queue is at capacity, the front waiting request is unprepared, or the submitted request is cancelled, respectively.",
           "actor": "PipelineHandler queueing functions.",
-          "timing": "Capacity and preparation are checked before dispatch; sequence assignment follows insertion and precedes the cancellation check.",
-          "scope": "Device-queue processing and the already-cancelled branch.",
-          "reason": "The branches and post-increment assignment match the code. The shortened member names identify the same objects in these functions.",
+          "timing": "The sequence is assigned after insertion; cancellation is checked before device queueing.",
+          "scope": "Queue iteration and dispatch, not application completion notification.",
+          "reason": "The branches, sequence assignment and cancelled-request path agree with the source and the dispatch peers.",
           "sources": [
             {
               "source_id": "pipeline-requests/queue/capacity-branch",
@@ -3186,6 +3192,10 @@
             {
               "source_id": "pipeline-requests/queue/submit-code",
               "source_quote": "void PipelineHandler::doQueueRequest(Request *request)\n{\n\tLIBCAMERA_TRACEPOINT(request_device_queue, request);\n\n\tCamera *camera = request->_d()->camera();\n\tCamera::Private *data = camera->_d();\n\tdata->queuedRequests_.push_back(request);\n\n\trequest->_d()->sequence_ = data->requestSequence_++;\n\n\tif (request->_d()->cancelled_) {\n\t\tcompleteRequest(request);\n\t\treturn;\n\t}\n\n\tint ret = queueRequestDevice(camera, request);\n\tif (ret)\n\t\tcancelRequest(request);\n}\n\n/**\n * \\brief Queue prepared requests to the device"
+            },
+            {
+              "source_id": "request-lifecycle/journey/dispatch",
+              "source_quote": "void PipelineHandler::doQueueRequest(Request *request)\n{\n\tLIBCAMERA_TRACEPOINT(request_device_queue, request);\n\n\tCamera *camera = request->_d()->camera();\n\tCamera::Private *data = camera->_d();\n\tdata->queuedRequests_.push_back(request);\n\n\trequest->_d()->sequence_ = data->requestSequence_++;\n\n\tif (request->_d()->cancelled_) {\n\t\tcompleteRequest(request);\n\t\treturn;\n\t}\n\n\tint ret = queueRequestDevice(camera, request);\n\tif (ret)\n\t\tcancelRequest(request);\n}"
             }
           ],
           "claim_quote": "In doQueueRequests, if the size of queuedRequests_ equals maxQueuedRequestsDevice_, the loop is terminated with break. In doQueueRequests, if prepared_ of the request at the front of waitingRequests_ is false, break is executed to terminate the while loop. After adding the request to queuedRequests_, doQueueRequest assigns the pre-increment value of requestSequence_ to sequence_ and increments requestSequence_. In doQueueRequest, if the cancelled_ condition, which indicates that the request has already been cancelled, is true, doQueueRequest calls completeRequest(request) and returns from doQueueRequest."
@@ -3195,22 +3205,26 @@
           "peers": [
             "catalog/94f55bef1ac6b0f4/en",
             "request-lifecycle.md/resources/3",
+            "request-lifecycle.md/resources/4",
             "catalog/1d473fe3c4859e79",
             "catalog/1d473fe3c4859e79/en",
-            "request-lifecycle.md/resources/4",
             "catalog/8cc0204272ea6788",
             "catalog/8cc0204272ea6788/en"
           ],
           "status": "compatible",
           "condition": "Normal buffer completion, including completion of the last buffer.",
-          "actor": "The pipeline handler calls completeBuffer and separately completes the request.",
-          "timing": "Buffer notification and tracking occur in completeBuffer; request completion is a separate action.",
-          "scope": "The documented buffer and request completion contract, not callback execution timing.",
-          "reason": "The source supports the obligation, notification and tracking effects, and distinction between last-buffer completion and explicit request completion. The translation preserves these conditions.",
+          "actor": "The pipeline handler calls the completion APIs.",
+          "timing": "Buffer completion is signalled and tracked; request completion requires a separate call.",
+          "scope": "The documented normal completion contract, not a claim that cancellation during stopping follows the same path.",
+          "reason": "The Korean claim and its translation preserve the source's obligations and distinguish buffer completion from request completion. The peers also distinguish the notification from later observations.",
           "sources": [
             {
               "source_id": "pipeline-requests/completion/buffer-contract",
               "source_quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)\n{\n\tCamera *camera = request->_d()->camera();\n\tcamera->bufferCompleted.emit(request, buffer);\n\treturn request->_d()->completeBuffer(buffer);\n}\n\n/**\n * \\brief Signal request completion"
+            },
+            {
+              "source_id": "request-lifecycle/resources/internal-completion",
+              "source_quote": "\\brief Complete a buffer for the request\n * \\param[in] buffer The buffer that has completed\n *\n * A request tracks the status of all buffers it contains through a set of\n * pending buffers. This function removes the \\a buffer from the set to mark it\n * as complete. All buffers associate with the request shall be marked as\n * complete by calling this function once and once only before reporting the\n * request as complete with the complete() function.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool Request::Private::completeBuffer(FrameBuffer *buffer)\n{\n\tLIBCAMERA_TRACEPOINT(request_complete_buffer, this, buffer);\n\n\tint ret = pending_.erase(buffer);\n\tASSERT(ret == 1);\n\n\tbuffer->_d()->setRequest(nullptr);\n\n\tif (buffer->metadata().status == FrameMetadata::FrameCancelled)\n\t\tcancelled_ = true;\n\n\treturn !hasPendingBuffers();\n}\n\n/**\n * \\brief Complete a queued request\n *\n * Mark the request as complete by updating its status to RequestComplete,\n * unless buffers have been cancelled in which case the status is set to\n * RequestCancelled.\n */\nvoid Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()\n{\n\tRequest *request = _o<Request>();\n\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tbuffer->_d()->cancel();\n\t\tcamera_->bufferCompleted.emit(request, buffer);\n\t}\n\n\tcancelled_ = true;\n\tpending_.clear();\n\tnotifiers_.clear();\n\ttimer_.reset();\n}\n\n/**\n * \\brief Cancel a queued request\n *\n * Mark the request and its associated buffers as cancelled and complete it.\n *\n * Set each pending buffer in error state and emit the buffer completion signal\n * before completing the Request.\n */\nvoid Request::Private::cancel()\n{\n\tLIBCAMERA_TRACEPOINT(request_cancel, this);\n\n\tRequest *request = _o<Request>();\n\tASSERT(request->status() == RequestPending);\n\n\tdoCancelRequest();\n}\n\n/**\n * \\brief Reset the request internal data to default values"
             }
           ],
           "claim_quote": "일반 버퍼 완료 경로에서 파이프라인 핸들러는 요청의 버퍼 부분이 완료되었음을 알리기 위해 completeBuffer를 호출해야 합니다. 이 함수는 애플리케이션에 버퍼 완료를 알리고 요청의 내부 버퍼 추적을 갱신합니다. 일반 완료 처리에서 마지막 버퍼에 completeBuffer를 호출해도 요청은 자동으로 완료되지 않습니다. 파이프라인 핸들러는 completeRequest()를 별도로 호출해 요청을 명시적으로 완료해야 합니다."
@@ -3220,22 +3234,26 @@
           "peers": [
             "catalog/94f55bef1ac6b0f4",
             "request-lifecycle.md/resources/3",
+            "request-lifecycle.md/resources/4",
             "catalog/1d473fe3c4859e79",
             "catalog/1d473fe3c4859e79/en",
-            "request-lifecycle.md/resources/4",
             "catalog/8cc0204272ea6788",
             "catalog/8cc0204272ea6788/en"
           ],
           "status": "compatible",
           "condition": "Normal buffer completion, including completion of the last buffer.",
-          "actor": "The pipeline handler calls completeBuffer and separately completes the request.",
-          "timing": "Buffer notification and tracking occur in completeBuffer; request completion is a separate action.",
-          "scope": "The documented buffer and request completion contract, not callback execution timing.",
-          "reason": "The source supports the obligation, notification and tracking effects, and distinction between last-buffer completion and explicit request completion. The Korean claim has the same scope.",
+          "actor": "The pipeline handler calls the completion APIs.",
+          "timing": "Buffer completion is signalled and tracked; request completion requires a separate call.",
+          "scope": "The documented normal completion contract.",
+          "reason": "The translation preserves the Korean claim's obligations and matches the source; neither buffer notification nor the last buffer alone completes the request.",
           "sources": [
             {
               "source_id": "pipeline-requests/completion/buffer-contract",
               "source_quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)\n{\n\tCamera *camera = request->_d()->camera();\n\tcamera->bufferCompleted.emit(request, buffer);\n\treturn request->_d()->completeBuffer(buffer);\n}\n\n/**\n * \\brief Signal request completion"
+            },
+            {
+              "source_id": "request-lifecycle/resources/internal-completion",
+              "source_quote": "\\brief Complete a buffer for the request\n * \\param[in] buffer The buffer that has completed\n *\n * A request tracks the status of all buffers it contains through a set of\n * pending buffers. This function removes the \\a buffer from the set to mark it\n * as complete. All buffers associate with the request shall be marked as\n * complete by calling this function once and once only before reporting the\n * request as complete with the complete() function.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool Request::Private::completeBuffer(FrameBuffer *buffer)\n{\n\tLIBCAMERA_TRACEPOINT(request_complete_buffer, this, buffer);\n\n\tint ret = pending_.erase(buffer);\n\tASSERT(ret == 1);\n\n\tbuffer->_d()->setRequest(nullptr);\n\n\tif (buffer->metadata().status == FrameMetadata::FrameCancelled)\n\t\tcancelled_ = true;\n\n\treturn !hasPendingBuffers();\n}\n\n/**\n * \\brief Complete a queued request\n *\n * Mark the request as complete by updating its status to RequestComplete,\n * unless buffers have been cancelled in which case the status is set to\n * RequestCancelled.\n */\nvoid Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()\n{\n\tRequest *request = _o<Request>();\n\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tbuffer->_d()->cancel();\n\t\tcamera_->bufferCompleted.emit(request, buffer);\n\t}\n\n\tcancelled_ = true;\n\tpending_.clear();\n\tnotifiers_.clear();\n\ttimer_.reset();\n}\n\n/**\n * \\brief Cancel a queued request\n *\n * Mark the request and its associated buffers as cancelled and complete it.\n *\n * Set each pending buffer in error state and emit the buffer completion signal\n * before completing the Request.\n */\nvoid Request::Private::cancel()\n{\n\tLIBCAMERA_TRACEPOINT(request_cancel, this);\n\n\tRequest *request = _o<Request>();\n\tASSERT(request->status() == RequestPending);\n\n\tdoCancelRequest();\n}\n\n/**\n * \\brief Reset the request internal data to default values"
             }
           ],
           "claim_quote": "In the normal buffer completion path, the pipeline handler must call completeBuffer to signal that the buffer part of the request has completed. This function notifies the application of buffer completion and updates the request's internal buffer tracking. During normal completion processing, the request is not automatically completed even when completeBuffer is called on the last buffer. The pipeline handler must call completeRequest() separately to complete the request explicitly."
@@ -3245,24 +3263,24 @@
           "peers": [
             "catalog/cab129a1a3d0c87b/en",
             "request-lifecycle.md/journey/0",
+            "request-lifecycle.md/resources/2",
+            "request-lifecycle.md/resources/7",
+            "request-lifecycle.md/stopping/5",
             "catalog/09aa8625cc5ac438",
             "catalog/09aa8625cc5ac438/en",
-            "request-lifecycle.md/resources/2",
             "catalog/a222dd3054968dd3",
             "catalog/a222dd3054968dd3/en",
-            "request-lifecycle.md/resources/7",
             "catalog/523cb7bcda133ed2",
             "catalog/523cb7bcda133ed2/en",
-            "request-lifecycle.md/stopping/5",
             "catalog/ef402afeb5dae4b5",
             "catalog/ef402afeb5dae4b5/en"
           ],
           "status": "compatible",
-          "condition": "The handler calls completeRequest for a completed request; queue processing stops if its front remains pending.",
-          "actor": "The pipeline handler calls completeRequest; the camera returns requests to the application.",
-          "timing": "The access prohibition applies after the call returns; application returns follow submission order even when completion calls do not.",
-          "scope": "The documented completeRequest API guarantee and its queue-processing implementation.",
-          "reason": "The source supports the access restriction, ordering guarantee, pending-front break and final queueing attempt. The translation preserves the distinction between call order and application return order.",
+          "condition": "A completed request is passed to completeRequest; a pending front request stops the return loop.",
+          "actor": "The pipeline handler calls completeRequest; the function returns eligible requests to the application.",
+          "timing": "The access prohibition applies after the call returns; waiting-request dispatch is attempted at the end.",
+          "scope": "Submission order governs application return, while calls on completed requests have no ordering constraint.",
+          "reason": "The source explicitly supports the ordering guarantee, access restriction and loop behavior. The peers distinguish function entry from application notification without contradicting the guarantee.",
           "sources": [
             {
               "source_id": "request-lifecycle/journey/request-notice",
@@ -3284,24 +3302,24 @@
           "peers": [
             "catalog/cab129a1a3d0c87b",
             "request-lifecycle.md/journey/0",
+            "request-lifecycle.md/resources/2",
+            "request-lifecycle.md/resources/7",
+            "request-lifecycle.md/stopping/5",
             "catalog/09aa8625cc5ac438",
             "catalog/09aa8625cc5ac438/en",
-            "request-lifecycle.md/resources/2",
             "catalog/a222dd3054968dd3",
             "catalog/a222dd3054968dd3/en",
-            "request-lifecycle.md/resources/7",
             "catalog/523cb7bcda133ed2",
             "catalog/523cb7bcda133ed2/en",
-            "request-lifecycle.md/stopping/5",
             "catalog/ef402afeb5dae4b5",
             "catalog/ef402afeb5dae4b5/en"
           ],
           "status": "compatible",
-          "condition": "The handler calls completeRequest for a completed request; queue processing stops if its front remains pending.",
-          "actor": "The pipeline handler calls completeRequest; the camera returns requests to the application.",
-          "timing": "The access prohibition applies after the call returns; application returns follow submission order even when completion calls do not.",
-          "scope": "The documented completeRequest API guarantee and its queue-processing implementation.",
-          "reason": "The source supports the access restriction, ordering guarantee, pending-front break and final queueing attempt. The Korean claim preserves the same distinctions.",
+          "condition": "A completed request is passed to completeRequest; a pending front request stops the return loop.",
+          "actor": "The pipeline handler calls completeRequest; the function returns eligible requests to the application.",
+          "timing": "The access prohibition applies after the call returns; waiting-request dispatch is attempted at the end.",
+          "scope": "Submission order governs application return, while calls on completed requests have no ordering constraint.",
+          "reason": "The translation preserves the Korean claim and the source's distinct guarantees for call order and application return order.",
           "sources": [
             {
               "source_id": "request-lifecycle/journey/request-notice",
@@ -3319,31 +3337,27 @@
           "claim_quote": "After completeRequest returns, the pipeline handler must not access the request. completeRequest ensures that requests are returned to the application in submission order, and the pipeline handler may call completeRequest on any completed request without ordering constraints. If the request at the front is RequestPending, the while loop executes break to stop the loop. Finally, completeRequest calls doQueueRequests(camera) so that waiting requests can be queued to the pipeline."
         },
         {
-          "claim_id": "catalog/e80ea8945eaf79ed",
+          "claim_id": "catalog/055a81a114340a28",
           "peers": [
-            "catalog/94f55bef1ac6b0f4",
-            "catalog/94f55bef1ac6b0f4/en",
-            "catalog/cab129a1a3d0c87b",
-            "catalog/cab129a1a3d0c87b/en",
             "request-lifecycle.md/resources/3",
+            "request-lifecycle.md/resources/9",
+            "request-lifecycle.md/resources/13",
+            "request-lifecycle.md/stopping/7",
             "catalog/1d473fe3c4859e79",
             "catalog/1d473fe3c4859e79/en",
-            "request-lifecycle.md/resources/9",
             "catalog/8849527c32c5db09",
             "catalog/8849527c32c5db09/en",
-            "request-lifecycle.md/resources/13",
             "catalog/fd5675e647c8331c",
             "catalog/fd5675e647c8331c/en",
-            "request-lifecycle.md/stopping/7",
             "catalog/ae9a637227d8b9f7",
             "catalog/ae9a637227d8b9f7/en"
           ],
           "status": "compatible",
-          "condition": "For the documented API calls and cancellation of a pending request.",
-          "actor": "The pipeline handler calls the completion APIs; request-private cancellation processes pending buffers.",
-          "timing": "Cancellation and buffer signal emission precede setting the cancellation flag and clearing pending buffers; cancelRequest then calls completeRequest.",
-          "scope": "API call thread obligation and source-level cancellation actions, without a guarantee about the callback execution thread.",
-          "reason": "The sources support both CameraManager-thread obligations and the described cancellation sequence. The cancellation peers describe the same effects; the callback investigation peers do not assert that the callback has run on that thread.",
+          "condition": "Cancellation of a pending request; the status selection depends on cancelled_.",
+          "actor": "The pipeline handler invokes the APIs; request-private cancellation handles pending buffers.",
+          "timing": "Each pending buffer is cancelled and signalled before the flag is set and the pending set cleared; completeRequest follows cancellation.",
+          "scope": "API call-thread obligations and source-level cancellation steps, without asserting the callback execution thread.",
+          "reason": "The cancellation chain and conditional status transition match the source. The peers' unverified callback-thread plans do not alter the documented API call-thread obligation.",
           "sources": [
             {
               "source_id": "pipeline-requests/completion/buffer-contract",
@@ -3360,12 +3374,16 @@
             {
               "source_id": "pipeline-requests/completion/pending-cancel-code",
               "source_quote": "void Request::Private::doCancelRequest()\n{\n\tRequest *request = _o<Request>();\n\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tbuffer->_d()->cancel();\n\t\tcamera_->bufferCompleted.emit(request, buffer);\n\t}\n\n\tcancelled_ = true;\n\tpending_.clear();\n\tnotifiers_.clear();\n\ttimer_.reset();\n}\n\n/**\n * \\brief Cancel a queued request\n *\n * Mark the request and its associated buffers as cancelled and complete it.\n *\n * Set each pending buffer in error state and emit the buffer completion signal\n * before completing the Request.\n */\nvoid Request::Private::cancel()\n{\n\tLIBCAMERA_TRACEPOINT(request_cancel, this);\n\n\tRequest *request = _o<Request>();\n\tASSERT(request->status() == RequestPending);\n\n\tdoCancelRequest();\n}\n\n/**\n * \\brief Reset the request internal data to default values"
+            },
+            {
+              "source_id": "pipeline-requests/completion/cancel-status-transition",
+              "source_quote": "void Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()"
             }
           ],
-          "claim_quote": "completeBuffer와 completeRequest는 모두 CameraManager 스레드에서 호출해야 합니다. cancelRequest는 요청을 내부 취소한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 요청과 버퍼에 대해 bufferCompleted를 발생시킨 뒤, 요청을 취소 상태로 표시하고 대기 버퍼 목록을 비웁니다."
+          "claim_quote": "completeBuffer와 completeRequest는 모두 CameraManager 스레드에서 호출해야 합니다. cancelRequest는 내부 취소를 먼저 수행한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 버퍼의 bufferCompleted를 발생시킨 다음, cancelled_를 true로 설정하고 대기 버퍼 목록을 비웁니다. 이후 completeRequest에서 호출하는 Request::Private::complete()는 cancelled_에 따라 요청 상태에 RequestCancelled를 대입합니다."
         },
         {
-          "claim_id": "catalog/e80ea8945eaf79ed/en",
+          "claim_id": "catalog/055a81a114340a28/en",
           "peers": [
             "request-lifecycle.md/resources/3",
             "request-lifecycle.md/resources/9",
@@ -3378,11 +3396,11 @@
             "catalog/fd5675e647c8331c/en"
           ],
           "status": "compatible",
-          "condition": "The thread obligation applies to both API calls; cancellation processes each pending buffer.",
-          "actor": "The pipeline handler calls the completion APIs and cancelRequest; request internals cancel buffers and emit notifications.",
-          "timing": "Internal cancellation precedes completeRequest; each pending buffer is cancelled and signalled before the cancelled flag is set and the pending list cleared.",
-          "scope": "Source-level call and notification behavior; it does not establish the callback execution thread.",
-          "reason": "The stated thread obligations and cancellation sequence agree with the source and the relevant peers.",
+          "condition": "Cancellation applies to a pending request and its pending buffers.",
+          "actor": "The pipeline handler calls the completion APIs; request-private code performs internal cancellation and status updates.",
+          "timing": "Internal cancellation precedes completeRequest; buffer cancellation and signals precede clearing the pending set and completing the request.",
+          "scope": "CameraManager thread obligation and source-level cancellation sequence; no callback execution thread is established.",
+          "reason": "The stated thread obligations, cancellation sequence and conditional status transition match the sources and relevant peers.",
           "sources": [
             {
               "source_id": "pipeline-requests/completion/buffer-contract",
@@ -3399,9 +3417,13 @@
             {
               "source_id": "pipeline-requests/completion/pending-cancel-code",
               "source_quote": "void Request::Private::doCancelRequest()\n{\n\tRequest *request = _o<Request>();\n\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tbuffer->_d()->cancel();\n\t\tcamera_->bufferCompleted.emit(request, buffer);\n\t}\n\n\tcancelled_ = true;\n\tpending_.clear();\n\tnotifiers_.clear();\n\ttimer_.reset();\n}\n\n/**\n * \\brief Cancel a queued request\n *\n * Mark the request and its associated buffers as cancelled and complete it.\n *\n * Set each pending buffer in error state and emit the buffer completion signal\n * before completing the Request.\n */\nvoid Request::Private::cancel()\n{\n\tLIBCAMERA_TRACEPOINT(request_cancel, this);\n\n\tRequest *request = _o<Request>();\n\tASSERT(request->status() == RequestPending);\n\n\tdoCancelRequest();\n}\n\n/**\n * \\brief Reset the request internal data to default values"
+            },
+            {
+              "source_id": "pipeline-requests/completion/cancel-status-transition",
+              "source_quote": "void Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()"
             }
           ],
-          "claim_quote": "Both completeBuffer and completeRequest must be called from the CameraManager thread. cancelRequest calls completeRequest after internally cancelling the request. Internal cancellation cancels each pending buffer and emits bufferCompleted for the request and that buffer, then marks the request as cancelled and clears the pending buffer list."
+          "claim_quote": "Both completeBuffer and completeRequest must be called from the CameraManager thread. cancelRequest first performs internal cancellation and then calls completeRequest. Internal cancellation cancels each pending buffer and emits bufferCompleted for that buffer, then sets cancelled_ to true and clears the pending buffer list. Afterward, Request::Private::complete(), called by completeRequest, sets the request status to RequestCancelled depending on cancelled_."
         },
         {
           "claim_id": "catalog/8d8e5320dfe230fc",
@@ -3412,11 +3434,11 @@
             "catalog/eb18d16701104f88/en"
           ],
           "status": "compatible",
-          "condition": "The branches depend on cancelled_ and, when it is false, the nonzero device queue return value.",
-          "actor": "PipelineHandler::doQueueRequest invokes the named functions.",
-          "timing": "A cancelled request is completed before return; otherwise device queueing precedes the conditional cancellation call.",
-          "scope": "The existing doQueueRequest branch and an investigation of it.",
-          "reason": "The branch conditions and actions match the source, the translation, and the primary-document peers.",
+          "condition": "The branches distinguish cancelled_ being true from false and a nonzero device-queue return.",
+          "actor": "PipelineHandler::doQueueRequest calls the named functions; the investigator observes the existing path.",
+          "timing": "The cancelled branch completes and returns; otherwise the device queue call precedes the return-value check.",
+          "scope": "Source-level dispatch and investigation plan, not a claim that a device run occurred.",
+          "reason": "Both branches and their conditions match the source and translation.",
           "sources": [
             {
               "source_id": "request-lifecycle/journey/dispatch",
@@ -3434,11 +3456,11 @@
             "catalog/eb18d16701104f88/en"
           ],
           "status": "compatible",
-          "condition": "The branches depend on cancelled_ and, when it is false, the nonzero device queue return value.",
-          "actor": "PipelineHandler::doQueueRequest invokes the named functions.",
-          "timing": "A cancelled request is completed before return; otherwise device queueing precedes the conditional cancellation call.",
-          "scope": "The existing doQueueRequest branch and an investigation of it.",
-          "reason": "The English claim preserves the Korean conditions and actions, which match the source and primary-document peers.",
+          "condition": "The branches distinguish cancelled_ being true from false and a nonzero device-queue return.",
+          "actor": "PipelineHandler::doQueueRequest calls the named functions; the investigator observes the existing path.",
+          "timing": "The cancelled branch completes and returns; otherwise the device queue call precedes the return-value check.",
+          "scope": "Source-level dispatch and investigation plan, not an executed test.",
+          "reason": "The translation preserves the source conditions, actions and ordering.",
           "sources": [
             {
               "source_id": "request-lifecycle/journey/dispatch",
@@ -3459,11 +3481,11 @@
             "catalog/fe87ee7dd45629fa/en"
           ],
           "status": "compatible",
-          "condition": "completeBuffer reports whether all buffers in the request have completed; completing the last buffer does not itself complete the request.",
-          "actor": "The pipeline handler calls completeBuffer and must explicitly call completeRequest.",
-          "timing": "The buffer notification is emitted before internal tracking is updated and the result returned.",
-          "scope": "The completeBuffer contract and a plan to observe an existing call; no callback execution or device result is asserted.",
-          "reason": "The ordering, return value and separate completion obligation agree with the source and relevant peers.",
+          "condition": "The return value distinguishes all request buffers completed from buffers still pending.",
+          "actor": "The pipeline handler calls completeBuffer and must explicitly complete the request; the investigator observes the existing call.",
+          "timing": "The buffer signal is emitted before internal tracking is updated; even the last buffer does not automatically complete the request.",
+          "scope": "API contract and source-level call order, without asserting that a callback was observed.",
+          "reason": "The notification arguments, return value and separate request-completion obligation agree with the source and peers.",
           "sources": [
             {
               "source_id": "request-lifecycle/journey/completion",
@@ -3484,11 +3506,11 @@
             "catalog/fe87ee7dd45629fa/en"
           ],
           "status": "compatible",
-          "condition": "completeBuffer reports whether all buffers in the request have completed; completing the last buffer does not itself complete the request.",
-          "actor": "The pipeline handler calls completeBuffer and must explicitly call completeRequest.",
-          "timing": "The buffer notification is emitted before internal tracking is updated and the result returned.",
-          "scope": "The completeBuffer contract and a plan to observe an existing call; no callback execution or device result is asserted.",
-          "reason": "The translation preserves the Korean claim's ordering, return value and obligation, all supported by the source and peers.",
+          "condition": "The return value distinguishes all request buffers completed from buffers still pending.",
+          "actor": "The pipeline handler calls completeBuffer and must explicitly complete the request; the investigator observes the existing call.",
+          "timing": "The buffer signal is emitted before internal tracking is updated; completion of the last buffer does not itself complete the request.",
+          "scope": "API contract and source-level call order, without establishing callback execution.",
+          "reason": "The translation preserves the notification, return conditions and separate completion obligation.",
           "sources": [
             {
               "source_id": "request-lifecycle/journey/completion",
@@ -3502,6 +3524,7 @@
           "peers": [
             "request-lifecycle.md/journey/0",
             "request-lifecycle.md/resources/5",
+            "request-lifecycle.md/resources/6",
             "request-lifecycle.md/resources/7",
             "request-lifecycle.md/resources/9",
             "request-lifecycle.md/stopping/5",
@@ -3509,6 +3532,8 @@
             "catalog/09aa8625cc5ac438/en",
             "catalog/fe87ee7dd45629fa",
             "catalog/fe87ee7dd45629fa/en",
+            "catalog/319bbcd279b3708d",
+            "catalog/319bbcd279b3708d/en",
             "catalog/523cb7bcda133ed2",
             "catalog/523cb7bcda133ed2/en",
             "catalog/8849527c32c5db09",
@@ -3517,11 +3542,11 @@
             "catalog/ef402afeb5dae4b5/en"
           ],
           "status": "compatible",
-          "condition": "The loop breaks when the queue head is RequestPending; otherwise it checks that the head has no pending buffers.",
-          "actor": "PipelineHandler::completeRequest processes the camera's queued requests and invokes camera->requestComplete for each eligible head.",
-          "timing": "The assertion precedes removal, which precedes the notification call; a pending head delays later completed requests.",
-          "scope": "Queue processing and notification-call order within completeRequest, rather than a measured application callback.",
-          "reason": "The described branches and order match the source and the peers. The shortened requestComplete call identifies the same camera member and request object.",
+          "condition": "A pending queue head stops the loop; a non-pending head is subject to the no-pending-buffers assertion.",
+          "actor": "PipelineHandler::completeRequest processes the camera's queued requests and calls camera->requestComplete.",
+          "timing": "For a non-pending head, the assertion precedes removal, which precedes the notification call; a pending head blocks later completed requests in that pass.",
+          "scope": "Source-level queue processing and submission-order return; the investigation is not an observed callback result.",
+          "reason": "The branch, assertion polarity and call order match the source. The shortened requestComplete call refers unambiguously to the camera member in this function.",
           "sources": [
             {
               "source_id": "request-lifecycle/journey/completion",
@@ -4123,10 +4148,12 @@
           "document": "pipeline-requests.md",
           "topic": "completion",
           "language": "ko",
-          "text": "cancelRequest는 요청을 내부 취소한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 요청과 버퍼에 대해 bufferCompleted를 발생시킨 뒤, 요청을 취소 상태로 표시하고 대기 버퍼 목록을 비웁니다.",
+          "text": "cancelRequest는 내부 취소를 먼저 수행한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 버퍼의 bufferCompleted를 발생시킨 다음, `cancelled_`를 true로 설정하고 대기 버퍼 목록을 비웁니다. 이후 completeRequest에서 호출하는 `Request::Private::complete()`는 `cancelled_`에 따라 요청 상태에 RequestCancelled를 대입합니다.",
           "evidence": [
             "request-lifecycle/resources/cancel-rules",
-            "pipeline-requests/completion/pending-cancel-code"
+            "pipeline-requests/completion/pending-cancel-code",
+            "request-lifecycle/journey/request-notice",
+            "pipeline-requests/completion/cancel-status-transition"
           ],
           "statement_kinds": [
             "behavior"
@@ -5171,16 +5198,17 @@
             "behavior"
           ]
         },
-        "catalog/e80ea8945eaf79ed": {
+        "catalog/055a81a114340a28": {
           "document": "pipeline-requests.md",
           "topic": null,
           "language": "ko",
-          "text": "completeBuffer와 completeRequest는 모두 CameraManager 스레드에서 호출해야 합니다. cancelRequest는 요청을 내부 취소한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 요청과 버퍼에 대해 bufferCompleted를 발생시킨 뒤, 요청을 취소 상태로 표시하고 대기 버퍼 목록을 비웁니다.",
+          "text": "completeBuffer와 completeRequest는 모두 CameraManager 스레드에서 호출해야 합니다. cancelRequest는 내부 취소를 먼저 수행한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 버퍼의 bufferCompleted를 발생시킨 다음, cancelled_를 true로 설정하고 대기 버퍼 목록을 비웁니다. 이후 completeRequest에서 호출하는 Request::Private::complete()는 cancelled_에 따라 요청 상태에 RequestCancelled를 대입합니다.",
           "evidence": [
             "pipeline-requests/completion/buffer-contract",
             "request-lifecycle/journey/request-notice",
             "request-lifecycle/resources/cancel-rules",
-            "pipeline-requests/completion/pending-cancel-code"
+            "pipeline-requests/completion/pending-cancel-code",
+            "pipeline-requests/completion/cancel-status-transition"
           ],
           "origin_claims": [
             "pipeline-requests.md/completion/6",
@@ -5190,18 +5218,19 @@
             "behavior"
           ]
         },
-        "catalog/e80ea8945eaf79ed/en": {
+        "catalog/055a81a114340a28/en": {
           "document": "pipeline-requests.md",
           "topic": null,
           "language": "en",
-          "text": "Both completeBuffer and completeRequest must be called from the CameraManager thread. cancelRequest calls completeRequest after internally cancelling the request. Internal cancellation cancels each pending buffer and emits bufferCompleted for the request and that buffer, then marks the request as cancelled and clears the pending buffer list.",
+          "text": "Both completeBuffer and completeRequest must be called from the CameraManager thread. cancelRequest first performs internal cancellation and then calls completeRequest. Internal cancellation cancels each pending buffer and emits bufferCompleted for that buffer, then sets cancelled_ to true and clears the pending buffer list. Afterward, Request::Private::complete(), called by completeRequest, sets the request status to RequestCancelled depending on cancelled_.",
           "evidence": [
             "pipeline-requests/completion/buffer-contract",
             "request-lifecycle/journey/request-notice",
             "request-lifecycle/resources/cancel-rules",
-            "pipeline-requests/completion/pending-cancel-code"
+            "pipeline-requests/completion/pending-cancel-code",
+            "pipeline-requests/completion/cancel-status-transition"
           ],
-          "translation_of": "catalog/e80ea8945eaf79ed",
+          "translation_of": "catalog/055a81a114340a28",
           "origin_claims": [
             "pipeline-requests.md/completion/6",
             "pipeline-requests.md/completion/7"
@@ -5511,6 +5540,12 @@
           "text": "void Request::Private::doCancelRequest()\n{\n\tRequest *request = _o<Request>();\n\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tbuffer->_d()->cancel();\n\t\tcamera_->bufferCompleted.emit(request, buffer);\n\t}\n\n\tcancelled_ = true;\n\tpending_.clear();\n\tnotifiers_.clear();\n\ttimer_.reset();\n}\n\n/**\n * \\brief Cancel a queued request\n *\n * Mark the request and its associated buffers as cancelled and complete it.\n *\n * Set each pending buffer in error state and emit the buffer completion signal\n * before completing the Request.\n */\nvoid Request::Private::cancel()\n{\n\tLIBCAMERA_TRACEPOINT(request_cancel, this);\n\n\tRequest *request = _o<Request>();\n\tASSERT(request->status() == RequestPending);\n\n\tdoCancelRequest();\n}\n\n/**\n * \\brief Reset the request internal data to default values",
           "sha256": "b74bd2ff612eb08a3fcb85d16630e0f6d54c5068a2309d9ae192f3308a9a3780"
         },
+        "pipeline-requests/completion/cancel-status-transition": {
+          "file": "src/libcamera/request.cpp",
+          "line": 125,
+          "text": "void Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()",
+          "sha256": "2efec13b708bff2ca232445ef868877a30facef1b6fa17ddcff47bfd013e2289"
+        },
         "pipeline-requests/queue/submit-code": {
           "file": "src/libcamera/pipeline_handler.cpp",
           "line": 483,
@@ -5613,6 +5648,7 @@
         "pipeline-requests/completion/request-code": "pipeline-requests/completion/request-code",
         "pipeline-requests/completion/cancel-contract": "request-lifecycle/resources/cancel-rules",
         "pipeline-requests/completion/pending-cancel-code": "pipeline-requests/completion/pending-cancel-code",
+        "pipeline-requests/completion/cancel-status-transition": "pipeline-requests/completion/cancel-status-transition",
         "pipeline-requests/queue/submit-code": "pipeline-requests/queue/submit-code",
         "request-diagnosis/diagnosis/cancelled-branch": "request-lifecycle/journey/dispatch",
         "request-diagnosis/diagnosis/device-result-branch": "request-lifecycle/journey/dispatch",
@@ -5690,7 +5726,7 @@
         },
         {
           "document": "pipeline-requests.md",
-          "paragraph": 75,
+          "paragraph": 77,
           "text": "다음 단계: [시스템 개요](overview.md)\n",
           "target": "overview.md",
           "title": "시스템 개요",
@@ -5791,15 +5827,15 @@
         },
         {
           "batch": 6,
-          "request_sha256": "08b84607888ab4804c66fde43602522064a5f9e3886ef50e7d9b3be509d00416",
-          "review_request_sha256": "08b84607888ab4804c66fde43602522064a5f9e3886ef50e7d9b3be509d00416",
+          "request_sha256": "846fad61f7bf96197970e3727b73f9c136a00be7e376ab861006a23928e3999e",
+          "review_request_sha256": "846fad61f7bf96197970e3727b73f9c136a00be7e376ab861006a23928e3999e",
           "current_source_commit": "c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78",
           "reviewed_source_commit": "c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78",
           "receipts": [
-            "0e4eae3719af4f3fa9bf82a8582b7901/001.receipt.json"
+            "53b4357e12e54c48b5fa21a65999ae95/003.receipt.json"
           ],
-          "receipt_tag": "seed-request-completion-6",
-          "receipt_sha256": "bbcf1cd987c26b5d9a00cda7e7bdb81b4514b38fc379e484c0801a3d82efe49f"
+          "receipt_tag": "contract-d8d09fd3e57e46b7ac6fe32ddce4269f-0-6",
+          "receipt_sha256": "b8324315849b65001cbe8565a3db70b330424f6d5affd3f131a1d45c8759b55d"
         },
         {
           "batch": 7,
@@ -5911,27 +5947,27 @@
         },
         {
           "batch": 16,
-          "request_sha256": "40542680a4896c0ffd1551558baf905bd7c6ae866a7db25a5612d4c4086fed6e",
-          "review_request_sha256": "40542680a4896c0ffd1551558baf905bd7c6ae866a7db25a5612d4c4086fed6e",
+          "request_sha256": "879fb2429bfdea2e517cdc683eef4af6a4a713769401b4b94b013e907f25ff3e",
+          "review_request_sha256": "879fb2429bfdea2e517cdc683eef4af6a4a713769401b4b94b013e907f25ff3e",
           "current_source_commit": "c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78",
           "reviewed_source_commit": "c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78",
           "receipts": [
-            "98956475152f4ceaa08669c2549f2215/001.receipt.json"
+            "53b4357e12e54c48b5fa21a65999ae95/004.receipt.json"
           ],
-          "receipt_tag": "seed-request-completion-16",
-          "receipt_sha256": "b2aa2aacad35f316f54dde0c0040594f23b564b4942ff83a42a0ee41cade570c"
+          "receipt_tag": "contract-d8d09fd3e57e46b7ac6fe32ddce4269f-0-16",
+          "receipt_sha256": "e8384c8797c43ba42e3155fd778d30c69f80505dacf14a3f90eeb93e6e393393"
         },
         {
           "batch": 17,
-          "request_sha256": "69bb5e76343417e92c54686e25a618da8a022c05eae1b97a8763e6554c5b1cfa",
-          "review_request_sha256": "69bb5e76343417e92c54686e25a618da8a022c05eae1b97a8763e6554c5b1cfa",
+          "request_sha256": "8f1e1196c8e366184663dca0616c4675058523a670bb40ff6dcab812dbb045d4",
+          "review_request_sha256": "8f1e1196c8e366184663dca0616c4675058523a670bb40ff6dcab812dbb045d4",
           "current_source_commit": "c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78",
           "reviewed_source_commit": "c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78",
           "receipts": [
-            "55968a39b9d54fe095e7894e385b6475/001.receipt.json"
+            "53b4357e12e54c48b5fa21a65999ae95/005.receipt.json"
           ],
-          "receipt_tag": "seed-request-completion-17",
-          "receipt_sha256": "706b05d5f30eda34bc2a5ae138dabce1e7980251d55762cd822ec6b49ed3c651"
+          "receipt_tag": "contract-d8d09fd3e57e46b7ac6fe32ddce4269f-0-17",
+          "receipt_sha256": "a5c58831c1d0d0691dda1392befaec4538d73ea219aa8e913c896959fc5b359b"
         },
         {
           "batch": 18,
@@ -5949,7 +5985,7 @@
     },
     {
       "id": "stopping-cancellation",
-      "input_sha256": "433050a2069a8ada988297d80d58186470dce99fbf790350ac6bc5e1ac2f66b7",
+      "input_sha256": "45cd1986d4099ef08cf2aa2cfae2d056ee8299a4d26192d830d7338e03aced38",
       "findings": [
         {
           "claim_id": "vendor-overview.md/benefits/1",
@@ -6682,27 +6718,21 @@
         {
           "claim_id": "request-lifecycle.md/stopping/6",
           "peers": [
-            "request-lifecycle.md/stopping/0",
-            "request-lifecycle.md/stopping/1",
             "request-lifecycle.md/stopping/3",
             "request-lifecycle.md/stopping/4",
             "catalog/ef402afeb5dae4b5",
             "catalog/ef402afeb5dae4b5/en"
           ],
           "status": "compatible",
-          "condition": "stopDevice 호출과 분리한 대기 요청의 취소 반복문이 끝난 뒤입니다.",
-          "actor": "PipelineHandler::stop과 조사 수행자입니다.",
-          "timing": "두 ASSERT 검사 뒤에 requestSequence_를 초기화합니다.",
-          "scope": "소스 경로에 근거한 관찰 계획이며, 실제 장치에서 관찰되었다는 주장은 아닙니다.",
-          "reason": "두 큐의 검사와 초기화 순서가 소스 및 한영 비교 문장과 일치합니다.",
+          "condition": "stop의 대기 요청 취소 반복문이 끝난 경로입니다.",
+          "actor": "PipelineHandler::stop과 향후 관찰자입니다.",
+          "timing": "두 ASSERT를 거친 뒤 순번을 초기화합니다.",
+          "scope": "관찰 계획과 소스의 실행 순서이며, 관찰이 실행되었다는 주장은 아닙니다.",
+          "reason": "두 검사 대상과 초기화 순서가 소스 및 한영 비교 문장과 일치합니다. 계획만으로 검사 성공이나 장치 동작을 확정하지 않습니다.",
           "sources": [
             {
               "source_id": "vendor-integration/shutdown/stop",
               "source_quote": "void PipelineHandler::stop(Camera *camera)\n{\n\t/*\n\t * Take all waiting requests so that they are not requeued in response\n\t * to completeRequest() being called inside stopDevice(). Cancel them\n\t * after the device to keep them in order.\n\t */\n\tCamera::Private *data = camera->_d();\n\tstd::queue<Request *> waitingRequests;\n\twaitingRequests.swap(data->waitingRequests_);\n\n\t/* Stop the pipeline handler and let the queued requests complete. */\n\tstopDevice(camera);\n\n\t/* Cancel and signal as complete all waiting requests. */\n\twhile (!waitingRequests.empty()) {\n\t\tRequest *request = waitingRequests.front();\n\t\twaitingRequests.pop();\n\n\t\t/*\n\t\t * Cancel all requests by marking them as cancelled and calling\n\t\t * doQueueRequest() instead of cancelRequest(). This ensures\n\t\t * that the requests get a sequence number and are temporarily\n\t\t * added to queuedRequests_ so they can be properly completed in\n\t\t * completeRequest().\n\t\t */\n\t\trequest->_d()->cancel();\n\t\tdoQueueRequest(request);\n\t}\n\n\t/* Make sure no requests are pending. */\n\tASSERT(data->queuedRequests_.empty());\n\tASSERT(data->waitingRequests_.empty());\n\n\tdata->requestSequence_ = 0;\n}"
-            },
-            {
-              "source_id": "pipeline-handler/shutdown/stop",
-              "source_quote": "\\brief Stop capturing from all running streams and cancel pending requests\n * \\param[in] camera The camera to stop\n *\n * This function stops capturing and processing requests immediately. All\n * pending requests are cancelled and complete immediately in an error state.\n *\n * \\context This function is called from the CameraManager thread.\n */\nvoid PipelineHandler::stop(Camera *camera)\n{\n\t/*\n\t * Take all waiting requests so that they are not requeued in response\n\t * to completeRequest() being called inside stopDevice(). Cancel them\n\t * after the device to keep them in order.\n\t */\n\tCamera::Private *data = camera->_d();\n\tstd::queue<Request *> waitingRequests;\n\twaitingRequests.swap(data->waitingRequests_);\n\n\t/* Stop the pipeline handler and let the queued requests complete. */\n\tstopDevice(camera);\n\n\t/* Cancel and signal as complete all waiting requests. */\n\twhile (!waitingRequests.empty()) {\n\t\tRequest *request = waitingRequests.front();\n\t\twaitingRequests.pop();\n\n\t\t/*\n\t\t * Cancel all requests by marking them as cancelled and calling\n\t\t * doQueueRequest() instead of cancelRequest(). This ensures\n\t\t * that the requests get a sequence number and are temporarily\n\t\t * added to queuedRequests_ so they can be properly completed in\n\t\t * completeRequest().\n\t\t */\n\t\trequest->_d()->cancel();\n\t\tdoQueueRequest(request);\n\t}\n\n\t/* Make sure no requests are pending. */\n\tASSERT(data->queuedRequests_.empty());\n\tASSERT(data->waitingRequests_.empty());\n\n\tdata->requestSequence_ = 0;\n}\n\n/**\n * \\fn PipelineHandler::stopDevice()\n * \\brief Stop capturing from all running streams\n * \\param[in] camera The camera to stop\n *\n * This function stops capturing and processing requests immediately. All\n * pending requests are cancelled and complete immediately in an error state.\n */\n\n/**\n * \\brief Determine if the camera has any requests pending"
             }
           ],
           "claim_quote": "조사 계획으로 `PipelineHandler::stop()`의 두 `ASSERT` 검사 지점에서 `queuedRequests_`와 `waitingRequests_`가 비어 있는지 관찰하며, 코드에서는 검사 뒤에 `requestSequence_`를 0으로 초기화합니다."
@@ -6710,18 +6740,20 @@
         {
           "claim_id": "pipeline-requests.md/completion/7",
           "peers": [
-            "request-lifecycle.md/resources/2",
             "request-lifecycle.md/resources/6",
             "request-lifecycle.md/resources/9",
+            "request-lifecycle.md/resources/2",
             "catalog/8849527c32c5db09",
-            "catalog/8849527c32c5db09/en"
+            "catalog/8849527c32c5db09/en",
+            "catalog/319bbcd279b3708d",
+            "catalog/319bbcd279b3708d/en"
           ],
           "status": "compatible",
-          "condition": "취소할 요청의 pending_에 남은 버퍼를 처리하는 경우입니다.",
-          "actor": "PipelineHandler::cancelRequest와 Request::Private의 내부 취소 처리입니다.",
-          "timing": "각 버퍼의 취소와 bufferCompleted 신호 발생 뒤 취소 표시와 목록 비우기가 이루어지고, 내부 취소가 반환된 뒤 completeRequest를 호출합니다.",
-          "scope": "버퍼 완료 신호와 요청 완료 호출의 순서이며, 애플리케이션 콜백 실행 시점을 보장하지 않습니다.",
-          "reason": "취소 함수와 내부 처리의 동작이 소스 및 조건부 취소 예제와 일치합니다. 요청의 애플리케이션 반환은 앞선 요청에 의해 지연될 수 있습니다.",
+          "condition": "cancelRequest가 유효한 미완료 요청을 취소하는 경우입니다.",
+          "actor": "PipelineHandler가 취소와 완료를 호출하고 Request의 내부 구현이 버퍼와 상태를 처리합니다.",
+          "timing": "각 대기 버퍼의 취소와 신호 발생 후 취소 플래그와 목록을 갱신하고 요청 완료를 호출합니다.",
+          "scope": "버퍼 완료 신호의 발생과 요청 상태 전이입니다. 애플리케이션 콜백 실행 시점이나 즉시 반환을 뜻하지 않습니다.",
+          "reason": "내부 취소와 완료의 순서 및 취소 상태 선택이 소스와 조건부 취소 예에 부합합니다. 정상 완료 예도 취소 플래그에 따라 상태가 결정된다고 설명합니다.",
           "sources": [
             {
               "source_id": "request-lifecycle/resources/cancel-rules",
@@ -6732,25 +6764,41 @@
               "source_quote": "void Request::Private::doCancelRequest()\n{\n\tRequest *request = _o<Request>();\n\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tbuffer->_d()->cancel();\n\t\tcamera_->bufferCompleted.emit(request, buffer);\n\t}\n\n\tcancelled_ = true;\n\tpending_.clear();\n\tnotifiers_.clear();\n\ttimer_.reset();\n}\n\n/**\n * \\brief Cancel a queued request\n *\n * Mark the request and its associated buffers as cancelled and complete it.\n *\n * Set each pending buffer in error state and emit the buffer completion signal\n * before completing the Request.\n */\nvoid Request::Private::cancel()\n{\n\tLIBCAMERA_TRACEPOINT(request_cancel, this);\n\n\tRequest *request = _o<Request>();\n\tASSERT(request->status() == RequestPending);\n\n\tdoCancelRequest();\n}\n\n/**\n * \\brief Reset the request internal data to default values"
             },
             {
+              "source_id": "request-lifecycle/resources/complete-access",
+              "source_quote": "\\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}\n\n/**\n * \\brief Cancel request and signal its completion"
+            },
+            {
+              "source_id": "pipeline-requests/completion/cancel-status-transition",
+              "source_quote": "void Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()"
+            },
+            {
               "source_id": "request-lifecycle/journey/completion",
               "source_quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)\n{\n\tCamera *camera = request->_d()->camera();\n\tcamera->bufferCompleted.emit(request, buffer);\n\treturn request->_d()->completeBuffer(buffer);\n}\n\n/**\n * \\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}\n\n/**\n * \\brief Cancel request and signal its completion\n * \\param[in] request The request to cancel\n *\n * This function cancels and completes the request. The same rules as for\n * completeRequest() apply.\n */\nvoid PipelineHandler::cancelRequest(Request *request)\n{\n\trequest->_d()->cancel();\n\tcompleteRequest(request);\n}\n\n/**\n * \\brief Retrieve the absolute path to a platform configuration file"
             }
           ],
-          "claim_quote": "cancelRequest는 요청을 내부 취소한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 요청과 버퍼에 대해 bufferCompleted를 발생시킨 뒤, 요청을 취소 상태로 표시하고 대기 버퍼 목록을 비웁니다."
+          "claim_quote": "cancelRequest는 내부 취소를 먼저 수행한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 버퍼의 bufferCompleted를 발생시킨 다음, `cancelled_`를 true로 설정하고 대기 버퍼 목록을 비웁니다. 이후 completeRequest에서 호출하는 `Request::Private::complete()`는 `cancelled_`에 따라 요청 상태에 RequestCancelled를 대입합니다."
         },
         {
           "claim_id": "pipeline-requests.md/queue/3",
-          "peers": [],
+          "peers": [
+            "pipeline-requests.md/queue/7",
+            "pipeline-requests.md/queue/8",
+            "request-lifecycle.md/journey/4"
+          ],
           "status": "compatible",
-          "condition": "펜스가 없으면 즉시 준비를 완료하고, 기다릴 펜스가 있을 때 0이 아닌 timeout을 지정하면 타이머를 만듭니다.",
-          "actor": "Request::Private::prepare입니다.",
-          "timing": "준비 신호는 대기할 펜스가 없으면 즉시, 그렇지 않으면 펜스 완료 또는 선택적 timeout 만료 시 발생합니다.",
-          "scope": "장치 큐잉 전 준비 및 timeout에 따른 취소와 신호입니다.",
-          "reason": "펜스 대기, 조기 반환, 타이머 생성 조건과 timeout 시 취소 및 prepared 신호가 소스 설명과 일치합니다.",
+          "condition": "획득 펜스의 유무와 선택적 timeout 설정에 따른 준비 과정입니다.",
+          "actor": "Request::Private::prepare가 준비하고 준비 신호를 발생시킵니다.",
+          "timing": "기다릴 펜스가 없으면 즉시, 그렇지 않으면 모든 펜스 신호 또는 선택적 timeout 만료 시 준비 신호를 발생시킵니다.",
+          "scope": "장치 큐잉 전 준비와 timeout 취소입니다. 장치에서의 요청 완료를 보장하지 않습니다.",
+          "reason": "즉시 반환, 타이머 생성 조건, 준비 신호 및 timeout 취소가 소스의 설명과 일치하며, 후속 큐잉 분기와도 양립합니다.",
           "sources": [
             {
               "source_id": "pipeline-requests/queue/prepare",
               "source_quote": "\\brief Prepare the Request to be queued to the device\n * \\param[in] timeout Optional expiration timeout\n *\n * Prepare a Request to be queued to the hardware device by ensuring it is\n * ready for the incoming memory transfers.\n *\n * This currently means waiting on each frame buffer acquire fence to be\n * signalled. An optional expiration timeout can be specified. If not all the\n * fences have been signalled correctly before the timeout expires the Request\n * is cancelled.\n *\n * The function immediately emits the prepared signal if all the prepare\n * operations have been completed synchronously. If instead the prepare\n * operations require to wait the completion of asynchronous events, such as\n * fences notifications or timer expiration, the prepared signal is emitted upon\n * the asynchronous event completion.\n *\n * As we currently only handle fences, the function emits the prepared signal\n * immediately if there are no fences to wait on. Otherwise the prepared signal\n * is emitted when all fences have been signalled or the optional timeout has\n * expired.\n *\n * If not all the fences have been correctly signalled or the optional timeout\n * has expired the Request will be cancelled and the Request::prepared signal\n * emitted.\n *\n * The intended user of this function is the PipelineHandler base class, which\n * 'prepares' a Request before queuing it to the hardware device.\n */\nvoid Request::Private::prepare(std::chrono::milliseconds timeout)\n{\n\t/* Create and connect one notifier for each synchronization fence. */\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tconst Fence *fence = buffer->_d()->fence();\n\t\tif (!fence)\n\t\t\tcontinue;\n\n\t\tauto [it, inserted] = notifiers_.try_emplace(buffer, fence->fd().get(), EventNotifier::Type::Read);\n\t\tASSERT(inserted);\n\n\t\tit->second.activated.connect(this, [this, buffer] {\n\t\t\tnotifierActivated(buffer);\n\t\t});\n\t}\n\n\tif (notifiers_.empty()) {\n\t\temitPrepareCompleted();\n\t\treturn;\n\t}\n\n\t/*\n\t * In case a timeout is specified, create a timer and set it up.\n\t *\n\t * The timer must be created here instead of in the Request constructor,\n\t * in order to be bound to the pipeline handler thread.\n\t */\n\tif (timeout != 0ms) {\n\t\ttimer_ = std::make_unique<Timer>();\n\t\ttimer_->timeout.connect(this, &Request::Private::timeout);\n\t\ttimer_->start(timeout);\n\t}\n}\n\n/**\n * \\var Request::Private::prepared"
+            },
+            {
+              "source_id": "pipeline-requests/queue/submit-code",
+              "source_quote": "void PipelineHandler::doQueueRequest(Request *request)\n{\n\tLIBCAMERA_TRACEPOINT(request_device_queue, request);\n\n\tCamera *camera = request->_d()->camera();\n\tCamera::Private *data = camera->_d();\n\tdata->queuedRequests_.push_back(request);\n\n\trequest->_d()->sequence_ = data->requestSequence_++;\n\n\tif (request->_d()->cancelled_) {\n\t\tcompleteRequest(request);\n\t\treturn;\n\t}\n\n\tint ret = queueRequestDevice(camera, request);\n\tif (ret)\n\t\tcancelRequest(request);\n}\n\n/**\n * \\brief Queue prepared requests to the device"
             }
           ],
           "claim_quote": "`Request::Private::prepare`는 하드웨어 장치에 큐잉할 요청이 메모리 전송을 받을 준비가 되도록 각 프레임 버퍼의 획득 펜스가 신호될 때까지 기다리며, 선택적 timeout으로 만료 시간을 지정할 수 있습니다. 기다릴 펜스가 없으면 준비 완료 처리를 즉시 수행하고 조기 반환하며, 기다릴 펜스가 있고 timeout이 0이 아닐 때 타이머를 생성합니다. prepared 신호는 기다릴 펜스가 없을 때 즉시 발생하며, 펜스가 있으면 타이머 지정 여부와 관계없이 모든 펜스가 신호되거나 선택적 timeout이 만료될 때 발생합니다. timeout이 만료되면 요청은 취소되며, 그와 별도로 `Request::prepared` 신호가 발생합니다."
@@ -6766,11 +6814,11 @@
             "catalog/eb18d16701104f88/en"
           ],
           "status": "compatible",
-          "condition": "doQueueRequest에서 해당 요청의 cancelled_가 참인 경우입니다.",
+          "condition": "doQueueRequest에서 요청의 cancelled_가 참인 경우입니다.",
           "actor": "PipelineHandler::doQueueRequest입니다.",
-          "timing": "요청을 큐에 추가하고 순번을 부여한 뒤 completeRequest를 호출하고 반환합니다.",
-          "scope": "이미 취소된 요청의 분기이며, 장치 큐잉 호출은 이 분기에서 실행되지 않습니다.",
-          "reason": "소스와 한영 비교 문장의 분기 조건, 호출 및 반환이 일치합니다.",
+          "timing": "큐 삽입과 순번 지정 후 completeRequest를 호출하고 반환합니다.",
+          "scope": "이미 취소된 요청의 분기이며, completeRequest 호출이 애플리케이션 콜백의 실행을 뜻하지는 않습니다.",
+          "reason": "소스와 한영 비교 문장은 같은 조건에서 같은 완료 호출과 반환을 기술합니다. 정지 반복문도 취소된 요청을 이 경로로 보냅니다.",
           "sources": [
             {
               "source_id": "pipeline-requests/queue/submit-code",
@@ -6794,10 +6842,10 @@
           ],
           "status": "compatible",
           "condition": "요청의 cancelled_가 거짓인 경우입니다.",
-          "actor": "PipelineHandler::doQueueRequest가 queueRequestDevice를 호출합니다.",
-          "timing": "취소된 요청의 조기 반환 분기를 통과한 뒤 반환값을 ret에 저장합니다.",
-          "scope": "장치 제출 분기이며 장치 처리의 성공을 보장하지 않습니다.",
-          "reason": "조건과 호출 및 반환값 저장이 소스와 비교 문장에 부합합니다.",
+          "actor": "PipelineHandler::doQueueRequest가 장치별 queueRequestDevice를 호출합니다.",
+          "timing": "취소 분기를 지나 호출하고 반환값을 ret에 저장합니다.",
+          "scope": "장치 큐잉 호출 조건과 반환값 저장입니다.",
+          "reason": "취소된 경우에는 앞서 반환하므로, 장치 호출은 취소되지 않은 경우에만 도달합니다. 한영 비교 문장과도 일치합니다.",
           "sources": [
             {
               "source_id": "pipeline-requests/queue/submit-code",
@@ -6815,16 +6863,17 @@
           "peers": [
             "pipeline-requests.md/queue/7",
             "pipeline-requests.md/queue/8",
+            "pipeline-requests.md/completion/7",
             "request-lifecycle.md/journey/4",
             "catalog/eb18d16701104f88",
             "catalog/eb18d16701104f88/en"
           ],
           "status": "compatible",
-          "condition": "요청이 이미 취소되지 않아 queueRequestDevice를 호출했고 반환값이 0이 아닌 경우입니다.",
+          "condition": "취소되지 않은 요청의 queueRequestDevice 반환값 ret가 0이 아닌 경우입니다.",
           "actor": "PipelineHandler::doQueueRequest가 cancelRequest를 호출합니다.",
           "timing": "queueRequestDevice가 반환한 직후입니다.",
-          "scope": "장치 큐잉 실패 분기이며, 반환값의 계약상 오류 코드는 음수입니다.",
-          "reason": "0이 아닌 반환값에 대한 취소 호출이 소스와 한영 비교 문장에 일치합니다.",
+          "scope": "장치 큐잉 실패 분기이며, 반환값 계약은 성공 시 0, 오류 시 음수입니다.",
+          "reason": "0이 아닌 반환값에 대한 취소 호출이 소스 및 한영 비교 문장과 일치합니다.",
           "sources": [
             {
               "source_id": "request-lifecycle/journey/dispatch",
@@ -6833,6 +6882,10 @@
             {
               "source_id": "request-lifecycle/journey/device-contract",
               "source_quote": "\\fn PipelineHandler::queueRequestDevice()\n * \\brief Queue a request to the device\n * \\param[in] camera The camera to queue the request to\n * \\param[in] request The request to queue\n *\n * This function queues a capture request to the device for processing. The\n * request contains a set of buffers associated with streams and a set of\n * parameters. The pipeline handler shall program the device to ensure that the\n * parameters will be applied to the frames captured in the buffers provided in\n * the request.\n *\n * \\context This function is called from the CameraManager thread.\n *\n * \\return 0 on success or a negative error code otherwise\n */"
+            },
+            {
+              "source_id": "request-lifecycle/resources/cancel-rules",
+              "source_quote": "\\brief Cancel request and signal its completion\n * \\param[in] request The request to cancel\n *\n * This function cancels and completes the request. The same rules as for\n * completeRequest() apply.\n */\nvoid PipelineHandler::cancelRequest(Request *request)\n{\n\trequest->_d()->cancel();\n\tcompleteRequest(request);\n}\n\n/**\n * \\brief Retrieve the absolute path to a platform configuration file"
             }
           ],
           "claim_quote": "doQueueRequest에서 queueRequestDevice의 반환값 ret가 0이 아니면 cancelRequest(request)를 호출합니다."
@@ -8196,16 +8249,14 @@
             "catalog/eb18d16701104f88/en",
             "catalog/8d8e5320dfe230fc",
             "catalog/8d8e5320dfe230fc/en",
-            "request-lifecycle.md/stopping/4",
-            "catalog/55f9d2d162bd61a8",
-            "catalog/55f9d2d162bd61a8/en"
+            "request-lifecycle.md/stopping/4"
           ],
           "status": "compatible",
-          "condition": "queueRequestDevice is reached only when cancelled_ is false; a nonzero return triggers cancellation.",
-          "actor": "doQueueRequest invokes the device queue function and cancelRequest; the pipeline handler programs the device.",
-          "timing": "The return value is checked after queueRequestDevice returns.",
-          "scope": "Dispatch behavior and the device-programming obligation; not a claim of verified capture.",
-          "reason": "The dispatch peers describe the same branches. During stop, waiting requests are cancelled before doQueueRequest, so their path through completeRequest is consistent with this claim.",
+          "condition": "queueRequestDevice는 cancelled_가 거짓일 때 호출되며, 반환값이 0이 아니면 요청을 취소합니다.",
+          "actor": "doQueueRequest와 queueRequestDevice를 구현하는 파이프라인 핸들러입니다.",
+          "timing": "장치 큐잉 호출 후 반환값을 검사합니다.",
+          "scope": "요청 디스패치와 장치 프로그래밍 의무에 관한 소스 계약입니다.",
+          "reason": "디스패치 조건과 오류 분기가 관련 피어와 일치하고, 버퍼에 캡처되는 프레임에 매개변수를 적용할 의무도 소스가 명시합니다. 정지 중 이미 취소된 요청은 별도 분기로 완료됩니다.",
           "sources": [
             {
               "source_id": "pipeline-requests/queue/submit-code",
@@ -8223,22 +8274,21 @@
           "claim_quote": "doQueueRequest calls queueRequestDevice only if the request has not already been cancelled, and stores the return value of queueRequestDevice in ret. In doQueueRequest, if ret, the return value of queueRequestDevice, is nonzero, doQueueRequest calls cancelRequest(request). The pipeline handler implementing queueRequestDevice must program the device so that the request's parameters are applied to the frames captured in the buffers provided in the request."
         },
         {
-          "claim_id": "catalog/e80ea8945eaf79ed",
+          "claim_id": "catalog/055a81a114340a28",
           "peers": [
-            "catalog/e80ea8945eaf79ed/en",
+            "catalog/055a81a114340a28/en",
             "request-lifecycle.md/resources/9",
             "catalog/8849527c32c5db09",
             "catalog/8849527c32c5db09/en",
-            "request-lifecycle.md/resources/2",
-            "catalog/a222dd3054968dd3",
-            "catalog/a222dd3054968dd3/en"
+            "request-lifecycle.md/resources/6",
+            "request-lifecycle.md/resources/2"
           ],
           "status": "compatible",
-          "condition": "Cancellation operates on a pending request and its pending buffers.",
-          "actor": "The pipeline handler calls the completion and cancellation functions; internal request cancellation emits bufferCompleted.",
-          "timing": "Pending buffers are cancelled and signalled before the cancelled flag is set and the pending list cleared; completeRequest follows internal cancellation.",
-          "scope": "CameraManager-thread completion contract and source-level cancellation sequence; buffer completion is distinct from request completion.",
-          "reason": "The English translation and cancellation example agree with the source sequence. The thread requirements apply to the two completion functions, and the same completeRequest rules apply to cancelRequest.",
+          "condition": "취소 대상은 대기 중인 요청과 그 pending_ 버퍼입니다.",
+          "actor": "파이프라인 핸들러와 Request의 내부 취소·완료 함수입니다.",
+          "timing": "버퍼별 취소와 신호 발생 후 취소 플래그 및 목록을 갱신하고, 이후 요청을 완료합니다.",
+          "scope": "CameraManager 스레드 호출 의무와 내부 상태 전이이며, 애플리케이션 콜백 실행 시점에 대한 주장은 아닙니다.",
+          "reason": "두 완료 함수의 스레드 의무, 취소 순서와 상태 선택이 소스 및 영어 번역과 일치합니다. 버퍼 완료 신호와 요청 완료는 별개의 단계입니다.",
           "sources": [
             {
               "source_id": "pipeline-requests/completion/buffer-contract",
@@ -8255,27 +8305,30 @@
             {
               "source_id": "pipeline-requests/completion/pending-cancel-code",
               "source_quote": "void Request::Private::doCancelRequest()\n{\n\tRequest *request = _o<Request>();\n\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tbuffer->_d()->cancel();\n\t\tcamera_->bufferCompleted.emit(request, buffer);\n\t}\n\n\tcancelled_ = true;\n\tpending_.clear();\n\tnotifiers_.clear();\n\ttimer_.reset();\n}\n\n/**\n * \\brief Cancel a queued request\n *\n * Mark the request and its associated buffers as cancelled and complete it.\n *\n * Set each pending buffer in error state and emit the buffer completion signal\n * before completing the Request.\n */\nvoid Request::Private::cancel()\n{\n\tLIBCAMERA_TRACEPOINT(request_cancel, this);\n\n\tRequest *request = _o<Request>();\n\tASSERT(request->status() == RequestPending);\n\n\tdoCancelRequest();\n}\n\n/**\n * \\brief Reset the request internal data to default values"
+            },
+            {
+              "source_id": "pipeline-requests/completion/cancel-status-transition",
+              "source_quote": "void Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()"
             }
           ],
-          "claim_quote": "completeBuffer와 completeRequest는 모두 CameraManager 스레드에서 호출해야 합니다. cancelRequest는 요청을 내부 취소한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 요청과 버퍼에 대해 bufferCompleted를 발생시킨 뒤, 요청을 취소 상태로 표시하고 대기 버퍼 목록을 비웁니다."
+          "claim_quote": "completeBuffer와 completeRequest는 모두 CameraManager 스레드에서 호출해야 합니다. cancelRequest는 내부 취소를 먼저 수행한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 버퍼의 bufferCompleted를 발생시킨 다음, cancelled_를 true로 설정하고 대기 버퍼 목록을 비웁니다. 이후 completeRequest에서 호출하는 Request::Private::complete()는 cancelled_에 따라 요청 상태에 RequestCancelled를 대입합니다."
         },
         {
-          "claim_id": "catalog/e80ea8945eaf79ed/en",
+          "claim_id": "catalog/055a81a114340a28/en",
           "peers": [
-            "catalog/e80ea8945eaf79ed",
+            "catalog/055a81a114340a28",
             "request-lifecycle.md/resources/9",
             "catalog/8849527c32c5db09",
             "catalog/8849527c32c5db09/en",
-            "request-lifecycle.md/resources/2",
-            "catalog/a222dd3054968dd3",
-            "catalog/a222dd3054968dd3/en"
+            "request-lifecycle.md/resources/6",
+            "request-lifecycle.md/resources/2"
           ],
           "status": "compatible",
-          "condition": "Cancellation operates on a pending request and its pending buffers.",
-          "actor": "The pipeline handler calls the completion and cancellation functions; internal request cancellation emits bufferCompleted.",
-          "timing": "Pending buffers are cancelled and signalled before the cancelled flag is set and the pending list cleared; completeRequest follows internal cancellation.",
-          "scope": "CameraManager-thread completion contract and source-level cancellation sequence; buffer completion is distinct from request completion.",
-          "reason": "The Korean claim and cancellation example agree with the source sequence. The translation preserves the thread obligation and cancellation ordering.",
+          "condition": "The request is pending; cancellation processes its pending buffers.",
+          "actor": "The pipeline handler and Request's internal cancellation and completion functions.",
+          "timing": "Each buffer is cancelled and signalled before the cancellation flag and pending list are updated, followed by request completion.",
+          "scope": "CameraManager-thread obligations and source-level state transitions, not actual application callback execution.",
+          "reason": "The translation preserves the Korean claim's obligations and sequence, and both match the supplied implementation and contracts. Buffer completion is distinct from request completion.",
           "sources": [
             {
               "source_id": "pipeline-requests/completion/buffer-contract",
@@ -8292,9 +8345,13 @@
             {
               "source_id": "pipeline-requests/completion/pending-cancel-code",
               "source_quote": "void Request::Private::doCancelRequest()\n{\n\tRequest *request = _o<Request>();\n\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tbuffer->_d()->cancel();\n\t\tcamera_->bufferCompleted.emit(request, buffer);\n\t}\n\n\tcancelled_ = true;\n\tpending_.clear();\n\tnotifiers_.clear();\n\ttimer_.reset();\n}\n\n/**\n * \\brief Cancel a queued request\n *\n * Mark the request and its associated buffers as cancelled and complete it.\n *\n * Set each pending buffer in error state and emit the buffer completion signal\n * before completing the Request.\n */\nvoid Request::Private::cancel()\n{\n\tLIBCAMERA_TRACEPOINT(request_cancel, this);\n\n\tRequest *request = _o<Request>();\n\tASSERT(request->status() == RequestPending);\n\n\tdoCancelRequest();\n}\n\n/**\n * \\brief Reset the request internal data to default values"
+            },
+            {
+              "source_id": "pipeline-requests/completion/cancel-status-transition",
+              "source_quote": "void Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()"
             }
           ],
-          "claim_quote": "Both completeBuffer and completeRequest must be called from the CameraManager thread. cancelRequest calls completeRequest after internally cancelling the request. Internal cancellation cancels each pending buffer and emits bufferCompleted for the request and that buffer, then marks the request as cancelled and clears the pending buffer list."
+          "claim_quote": "Both completeBuffer and completeRequest must be called from the CameraManager thread. cancelRequest first performs internal cancellation and then calls completeRequest. Internal cancellation cancels each pending buffer and emits bufferCompleted for that buffer, then sets cancelled_ to true and clears the pending buffer list. Afterward, Request::Private::complete(), called by completeRequest, sets the request status to RequestCancelled depending on cancelled_."
         },
         {
           "claim_id": "catalog/8d8e5320dfe230fc",
@@ -8304,16 +8361,14 @@
             "request-lifecycle.md/journey/4",
             "catalog/eb18d16701104f88",
             "catalog/eb18d16701104f88/en",
-            "request-lifecycle.md/stopping/4",
-            "catalog/55f9d2d162bd61a8",
-            "catalog/55f9d2d162bd61a8/en"
+            "request-lifecycle.md/stopping/4"
           ],
           "status": "compatible",
-          "condition": "If cancelled_ is true, dispatch completes the request; otherwise it checks the device queue return value.",
-          "actor": "PipelineHandler::doQueueRequest; the investigation observes its existing calls and branch.",
-          "timing": "completeRequest precedes the early return; cancelRequest follows a nonzero device queue return.",
-          "scope": "Source-backed investigation plan, not an assertion that an observation has already occurred.",
-          "reason": "The translation and dispatch peers preserve the same conditions. The stop loop's pre-cancelled requests take the first branch, while uncancelled requests can take the device queue branch.",
+          "condition": "cancelled_가 참인 경우와 거짓인 경우를 구분하고, 후자에서 ret가 0이 아닌 분기를 확인합니다.",
+          "actor": "doQueueRequest와 조사 수행자입니다.",
+          "timing": "이미 취소된 요청은 장치 큐잉 전에 완료되고, 그 밖의 요청은 장치 호출 반환 후 오류를 검사합니다.",
+          "scope": "소스 경로에 대한 조사 계획이며 실행 관찰이 이루어졌다는 주장은 아닙니다.",
+          "reason": "두 분기와 반환값의 출처가 소스 및 영어 번역과 일치합니다. 정지 중 취소된 대기 요청도 이 완료 분기를 통과합니다.",
           "sources": [
             {
               "source_id": "request-lifecycle/journey/dispatch",
@@ -8334,16 +8389,14 @@
             "request-lifecycle.md/journey/4",
             "catalog/eb18d16701104f88",
             "catalog/eb18d16701104f88/en",
-            "request-lifecycle.md/stopping/4",
-            "catalog/55f9d2d162bd61a8",
-            "catalog/55f9d2d162bd61a8/en"
+            "request-lifecycle.md/stopping/4"
           ],
           "status": "compatible",
-          "condition": "If cancelled_ is true, dispatch completes the request; otherwise it checks the device queue return value.",
-          "actor": "PipelineHandler::doQueueRequest; the investigation observes its existing calls and branch.",
-          "timing": "completeRequest precedes the early return; cancelRequest follows a nonzero device queue return.",
-          "scope": "Source-backed investigation plan, not an assertion that an observation has already occurred.",
-          "reason": "The Korean claim and dispatch peers describe the same conditional paths. The stop loop's pre-cancelled requests take the first branch.",
+          "condition": "The investigation distinguishes cancelled_ true from false and checks a nonzero ret in the latter branch.",
+          "actor": "doQueueRequest and the investigator.",
+          "timing": "An already-cancelled request is completed before device queueing; otherwise the device call's return is checked.",
+          "scope": "A planned inspection of the source path, not a claim that runtime observation occurred.",
+          "reason": "The translation preserves the conditions and actions in the Korean claim, and the source supports both branches. Waiting requests cancelled during stop take the completion branch.",
           "sources": [
             {
               "source_id": "request-lifecycle/journey/dispatch",
@@ -8359,17 +8412,17 @@
         {
           "claim_id": "catalog/3aa798dfe8267bfb",
           "peers": [
+            "catalog/172397607a32d3cc/en",
             "request-lifecycle.md/journey/4",
             "catalog/eb18d16701104f88",
-            "catalog/eb18d16701104f88/en",
-            "catalog/172397607a32d3cc/en"
+            "catalog/eb18d16701104f88/en"
           ],
           "status": "compatible",
-          "condition": "The cancellation statement covers preparation failure or hardware queueing failure.",
-          "actor": "PipelineHandler::queueRequest adds the request and starts preparation; the handler queues prepared requests to hardware.",
-          "timing": "The request enters the camera's waiting queue before prepare(300ms) is called.",
-          "scope": "queueRequest source implementation and documented contract, including its CameraManager-thread context.",
-          "reason": "The named camera and request resolve to the same objects and members shown in the source. The dispatch peers address the later hardware queueing branch and do not conflict.",
+          "condition": "준비 단계에서 요청이 실패하거나 하드웨어 큐잉이 실패하면 취소됩니다.",
+          "actor": "PipelineHandler::queueRequest와 해당 요청의 내부 데이터입니다.",
+          "timing": "요청을 해당 카메라의 대기 큐에 넣은 뒤 300ms 준비를 시작합니다.",
+          "scope": "CameraManager 스레드에서의 큐잉 함수와 그 주석에 명시된 취소 계약입니다.",
+          "reason": "카메라의 데이터와 대기 큐, 요청의 준비 호출이 소스에서 같은 객체와 동작을 가리킵니다. 준비 실패와 하드웨어 큐잉 실패의 조건도 주석과 일치합니다.",
           "sources": [
             {
               "source_id": "scenario-queue_request/dispatch/prepare",
@@ -8790,10 +8843,12 @@
           "document": "pipeline-requests.md",
           "topic": "completion",
           "language": "ko",
-          "text": "cancelRequest는 요청을 내부 취소한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 요청과 버퍼에 대해 bufferCompleted를 발생시킨 뒤, 요청을 취소 상태로 표시하고 대기 버퍼 목록을 비웁니다.",
+          "text": "cancelRequest는 내부 취소를 먼저 수행한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 버퍼의 bufferCompleted를 발생시킨 다음, `cancelled_`를 true로 설정하고 대기 버퍼 목록을 비웁니다. 이후 completeRequest에서 호출하는 `Request::Private::complete()`는 `cancelled_`에 따라 요청 상태에 RequestCancelled를 대입합니다.",
           "evidence": [
             "request-lifecycle/resources/cancel-rules",
-            "pipeline-requests/completion/pending-cancel-code"
+            "pipeline-requests/completion/pending-cancel-code",
+            "request-lifecycle/resources/complete-access",
+            "pipeline-requests/completion/cancel-status-transition"
           ],
           "statement_kinds": [
             "behavior"
@@ -9567,16 +9622,17 @@
             "behavior"
           ]
         },
-        "catalog/e80ea8945eaf79ed": {
+        "catalog/055a81a114340a28": {
           "document": "pipeline-requests.md",
           "topic": null,
           "language": "ko",
-          "text": "completeBuffer와 completeRequest는 모두 CameraManager 스레드에서 호출해야 합니다. cancelRequest는 요청을 내부 취소한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 요청과 버퍼에 대해 bufferCompleted를 발생시킨 뒤, 요청을 취소 상태로 표시하고 대기 버퍼 목록을 비웁니다.",
+          "text": "completeBuffer와 completeRequest는 모두 CameraManager 스레드에서 호출해야 합니다. cancelRequest는 내부 취소를 먼저 수행한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 버퍼의 bufferCompleted를 발생시킨 다음, cancelled_를 true로 설정하고 대기 버퍼 목록을 비웁니다. 이후 completeRequest에서 호출하는 Request::Private::complete()는 cancelled_에 따라 요청 상태에 RequestCancelled를 대입합니다.",
           "evidence": [
             "pipeline-requests/completion/buffer-contract",
             "request-lifecycle/resources/complete-access",
             "request-lifecycle/resources/cancel-rules",
-            "pipeline-requests/completion/pending-cancel-code"
+            "pipeline-requests/completion/pending-cancel-code",
+            "pipeline-requests/completion/cancel-status-transition"
           ],
           "origin_claims": [
             "pipeline-requests.md/completion/7"
@@ -9585,18 +9641,19 @@
             "behavior"
           ]
         },
-        "catalog/e80ea8945eaf79ed/en": {
+        "catalog/055a81a114340a28/en": {
           "document": "pipeline-requests.md",
           "topic": null,
           "language": "en",
-          "text": "Both completeBuffer and completeRequest must be called from the CameraManager thread. cancelRequest calls completeRequest after internally cancelling the request. Internal cancellation cancels each pending buffer and emits bufferCompleted for the request and that buffer, then marks the request as cancelled and clears the pending buffer list.",
+          "text": "Both completeBuffer and completeRequest must be called from the CameraManager thread. cancelRequest first performs internal cancellation and then calls completeRequest. Internal cancellation cancels each pending buffer and emits bufferCompleted for that buffer, then sets cancelled_ to true and clears the pending buffer list. Afterward, Request::Private::complete(), called by completeRequest, sets the request status to RequestCancelled depending on cancelled_.",
           "evidence": [
             "pipeline-requests/completion/buffer-contract",
             "request-lifecycle/resources/complete-access",
             "request-lifecycle/resources/cancel-rules",
-            "pipeline-requests/completion/pending-cancel-code"
+            "pipeline-requests/completion/pending-cancel-code",
+            "pipeline-requests/completion/cancel-status-transition"
           ],
-          "translation_of": "catalog/e80ea8945eaf79ed",
+          "translation_of": "catalog/055a81a114340a28",
           "origin_claims": [
             "pipeline-requests.md/completion/7"
           ],
@@ -9825,6 +9882,12 @@
           "text": "void Request::Private::doCancelRequest()\n{\n\tRequest *request = _o<Request>();\n\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tbuffer->_d()->cancel();\n\t\tcamera_->bufferCompleted.emit(request, buffer);\n\t}\n\n\tcancelled_ = true;\n\tpending_.clear();\n\tnotifiers_.clear();\n\ttimer_.reset();\n}\n\n/**\n * \\brief Cancel a queued request\n *\n * Mark the request and its associated buffers as cancelled and complete it.\n *\n * Set each pending buffer in error state and emit the buffer completion signal\n * before completing the Request.\n */\nvoid Request::Private::cancel()\n{\n\tLIBCAMERA_TRACEPOINT(request_cancel, this);\n\n\tRequest *request = _o<Request>();\n\tASSERT(request->status() == RequestPending);\n\n\tdoCancelRequest();\n}\n\n/**\n * \\brief Reset the request internal data to default values",
           "sha256": "b74bd2ff612eb08a3fcb85d16630e0f6d54c5068a2309d9ae192f3308a9a3780"
         },
+        "pipeline-requests/completion/cancel-status-transition": {
+          "file": "src/libcamera/request.cpp",
+          "line": 125,
+          "text": "void Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()",
+          "sha256": "2efec13b708bff2ca232445ef868877a30facef1b6fa17ddcff47bfd013e2289"
+        },
         "pipeline-requests/queue/prepare": {
           "file": "src/libcamera/request.cpp",
           "line": 199,
@@ -9905,6 +9968,8 @@
         "request-lifecycle/stopping/stop-assertions": "vendor-integration/shutdown/stop",
         "pipeline-requests/completion/cancel-contract": "request-lifecycle/resources/cancel-rules",
         "pipeline-requests/completion/pending-cancel-code": "pipeline-requests/completion/pending-cancel-code",
+        "pipeline-requests/completion/request-contract": "request-lifecycle/resources/complete-access",
+        "pipeline-requests/completion/cancel-status-transition": "pipeline-requests/completion/cancel-status-transition",
         "pipeline-requests/queue/prepare": "pipeline-requests/queue/prepare",
         "pipeline-requests/queue/submit-code": "pipeline-requests/queue/submit-code",
         "pipeline-requests/queue/submit-result": "request-lifecycle/journey/dispatch",
@@ -9921,8 +9986,7 @@
         "pipeline-requests/queue/tracking-call": "request-lifecycle/journey/dispatch",
         "pipeline-requests/queue/sequence-assignment": "request-lifecycle/journey/dispatch",
         "pipeline-requests/queue/queue": "vendor-overview/benefits/queue-code",
-        "pipeline-requests/completion/buffer-contract": "pipeline-requests/completion/buffer-contract",
-        "pipeline-requests/completion/request-contract": "request-lifecycle/resources/complete-access"
+        "pipeline-requests/completion/buffer-contract": "pipeline-requests/completion/buffer-contract"
       },
       "excluded_navigation": [
         {
@@ -9967,7 +10031,7 @@
           "text": "다음 단계: [Pipeline 요청 제출과 완료](pipeline-requests.md)\n",
           "target": "pipeline-requests.md",
           "title": "Pipeline 요청 제출과 완료",
-          "target_sha256": "7ac328cc2e5a9c6a2ba80d6c5836b7fa3915f6fa4cec1546999b9ba2733c8deb",
+          "target_sha256": "bfc06de37ccc3b9a0f4aee616b3b536aceac30b866d0b374a1a0f17e5cdf919e",
           "assessment": "generated navigation; current target exists; not a runtime contract verdict"
         },
         {
@@ -9990,7 +10054,7 @@
         },
         {
           "document": "pipeline-requests.md",
-          "paragraph": 75,
+          "paragraph": 77,
           "text": "다음 단계: [시스템 개요](overview.md)\n",
           "target": "overview.md",
           "title": "시스템 개요",
@@ -10067,15 +10131,15 @@
         },
         {
           "batch": 4,
-          "request_sha256": "8c35283bb6e92867783bf215a2dbbc8ccce16a2606f6ebbced16e4de0c025f62",
-          "review_request_sha256": "8c35283bb6e92867783bf215a2dbbc8ccce16a2606f6ebbced16e4de0c025f62",
+          "request_sha256": "60bb2152ff770eef0ffef8761ec17ce97ee7dae06bcb5ede2c9a161adefd1820",
+          "review_request_sha256": "60bb2152ff770eef0ffef8761ec17ce97ee7dae06bcb5ede2c9a161adefd1820",
           "current_source_commit": "c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78",
           "reviewed_source_commit": "c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78",
           "receipts": [
-            "e8c2429aae3442d193fa81fd01bab8e5/001.receipt.json"
+            "53b4357e12e54c48b5fa21a65999ae95/006.receipt.json"
           ],
-          "receipt_tag": "seed-stopping-cancellation-4",
-          "receipt_sha256": "181d27d93eea181ee0ebe84f672943b563ec6d9d94add3e4728f5efdb8cd7da3"
+          "receipt_tag": "contract-d8d09fd3e57e46b7ac6fe32ddce4269f-0-23",
+          "receipt_sha256": "061a3e498e8247338ece30b98115dd1cf532a348784d8a432ed57ce6554ad99a"
         },
         {
           "batch": 5,
@@ -10163,15 +10227,15 @@
         },
         {
           "batch": 12,
-          "request_sha256": "076baf9163272dd4b5da6e23f69e6ed4ad23c0b12c1ef70d9972521f2f6aca6c",
-          "review_request_sha256": "076baf9163272dd4b5da6e23f69e6ed4ad23c0b12c1ef70d9972521f2f6aca6c",
+          "request_sha256": "e44dd6e38cdb5884d38f06d14d462e7e5b309cdeb51b9f7699ec66335e592d74",
+          "review_request_sha256": "e44dd6e38cdb5884d38f06d14d462e7e5b309cdeb51b9f7699ec66335e592d74",
           "current_source_commit": "c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78",
           "reviewed_source_commit": "c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78",
           "receipts": [
-            "48ee98e28ae0412881dc132293c1d50a/001.receipt.json"
+            "53b4357e12e54c48b5fa21a65999ae95/007.receipt.json"
           ],
-          "receipt_tag": "seed-stopping-cancellation-12",
-          "receipt_sha256": "1bfbee3798be25d70f17670c216c0a88619d35fd596c1715ca08a2006e352705"
+          "receipt_tag": "contract-d8d09fd3e57e46b7ac6fe32ddce4269f-0-31",
+          "receipt_sha256": "5354a60f7627bfa3afd9836327120fb09e03c3287b63381dc9b461755855d195"
         },
         {
           "batch": 13,
@@ -10189,7 +10253,7 @@
     },
     {
       "id": "ownership-reuse",
-      "input_sha256": "8eff5c5a76e81c00a465a2ab2ee226ca6e2a759127b7da461d717d3dab19dd2b",
+      "input_sha256": "66556bd3a6d57e9ede80f3bf0aab71ffffa031be2ea8a9ed38ede29ea34bed94",
       "findings": [
         {
           "claim_id": "overview.md/creation/2",
@@ -13021,7 +13085,7 @@
         },
         {
           "document": "pipeline-requests.md",
-          "paragraph": 75,
+          "paragraph": 77,
           "text": "다음 단계: [시스템 개요](overview.md)\n",
           "target": "overview.md",
           "title": "시스템 개요",
@@ -13184,7 +13248,7 @@
     },
     {
       "id": "callbacks-synchronization",
-      "input_sha256": "2eb6161e1e0d79999259e76f56868d92bf207c890242263b85f2974ddc16d052",
+      "input_sha256": "67b19f081a4f2b8873c44420256803c970876da8eb882c0589901e707f5811fb",
       "findings": [
         {
           "claim_id": "vendor-integration.md/algorithm/3",
@@ -16122,27 +16186,24 @@
           "claim_id": "catalog/cab129a1a3d0c87b",
           "peers": [
             "catalog/cab129a1a3d0c87b/en",
-            "catalog/78f4b235ce673294",
-            "catalog/78f4b235ce673294/en",
             "request-lifecycle.md/journey/0",
             "request-lifecycle.md/resources/2",
-            "request-lifecycle.md/resources/5",
             "request-lifecycle.md/resources/7",
             "catalog/09aa8625cc5ac438",
             "catalog/09aa8625cc5ac438/en",
             "catalog/a222dd3054968dd3",
             "catalog/a222dd3054968dd3/en",
-            "catalog/fe87ee7dd45629fa",
-            "catalog/fe87ee7dd45629fa/en",
             "catalog/523cb7bcda133ed2",
-            "catalog/523cb7bcda133ed2/en"
+            "catalog/523cb7bcda133ed2/en",
+            "catalog/78f4b235ce673294",
+            "catalog/78f4b235ce673294/en"
           ],
           "status": "compatible",
-          "condition": "The handler may call completeRequest for any completed request; a pending queue head stops the loop.",
-          "actor": "The pipeline handler calls completeRequest; the function handles the camera's queued requests.",
-          "timing": "The access prohibition starts after completeRequest returns; doQueueRequests is called after the loop.",
-          "scope": "The submission-order guarantee concerns return of requests to the application, not the order of handler calls or execution of application callbacks.",
-          "reason": "The source supports the prohibition, ordering guarantee, pending-head branch and final queueing call. The English translation and relevant peers are consistent.",
+          "condition": "이미 완료된 요청을 통지하며 큐 선두가 대기 중이면 반복을 중단합니다.",
+          "actor": "파이프라인 핸들러가 completeRequest를 호출합니다.",
+          "timing": "함수 반환 후 요청 접근이 금지되며, 큐 처리가 끝난 뒤 대기 요청 큐잉을 시도합니다.",
+          "scope": "호출 순서의 자유와 애플리케이션에 반환되는 요청의 제출 순서 보장은 서로 다른 계약입니다.",
+          "reason": "소스의 접근 금지, 반환 순서 보장과 함수 구현에 부합하며 영문 및 관련 문서의 설명과 일치합니다.",
           "sources": [
             {
               "source_id": "request-lifecycle/journey/request-notice",
@@ -16163,27 +16224,24 @@
           "claim_id": "catalog/cab129a1a3d0c87b/en",
           "peers": [
             "catalog/cab129a1a3d0c87b",
-            "catalog/78f4b235ce673294",
-            "catalog/78f4b235ce673294/en",
             "request-lifecycle.md/journey/0",
             "request-lifecycle.md/resources/2",
-            "request-lifecycle.md/resources/5",
             "request-lifecycle.md/resources/7",
             "catalog/09aa8625cc5ac438",
             "catalog/09aa8625cc5ac438/en",
             "catalog/a222dd3054968dd3",
             "catalog/a222dd3054968dd3/en",
-            "catalog/fe87ee7dd45629fa",
-            "catalog/fe87ee7dd45629fa/en",
             "catalog/523cb7bcda133ed2",
-            "catalog/523cb7bcda133ed2/en"
+            "catalog/523cb7bcda133ed2/en",
+            "catalog/78f4b235ce673294",
+            "catalog/78f4b235ce673294/en"
           ],
           "status": "compatible",
-          "condition": "The handler may call completeRequest for any completed request; a pending queue head stops the loop.",
-          "actor": "The pipeline handler calls completeRequest; the function handles the camera's queued requests.",
-          "timing": "The access prohibition starts after completeRequest returns; doQueueRequests is called after the loop.",
-          "scope": "The submission-order guarantee concerns return of requests to the application, not the order of handler calls or execution of application callbacks.",
-          "reason": "The source supports each stated contract and code step. The Korean claim and relevant peers are consistent.",
+          "condition": "The request is complete; a pending queue head stops the loop.",
+          "actor": "The pipeline handler calls completeRequest.",
+          "timing": "The access prohibition applies after the function returns; waiting requests are queued after the loop.",
+          "scope": "Freedom in call order is distinct from the submission-order guarantee for returned requests.",
+          "reason": "The source supports each assertion and the translation preserves the Korean prohibition, permission and ordering.",
           "sources": [
             {
               "source_id": "request-lifecycle/journey/request-notice",
@@ -16201,28 +16259,28 @@
           "claim_quote": "After completeRequest returns, the pipeline handler must not access the request. completeRequest ensures that requests are returned to the application in submission order, and the pipeline handler may call completeRequest on any completed request without ordering constraints. If the request at the front is RequestPending, the while loop executes break to stop the loop. Finally, completeRequest calls doQueueRequests(camera) so that waiting requests can be queued to the pipeline."
         },
         {
-          "claim_id": "catalog/e80ea8945eaf79ed",
+          "claim_id": "catalog/055a81a114340a28",
           "peers": [
-            "catalog/e80ea8945eaf79ed/en",
-            "request-lifecycle.md/resources/2",
+            "catalog/055a81a114340a28/en",
             "request-lifecycle.md/resources/3",
+            "request-lifecycle.md/resources/8",
             "request-lifecycle.md/resources/13",
             "request-lifecycle.md/stopping/7",
-            "catalog/a222dd3054968dd3",
-            "catalog/a222dd3054968dd3/en",
             "catalog/1d473fe3c4859e79",
             "catalog/1d473fe3c4859e79/en",
+            "catalog/629f16b776cac84e",
+            "catalog/629f16b776cac84e/en",
             "catalog/fd5675e647c8331c",
             "catalog/fd5675e647c8331c/en",
             "catalog/ae9a637227d8b9f7",
             "catalog/ae9a637227d8b9f7/en"
           ],
           "status": "compatible",
-          "condition": "Cancellation operates on the pending buffers of a pending request.",
-          "actor": "The pipeline handler calls the completion APIs; internal request cancellation cancels buffers and emits their completion signal.",
-          "timing": "Internal cancellation sets the cancellation flag and clears the pending set after the buffer loop; cancelRequest then calls completeRequest.",
-          "scope": "The CameraManager thread requirement applies to the API calls and does not establish the application callback's execution thread.",
-          "reason": "The sources support the thread obligations and cancellation sequence. The cancellation mark is the internal flag; the request status is selected during subsequent completion. The translation and relevant peers agree.",
+          "condition": "취소 대상 요청의 대기 버퍼를 처리하고 cancelled_에 따라 상태를 선택합니다.",
+          "actor": "파이프라인 핸들러가 두 완료 함수를 호출하며 요청 내부 함수가 취소와 상태 변경을 수행합니다.",
+          "timing": "버퍼별 취소와 신호 발생 후 플래그 설정과 목록 비우기가 이루어지고, 내부 취소 후 completeRequest가 호출됩니다.",
+          "scope": "CameraManager 스레드 의무는 함수 호출에 관한 것이며 실제 콜백 실행 스레드를 단정하지 않습니다.",
+          "reason": "취소 호출 경로, 버퍼 처리 순서, 조건부 상태 대입과 호출 스레드 의무가 소스 및 영문과 일치합니다.",
           "sources": [
             {
               "source_id": "pipeline-requests/completion/buffer-contract",
@@ -16241,35 +16299,35 @@
               "source_quote": "void Request::Private::doCancelRequest()\n{\n\tRequest *request = _o<Request>();\n\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tbuffer->_d()->cancel();\n\t\tcamera_->bufferCompleted.emit(request, buffer);\n\t}\n\n\tcancelled_ = true;\n\tpending_.clear();\n\tnotifiers_.clear();\n\ttimer_.reset();\n}\n\n/**\n * \\brief Cancel a queued request\n *\n * Mark the request and its associated buffers as cancelled and complete it.\n *\n * Set each pending buffer in error state and emit the buffer completion signal\n * before completing the Request.\n */\nvoid Request::Private::cancel()\n{\n\tLIBCAMERA_TRACEPOINT(request_cancel, this);\n\n\tRequest *request = _o<Request>();\n\tASSERT(request->status() == RequestPending);\n\n\tdoCancelRequest();\n}\n\n/**\n * \\brief Reset the request internal data to default values"
             },
             {
-              "source_id": "request-lifecycle/resources/internal-completion",
-              "source_quote": "\\brief Complete a buffer for the request\n * \\param[in] buffer The buffer that has completed\n *\n * A request tracks the status of all buffers it contains through a set of\n * pending buffers. This function removes the \\a buffer from the set to mark it\n * as complete. All buffers associate with the request shall be marked as\n * complete by calling this function once and once only before reporting the\n * request as complete with the complete() function.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool Request::Private::completeBuffer(FrameBuffer *buffer)\n{\n\tLIBCAMERA_TRACEPOINT(request_complete_buffer, this, buffer);\n\n\tint ret = pending_.erase(buffer);\n\tASSERT(ret == 1);\n\n\tbuffer->_d()->setRequest(nullptr);\n\n\tif (buffer->metadata().status == FrameMetadata::FrameCancelled)\n\t\tcancelled_ = true;\n\n\treturn !hasPendingBuffers();\n}\n\n/**\n * \\brief Complete a queued request\n *\n * Mark the request as complete by updating its status to RequestComplete,\n * unless buffers have been cancelled in which case the status is set to\n * RequestCancelled.\n */\nvoid Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()\n{\n\tRequest *request = _o<Request>();\n\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tbuffer->_d()->cancel();\n\t\tcamera_->bufferCompleted.emit(request, buffer);\n\t}\n\n\tcancelled_ = true;\n\tpending_.clear();\n\tnotifiers_.clear();\n\ttimer_.reset();\n}\n\n/**\n * \\brief Cancel a queued request\n *\n * Mark the request and its associated buffers as cancelled and complete it.\n *\n * Set each pending buffer in error state and emit the buffer completion signal\n * before completing the Request.\n */\nvoid Request::Private::cancel()\n{\n\tLIBCAMERA_TRACEPOINT(request_cancel, this);\n\n\tRequest *request = _o<Request>();\n\tASSERT(request->status() == RequestPending);\n\n\tdoCancelRequest();\n}\n\n/**\n * \\brief Reset the request internal data to default values"
+              "source_id": "pipeline-requests/completion/cancel-status-transition",
+              "source_quote": "void Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()"
             }
           ],
-          "claim_quote": "completeBuffer와 completeRequest는 모두 CameraManager 스레드에서 호출해야 합니다. cancelRequest는 요청을 내부 취소한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 요청과 버퍼에 대해 bufferCompleted를 발생시킨 뒤, 요청을 취소 상태로 표시하고 대기 버퍼 목록을 비웁니다."
+          "claim_quote": "completeBuffer와 completeRequest는 모두 CameraManager 스레드에서 호출해야 합니다. cancelRequest는 내부 취소를 먼저 수행한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 버퍼의 bufferCompleted를 발생시킨 다음, cancelled_를 true로 설정하고 대기 버퍼 목록을 비웁니다. 이후 completeRequest에서 호출하는 Request::Private::complete()는 cancelled_에 따라 요청 상태에 RequestCancelled를 대입합니다."
         },
         {
-          "claim_id": "catalog/e80ea8945eaf79ed/en",
+          "claim_id": "catalog/055a81a114340a28/en",
           "peers": [
-            "catalog/e80ea8945eaf79ed",
-            "request-lifecycle.md/resources/2",
+            "catalog/055a81a114340a28",
             "request-lifecycle.md/resources/3",
+            "request-lifecycle.md/resources/8",
             "request-lifecycle.md/resources/13",
             "request-lifecycle.md/stopping/7",
-            "catalog/a222dd3054968dd3",
-            "catalog/a222dd3054968dd3/en",
             "catalog/1d473fe3c4859e79",
             "catalog/1d473fe3c4859e79/en",
+            "catalog/629f16b776cac84e",
+            "catalog/629f16b776cac84e/en",
             "catalog/fd5675e647c8331c",
             "catalog/fd5675e647c8331c/en",
             "catalog/ae9a637227d8b9f7",
             "catalog/ae9a637227d8b9f7/en"
           ],
           "status": "compatible",
-          "condition": "Cancellation operates on the pending buffers of a pending request.",
-          "actor": "The pipeline handler calls the completion APIs; internal request cancellation cancels buffers and emits their completion signal.",
-          "timing": "Internal cancellation sets the cancellation flag and clears the pending set after the buffer loop; cancelRequest then calls completeRequest.",
-          "scope": "The CameraManager thread requirement applies to the API calls and does not establish the application callback's execution thread.",
-          "reason": "The sources support the thread obligations and cancellation sequence. The cancellation mark is the internal flag; the request status is selected during subsequent completion. The Korean claim and relevant peers agree.",
+          "condition": "For cancellation, pending buffers are processed and the status is selected according to cancelled_.",
+          "actor": "The pipeline handler calls the completion functions; request-private functions perform cancellation and status assignment.",
+          "timing": "Each pending buffer is cancelled and signalled before the flag is set and the list cleared; completeRequest follows internal cancellation.",
+          "scope": "The CameraManager thread requirement applies to API calls and does not establish the callback execution thread.",
+          "reason": "The source supports the sequence and conditional status assignment; the translation preserves the Korean obligations and conditions.",
           "sources": [
             {
               "source_id": "pipeline-requests/completion/buffer-contract",
@@ -16288,11 +16346,11 @@
               "source_quote": "void Request::Private::doCancelRequest()\n{\n\tRequest *request = _o<Request>();\n\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tbuffer->_d()->cancel();\n\t\tcamera_->bufferCompleted.emit(request, buffer);\n\t}\n\n\tcancelled_ = true;\n\tpending_.clear();\n\tnotifiers_.clear();\n\ttimer_.reset();\n}\n\n/**\n * \\brief Cancel a queued request\n *\n * Mark the request and its associated buffers as cancelled and complete it.\n *\n * Set each pending buffer in error state and emit the buffer completion signal\n * before completing the Request.\n */\nvoid Request::Private::cancel()\n{\n\tLIBCAMERA_TRACEPOINT(request_cancel, this);\n\n\tRequest *request = _o<Request>();\n\tASSERT(request->status() == RequestPending);\n\n\tdoCancelRequest();\n}\n\n/**\n * \\brief Reset the request internal data to default values"
             },
             {
-              "source_id": "request-lifecycle/resources/internal-completion",
-              "source_quote": "\\brief Complete a buffer for the request\n * \\param[in] buffer The buffer that has completed\n *\n * A request tracks the status of all buffers it contains through a set of\n * pending buffers. This function removes the \\a buffer from the set to mark it\n * as complete. All buffers associate with the request shall be marked as\n * complete by calling this function once and once only before reporting the\n * request as complete with the complete() function.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool Request::Private::completeBuffer(FrameBuffer *buffer)\n{\n\tLIBCAMERA_TRACEPOINT(request_complete_buffer, this, buffer);\n\n\tint ret = pending_.erase(buffer);\n\tASSERT(ret == 1);\n\n\tbuffer->_d()->setRequest(nullptr);\n\n\tif (buffer->metadata().status == FrameMetadata::FrameCancelled)\n\t\tcancelled_ = true;\n\n\treturn !hasPendingBuffers();\n}\n\n/**\n * \\brief Complete a queued request\n *\n * Mark the request as complete by updating its status to RequestComplete,\n * unless buffers have been cancelled in which case the status is set to\n * RequestCancelled.\n */\nvoid Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()\n{\n\tRequest *request = _o<Request>();\n\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tbuffer->_d()->cancel();\n\t\tcamera_->bufferCompleted.emit(request, buffer);\n\t}\n\n\tcancelled_ = true;\n\tpending_.clear();\n\tnotifiers_.clear();\n\ttimer_.reset();\n}\n\n/**\n * \\brief Cancel a queued request\n *\n * Mark the request and its associated buffers as cancelled and complete it.\n *\n * Set each pending buffer in error state and emit the buffer completion signal\n * before completing the Request.\n */\nvoid Request::Private::cancel()\n{\n\tLIBCAMERA_TRACEPOINT(request_cancel, this);\n\n\tRequest *request = _o<Request>();\n\tASSERT(request->status() == RequestPending);\n\n\tdoCancelRequest();\n}\n\n/**\n * \\brief Reset the request internal data to default values"
+              "source_id": "pipeline-requests/completion/cancel-status-transition",
+              "source_quote": "void Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()"
             }
           ],
-          "claim_quote": "Both completeBuffer and completeRequest must be called from the CameraManager thread. cancelRequest calls completeRequest after internally cancelling the request. Internal cancellation cancels each pending buffer and emits bufferCompleted for the request and that buffer, then marks the request as cancelled and clears the pending buffer list."
+          "claim_quote": "Both completeBuffer and completeRequest must be called from the CameraManager thread. cancelRequest first performs internal cancellation and then calls completeRequest. Internal cancellation cancels each pending buffer and emits bufferCompleted for that buffer, then sets cancelled_ to true and clears the pending buffer list. Afterward, Request::Private::complete(), called by completeRequest, sets the request status to RequestCancelled depending on cancelled_."
         },
         {
           "claim_id": "catalog/78f4b235ce673294",
@@ -16311,11 +16369,11 @@
             "catalog/629f16b776cac84e/en"
           ],
           "status": "compatible",
-          "condition": "The loop has a front request; its status determines whether the pending-head branch or the subsequent assertion and removal path is taken.",
-          "actor": "completeRequest examines the camera's queued requests and calls the camera's requestComplete member.",
-          "timing": "A pending head causes break; otherwise the no-pending-buffers assertion precedes removal and requestComplete.",
-          "scope": "This is a source-based investigation of the loop and its ordered calls, not a report of an executed callback or device test.",
-          "reason": "The described branches and call sequence match the source. Omitting the receiver from requestComplete does not identify a different object, and the translation and relevant investigation peers agree.",
+          "condition": "큐 선두가 RequestPending이면 반복을 중단하고, 그렇지 않으면 대기 버퍼가 없다는 단언을 검사합니다.",
+          "actor": "completeRequest의 파이프라인 핸들러가 카메라의 requestComplete를 호출합니다.",
+          "timing": "선두가 대기 중이지 않을 때 단언 검사, 선두 제거, 완료 통지 호출 순서입니다.",
+          "scope": "제출 큐 처리와 조사 분기에 관한 설명이며 실제 기기에서 관측을 수행했다는 주장은 아닙니다.",
+          "reason": "소스가 두 분기와 순서를 뒷받침합니다. requestComplete의 생략된 수신 객체는 해당 함수 문맥에서 카메라로 식별되며 영문과도 일치합니다.",
           "sources": [
             {
               "source_id": "camera-model/concurrency/completion",
@@ -16345,11 +16403,11 @@
             "catalog/629f16b776cac84e/en"
           ],
           "status": "compatible",
-          "condition": "The loop has a front request; its status determines whether the pending-head branch or the subsequent assertion and removal path is taken.",
-          "actor": "completeRequest examines the camera's queued requests and calls the camera's requestComplete member.",
-          "timing": "A pending head causes break; otherwise the no-pending-buffers assertion precedes removal and requestComplete.",
-          "scope": "This is a source-based investigation of the loop and its ordered calls, not a report of an executed callback or device test.",
-          "reason": "The described branches and call sequence match the source. Omitting the receiver from requestComplete does not identify a different object, and the Korean claim and relevant investigation peers agree.",
+          "condition": "A RequestPending queue head stops the loop; otherwise the assertion checks that no buffers are pending.",
+          "actor": "The pipeline handler in completeRequest calls the camera's requestComplete.",
+          "timing": "For a non-pending head, the assertion precedes removal and the completion notification call.",
+          "scope": "This describes the queue branches for investigation, not an executed device observation.",
+          "reason": "The source supports both branches and their order. The omitted receiver is unambiguously the camera in this function, and the translation preserves the Korean conditions and negation.",
           "sources": [
             {
               "source_id": "camera-model/concurrency/completion",
@@ -17825,16 +17883,17 @@
             "behavior"
           ]
         },
-        "catalog/e80ea8945eaf79ed": {
+        "catalog/055a81a114340a28": {
           "document": "pipeline-requests.md",
           "topic": null,
           "language": "ko",
-          "text": "completeBuffer와 completeRequest는 모두 CameraManager 스레드에서 호출해야 합니다. cancelRequest는 요청을 내부 취소한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 요청과 버퍼에 대해 bufferCompleted를 발생시킨 뒤, 요청을 취소 상태로 표시하고 대기 버퍼 목록을 비웁니다.",
+          "text": "completeBuffer와 completeRequest는 모두 CameraManager 스레드에서 호출해야 합니다. cancelRequest는 내부 취소를 먼저 수행한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 버퍼의 bufferCompleted를 발생시킨 다음, cancelled_를 true로 설정하고 대기 버퍼 목록을 비웁니다. 이후 completeRequest에서 호출하는 Request::Private::complete()는 cancelled_에 따라 요청 상태에 RequestCancelled를 대입합니다.",
           "evidence": [
             "pipeline-requests/completion/buffer-contract",
             "request-lifecycle/journey/request-notice",
             "request-lifecycle/resources/cancel-rules",
-            "pipeline-requests/completion/pending-cancel-code"
+            "pipeline-requests/completion/pending-cancel-code",
+            "pipeline-requests/completion/cancel-status-transition"
           ],
           "origin_claims": [
             "pipeline-requests.md/completion/6"
@@ -17843,18 +17902,19 @@
             "behavior"
           ]
         },
-        "catalog/e80ea8945eaf79ed/en": {
+        "catalog/055a81a114340a28/en": {
           "document": "pipeline-requests.md",
           "topic": null,
           "language": "en",
-          "text": "Both completeBuffer and completeRequest must be called from the CameraManager thread. cancelRequest calls completeRequest after internally cancelling the request. Internal cancellation cancels each pending buffer and emits bufferCompleted for the request and that buffer, then marks the request as cancelled and clears the pending buffer list.",
+          "text": "Both completeBuffer and completeRequest must be called from the CameraManager thread. cancelRequest first performs internal cancellation and then calls completeRequest. Internal cancellation cancels each pending buffer and emits bufferCompleted for that buffer, then sets cancelled_ to true and clears the pending buffer list. Afterward, Request::Private::complete(), called by completeRequest, sets the request status to RequestCancelled depending on cancelled_.",
           "evidence": [
             "pipeline-requests/completion/buffer-contract",
             "request-lifecycle/journey/request-notice",
             "request-lifecycle/resources/cancel-rules",
-            "pipeline-requests/completion/pending-cancel-code"
+            "pipeline-requests/completion/pending-cancel-code",
+            "pipeline-requests/completion/cancel-status-transition"
           ],
-          "translation_of": "catalog/e80ea8945eaf79ed",
+          "translation_of": "catalog/055a81a114340a28",
           "origin_claims": [
             "pipeline-requests.md/completion/6"
           ],
@@ -18098,6 +18158,12 @@
           "line": 139,
           "text": "void Request::Private::doCancelRequest()\n{\n\tRequest *request = _o<Request>();\n\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tbuffer->_d()->cancel();\n\t\tcamera_->bufferCompleted.emit(request, buffer);\n\t}\n\n\tcancelled_ = true;\n\tpending_.clear();\n\tnotifiers_.clear();\n\ttimer_.reset();\n}\n\n/**\n * \\brief Cancel a queued request\n *\n * Mark the request and its associated buffers as cancelled and complete it.\n *\n * Set each pending buffer in error state and emit the buffer completion signal\n * before completing the Request.\n */\nvoid Request::Private::cancel()\n{\n\tLIBCAMERA_TRACEPOINT(request_cancel, this);\n\n\tRequest *request = _o<Request>();\n\tASSERT(request->status() == RequestPending);\n\n\tdoCancelRequest();\n}\n\n/**\n * \\brief Reset the request internal data to default values",
           "sha256": "b74bd2ff612eb08a3fcb85d16630e0f6d54c5068a2309d9ae192f3308a9a3780"
+        },
+        "pipeline-requests/completion/cancel-status-transition": {
+          "file": "src/libcamera/request.cpp",
+          "line": 125,
+          "text": "void Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()",
+          "sha256": "2efec13b708bff2ca232445ef868877a30facef1b6fa17ddcff47bfd013e2289"
         }
       },
       "source_aliases": {
@@ -18160,7 +18226,8 @@
         "pipeline-requests/queue/waiting-code": "pipeline-requests/queue/waiting-code",
         "pipeline-requests/completion/request-code": "pipeline-requests/completion/request-code",
         "pipeline-requests/completion/cancel-contract": "request-lifecycle/resources/cancel-rules",
-        "pipeline-requests/completion/pending-cancel-code": "pipeline-requests/completion/pending-cancel-code"
+        "pipeline-requests/completion/pending-cancel-code": "pipeline-requests/completion/pending-cancel-code",
+        "pipeline-requests/completion/cancel-status-transition": "pipeline-requests/completion/cancel-status-transition"
       },
       "excluded_navigation": [
         {
@@ -18210,7 +18277,7 @@
         },
         {
           "document": "pipeline-requests.md",
-          "paragraph": 75,
+          "paragraph": 77,
           "text": "다음 단계: [시스템 개요](overview.md)\n",
           "target": "overview.md",
           "title": "시스템 개요",
@@ -18422,21 +18489,21 @@
         },
         {
           "batch": 16,
-          "request_sha256": "a5af75136ca0f4ee8a383ed36adff4da5e1f992c63a0cb460e81b0c41899a75c",
-          "review_request_sha256": "a5af75136ca0f4ee8a383ed36adff4da5e1f992c63a0cb460e81b0c41899a75c",
+          "request_sha256": "4582322c7ef0d3bafe5984cef8290a6446d4fb0a37e37da00a5e85c981aee645",
+          "review_request_sha256": "4582322c7ef0d3bafe5984cef8290a6446d4fb0a37e37da00a5e85c981aee645",
           "current_source_commit": "c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78",
           "reviewed_source_commit": "c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78",
           "receipts": [
-            "c52e574f8fbd471ab10bc7bd15d78d76/001.receipt.json"
+            "53b4357e12e54c48b5fa21a65999ae95/008.receipt.json"
           ],
-          "receipt_tag": "seed-callbacks-synchronization-16",
-          "receipt_sha256": "911fe79fcb3788f610bd560240707230a934200f9fe976bafabd60a389d7bdea"
+          "receipt_tag": "contract-d8d09fd3e57e46b7ac6fe32ddce4269f-0-60",
+          "receipt_sha256": "a683b5f99c79a3390ee039b6c5d9c2d287e34d9e3d9f648e5003ba9df28f9e5d"
         }
       ]
     },
     {
       "id": "scenario-analysis",
-      "input_sha256": "5208abc39d9316fe8b38a55e93a72d744dde8afc8684f233f578b24ca72ce0a7",
+      "input_sha256": "933a971ad0bfc54ee86015b339067990e8675036640882dc8cde881b5ccb2e01",
       "findings": [
         {
           "claim_id": "vendor-integration.md/algorithm/3",
@@ -21367,19 +21434,18 @@
           "claim_quote": "After completeRequest returns, the pipeline handler must not access the request. completeRequest ensures that requests are returned to the application in submission order, and the pipeline handler may call completeRequest on any completed request without ordering constraints. If the request at the front is RequestPending, the while loop executes break to stop the loop. Finally, completeRequest calls doQueueRequests(camera) so that waiting requests can be queued to the pipeline."
         },
         {
-          "claim_id": "catalog/e80ea8945eaf79ed",
+          "claim_id": "catalog/055a81a114340a28",
           "peers": [
-            "catalog/e80ea8945eaf79ed/en",
+            "catalog/055a81a114340a28/en",
             "catalog/78f4b235ce673294",
-            "catalog/78f4b235ce673294/en",
-            "scenarios/queue_request.md/paragraph/37"
+            "catalog/78f4b235ce673294/en"
           ],
           "status": "compatible",
-          "condition": "Cancellation applies to a pending request and its pending buffers.",
-          "actor": "PipelineHandler calls the completion functions; Request::Private performs internal cancellation.",
-          "timing": "Buffer cancellation and notifications precede marking and clearing; completeRequest follows internal cancellation.",
-          "scope": "Source-level completion and cancellation contracts, not an observed callback execution.",
-          "reason": "The thread requirements and cancellation sequence are supported. The English translation agrees. The completion-loop peers address a separate subsequent operation, while the call-list limitation does not negate the source contract.",
+          "condition": "Cancellation applies to a pending request; completion status depends on cancelled_.",
+          "actor": "Pipeline handler and Request::Private.",
+          "timing": "Internal cancellation precedes completeRequest; buffer cancellation and notification precede clearing the pending list.",
+          "scope": "Source-level completion and cancellation contract, including the CameraManager thread requirement.",
+          "reason": "The cited implementation supports the stated call order, buffer notifications and status transition. The English translation and queue-draining claims are consistent with it.",
           "sources": [
             {
               "source_id": "pipeline-requests/completion/buffer-contract",
@@ -21398,26 +21464,25 @@
               "source_quote": "void Request::Private::doCancelRequest()\n{\n\tRequest *request = _o<Request>();\n\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tbuffer->_d()->cancel();\n\t\tcamera_->bufferCompleted.emit(request, buffer);\n\t}\n\n\tcancelled_ = true;\n\tpending_.clear();\n\tnotifiers_.clear();\n\ttimer_.reset();\n}\n\n/**\n * \\brief Cancel a queued request\n *\n * Mark the request and its associated buffers as cancelled and complete it.\n *\n * Set each pending buffer in error state and emit the buffer completion signal\n * before completing the Request.\n */\nvoid Request::Private::cancel()\n{\n\tLIBCAMERA_TRACEPOINT(request_cancel, this);\n\n\tRequest *request = _o<Request>();\n\tASSERT(request->status() == RequestPending);\n\n\tdoCancelRequest();\n}\n\n/**\n * \\brief Reset the request internal data to default values"
             },
             {
-              "source_id": "@analysis/scenario/queue_request",
-              "source_quote": "{\"generator_definitions\": [{\"file\": \"src/sdd/facts/model.py\", \"line\": 73, \"name\": \"Message\", \"sha256\": \"4e0b4766c0d7eab15773e8a9349e6cd49ebd08cc52dfe7b2fba49616d03c1648\", \"text\": \"@dataclass\\nclass Message:\\n    src: str                       # participant display name\\n    dst: str\\n    name: str                      # 호출된 함수 이름\\n    loc: Location | None = None    # 호출 지점\\n    note: str = \\\"\\\"                 # 예: \\\"virtual 후보\\\" (정적으로 확정되지 않은 호출)\"}, {\"file\": \"src/sdd/facts/model.py\", \"line\": 82, \"name\": \"Scenario\", \"sha256\": \"b1f6188925808def6094453b5159214d8be4a2e398d299600b8d190e8236a6e3\", \"text\": \"@dataclass\\nclass Scenario:\\n    id: str\\n    title: str\\n    entry: str                     # from 함수 시그니처\\n    participants: list[str] = field(default_factory=list)\\n    messages: list[Message] = field(default_factory=list)\\n    mermaid: str = \\\"\\\"              # clang-uml 이 만든 Mermaid 본문\\n    unresolved: int = 0            # 정적으로 끊긴 호출 수 (virtual / function pointer)\\n    # 인자로 넘어간 메서드 수. 대상은 알지만 실행 시점과 스레드는 큐·신호 구현이 정한다.\\n    deferred: int = 0\"}, {\"file\": \"src/sdd/facts/callgraph.py\", \"line\": 148, \"name\": \"_deferred_targets\", \"sha256\": \"0b7c4a80ddd83f08782249229a78f9a878bb234dad15ca69fa24966428904a56\", \"text\": \"def _deferred_targets(node: cindex.Cursor, scope: SourceScope, callee_usr: str) -> list[cindex.Cursor]:\\n    \\\"\\\"\\\"호출 인자로 넘어간 메서드·함수 선언을 모은다.\\n\\n    `invokeMethod(&PipelineHandler::queueRequest, ...)` 나 `connect(&Class::slot)` 처럼 메서드를\\n    값으로 넘기면, 그 메서드는 이 호출 자리에서 실행되지 않는다. 실행 시점과 스레드는 큐나 신호\\n    구현이 정하므로 정적 추적으로는 순서를 알 수 없다. 대상 이름은 알 수 있으므로 경계로 기록한다.\\n    중첩된 호출 표현식은 바깥 순회가 따로 보기 때문에 여기서는 들어가지 않는다.\\n    \\\"\\\"\\\"\\n    found: list[cindex.Cursor] = []\\n    seen: set[str] = set()\\n\\n    def walk(n: cindex.Cursor) -> None:\\n        for child in n.get_children():\\n            if child.kind == cindex.CursorKind.CALL_EXPR:\\n                continue\\n            if child.kind == cindex.CursorKind.DECL_REF_EXPR:\\n                target = child.referenced\\n                if (target is not None and target.kind in (METHOD_KINDS | FUNCTION_KINDS)\\n                        and scope.contains(target)):\\n                    usr = target.get_usr()\\n                    if usr and usr != callee_usr and usr not in seen:\\n                        seen.add(usr)\\n                        found.append(target)\\n            walk(child)\\n\\n    walk(node)\\n    return found\"}, {\"file\": \"src/sdd/facts/callgraph.py\", \"line\": 292, \"name\": \"trace\", \"sha256\": \"8769562486ac0baeb37bf1c6d844cc8d2fd1d5c4eefb3e424e21f9e5c68a0ec8\", \"text\": \"def trace(g: Graph, entry: FuncDef, depth: int) -> tuple[list[Message], int, int]:\\n    messages: list[Message] = []\\n    unresolved = 0\\n    deferred = 0\\n\\n    def visit(fd: FuncDef, level: int, path: set[str]) -> None:\\n        nonlocal unresolved, deferred\\n        if level >= depth or len(messages) >= _MAX_MESSAGES:\\n            return\\n        for call in fd.calls:\\n            if call.kind == \\\"deferred\\\":\\n                # 대상은 알지만 이 자리에서 실행되지 않는다. 따라 들어가면 없는 순서를 만들게 된다.\\n                deferred += 1\\n                target = g.defs.get(call.callee_usr)\\n                messages.append(Message(src=fd.owner, dst=(target.owner if target else call.callee_owner),\\n                                        name=call.callee_name, loc=call.loc,\\n                                        note=\\\"예약된 호출, 실행 순서는 정적으로 확인 불가\\\"))\\n                continue\\n            if call.kind in (\\\"pointer\\\", \\\"callable\\\", \\\"unresolved\\\"):\\n                unresolved += 1\\n                label = {\\\"pointer\\\": \\\"함수 포인터, 정적 추적 불가\\\", \\\"callable\\\": \\\"콜백 객체, 정적 추적 불가\\\",\\n                         \\\"unresolved\\\": \\\"정적 추적 불가\\\"}[call.kind]\\n                messages.append(Message(src=fd.owner, dst=call.callee_owner, name=call.callee_name,\\n                                        loc=call.loc, note=label))\\n                continue\\n            targets = [call.callee_usr]\\n            note = \\\"\\\"\\n            if call.kind == \\\"virtual\\\":\\n                over = g.overrides.get(call.callee_usr, [])\\n                # 기반 구현이 있으면(순수 가상이 아니면) 그것도 후보다.\\n                base_def = g.defs.get(call.callee_usr)\\n                targets = ([call.callee_usr] if base_def else []) + over\\n                if len(targets) > 1:\\n                    note = \\\"virtual 후보\\\"\\n                elif targets:\\n                    note = \\\"virtual, 현재 구현 하나\\\"   # 지금은 하나지만 동적 디스패치라는 사실은 남긴다.\\n                else:\\n                    unresolved += 1\\n                    messages.append(Message(src=fd.owner, dst=call.callee_owner, name=call.callee_name,\\n                                            loc=call.loc, note=\\\"virtual, override 없음\\\"))\\n                    continue\\n            for t_usr in targets:\\n                t = g.defs.get(t_usr)\\n                owner = t.owner if t else call.callee_owner\\n                messages.append(Message(src=fd.owner, dst=owner, name=call.callee_name, loc=call.loc, note=note))\\n                if t and t_usr not in path:\\n                    visit(t, level + 1, path | {t_usr})\\n\\n    visit(entry, 0, {entry.usr})\\n    return messages, unresolved, deferred\"}, {\"file\": \"src/sdd/scenario_document.py\", \"line\": 62, \"name\": \"build\", \"sha256\": \"23bf4f1fe1e5c07cf6ab5972431d49b5b0fb800d8197d655d580c851bb886f96\", \"text\": \"    \\\"\\\"\\\"Focus rules select evidence, not prose assertions or execution stages.\\n\\n    Legacy flat facts do not carry branch ancestry. Draw a call *map*, not a\\n    sequence across candidates. The full extracted trace stays in this page.\\n    \\\"\\\"\\\"\"}], \"kind\": \"analysis-definition\", \"scenario\": {\"annotated_messages\": [{\"dst\": \"PipelineHandler\", \"loc\": {\"file\": \"src/libcamera/camera.cpp\", \"line\": 1376}, \"name\": \"queueRequest\", \"note\": \"예약된 호출, 실행 순서는 정적으로 확인 불가\", \"src\": \"Camera\"}], \"deferred\": 1, \"entry\": \"Camera::queueRequest(Request *)\", \"id\": \"queue_request\", \"messages_total\": 80, \"unresolved\": 0}, \"scope\": \"Analysis representation only; not product runtime, hardware or callback-thread evidence.\"}"
+              "source_id": "pipeline-requests/completion/cancel-status-transition",
+              "source_quote": "void Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()"
             }
           ],
-          "claim_quote": "completeBuffer와 completeRequest는 모두 CameraManager 스레드에서 호출해야 합니다. cancelRequest는 요청을 내부 취소한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 요청과 버퍼에 대해 bufferCompleted를 발생시킨 뒤, 요청을 취소 상태로 표시하고 대기 버퍼 목록을 비웁니다."
+          "claim_quote": "completeBuffer와 completeRequest는 모두 CameraManager 스레드에서 호출해야 합니다. cancelRequest는 내부 취소를 먼저 수행한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 버퍼의 bufferCompleted를 발생시킨 다음, cancelled_를 true로 설정하고 대기 버퍼 목록을 비웁니다. 이후 completeRequest에서 호출하는 Request::Private::complete()는 cancelled_에 따라 요청 상태에 RequestCancelled를 대입합니다."
         },
         {
-          "claim_id": "catalog/e80ea8945eaf79ed/en",
+          "claim_id": "catalog/055a81a114340a28/en",
           "peers": [
-            "catalog/e80ea8945eaf79ed",
+            "catalog/055a81a114340a28",
             "catalog/78f4b235ce673294",
-            "catalog/78f4b235ce673294/en",
-            "scenarios/queue_request.md/paragraph/37"
+            "catalog/78f4b235ce673294/en"
           ],
           "status": "compatible",
-          "condition": "Cancellation applies to a pending request and its pending buffers.",
-          "actor": "PipelineHandler calls the completion functions; Request::Private performs internal cancellation.",
-          "timing": "Buffer cancellation and notifications precede marking and clearing; completeRequest follows internal cancellation.",
-          "scope": "Source-level completion and cancellation contracts, not an observed callback execution.",
-          "reason": "The English claim preserves the Korean claim's obligations and sequence, and the supplied implementation supports both. The completion-loop peers describe a separate subsequent operation; the analysis representation does not establish or override runtime behavior.",
+          "condition": "Cancellation applies to a pending request; completion status depends on cancelled_.",
+          "actor": "Pipeline handler and Request::Private.",
+          "timing": "Internal cancellation precedes completeRequest; buffer cancellation and notification precede clearing the pending list.",
+          "scope": "Source-level completion and cancellation contract, including the CameraManager thread requirement.",
+          "reason": "The translation preserves the Korean claim's obligations and sequence, which are supported by the cited implementation. The queue-draining claims are consistent with it.",
           "sources": [
             {
               "source_id": "pipeline-requests/completion/buffer-contract",
@@ -21436,33 +21501,29 @@
               "source_quote": "void Request::Private::doCancelRequest()\n{\n\tRequest *request = _o<Request>();\n\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tbuffer->_d()->cancel();\n\t\tcamera_->bufferCompleted.emit(request, buffer);\n\t}\n\n\tcancelled_ = true;\n\tpending_.clear();\n\tnotifiers_.clear();\n\ttimer_.reset();\n}\n\n/**\n * \\brief Cancel a queued request\n *\n * Mark the request and its associated buffers as cancelled and complete it.\n *\n * Set each pending buffer in error state and emit the buffer completion signal\n * before completing the Request.\n */\nvoid Request::Private::cancel()\n{\n\tLIBCAMERA_TRACEPOINT(request_cancel, this);\n\n\tRequest *request = _o<Request>();\n\tASSERT(request->status() == RequestPending);\n\n\tdoCancelRequest();\n}\n\n/**\n * \\brief Reset the request internal data to default values"
             },
             {
-              "source_id": "@analysis/scenario/queue_request",
-              "source_quote": "{\"generator_definitions\": [{\"file\": \"src/sdd/facts/model.py\", \"line\": 73, \"name\": \"Message\", \"sha256\": \"4e0b4766c0d7eab15773e8a9349e6cd49ebd08cc52dfe7b2fba49616d03c1648\", \"text\": \"@dataclass\\nclass Message:\\n    src: str                       # participant display name\\n    dst: str\\n    name: str                      # 호출된 함수 이름\\n    loc: Location | None = None    # 호출 지점\\n    note: str = \\\"\\\"                 # 예: \\\"virtual 후보\\\" (정적으로 확정되지 않은 호출)\"}, {\"file\": \"src/sdd/facts/model.py\", \"line\": 82, \"name\": \"Scenario\", \"sha256\": \"b1f6188925808def6094453b5159214d8be4a2e398d299600b8d190e8236a6e3\", \"text\": \"@dataclass\\nclass Scenario:\\n    id: str\\n    title: str\\n    entry: str                     # from 함수 시그니처\\n    participants: list[str] = field(default_factory=list)\\n    messages: list[Message] = field(default_factory=list)\\n    mermaid: str = \\\"\\\"              # clang-uml 이 만든 Mermaid 본문\\n    unresolved: int = 0            # 정적으로 끊긴 호출 수 (virtual / function pointer)\\n    # 인자로 넘어간 메서드 수. 대상은 알지만 실행 시점과 스레드는 큐·신호 구현이 정한다.\\n    deferred: int = 0\"}, {\"file\": \"src/sdd/facts/callgraph.py\", \"line\": 148, \"name\": \"_deferred_targets\", \"sha256\": \"0b7c4a80ddd83f08782249229a78f9a878bb234dad15ca69fa24966428904a56\", \"text\": \"def _deferred_targets(node: cindex.Cursor, scope: SourceScope, callee_usr: str) -> list[cindex.Cursor]:\\n    \\\"\\\"\\\"호출 인자로 넘어간 메서드·함수 선언을 모은다.\\n\\n    `invokeMethod(&PipelineHandler::queueRequest, ...)` 나 `connect(&Class::slot)` 처럼 메서드를\\n    값으로 넘기면, 그 메서드는 이 호출 자리에서 실행되지 않는다. 실행 시점과 스레드는 큐나 신호\\n    구현이 정하므로 정적 추적으로는 순서를 알 수 없다. 대상 이름은 알 수 있으므로 경계로 기록한다.\\n    중첩된 호출 표현식은 바깥 순회가 따로 보기 때문에 여기서는 들어가지 않는다.\\n    \\\"\\\"\\\"\\n    found: list[cindex.Cursor] = []\\n    seen: set[str] = set()\\n\\n    def walk(n: cindex.Cursor) -> None:\\n        for child in n.get_children():\\n            if child.kind == cindex.CursorKind.CALL_EXPR:\\n                continue\\n            if child.kind == cindex.CursorKind.DECL_REF_EXPR:\\n                target = child.referenced\\n                if (target is not None and target.kind in (METHOD_KINDS | FUNCTION_KINDS)\\n                        and scope.contains(target)):\\n                    usr = target.get_usr()\\n                    if usr and usr != callee_usr and usr not in seen:\\n                        seen.add(usr)\\n                        found.append(target)\\n            walk(child)\\n\\n    walk(node)\\n    return found\"}, {\"file\": \"src/sdd/facts/callgraph.py\", \"line\": 292, \"name\": \"trace\", \"sha256\": \"8769562486ac0baeb37bf1c6d844cc8d2fd1d5c4eefb3e424e21f9e5c68a0ec8\", \"text\": \"def trace(g: Graph, entry: FuncDef, depth: int) -> tuple[list[Message], int, int]:\\n    messages: list[Message] = []\\n    unresolved = 0\\n    deferred = 0\\n\\n    def visit(fd: FuncDef, level: int, path: set[str]) -> None:\\n        nonlocal unresolved, deferred\\n        if level >= depth or len(messages) >= _MAX_MESSAGES:\\n            return\\n        for call in fd.calls:\\n            if call.kind == \\\"deferred\\\":\\n                # 대상은 알지만 이 자리에서 실행되지 않는다. 따라 들어가면 없는 순서를 만들게 된다.\\n                deferred += 1\\n                target = g.defs.get(call.callee_usr)\\n                messages.append(Message(src=fd.owner, dst=(target.owner if target else call.callee_owner),\\n                                        name=call.callee_name, loc=call.loc,\\n                                        note=\\\"예약된 호출, 실행 순서는 정적으로 확인 불가\\\"))\\n                continue\\n            if call.kind in (\\\"pointer\\\", \\\"callable\\\", \\\"unresolved\\\"):\\n                unresolved += 1\\n                label = {\\\"pointer\\\": \\\"함수 포인터, 정적 추적 불가\\\", \\\"callable\\\": \\\"콜백 객체, 정적 추적 불가\\\",\\n                         \\\"unresolved\\\": \\\"정적 추적 불가\\\"}[call.kind]\\n                messages.append(Message(src=fd.owner, dst=call.callee_owner, name=call.callee_name,\\n                                        loc=call.loc, note=label))\\n                continue\\n            targets = [call.callee_usr]\\n            note = \\\"\\\"\\n            if call.kind == \\\"virtual\\\":\\n                over = g.overrides.get(call.callee_usr, [])\\n                # 기반 구현이 있으면(순수 가상이 아니면) 그것도 후보다.\\n                base_def = g.defs.get(call.callee_usr)\\n                targets = ([call.callee_usr] if base_def else []) + over\\n                if len(targets) > 1:\\n                    note = \\\"virtual 후보\\\"\\n                elif targets:\\n                    note = \\\"virtual, 현재 구현 하나\\\"   # 지금은 하나지만 동적 디스패치라는 사실은 남긴다.\\n                else:\\n                    unresolved += 1\\n                    messages.append(Message(src=fd.owner, dst=call.callee_owner, name=call.callee_name,\\n                                            loc=call.loc, note=\\\"virtual, override 없음\\\"))\\n                    continue\\n            for t_usr in targets:\\n                t = g.defs.get(t_usr)\\n                owner = t.owner if t else call.callee_owner\\n                messages.append(Message(src=fd.owner, dst=owner, name=call.callee_name, loc=call.loc, note=note))\\n                if t and t_usr not in path:\\n                    visit(t, level + 1, path | {t_usr})\\n\\n    visit(entry, 0, {entry.usr})\\n    return messages, unresolved, deferred\"}, {\"file\": \"src/sdd/scenario_document.py\", \"line\": 62, \"name\": \"build\", \"sha256\": \"23bf4f1fe1e5c07cf6ab5972431d49b5b0fb800d8197d655d580c851bb886f96\", \"text\": \"    \\\"\\\"\\\"Focus rules select evidence, not prose assertions or execution stages.\\n\\n    Legacy flat facts do not carry branch ancestry. Draw a call *map*, not a\\n    sequence across candidates. The full extracted trace stays in this page.\\n    \\\"\\\"\\\"\"}], \"kind\": \"analysis-definition\", \"scenario\": {\"annotated_messages\": [{\"dst\": \"PipelineHandler\", \"loc\": {\"file\": \"src/libcamera/camera.cpp\", \"line\": 1376}, \"name\": \"queueRequest\", \"note\": \"예약된 호출, 실행 순서는 정적으로 확인 불가\", \"src\": \"Camera\"}], \"deferred\": 1, \"entry\": \"Camera::queueRequest(Request *)\", \"id\": \"queue_request\", \"messages_total\": 80, \"unresolved\": 0}, \"scope\": \"Analysis representation only; not product runtime, hardware or callback-thread evidence.\"}"
+              "source_id": "pipeline-requests/completion/cancel-status-transition",
+              "source_quote": "void Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()"
             }
           ],
-          "claim_quote": "Both completeBuffer and completeRequest must be called from the CameraManager thread. cancelRequest calls completeRequest after internally cancelling the request. Internal cancellation cancels each pending buffer and emits bufferCompleted for the request and that buffer, then marks the request as cancelled and clears the pending buffer list."
+          "claim_quote": "Both completeBuffer and completeRequest must be called from the CameraManager thread. cancelRequest first performs internal cancellation and then calls completeRequest. Internal cancellation cancels each pending buffer and emits bufferCompleted for that buffer, then sets cancelled_ to true and clears the pending buffer list. Afterward, Request::Private::complete(), called by completeRequest, sets the request status to RequestCancelled depending on cancelled_."
         },
         {
           "claim_id": "catalog/78f4b235ce673294",
           "peers": [
             "catalog/78f4b235ce673294/en",
-            "catalog/e80ea8945eaf79ed",
-            "catalog/e80ea8945eaf79ed/en"
+            "catalog/055a81a114340a28",
+            "catalog/055a81a114340a28/en"
           ],
           "status": "compatible",
-          "condition": "The loop examines the queue front; a pending front stops it, while a non-pending front is subject to the assertion.",
-          "actor": "PipelineHandler::completeRequest processes queued requests and invokes camera request completion.",
-          "timing": "A pending front remains queued; otherwise the assertion precedes removal and requestComplete.",
-          "scope": "The source-level loop and the resulting submission-order blocking, not a measured execution.",
-          "reason": "The source supports both branches and their order. The translation agrees, and the cancellation peers describe how completeRequest can be reached without changing the loop contract.",
+          "condition": "The loop examines a nonempty queued-request list; its behavior depends on the front request's status.",
+          "actor": "PipelineHandler::completeRequest and the camera.",
+          "timing": "A pending front stops the loop; otherwise the assertion precedes removal and requestComplete.",
+          "scope": "Queue-draining behavior in the supplied implementation, not a measured execution.",
+          "reason": "The code supports both branches and the negated pending-buffer assertion. The English translation preserves these conditions and is consistent with the cancellation claims.",
           "sources": [
             {
               "source_id": "camera-model/concurrency/completion",
               "source_quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)\n{\n\tCamera *camera = request->_d()->camera();\n\tcamera->bufferCompleted.emit(request, buffer);\n\treturn request->_d()->completeBuffer(buffer);\n}\n\n/**\n * \\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}\n\n/**\n * \\brief Cancel request and signal its completion\n * \\param[in] request The request to cancel\n *\n * This function cancels and completes the request. The same rules as for\n * completeRequest() apply.\n */\nvoid PipelineHandler::cancelRequest(Request *request)\n{\n\trequest->_d()->cancel();\n\tcompleteRequest(request);\n}\n\n/**\n * \\brief Retrieve the absolute path to a platform configuration file"
-            },
-            {
-              "source_id": "request-lifecycle/resources/cancel-rules",
-              "source_quote": "\\brief Cancel request and signal its completion\n * \\param[in] request The request to cancel\n *\n * This function cancels and completes the request. The same rules as for\n * completeRequest() apply.\n */\nvoid PipelineHandler::cancelRequest(Request *request)\n{\n\trequest->_d()->cancel();\n\tcompleteRequest(request);\n}\n\n/**\n * \\brief Retrieve the absolute path to a platform configuration file"
             }
           ],
           "claim_quote": "completeRequest()의 조사에서는 큐 선두 요청의 상태가 Request::RequestPending인지 관찰합니다. 해당 상태이면 break로 반복문을 벗어나 선두 요청이 큐에 남고, 제출 순서에 따라 뒤에서 이미 완료된 요청도 requestComplete()로 반환되지 않는 분기를 살펴봅니다. 선두가 해당 상태가 아니면 ASSERT(!req->hasPendingBuffers());가 대기 중인 버퍼가 없다는 부정 조건을 검사한 뒤 pop_front()로 선두를 제거하고 requestComplete(req)를 호출하는 순서를 관찰합니다."
@@ -21471,23 +21532,19 @@
           "claim_id": "catalog/78f4b235ce673294/en",
           "peers": [
             "catalog/78f4b235ce673294",
-            "catalog/e80ea8945eaf79ed",
-            "catalog/e80ea8945eaf79ed/en"
+            "catalog/055a81a114340a28",
+            "catalog/055a81a114340a28/en"
           ],
           "status": "compatible",
-          "condition": "The loop examines the queue front; a pending front stops it, while a non-pending front is subject to the assertion.",
-          "actor": "PipelineHandler::completeRequest processes queued requests and invokes camera request completion.",
-          "timing": "A pending front remains queued; otherwise the assertion precedes removal and requestComplete.",
-          "scope": "The source-level loop and the resulting submission-order blocking, not a measured execution.",
-          "reason": "The English description preserves the Korean branches, negation and ordering, all supported by the source. The cancellation peers describe a separate route into completion.",
+          "condition": "The loop examines a nonempty queued-request list; its behavior depends on the front request's status.",
+          "actor": "PipelineHandler::completeRequest and the camera.",
+          "timing": "A pending front stops the loop; otherwise the assertion precedes removal and requestComplete.",
+          "scope": "Queue-draining behavior in the supplied implementation, not a measured execution.",
+          "reason": "The translation preserves the Korean claim's conditions, negation and event order, which match the code. It is consistent with the cancellation claims.",
           "sources": [
             {
               "source_id": "camera-model/concurrency/completion",
               "source_quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)\n{\n\tCamera *camera = request->_d()->camera();\n\tcamera->bufferCompleted.emit(request, buffer);\n\treturn request->_d()->completeBuffer(buffer);\n}\n\n/**\n * \\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}\n\n/**\n * \\brief Cancel request and signal its completion\n * \\param[in] request The request to cancel\n *\n * This function cancels and completes the request. The same rules as for\n * completeRequest() apply.\n */\nvoid PipelineHandler::cancelRequest(Request *request)\n{\n\trequest->_d()->cancel();\n\tcompleteRequest(request);\n}\n\n/**\n * \\brief Retrieve the absolute path to a platform configuration file"
-            },
-            {
-              "source_id": "request-lifecycle/resources/cancel-rules",
-              "source_quote": "\\brief Cancel request and signal its completion\n * \\param[in] request The request to cancel\n *\n * This function cancels and completes the request. The same rules as for\n * completeRequest() apply.\n */\nvoid PipelineHandler::cancelRequest(Request *request)\n{\n\trequest->_d()->cancel();\n\tcompleteRequest(request);\n}\n\n/**\n * \\brief Retrieve the absolute path to a platform configuration file"
             }
           ],
           "claim_quote": "In the investigation of completeRequest(), observe whether the state of the front request in the queue is Request::RequestPending. If it is, observe that the loop exits through break and the front request remains in the queue, and examine the branch in which an already completed request later in submission order is not returned through requestComplete(). If the front is not in that state, observe the order in which ASSERT(!req->hasPendingBuffers());, which checks the negated condition that no buffers are pending, is followed by removing the front with pop_front() and calling requestComplete(req)."
@@ -21508,11 +21565,11 @@
             "catalog/2eace40003f58d25/en"
           ],
           "status": "compatible",
-          "condition": "The single-state access check uses its default allowDisconnected value; callers must observe the Running-state precondition.",
-          "actor": "Camera::queueRequest invokes Camera::Private::isAccessAllowed; the caller is responsible for the stated precondition.",
-          "timing": "The disconnect check precedes the state comparison and any negative result is returned before later validation and dispatch.",
-          "scope": "API and implementation contract for request acceptance, not proof of callback execution or its thread.",
-          "reason": "The access check, error precedence, thread-safe annotation and caller obligation are supported. The translation and acceptance peer agree; the dispatch and analysis peers cover subsequent processing and limits of the static call list.",
+          "condition": "queueRequest uses the default allowDisconnected=false; a disconnection takes precedence over a state mismatch.",
+          "actor": "Camera::queueRequest, Camera::Private::isAccessAllowed, and the caller.",
+          "timing": "The access check occurs before subsequent acceptance checks; the caller's Running-state obligation applies at invocation.",
+          "scope": "API contract and source-level access checks; the static call representation alone does not establish execution thread or scheduling guarantees.",
+          "reason": "The source and default argument support the error precedence, unchanged return and caller obligation. The translation and primary acceptance claim agree; the dispatch and analysis peers address later processing and representation limits without conflict.",
           "sources": [
             {
               "source_id": "scenario-queue_request/acceptance/queue",
@@ -21553,11 +21610,11 @@
             "catalog/2eace40003f58d25/en"
           ],
           "status": "compatible",
-          "condition": "The single-state access check uses its default allowDisconnected value; callers must observe the Running-state precondition.",
-          "actor": "Camera::queueRequest invokes Camera::Private::isAccessAllowed; the caller is responsible for the stated precondition.",
-          "timing": "The disconnect check precedes the state comparison and any negative result is returned before later validation and dispatch.",
-          "scope": "API and implementation contract for request acceptance, not proof of callback execution or its thread.",
-          "reason": "The translation preserves the Korean claim's conditions, precedence and obligation, and the source supports them. The dispatch and analysis peers concern subsequent processing and the limits of static representation.",
+          "condition": "queueRequest uses the default allowDisconnected=false; a disconnection takes precedence over a state mismatch.",
+          "actor": "Camera::queueRequest, Camera::Private::isAccessAllowed, and the caller.",
+          "timing": "The access check occurs before subsequent acceptance checks; the caller's Running-state obligation applies at invocation.",
+          "scope": "API contract and source-level access checks; the static call representation alone does not establish execution thread or scheduling guarantees.",
+          "reason": "The translation preserves the Korean claim's conditions, error precedence and caller obligation. The primary acceptance claim agrees, and the dispatch and analysis peers describe distinct, consistent scopes.",
           "sources": [
             {
               "source_id": "scenario-queue_request/acceptance/queue",
@@ -23226,16 +23283,17 @@
             "behavior"
           ]
         },
-        "catalog/e80ea8945eaf79ed": {
+        "catalog/055a81a114340a28": {
           "document": "pipeline-requests.md",
           "topic": null,
           "language": "ko",
-          "text": "completeBuffer와 completeRequest는 모두 CameraManager 스레드에서 호출해야 합니다. cancelRequest는 요청을 내부 취소한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 요청과 버퍼에 대해 bufferCompleted를 발생시킨 뒤, 요청을 취소 상태로 표시하고 대기 버퍼 목록을 비웁니다.",
+          "text": "completeBuffer와 completeRequest는 모두 CameraManager 스레드에서 호출해야 합니다. cancelRequest는 내부 취소를 먼저 수행한 뒤 completeRequest를 호출합니다. 내부 취소는 각 대기 버퍼를 취소하고 해당 버퍼의 bufferCompleted를 발생시킨 다음, cancelled_를 true로 설정하고 대기 버퍼 목록을 비웁니다. 이후 completeRequest에서 호출하는 Request::Private::complete()는 cancelled_에 따라 요청 상태에 RequestCancelled를 대입합니다.",
           "evidence": [
             "pipeline-requests/completion/buffer-contract",
             "request-lifecycle/journey/request-notice",
             "request-lifecycle/resources/cancel-rules",
-            "pipeline-requests/completion/pending-cancel-code"
+            "pipeline-requests/completion/pending-cancel-code",
+            "pipeline-requests/completion/cancel-status-transition"
           ],
           "origin_claims": [
             "pipeline-requests.md/completion/6"
@@ -23244,18 +23302,19 @@
             "behavior"
           ]
         },
-        "catalog/e80ea8945eaf79ed/en": {
+        "catalog/055a81a114340a28/en": {
           "document": "pipeline-requests.md",
           "topic": null,
           "language": "en",
-          "text": "Both completeBuffer and completeRequest must be called from the CameraManager thread. cancelRequest calls completeRequest after internally cancelling the request. Internal cancellation cancels each pending buffer and emits bufferCompleted for the request and that buffer, then marks the request as cancelled and clears the pending buffer list.",
+          "text": "Both completeBuffer and completeRequest must be called from the CameraManager thread. cancelRequest first performs internal cancellation and then calls completeRequest. Internal cancellation cancels each pending buffer and emits bufferCompleted for that buffer, then sets cancelled_ to true and clears the pending buffer list. Afterward, Request::Private::complete(), called by completeRequest, sets the request status to RequestCancelled depending on cancelled_.",
           "evidence": [
             "pipeline-requests/completion/buffer-contract",
             "request-lifecycle/journey/request-notice",
             "request-lifecycle/resources/cancel-rules",
-            "pipeline-requests/completion/pending-cancel-code"
+            "pipeline-requests/completion/pending-cancel-code",
+            "pipeline-requests/completion/cancel-status-transition"
           ],
-          "translation_of": "catalog/e80ea8945eaf79ed",
+          "translation_of": "catalog/055a81a114340a28",
           "origin_claims": [
             "pipeline-requests.md/completion/6"
           ],
@@ -23653,6 +23712,12 @@
           "line": 139,
           "text": "void Request::Private::doCancelRequest()\n{\n\tRequest *request = _o<Request>();\n\n\tfor (FrameBuffer *buffer : pending_) {\n\t\tbuffer->_d()->cancel();\n\t\tcamera_->bufferCompleted.emit(request, buffer);\n\t}\n\n\tcancelled_ = true;\n\tpending_.clear();\n\tnotifiers_.clear();\n\ttimer_.reset();\n}\n\n/**\n * \\brief Cancel a queued request\n *\n * Mark the request and its associated buffers as cancelled and complete it.\n *\n * Set each pending buffer in error state and emit the buffer completion signal\n * before completing the Request.\n */\nvoid Request::Private::cancel()\n{\n\tLIBCAMERA_TRACEPOINT(request_cancel, this);\n\n\tRequest *request = _o<Request>();\n\tASSERT(request->status() == RequestPending);\n\n\tdoCancelRequest();\n}\n\n/**\n * \\brief Reset the request internal data to default values",
           "sha256": "b74bd2ff612eb08a3fcb85d16630e0f6d54c5068a2309d9ae192f3308a9a3780"
+        },
+        "pipeline-requests/completion/cancel-status-transition": {
+          "file": "src/libcamera/request.cpp",
+          "line": 125,
+          "text": "void Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()",
+          "sha256": "2efec13b708bff2ca232445ef868877a30facef1b6fa17ddcff47bfd013e2289"
         }
       },
       "source_aliases": {
@@ -23720,7 +23785,8 @@
         "pipeline-requests/queue/waiting-code": "pipeline-requests/queue/waiting-code",
         "pipeline-requests/completion/request-code": "pipeline-requests/completion/request-code",
         "pipeline-requests/completion/cancel-contract": "request-lifecycle/resources/cancel-rules",
-        "pipeline-requests/completion/pending-cancel-code": "pipeline-requests/completion/pending-cancel-code"
+        "pipeline-requests/completion/pending-cancel-code": "pipeline-requests/completion/pending-cancel-code",
+        "pipeline-requests/completion/cancel-status-transition": "pipeline-requests/completion/cancel-status-transition"
       },
       "excluded_navigation": [
         {
@@ -23770,7 +23836,7 @@
         },
         {
           "document": "pipeline-requests.md",
-          "paragraph": 75,
+          "paragraph": 77,
           "text": "다음 단계: [시스템 개요](overview.md)\n",
           "target": "overview.md",
           "title": "시스템 개요",
@@ -24003,15 +24069,15 @@
         },
         {
           "batch": 17,
-          "request_sha256": "f562e09e7f5b481dd9e40bf16410be6c6e720f11f640d6f465c5522fb4ada016",
-          "review_request_sha256": "f562e09e7f5b481dd9e40bf16410be6c6e720f11f640d6f465c5522fb4ada016",
+          "request_sha256": "28a7ad09fa25ec161e54b0f4406c73c64b63f259d4de4cc9a69d842f1c45b642",
+          "review_request_sha256": "28a7ad09fa25ec161e54b0f4406c73c64b63f259d4de4cc9a69d842f1c45b642",
           "current_source_commit": "c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78",
           "reviewed_source_commit": "c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78",
           "receipts": [
-            "67346d35e7574731b17b4fd67bd94fb6/001.receipt.json"
+            "53b4357e12e54c48b5fa21a65999ae95/009.receipt.json"
           ],
-          "receipt_tag": "seed-scenario-analysis-17",
-          "receipt_sha256": "3101242599c068301192f9e21f4dd0f1a40f53e76bcaf31995dfc5d9b4b1645e"
+          "receipt_tag": "contract-d8d09fd3e57e46b7ac6fe32ddce4269f-0-78",
+          "receipt_sha256": "73043948a41240a7c817ca39dfea6036d816dca424bf05b50c780af93faaf6b5"
         },
         {
           "batch": 18,
@@ -25692,14 +25758,14 @@
       ]
     }
   ],
-  "fresh_batches": 0,
-  "reused_batches": 86,
+  "fresh_batches": 7,
+  "reused_batches": 79,
   "source_equivalent_batches": 8,
   "human_review": "pending",
   "assessment": "automatic model review; not human approval",
   "comparison_scope": "Every target is compared with supplied sources and all primary claims. Secondary pairs are compared when in the same batch; this is not an exhaustive all-pairs proof.",
   "audit_run": {
-    "id": "f315307b3a334faf8ba9b47c13592126",
+    "id": "d8d09fd3e57e46b7ac6fe32ddce4269f",
     "document": 0,
     "phase": 0
   },
