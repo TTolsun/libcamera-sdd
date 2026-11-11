@@ -1,0 +1,21 @@
+flowchart TB
+
+  v_n0["When cache#95; exists and the <br/>device is not Stopping, <br/>queueBuffer calls get. <br/>Neither error newly <br/>registers this buffer in <br/>queuedBuffers#95;."]
+  v_n1{"get returns -ENOENT if it <br/>cannot select an available <br/>cache entry. At that point, <br/>there is no guard or <br/>acquired index."}
+  v_n2{"The common validation <br/>returns -EINVAL if the <br/>number of planes is smaller <br/>than the device format <br/>requires."}
+  v_n3{"The isContiguous check <br/>tests contiguity when the <br/>number of planes differs <br/>from the format count and <br/>returns -EINVAL if the <br/>buffer is not contiguous."}
+  v_n4["On return after common <br/>validation fails, the <br/>scope#95;exit guard calls put <br/>on the acquired index, <br/>making that cache entry <br/>available again."]
+  v_n5["After the common checks and <br/>remaining preliminary <br/>processing pass, <br/>VIDIOC#95;QBUF is called. <br/>Details after ioctl are <br/>outside this scope."]
+  v_n6["queueRequestDevice <br/>processes controls first <br/>and returns a negative ret <br/>from queueBuffer unchanged. <br/>This path provides no <br/>guarantee that all controls <br/>are applied and shows no <br/>rollback."]
+  v_n7{"doQueueRequest checks <br/>whether the return value <br/>from queueRequestDevice is <br/>nonzero."}
+  v_n8["cancelRequest cancels and <br/>completes the request. The <br/>submission ordering and <br/>calling rules of <br/>completeRequest apply."]
+  v_n0 -->|"queueBuffer requests a <br/>cache index."| v_n1
+  v_n1 -->|"When get acquires an index, <br/>the function creates the <br/>guard and then checks <br/>planes. · ret #60; 0 #91;false#93;"| v_n2
+  v_n1 -->|"When queueBuffer <br/>immediately returns the <br/>negative ret from get, <br/>queueRequestDevice passes <br/>it on unchanged. · ret #60; 0 <br/>#91;true#93;"| v_n6
+  v_n2 -->|"If there are too few <br/>planes, the guard calls put <br/>on the index when returning <br/>-EINVAL. · planes.size#40;#41; #60; <br/>numV4l2Planes #91;true#93;"| v_n4
+  v_n2 -->|"If there are enough planes, <br/>the function checks the <br/>required contiguity. · <br/>planes.size#40;#41; #60; <br/>numV4l2Planes #91;false#93;"| v_n3
+  v_n3 -->|"If the contiguity <br/>requirement is not met, the <br/>guard calls put on the <br/>index when returning <br/>-EINVAL. · planes.size#40;#41; #33;#61; <br/>numV4l2Planes #38;#38; <br/>#33;buffer-#62;#95;d#40;#41;-#62;isContiguous#40;<br/>#41; #91;true#93;"| v_n4
+  v_n3 -->|"After the contiguity check <br/>and the remaining <br/>preliminary processing <br/>pass, execution reaches <br/>VIDIOC#95;QBUF. · <br/>planes.size#40;#41; #33;#61; <br/>numV4l2Planes #38;#38; <br/>#33;buffer-#62;#95;d#40;#41;-#62;isContiguous#40;<br/>#41; #91;false#93;"| v_n5
+  v_n4 -->|"After the guard calls put, <br/>queueRequestDevice returns <br/>queueBuffer#39;s -EINVAL <br/>unchanged."| v_n6
+  v_n6 -->|"doQueueRequest receives the <br/>original error return value <br/>from queueRequestDevice."| v_n7
+  v_n7 -->|"If the return value is <br/>nonzero, doQueueRequest <br/>calls cancelRequest. · ret <br/>#91;true#93;"| v_n8

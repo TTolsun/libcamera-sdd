@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IPU3 LSC and State Connection · libcamera design document</title><link rel="stylesheet" href="../assets/reading.css?v=dd3415510a"><link rel="alternate" hreflang="ko" href="../ipu3-lsc.html"><link rel="alternate" hreflang="en" href="ipu3-lsc.html"></head>
+<body><a class="skip" href="#main">Go to body text</a>
+<header class="site-header"><a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera Design Document</a>
+<div class="header-actions"><details class="language-selector"><summary aria-label="Choose language">English ▾</summary><nav><a lang="ko" hreflang="ko" href="../ipu3-lsc.html">한국어</a><a lang="en" hreflang="en" href="ipu3-lsc.html" aria-current="true">English</a></nav></details><button id="search-open" hidden>Find document <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button></div></header>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Document menu"><details class="nav-group" data-nav-id="group-eb5fc4597bcab08dd609eb65" open><summary>Get started</summary><a href="index.html">Document guide</a><a href="glossary.html">Glossary</a></details><details class="nav-group" data-nav-id="group-d671e203b93701cc4b6e3099" open><summary>For Vendor</summary><details class="nav-section" data-nav-id="task-d6e030e93c998b7019a15936"><summary>Adoption decision</summary><a href="vendor-overview.html">libcamera product overview</a><a href="vendor-assurance.html">Support scope and validation</a></details><details class="nav-section" data-nav-id="task-3e788d9bf0a3e06fa9605fc7"><summary>Integration implementation</summary><a href="vendor-integration.html">Integration guide</a><a href="pipeline-handler.html">Pipeline Handler</a><a href="pipeline-requests.html">Pipeline Request Submission and Completion</a><a href="ipa.html">IPA management and implementation entry points</a><a href="ipa-algorithms.html">IPA Tuning and Software ISP</a></details><details class="nav-section" data-nav-id="task-4e6bf6a82fb4765e60a97382"><summary>Per-device feature implementation</summary><a href="ipu3-lsc-flow.html">IPU3 LSC Configuration and Frame Processing</a><a href="ipu3-lsc-prepare.html">IPU3 Lens Correction Table Preparation</a><a href="rkisp1-dewarp.html">RKISP1 Per-Camera Distortion Correction</a></details></details><details class="nav-group" data-nav-id="group-8c6df661e792ad45c78bb2ef" open><summary>For Developer</summary><details class="nav-section" data-nav-id="task-99be7fb5d49c7ce6147f371a"><summary>Structural understanding</summary><a href="team-overview.html">What this project does</a><a href="overview.html">System overview</a><a href="onboarding.html">Run it and read the design rationale</a><a href="camera-model.html">Camera and request model</a><a href="camera-requests.html">Request object and buffer lifetime</a></details><details class="nav-section" data-nav-id="task-1fd1cf94625ce3af7bee3dfe"><summary>Behavior Tracing and Problem Diagnosis</summary><a href="request-lifecycle.html">Request handling and problem diagnosis</a><a href="request-diagnosis.html">Investigation of configuration and request errors</a><a href="scenarios/index.html">Key scenario</a><details class="nav-branch" data-nav-id="branch-6cdafc2d5a06483de679705c"><summary>6 sub-documents</summary><a class="nav-sub" href="scenarios/manager_start.html">Camera discovery</a><a class="nav-sub" href="scenarios/configure.html">Stream configuration</a><a class="nav-sub" href="scenarios/camera_start.html">Capture start</a><a class="nav-sub" href="scenarios/queue_request.html">Request submission</a><a class="nav-sub" href="scenarios/complete_request.html">Request completion notification</a><a class="nav-sub" href="scenarios/camera_stop.html">Request to end capture</a></details><a href="ipa-module-validation.html">IPA module information check and missing signature file</a><a href="framebuffer-allocator.html">FrameBufferAllocator Failures and Reference Lifetime</a><a href="official-cam-validation.html">Verifying virtual capture with the official cam in WSL</a></details><details class="nav-section" data-nav-id="task-832d04faf930a39f3dde0065"><summary>Code exploration</summary><a href="component-index.html">Component index</a><a href="ipu3-lsc.html" aria-current="page">IPU3 LSC and State Connection</a></details></details></nav><p class="sidebar-note">Extract the structure from the code and review it together with <br> evidence.</p></aside>
+<main id="main"><p class="breadcrumb">For Developer <span>/</span> IPU3 LSC and state linkage</p><h1>IPU3 LSC and State Connection</h1><div class="page-state"><span class="review-state">Before human review</span><span>Automated check passed</span><span class="generation-method">Authored: structure extracted from code</span><a class="state-help" href="#page-evidence">State description ↓</a></div>
+<details class="mobile-toc"><summary>Table of contents of this page</summary><div class="toc">
+<ul>
+<li><a href="#구조-설명">Structure description</a></li>
+<li><a href="#클래스-관계">Class relationships</a></li>
+<li><a href="#관련-자유-함수">Related free functions</a></li>
+<li><a href="#관련-클래스">Related classes</a></li>
+</ul>
+</div>
+</details><p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p><strong>Check the LSC implementation in the current commit and the IPU3 state connection.</strong></p>
+<details class="page-terms">
+<summary>Terms in this document: IPU3, LSC, IPA</summary>
+<ul>
+<li><strong>IPU3</strong> (Intel Image Processing Unit 3): A camera ISP included in some Intel laptop processors. libcamera has a Pipeline Handler and an IPA for this device.</li>
+<li><strong>LSC</strong> (Lens Shading Correction): Processing that corrects lens shading, the phenomenon in which the edges of an image are darker than the center or colors are distorted due to lens characteristics. It is applied by multiplying by a correction table that divides the image into a grid.</li>
+<li><strong>IPA</strong> (Image Processing Algorithms): A separate module (.so) that contains image quality algorithms. It reads the statistics sent by the ISP and calculates the ISP settings to use for the next frame. It is separated from the libcamera core so that manufacturers can provide it without publishing its source.</li>
+</ul>
+<p>Other terms can be found in <a href="glossary.html">Glossary</a>.</p>
+</details>
+<h2 id="구조-설명">Structure description</h2>
+<p data-sdd-evidence="[[&quot;src/ipa/libipa/lsc.h:79&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/libipa/lsc.h#L79\&quot;&gt;&lt;code&gt;src/ipa/libipa/lsc.h:79&lt;/code&gt;&lt;/a&gt;&quot;]]">The extracted direct base class of <code>libcamera::ipa::LscAlgorithm</code> is <code>libcamera::ipa::LscAlgorithmBase</code>.</p>
+<p data-sdd-evidence="[[&quot;src/ipa/ipu3/ipa_context.h:46&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/ipa_context.h#L46\&quot;&gt;&lt;code&gt;src/ipa/ipu3/ipa_context.h:46&lt;/code&gt;&lt;/a&gt;&quot;]]"><code>libcamera::ipa::ipu3::IPAActiveState</code> has no extracted direct base class. A field reference relationship to <code>libcamera::ipa::lsc::ActiveState</code> was extracted.</p>
+<p data-sdd-evidence="[[&quot;src/ipa/ipu3/ipa_context.h:73&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/ipa_context.h#L73\&quot;&gt;&lt;code&gt;src/ipa/ipu3/ipa_context.h:73&lt;/code&gt;&lt;/a&gt;&quot;]]"><code>libcamera::ipa::ipu3::IPAContext</code> has no extracted direct base class. A field reference relationship to <code>libcamera::ipa::ipu3::IPAActiveState</code> was extracted. A field reference relationship to <code>libcamera::ipa::ipu3::IPASessionConfiguration</code> was extracted.</p>
+<p data-sdd-evidence="[[&quot;src/ipa/ipu3/ipa_context.h:60&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/ipa_context.h#L60\&quot;&gt;&lt;code&gt;src/ipa/ipu3/ipa_context.h:60&lt;/code&gt;&lt;/a&gt;&quot;]]">The extracted direct base class of <code>libcamera::ipa::ipu3::IPAFrameContext</code> is <code>libcamera::ipa::FrameContext</code>. A field reference relationship to <code>libcamera::ipa::lsc::FrameContext</code> was extracted.</p>
+<p data-sdd-evidence="[[&quot;src/ipa/ipu3/ipa_context.h:32&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/ipa_context.h#L32\&quot;&gt;&lt;code&gt;src/ipa/ipu3/ipa_context.h:32&lt;/code&gt;&lt;/a&gt;&quot;]]"><code>libcamera::ipa::ipu3::IPASessionConfiguration</code> has no extracted direct base class.</p>
+<p data-sdd-evidence="[[&quot;src/ipa/ipu3/algorithms/lsc.h:21&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.h#L21\&quot;&gt;&lt;code&gt;src/ipa/ipu3/algorithms/lsc.h:21&lt;/code&gt;&lt;/a&gt;&quot;]]">The extracted direct base class of <code>libcamera::ipa::ipu3::algorithms::Lsc</code> is <code>libcamera::ipa::ipu3::Algorithm</code>. A field reference relationship to <code>libcamera::ipa::LscAlgorithm</code> was extracted.</p>
+<p data-sdd-evidence="[[&quot;src/ipa/libipa/lsc.h:28&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/libipa/lsc.h#L28\&quot;&gt;&lt;code&gt;src/ipa/libipa/lsc.h:28&lt;/code&gt;&lt;/a&gt;&quot;]]"><code>libcamera::ipa::lsc::ActiveState</code> has no extracted direct base class.</p>
+<p data-sdd-evidence="[[&quot;src/ipa/libipa/lsc.h:32&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/libipa/lsc.h#L32\&quot;&gt;&lt;code&gt;src/ipa/libipa/lsc.h:32&lt;/code&gt;&lt;/a&gt;&quot;]]"><code>libcamera::ipa::lsc::FrameContext</code> has no extracted direct base class.</p><details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>8</span></summary><ul><li><code>src/ipa/libipa/lsc.h</code><span class="evidence-lines"><a aria-label="src/ipa/libipa/lsc.h:79" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/libipa/lsc.h#L79"><code>L79</code></a> · <a aria-label="src/ipa/libipa/lsc.h:28" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/libipa/lsc.h#L28"><code>L28</code></a> · <a aria-label="src/ipa/libipa/lsc.h:32" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/libipa/lsc.h#L32"><code>L32</code></a></span></li><li><code>src/ipa/ipu3/ipa_context.h</code><span class="evidence-lines"><a aria-label="src/ipa/ipu3/ipa_context.h:46" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/ipa_context.h#L46"><code>L46</code></a> · <a aria-label="src/ipa/ipu3/ipa_context.h:73" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/ipa_context.h#L73"><code>L73</code></a> · <a aria-label="src/ipa/ipu3/ipa_context.h:60" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/ipa_context.h#L60"><code>L60</code></a> · <a aria-label="src/ipa/ipu3/ipa_context.h:32" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/ipa_context.h#L32"><code>L32</code></a></span></li><li><code>src/ipa/ipu3/algorithms/lsc.h</code><span class="evidence-lines"><a aria-label="src/ipa/ipu3/algorithms/lsc.h:21" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.h#L21"><code>L21</code></a></span></li></ul></details>
+<!-- sdd:class-diagram -->
+<h2 id="클래스-관계">Class relationships</h2>
+<p>Arrow labels show the extracted relationship, and dashed lines indicate inheritance. Arrows point to the referenced target or base class. They do not indicate call order.</p>
+<pre class="mermaid">flowchart LR
+  c0["ipa::FrameContext"]:::context
+  c1["ipa::LscAlgorithm"]
+  c2["ipa::LscAlgorithmBase"]:::context
+  c3["ipa::ipu3::Algorithm"]:::context
+  c4["ipa::ipu3::IPAActiveState"]
+  c5["ipa::ipu3::IPAContext"]
+  c6["ipa::ipu3::IPAFrameContext"]
+  c7["ipa::ipu3::IPASessionConfiguration"]
+  c8["ipa::ipu3::algorithms::Lsc"]
+  c9["ipa::lsc::ActiveState"]
+  c10["ipa::lsc::FrameContext"]
+  c1 -.-&gt;|inheritance| c2
+  c4 --&gt;|field reference| c9
+  c5 --&gt;|field reference| c4
+  c5 --&gt;|field reference| c7
+  c6 -.-&gt;|inheritance| c0
+  c6 --&gt;|field reference| c10
+  c8 --&gt;|field reference| c1
+  c8 -.-&gt;|inheritance| c3
+  classDef context fill:#fafafa,stroke:#aaa,stroke-dasharray:4 3,color:#555</pre>
+<!-- /sdd:class-diagram -->
+
+<h2 id="관련-자유-함수">Related free functions</h2>
+<div class="table-scroll stack" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Location</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td data-label="Function"><code>libcamera::ipa::ipu3::algorithms::logCategoryIPU3Lsc()</code></td>
+<td data-label="Location"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L29"><code>src/ipa/ipu3/algorithms/lsc.cpp:29</code></a></td>
+<td data-label="Description">IPU3 Lens Shading Correction algorithm</td>
+</tr>
+<tr>
+<td data-label="Function"><code>libcamera::ipa::ipu3::algorithms::quantize()</code></td>
+<td data-label="Location"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L142"><code>src/ipa/ipu3/algorithms/lsc.cpp:142</code></a></td>
+<td data-label="Description">Needs review</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="관련-클래스">Related classes</h2>
+<p>Check declarations, inheritance, and comments at each class link.</p><ul class="related-symbols"><li><a href="component-index.html#symbol-35864770c9b19571"><code>libcamera::ipa::LscAlgorithm</code></a></li><li><a href="component-index.html#symbol-3ad1329ffa9faf72"><code>libcamera::ipa::ipu3::IPAActiveState</code></a></li><li><a href="component-index.html#symbol-d69ce173b81f15c7"><code>libcamera::ipa::ipu3::IPAContext</code></a></li><li><a href="component-index.html#symbol-95c43781c510c214"><code>libcamera::ipa::ipu3::IPAFrameContext</code></a></li><li><a href="component-index.html#symbol-8fcfdbd488390391"><code>libcamera::ipa::ipu3::IPASessionConfiguration</code></a></li><li><a href="component-index.html#symbol-917573daa436fa73"><code>libcamera::ipa::ipu3::algorithms::Lsc</code></a></li><li><a href="component-index.html#symbol-e48939394fd77620"><code>libcamera::ipa::lsc::ActiveState</code></a></li><li><a href="component-index.html#symbol-d71d12576e0d63bf"><code>libcamera::ipa::lsc::FrameContext</code></a></li></ul>
+
+</article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Structure description built from extracted facts</dd><dt>Validation scope</dt><dd>Classes and relationships are composed from facts. Runtime behavior is not verified.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>be7e83e91348250c015aad6d6f59f1468555bae8</code></dd><dt>Document generation time</dt><dd><code>2026-10-29 20:32:18+00:00</code></dd><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>src/ipa/ipu3/algorithms/lsc.cpp</code>, <code>src/ipa/ipu3/algorithms/lsc.h</code>, <code>src/ipa/ipu3/ipa_context.h</code>, <code>src/ipa/libipa/lsc.h</code></li><li>Evidence level: code check (static analysis, simple_compdb configuration, commit <code>212c689fcf</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status record date: 2026-10-30 · Before human review</li></ul></details><a href="../ipu3-lsc.md">Markdown source ↗</a> <a href="ipu3-lsc.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="component-index.html"><small>Previous</small> Component index ←</a><a class="next" href="ipu3-lsc-flow.html"><small>Next</small>IPU3 LSC Configuration and Frame Processing →</a></nav>
+<footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
+<aside class="page-toc"><nav aria-label="Table of contents for this page"><p>On this page</p><div class="toc">
+<ul>
+<li><a href="#구조-설명">Structure description</a></li>
+<li><a href="#클래스-관계">Class relationships</a></li>
+<li><a href="#관련-자유-함수">Related free functions</a></li>
+<li><a href="#관련-클래스">Related classes</a></li>
+</ul>
+</div>
+</nav></aside></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find document</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search documents, sections, terms, and code elements</label><input id="search-input" type="search" autocomplete="off" placeholder="Example: Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Diagram element and function names"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Collapse">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to screen</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">Drag with a mouse or swipe with touch to move the diagram. "Fit to screen" shows an overview of the whole diagram.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="Zoomed diagram"><div id="diagram-canvas"></div></div></dialog>
+<script id="site-config" type="application/json">{"root": "./", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "dd74862a2c", "language": "en"}</script><script defer src="../assets/site.js?v=dd3415510a"></script><script defer src="../assets/reader-tools.js?v=dd3415510a"></script></body></html>

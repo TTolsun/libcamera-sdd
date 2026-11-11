@@ -1,0 +1,17 @@
+flowchart TB
+
+  v_fence{"notifierActivated releases <br/>the corresponding fence and <br/>removes its notifier entry. <br/>It returns if unprocessed <br/>notifiers remain."}
+  v_timeout["timeout asserts that <br/>unprocessed notifiers <br/>remain, clears all entries, <br/>and then calls cancel#40;#41; and <br/>emitPrepareCompleted#40;#41;."]
+  v_emit["emitPrepareCompleted sets <br/>prepared#95; to true and then <br/>emits the prepared signal."]
+  v_signal["The prepared signal reports <br/>that preparation is <br/>complete. The request may <br/>be cancelled if an error <br/>occurs during preparation."]
+  v_limit{"While requests are waiting, <br/>doQueueRequests tests <br/>whether the number of <br/>software requests <br/>registered in <br/>Camera::Private::<br/>queuedRequests#95; equals the <br/>limit. If equal, it breaks; <br/>otherwise, this condition <br/>does not stop it. The <br/>invariant that the size <br/>does not exceed the limit <br/>must be verified separately."}
+  v_ready{"If the front request#39;s <br/>prepared#95; is not set, <br/>iteration stops."}
+  v_waiting["The front request is popped <br/>from waitingRequests#95; first <br/>because doQueueRequests may <br/>be called recursively from <br/>within doQueueRequest."]
+  v_queue["doQueueRequest first <br/>registers the request in <br/>the <br/>Camera::Private::<br/>queuedRequests#95; software <br/>queue. For an already <br/>cancelled request, it calls <br/>completeRequest and <br/>returns, skipping <br/>queueRequestDevice. <br/>Otherwise, it attempts <br/>device submission through <br/>queueRequestDevice and <br/>calls cancelRequest if it <br/>fails."]
+  v_fence -->|"If no unprocessed notifiers <br/>remain, it resets the timer <br/>and reports preparation <br/>completion. · <br/>#33;notifiers#95;.empty#40;#41; #91;false#93;"| v_emit
+  v_timeout -->|"It reports preparation <br/>completion after cancelling <br/>the request."| v_emit
+  v_emit -->|"It emits prepared after <br/>setting prepared#95;."| v_signal
+  v_signal -->|"The registered prepared <br/>signal calls <br/>doQueueRequests."| v_limit
+  v_limit -->|"If the equality comparison <br/>is false, it checks whether <br/>the front request is <br/>prepared. · <br/>data-#62;queuedRequests#95;.size#40;#41;<br/> #61;#61; <br/>maxQueuedRequestsDevice#95; <br/>#91;false#93;"| v_ready
+  v_ready -->|"If the front request is <br/>prepared, it is popped from <br/>the waiting queue. · <br/>#33;request-#62;#95;d#40;#41;-#62;prepared#95; <br/>#91;false#93;"| v_waiting
+  v_waiting -->|"It pops the front request <br/>before passing it to <br/>doQueueRequest."| v_queue

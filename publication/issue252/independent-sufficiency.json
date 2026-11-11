@@ -1,0 +1,397 @@
+{
+  "status": "passed",
+  "human_review": "pending",
+  "questions": [
+    {
+      "id": "Q1",
+      "answer_location": "「준비 대기와 재진입을 좁히기」와 「UVC의 장치 제출과 완료를 추적하기」",
+      "diagnosis_values": "camera.cpp:1308의 Queued 게시와 핸들러 진입, pipeline_handler.cpp:435의 waitingRequests_ 선두·prepared_·queuedRequests_ 크기와 한도, request.cpp:192의 fence·notifier·300ms 타이머·cancelled_, pipeline_handler.cpp:571의 선두 상태를 확인합니다.",
+      "next_branch": "핸들러에 진입하지 않았다면 대상 스레드의 메시지 소비를 확인합니다. 진입했다면 준비와 큐 한도를 확인하고, 장치 제출 뒤에는 DQBUF와 완료 통지를 확인합니다.",
+      "change_validation": "준비 취소와 재귀 전달에서 pop이 전달보다 앞서는지, 중복 투입이 없는지, Pending 선두가 후속 반환을 지연하는지 대조합니다.",
+      "answerable": true,
+      "source_windows": [
+        "src/libcamera/camera.cpp",
+        "src/libcamera/pipeline_handler.cpp",
+        "src/libcamera/request.cpp",
+        "src/libcamera/base/thread.cpp",
+        "src/libcamera/base/event_dispatcher_poll.cpp",
+        "src/libcamera/v4l2_videodevice.cpp"
+      ],
+      "missing": []
+    },
+    {
+      "id": "Q2",
+      "answer_location": "「UVC의 장치 제출과 완료를 추적하기」와 「변경 검토와 실행 확인」",
+      "diagnosis_values": "uvcvideo.cpp:327, 427, 448의 findBuffer·개별 변환·setControls·queueBuffer 결과, v4l2_device.cpp:309의 error_idx, v4l2_videodevice.cpp:1648의 cache와 QBUF 결과, pipeline_handler.cpp:483의 sequence와 ret를 확인합니다.",
+      "next_branch": "findBuffer 실패 또는 processControls·queueBuffer의 음수 반환은 공통 취소로 이어집니다. 개별 변환 오류는 무시될 수 있으며 cache 부재는 Fatal 경계입니다.",
+      "change_validation": "제어 처리 후 QBUF 실패에서 원래 오류, guard의 put, 신규 등록 부재와 취소를 대조합니다. 제어의 전체 적용이나 롤백은 가정하지 않습니다.",
+      "answerable": true,
+      "source_windows": [
+        "src/libcamera/pipeline/uvcvideo/uvcvideo.cpp",
+        "src/libcamera/v4l2_device.cpp",
+        "src/libcamera/v4l2_videodevice.cpp",
+        "src/libcamera/pipeline_handler.cpp",
+        "include/libcamera/base/utils.h"
+      ],
+      "missing": []
+    },
+    {
+      "id": "Q3",
+      "answer_location": "「버퍼 알림과 요청 반환의 내부 경계」와 「UVC의 장치 제출과 완료를 추적하기」",
+      "diagnosis_values": "pipeline_handler.cpp:547의 신호와 내부 갱신 순서, request.cpp:103의 pending_·cancelled_·status, v4l2_videodevice.cpp:1814의 DQBUF ret·index·flags·planes와 제출 큐 선두를 확인합니다.",
+      "next_branch": "DQBUF 오류나 예상 밖 index에서는 해당 bufferReady 없이 반환합니다. 유효 버퍼는 UVC의 completeBuffer와 명시적 completeRequest로 이어지며 Pending 선두는 반환을 지연합니다.",
+      "change_validation": "FrameError와 RequestComplete가 함께 가능한 사례, pending 제거 횟수, 명시적 완료와 제출 순서별 통지를 각각 확인합니다.",
+      "answerable": true,
+      "source_windows": [
+        "src/libcamera/pipeline_handler.cpp",
+        "src/libcamera/request.cpp",
+        "src/libcamera/v4l2_videodevice.cpp",
+        "src/libcamera/pipeline/uvcvideo/uvcvideo.cpp",
+        "src/libcamera/framebuffer.cpp",
+        "src/libcamera/camera.cpp"
+      ],
+      "missing": []
+    },
+    {
+      "id": "Q4",
+      "answer_location": "「요청·버퍼·fence의 수명」과 「버퍼 알림과 요청 반환의 내부 경계」",
+      "diagnosis_values": "camera.cpp:1243의 요청 소유권, request.cpp:442와 475의 버퍼·fence 계약, request.cpp:103과 139의 정상 완료·일괄 취소, object.cpp:258의 포인터 인수 수명을 확인합니다.",
+      "next_branch": "미신호 fence가 남으면 releaseFence로 회수합니다. 직접 버퍼 콜백은 pending 제거 전에 실행될 수 있으며 별도 Queued 수신자의 마지막 사용은 따로 동기화해야 합니다.",
+      "change_validation": "요청 완료 콜백까지 버퍼 유효성, 완료 함수 반환 후 핸들러 접근 금지, 지연 수신자의 마지막 사용과 재사용 시 연결 상태를 대조합니다.",
+      "answerable": true,
+      "source_windows": [
+        "src/libcamera/camera.cpp",
+        "src/libcamera/request.cpp",
+        "src/libcamera/framebuffer.cpp",
+        "src/libcamera/pipeline_handler.cpp",
+        "src/libcamera/base/object.cpp",
+        "src/libcamera/base/signal.cpp",
+        "src/libcamera/base/bound_method.cpp"
+      ],
+      "missing": []
+    },
+    {
+      "id": "Q5",
+      "answer_location": "「정지와 연결 해제를 구분하기」와 「UVC 정지의 정상 경로와 실패 경계」",
+      "diagnosis_values": "pipeline_handler.cpp:359의 swap·stopDevice·취소 반복·ASSERT, camera.cpp:1431의 CameraStopping과 Blocking 호출, uvcvideo.cpp:320의 무시된 반환값, v4l2_videodevice.cpp:1616과 2023의 ret·state_·cache_·queuedBuffers_를 확인합니다.",
+      "next_branch": "STREAMOFF가 음수를 반환하면 버퍼 반환과 notifier 정리 전에 돌아갑니다. UVC가 releaseBuffers를 계속 호출하므로 잔존 큐와 reset된 cache를 함께 조사합니다.",
+      "change_validation": "STREAMOFF와 releaseBuffers 실패를 각각 주입하고 잔존 notifier, 알려진 index의 후속 DQBUF, ASSERT 도달 여부와 요청별 완료 횟수를 확인합니다.",
+      "answerable": true,
+      "source_windows": [
+        "src/libcamera/camera.cpp",
+        "src/libcamera/pipeline_handler.cpp",
+        "src/libcamera/pipeline/uvcvideo/uvcvideo.cpp",
+        "src/libcamera/v4l2_videodevice.cpp"
+      ],
+      "missing": []
+    },
+    {
+      "id": "Q6",
+      "answer_location": "「콜백의 스레드와 재진입을 구분하기」와 「stop 반환과 별도 수신의 마지막 사용 확인」",
+      "diagnosis_values": "bound_method.cpp:68의 연결 종류와 스레드 비교, thread.cpp:613의 dispatch 필터와 재귀 깊이, camera.cpp:1431의 Blocking 호출과 상태를 확인합니다.",
+      "next_branch": "Auto는 같은 스레드에서 Direct이고 다른 스레드에서 Queued입니다. Blocking은 같은 스레드에서 Direct이며 다른 스레드에서는 해당 호출을 기다립니다. 별도 Queued 수신의 소비와 종료는 따로 확인합니다.",
+      "change_validation": "발신·수신 TID, 콜백 진입·복귀, 명시적 dispatch, stop 전후와 포인터 마지막 사용을 기록하고 카메라 상태 변경 호출을 동기화합니다.",
+      "answerable": true,
+      "source_windows": [
+        "src/libcamera/base/bound_method.cpp",
+        "src/libcamera/base/signal.cpp",
+        "src/libcamera/base/object.cpp",
+        "src/libcamera/base/thread.cpp",
+        "src/libcamera/base/message.cpp",
+        "include/libcamera/base/bound_method.h",
+        "include/libcamera/base/signal.h",
+        "Documentation/thread-safety.dox",
+        "src/libcamera/camera.cpp"
+      ],
+      "missing": []
+    },
+    {
+      "id": "Q7",
+      "answer_location": "「변경 검토와 실행 확인」의 본문과 「실패 주입별 다음 관찰 분기」",
+      "diagnosis_values": "pipeline_handler.cpp:435의 pop과 재귀, request.cpp:103과 139의 erase·bulk clear, pipeline_handler.cpp:547의 pending 및 접근 경계, v4l2_videodevice.cpp:1648, 1814, 2023의 오류 분기를 확인합니다.",
+      "next_branch": "준비 취소, 제어·QBUF 실패, DQBUF 오류·예상 밖 index, FrameError, STREAMOFF·releaseBuffers 실패를 각각 완료 또는 무알림 분기와 대조합니다.",
+      "change_validation": "요청·버퍼별 완료 횟수, 완료 전 pending 부재, 제출 순서, stop 중 재투입 부재와 지연 콜백의 마지막 사용을 기록합니다.",
+      "answerable": true,
+      "source_windows": [
+        "src/libcamera/pipeline_handler.cpp",
+        "src/libcamera/request.cpp",
+        "src/libcamera/pipeline/uvcvideo/uvcvideo.cpp",
+        "src/libcamera/v4l2_videodevice.cpp",
+        "src/libcamera/base/bound_method.cpp",
+        "src/libcamera/base/signal.cpp",
+        "Documentation/thread-safety.dox"
+      ],
+      "missing": []
+    }
+  ],
+  "findings": [],
+  "items": [
+    {
+      "anchor": "item-01",
+      "visual_status": "diagram",
+      "question": "제출에서 완료까지",
+      "reason": "제출부터 명시적 완료까지의 흐름을 표시합니다."
+    },
+    {
+      "anchor": "item-02",
+      "visual_status": "diagram",
+      "question": "제출·준비·장치 처리·완료의 연결",
+      "reason": "정상 경로의 단계와 완료 책임을 연결합니다."
+    },
+    {
+      "anchor": "item-03",
+      "visual_status": "diagram",
+      "question": "접수 반환과 완료 알림",
+      "reason": "0 반환과 별도 완료 알림을 구분합니다."
+    },
+    {
+      "anchor": "item-04",
+      "visual_status": "diagram",
+      "question": "선두 요청을 전달하거나 반복을 멈추는 조건",
+      "reason": "큐 한도와 선두 준비 상태의 분기를 표시합니다."
+    },
+    {
+      "anchor": "item-05",
+      "visual_status": "diagram",
+      "question": "void 전달 함수의 두 취소 경로",
+      "reason": "준비 취소와 장치 제출 실패를 구분합니다."
+    },
+    {
+      "anchor": "item-06",
+      "visual_status": "diagram",
+      "question": "버퍼 완료와 명시적 요청 완료의 경계",
+      "reason": "마지막 버퍼 완료와 명시적 요청 완료를 구분합니다."
+    },
+    {
+      "anchor": "item-07",
+      "visual_status": "diagram",
+      "question": "제출 큐의 선두 상태와 반환 순서",
+      "reason": "선두 Pending 검사와 제거·통지 순서를 표시합니다."
+    },
+    {
+      "anchor": "item-08",
+      "visual_status": "diagram",
+      "question": "준비 대기와 재진입을 좁히기",
+      "reason": "fence 준비와 재귀 전달의 관계를 표시합니다."
+    },
+    {
+      "anchor": "item-09",
+      "visual_status": "diagram",
+      "question": "준비 대기와 재진입을 좁히기 그림",
+      "reason": "fence·timeout·prepared와 pop 경계를 표시합니다."
+    },
+    {
+      "anchor": "item-10",
+      "visual_status": "diagram",
+      "question": "동시 제출의 순서를 관찰할 경계",
+      "reason": "호출 시작, 게시, 등록과 통지를 구분합니다."
+    },
+    {
+      "anchor": "item-11",
+      "visual_status": "diagram",
+      "question": "같은 Poll 회차의 fence와 타이머 처리",
+      "reason": "notifier와 timer의 조건부 처리 순서를 표시합니다."
+    },
+    {
+      "anchor": "item-12",
+      "visual_status": "diagram",
+      "question": "UVC의 장치 제출과 완료를 추적하기",
+      "reason": "제어, QBUF, 취소와 별도 완료 경로를 표시합니다."
+    },
+    {
+      "anchor": "item-13",
+      "visual_status": "diagram",
+      "question": "UVC의 장치 제출과 완료를 추적하기 그림",
+      "reason": "제출 실패와 후속 장치 완료를 구분합니다."
+    },
+    {
+      "anchor": "item-14",
+      "visual_status": "diagram",
+      "question": "QBUF 호출 전 실패와 cache 반환",
+      "reason": "cache 확보와 plane 검증의 실패 분기를 표시합니다."
+    },
+    {
+      "anchor": "item-15",
+      "visual_status": "diagram",
+      "question": "요청·버퍼·fence의 수명",
+      "reason": "소유권과 완료·재사용 경계를 표시합니다."
+    },
+    {
+      "anchor": "item-16",
+      "visual_status": "omitted-with-reason",
+      "question": "제출 성공 뒤에도 남는 수명 문제",
+      "reason": "게시 성공과 별도 완료 신호를 구분하는 짧은 도입입니다."
+    },
+    {
+      "anchor": "item-17",
+      "visual_status": "diagram",
+      "question": "소유권과 두 완료 경계",
+      "reason": "요청 소유자, 버퍼 유지와 지연 수신의 책임을 표시합니다."
+    },
+    {
+      "anchor": "item-18",
+      "visual_status": "diagram",
+      "question": "정상 완료와 다음 요청 준비",
+      "reason": "버퍼 알림 뒤 추적 갱신과 명시적 완료를 표시합니다."
+    },
+    {
+      "anchor": "item-19",
+      "visual_status": "diagram",
+      "question": "알림 순서와 취소가 달라질 때",
+      "reason": "완료 상태, 선두에 따른 반환 지연과 fence 회수를 표시합니다."
+    },
+    {
+      "anchor": "item-20",
+      "visual_status": "diagram",
+      "question": "완료 책임을 변경하기 전에",
+      "reason": "스레드, 반환 순서와 수명 검토 관계를 표시합니다."
+    },
+    {
+      "anchor": "item-21",
+      "visual_status": "diagram",
+      "question": "버퍼 알림과 요청 반환의 내부 경계",
+      "reason": "신호, pending 제거와 요청 반환의 순서를 표시합니다."
+    },
+    {
+      "anchor": "item-22",
+      "visual_status": "diagram",
+      "question": "버퍼 알림과 요청 반환의 내부 경계 그림",
+      "reason": "내부 추적 갱신과 선두 검사 및 통지를 표시합니다."
+    },
+    {
+      "anchor": "item-23",
+      "visual_status": "diagram",
+      "question": "콜백의 스레드와 재진입을 구분하기",
+      "reason": "연결 종류와 메시지 전달 경계를 표시합니다."
+    },
+    {
+      "anchor": "item-24",
+      "visual_status": "diagram",
+      "question": "콜백의 스레드와 재진입을 구분하기 그림",
+      "reason": "Auto의 Direct·Queued 선택을 표시합니다."
+    },
+    {
+      "anchor": "item-25",
+      "visual_status": "diagram",
+      "question": "Queued 수신과 해제 시점의 책임",
+      "reason": "발신자와 요청 소유자의 수명 책임을 구분합니다."
+    },
+    {
+      "anchor": "item-26",
+      "visual_status": "diagram",
+      "question": "직접 중첩 호출과 별도 Queued 수신의 경계",
+      "reason": "동기 호출, 게시, dispatch와 내부 갱신을 구분합니다."
+    },
+    {
+      "anchor": "item-27",
+      "visual_status": "diagram",
+      "question": "stop 반환과 별도 수신의 마지막 사용 확인",
+      "reason": "Blocking stop과 별도 수신자의 마지막 사용을 구분합니다."
+    },
+    {
+      "anchor": "item-28",
+      "visual_status": "diagram",
+      "question": "정지와 연결 해제를 구분하기",
+      "reason": "정지 순서와 연결 해제 TODO를 각각 표시합니다."
+    },
+    {
+      "anchor": "item-29",
+      "visual_status": "diagram",
+      "question": "정지할 때 대기 요청을 처리하는 순서",
+      "reason": "대기열 분리, 장치 정지와 취소 반복을 표시합니다."
+    },
+    {
+      "anchor": "item-30",
+      "visual_status": "diagram",
+      "question": "정지 API 계약과 연결 해제 TODO",
+      "reason": "정지 계약과 미완료 연결 해제 처리를 구분합니다."
+    },
+    {
+      "anchor": "item-31",
+      "visual_status": "diagram",
+      "question": "Camera::stop의 미실행·오류·정상 경로",
+      "reason": "상태와 접근 검사에 따른 반환 분기를 표시합니다."
+    },
+    {
+      "anchor": "item-32",
+      "visual_status": "diagram",
+      "question": "stopDevice 호출 구간의 관찰 계획",
+      "reason": "호출 전, 구현 진입과 복귀 관찰을 구분합니다."
+    },
+    {
+      "anchor": "item-33",
+      "visual_status": "diagram",
+      "question": "완료 통지의 호출자 의무와 반환 뒤 경계",
+      "reason": "호출 스레드, 반환 순서와 접근 금지 계약을 표시합니다."
+    },
+    {
+      "anchor": "item-34",
+      "visual_status": "diagram",
+      "question": "제출 회차별 완료 기록의 비교 계획",
+      "reason": "완료 함수 진입과 카메라 통지를 별도로 기록하고 비교합니다."
+    },
+    {
+      "anchor": "item-35",
+      "visual_status": "diagram",
+      "question": "UVC 정지의 정상 경로와 실패 경계",
+      "reason": "STREAMOFF 분기와 releaseBuffers 연결을 표시합니다."
+    },
+    {
+      "anchor": "item-36",
+      "visual_status": "diagram",
+      "question": "UVC 정지의 정상 경로와 실패 경계 그림",
+      "reason": "즉시 반환, ioctl 오류와 정상 정리의 합류 조건을 표시합니다."
+    },
+    {
+      "anchor": "item-37",
+      "visual_status": "diagram",
+      "question": "변경 검토와 실행 확인",
+      "reason": "완료 불변조건과 실패별 조사 분기를 표시합니다."
+    },
+    {
+      "anchor": "item-38",
+      "visual_status": "diagram",
+      "question": "정상 완료와 bulk 취소의 검증 위치",
+      "reason": "두 경로의 pending 처리와 완료 검사를 구분합니다."
+    },
+    {
+      "anchor": "item-39",
+      "visual_status": "diagram",
+      "question": "실패 주입별 다음 관찰 분기",
+      "reason": "준비 취소, 장치 제출 실패와 DQBUF 무알림 반환을 구분합니다."
+    },
+    {
+      "anchor": "item-40",
+      "visual_status": "diagram",
+      "question": "공개 가상 카메라의 콜백 관찰",
+      "reason": "연결별 관찰 표식과 측정 한계를 표시합니다."
+    },
+    {
+      "anchor": "item-41",
+      "visual_status": "diagram",
+      "question": "가상 CPU 프로브의 연결별 취소 콜백 표시",
+      "reason": "연결별 스레드와 stop 표식의 관찰 관계를 표시합니다."
+    },
+    {
+      "anchor": "item-42",
+      "visual_status": "diagram",
+      "question": "반환 근처 표시로 알 수 있는 범위",
+      "reason": "표식 뒤 작업과 실제 C++ 반환 미추적을 표시합니다."
+    },
+    {
+      "anchor": "item-43",
+      "visual_status": "omitted-with-reason",
+      "question": "소스 근거",
+      "reason": "출처별 원문과 해시를 제공하는 참조 목록입니다."
+    }
+  ],
+  "unreviewed_scope": [
+    "물리 UVC 촬영, DMA 정확성, 성능과 내부 Camera HAL 검증은 범위 밖입니다.",
+    "다른 파이프라인, IPA 처리, 커널 UVC 드라이버와 전체 문서 세트는 검토 범위 밖입니다.",
+    "가상 카메라 기록과 별도 signal probe는 과거의 제한된 관찰이며 이번 감사에서 재실행하지 않았습니다. 실제 비작성자 독자 평가는 수행되지 않았습니다."
+  ],
+  "phase": "sufficiency",
+  "source_commit": "be7e83e91348250c015aad6d6f59f1468555bae8",
+  "document_sha256": "2f29d21f77cee74d659389621323ff17b037aba9df91032d6dce2beee8bc118f",
+  "payload_sha256": "ce40cb1a265225028a1b154137c7bde6c1a2d0b455bcc6c782e8c4357bf9753f"
+}

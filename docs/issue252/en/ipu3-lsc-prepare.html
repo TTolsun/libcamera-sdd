@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IPU3 Lens Correction Table Preparation · libcamera design document</title><link rel="stylesheet" href="../assets/reading.css?v=dd3415510a"><link rel="alternate" hreflang="ko" href="../ipu3-lsc-prepare.html"><link rel="alternate" hreflang="en" href="ipu3-lsc-prepare.html"></head>
+<body><a class="skip" href="#main">Go to body text</a>
+<header class="site-header"><a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera Design Document</a>
+<div class="header-actions"><details class="language-selector"><summary aria-label="Choose language">English ▾</summary><nav><a lang="ko" hreflang="ko" href="../ipu3-lsc-prepare.html">한국어</a><a lang="en" hreflang="en" href="ipu3-lsc-prepare.html" aria-current="true">English</a></nav></details><button id="search-open" hidden>Find document <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button></div></header>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Document menu"><details class="nav-group" data-nav-id="group-eb5fc4597bcab08dd609eb65" open><summary>Get started</summary><a href="index.html">Document guide</a><a href="glossary.html">Glossary</a></details><details class="nav-group" data-nav-id="group-d671e203b93701cc4b6e3099" open><summary>For Vendor</summary><details class="nav-section" data-nav-id="task-d6e030e93c998b7019a15936"><summary>Adoption decision</summary><a href="vendor-overview.html">libcamera product overview</a><a href="vendor-assurance.html">Support scope and validation</a></details><details class="nav-section" data-nav-id="task-3e788d9bf0a3e06fa9605fc7"><summary>Integration implementation</summary><a href="vendor-integration.html">Integration guide</a><a href="pipeline-handler.html">Pipeline Handler</a><a href="pipeline-requests.html">Pipeline Request Submission and Completion</a><a href="ipa.html">IPA management and implementation entry points</a><a href="ipa-algorithms.html">IPA Tuning and Software ISP</a></details><details class="nav-section" data-nav-id="task-4e6bf6a82fb4765e60a97382"><summary>Per-device feature implementation</summary><a href="ipu3-lsc-flow.html">IPU3 LSC Configuration and Frame Processing</a><a href="ipu3-lsc-prepare.html" aria-current="page">IPU3 Lens Correction Table Preparation</a><a href="rkisp1-dewarp.html">RKISP1 Per-Camera Distortion Correction</a></details></details><details class="nav-group" data-nav-id="group-8c6df661e792ad45c78bb2ef" open><summary>For Developer</summary><details class="nav-section" data-nav-id="task-99be7fb5d49c7ce6147f371a"><summary>Structural understanding</summary><a href="team-overview.html">What this project does</a><a href="overview.html">System overview</a><a href="onboarding.html">Run it and read the design rationale</a><a href="camera-model.html">Camera and request model</a><a href="camera-requests.html">Request object and buffer lifetime</a></details><details class="nav-section" data-nav-id="task-1fd1cf94625ce3af7bee3dfe"><summary>Behavior Tracing and Problem Diagnosis</summary><a href="request-lifecycle.html">Request handling and problem diagnosis</a><a href="request-diagnosis.html">Investigation of configuration and request errors</a><a href="scenarios/index.html">Key scenario</a><details class="nav-branch" data-nav-id="branch-6cdafc2d5a06483de679705c"><summary>6 sub-documents</summary><a class="nav-sub" href="scenarios/manager_start.html">Camera discovery</a><a class="nav-sub" href="scenarios/configure.html">Stream configuration</a><a class="nav-sub" href="scenarios/camera_start.html">Capture start</a><a class="nav-sub" href="scenarios/queue_request.html">Request submission</a><a class="nav-sub" href="scenarios/complete_request.html">Request completion notification</a><a class="nav-sub" href="scenarios/camera_stop.html">Request to end capture</a></details><a href="ipa-module-validation.html">IPA module information check and missing signature file</a><a href="framebuffer-allocator.html">FrameBufferAllocator Failures and Reference Lifetime</a><a href="official-cam-validation.html">Verifying virtual capture with the official cam in WSL</a></details><details class="nav-section" data-nav-id="task-832d04faf930a39f3dde0065"><summary>Code exploration</summary><a href="component-index.html">Component index</a><a href="ipu3-lsc.html">IPU3 LSC and State Connection</a></details></details></nav><p class="sidebar-note">Extract the structure from the code and review it together with <br> evidence.</p></aside>
+<main id="main"><p class="breadcrumb">For Vendor <span>/</span> Preparing IPU3 Lens Correction Tables</p><h1>IPU3 Lens Correction Table Preparation</h1><div class="page-state"><span class="review-state">Before human review</span><span>Automated check passed</span><span class="generation-method">Authored: extracted structure and draft written by the model</span><a class="state-help" href="#page-evidence">State description ↓</a></div>
+<details class="mobile-toc"><summary>Table of contents of this page</summary><div class="toc">
+<ul>
+<li><a href="#파라미터-갱신-조건">Parameter update conditions</a><ul>
+<li><a href="#lsc-파라미터를-갱신하는-분기">Branch that updates LSC parameters</a></li>
+</ul>
+</li>
+<li><a href="#클래스-관계">Class relationships</a></li>
+<li><a href="#소스-근거">Source evidence</a></li>
+<li><a href="#관련-클래스">Related classes</a></li>
+</ul>
+</div>
+</details><p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p><strong>Compare the calibration table update conditions and the interpolation, quantization, and hardware array layout against the code.</strong></p><details class="note">
+<summary>Design questions and validation scope</summary>
+<p>The answers to each question and their evidence links were checked. The meaning and execution results require human review.</p>
+<ul class="coverage-links"><li><p>Under what conditions is the update performed, and what parameters are passed to the kernel?</p><p><a href="#파라미터-갱신-조건">Parameter update conditions</a></p></li></ul><p><span>Verification scope</span>: <span>Linking code evidence to explanations</span></p>
+</details>
+<details class="page-terms">
+<summary>Terms in this document: IPU3, LSC, LUT, IPA</summary>
+<ul>
+<li><strong>IPU3</strong> (Intel Image Processing Unit 3): A camera ISP included in some Intel laptop processors. libcamera has a Pipeline Handler and an IPA for this device.</li>
+<li><strong>LSC</strong> (Lens Shading Correction): Processing that corrects lens shading, the phenomenon in which the edges of an image are darker than the center or colors are distorted due to lens characteristics. It is applied by multiplying by a correction table that divides the image into a grid.</li>
+<li><strong>LUT</strong> (Look-Up Table): A method that precomputes calculation results into a table and retrieves them directly by input value. The LSC correction table falls into this category.</li>
+<li><strong>IPA</strong> (Image Processing Algorithms): A separate module (.so) that contains image quality algorithms. It reads the statistics sent by the ISP and calculates the ISP settings to use for the next frame. It is separated from the libcamera core so that manufacturers can provide it without publishing its source.</li>
+</ul>
+<p>Other terms can be found in <a href="glossary.html">Glossary</a>.</p>
+</details>
+
+<h2 id="파라미터-갱신-조건">Parameter update conditions</h2>
+<p data-sdd-evidence="[[&quot;src/ipa/ipu3/algorithms/lsc.cpp:142&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L142\&quot;&gt;&lt;code&gt;src/ipa/ipu3/algorithms/lsc.cpp:142&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/ipa/ipu3/algorithms/lsc.cpp:142&quot;: [&quot;#source-026024190618ffa6&quot;]}"><code>Lsc::prepare</code> returns when <code>frameContext.lsc.update</code> is false and <code>frameContext.lsc.enabled</code> is also false. When <code>frameContext.lsc.update</code> is false and <code>frameContext.lsc.enabled</code> is true, <code>Lsc::prepare</code> returns in two cases: first, if the absolute difference between <code>frameContext.awb.colourTemperature</code> and <code>lastAppliedCt_</code> is less than <code>kColourTemperatureQuantization / 2</code>; second, if that difference is equal to or greater than the same threshold and <code>quantizedCt</code> equals <code>lastAppliedQuantizedCt_</code>.</p>
+<!-- sdd:visual:lsc-update-gates -->
+<h3 id="lsc-파라미터를-갱신하는-분기">Branch that updates LSC parameters</h3>
+<pre class="mermaid">flowchart TB
+
+  v_update{"lsc.update?"}
+  v_enabled{"lsc.enabled?"}
+  v_threshold{"Colour-temperature &lt;br/&gt;difference reaches &lt;br/&gt;threshold?"}
+  v_quantized{"Quantized temperature &lt;br/&gt;changed?"}
+  v_skip["Return without updating &lt;br/&gt;parameters"]
+  v_notify["Write use.acc#95;shd and &lt;br/&gt;enable flag"]
+  v_lut["Compute and write LUT when &lt;br/&gt;enabled"]
+  v_update --&gt;|"Yes"| v_notify
+  v_update --&gt;|"No"| v_enabled
+  v_enabled --&gt;|"No"| v_skip
+  v_enabled --&gt;|"Yes"| v_threshold
+  v_threshold --&gt;|"No"| v_skip
+  v_threshold --&gt;|"Yes"| v_quantized
+  v_quantized --&gt;|"No"| v_skip
+  v_quantized --&gt;|"Yes"| v_notify
+  v_notify --&gt;|"Only when enabled"| v_lut</pre>
+<p><a href="ipu3-lsc-prepare.lsc-update-gates.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>If there is an explicit update, the color temperature omission check is skipped. After the update is notified, if the state is inactive, the LUT calculation is not performed.</p>
+<p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="lsc.update?">lsc.update?</span></td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="lsc.enabled?">lsc.enabled?</span></td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Colour-temperature difference reaches threshold?">Colour-temperature difference reaches threshold?</span></td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Quantized temperature changed?">Quantized temperature changed?</span></td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return without updating parameters">Return without updating parameters</span></td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Write use.acc_shd and enable flag">Write use.acc_shd and enable flag</span></td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Compute and write LUT when enabled">Compute and write LUT when enabled</span></td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes">Yes</span></td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No">No</span></td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No">No</span></td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes">Yes</span></td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No">No</span></td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes">Yes</span></td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No">No</span></td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes">Yes</span></td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Only when enabled">Only when enabled</span></td>
+<td><a href="#source-026024190618ffa6">src/ipa/ipu3/algorithms/lsc.cpp:142</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:lsc-update-gates -->
+
+<p data-sdd-evidence="[[&quot;src/ipa/ipu3/algorithms/lsc.cpp:142&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L142\&quot;&gt;&lt;code&gt;src/ipa/ipu3/algorithms/lsc.cpp:142&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/ipa/ipu3/algorithms/lsc.cpp:182&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L182\&quot;&gt;&lt;code&gt;src/ipa/ipu3/algorithms/lsc.cpp:182&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/ipa/ipu3/algorithms/lsc.cpp:142&quot;: [&quot;#source-026024190618ffa6&quot;], &quot;src/ipa/ipu3/algorithms/lsc.cpp:182&quot;: [&quot;#source-2565eab3740cff67&quot;]}"><code>Lsc::prepare</code> records <code>1</code> in <code>params-&gt;use.acc_shd</code> if the earlier early returns are passed. This flag tells the kernel driver to read the LSC parameters passed from user space instead of the cached copy. <code>Lsc::prepare</code> assigns <code>frameContext.lsc.enabled</code> to <code>config-&gt;general.shd_enable</code> after passing the earlier early returns. Then, if <code>frameContext.lsc.enabled</code> is false, execution exits via <code>return</code>.</p>
+<p data-sdd-evidence="[[&quot;src/ipa/ipu3/algorithms/lsc.cpp:142&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L142\&quot;&gt;&lt;code&gt;src/ipa/ipu3/algorithms/lsc.cpp:142&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/ipa/ipu3/algorithms/lsc.cpp:142&quot;: [&quot;#source-026024190618ffa6&quot;]}">On the active path, <code>Lsc::prepare</code> sets the <code>width</code> and <code>height</code> of <code>grid</code> to <code>numHCells_</code> and <code>numVCells_</code>, respectively. <code>block_width_log2</code> and <code>block_height_log2</code> are set to <code>blockWidthLog2_</code> and <code>blockHeightLog2_</code>, respectively. <code>grid_height_per_slice</code> is set to <code>IPU3_UAPI_SHD_MAX_CELLS_PER_SET</code> divided by <code>numHCells_</code>.</p>
+<p data-sdd-evidence="[[&quot;src/ipa/ipu3/algorithms/lsc.cpp:207&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L207\&quot;&gt;&lt;code&gt;src/ipa/ipu3/algorithms/lsc.cpp:207&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/ipa/ipu3/algorithms/lsc.cpp:142&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L142\&quot;&gt;&lt;code&gt;src/ipa/ipu3/algorithms/lsc.cpp:142&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/ipa/ipu3/algorithms/lsc.cpp:248&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L248\&quot;&gt;&lt;code&gt;src/ipa/ipu3/algorithms/lsc.cpp:248&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/ipa/ipu3/algorithms/lsc.cpp:207&quot;: [&quot;#source-bab7044c90ebf671&quot;], &quot;src/ipa/ipu3/algorithms/lsc.cpp:142&quot;: [&quot;#source-026024190618ffa6&quot;], &quot;src/ipa/ipu3/algorithms/lsc.cpp:248&quot;: [&quot;#source-dba1ef8e8f2a8563&quot;]}">When <code>Lsc::prepare</code> reaches the coordinate setup, if <code>polynomial_</code> is true, 0 is assigned to each of <code>grid.x_start</code> and <code>grid.y_start</code>. If <code>polynomial_</code> is false, <code>(cropWidth_ - sensorWidth_) / 2</code> is assigned to <code>grid.x_start</code> and <code>(cropHeight_ - sensorHeight_) / 2</code> is assigned to <code>grid.y_start</code>. On the active path, <code>Lsc::prepare</code> sets <code>config-&gt;general.gain_factor</code> to <code>0</code>. When <code>Lsc::prepare</code> reaches that setting, the <code>bl_r</code>, <code>bl_gr</code>, <code>bl_gb</code>, and <code>bl_b</code> fields of <code>black_level</code> are all set to <code>0</code>.</p>
+<p data-sdd-evidence="[[&quot;src/ipa/ipu3/algorithms/lsc.cpp:255&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L255\&quot;&gt;&lt;code&gt;src/ipa/ipu3/algorithms/lsc.cpp:255&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/ipa/ipu3/algorithms/lsc.cpp:263&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L263\&quot;&gt;&lt;code&gt;src/ipa/ipu3/algorithms/lsc.cpp:263&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/ipa/ipu3/algorithms/lsc.cpp:255&quot;: [&quot;#source-d9cad5cb8a925660&quot;], &quot;src/ipa/ipu3/algorithms/lsc.cpp:263&quot;: [&quot;#source-807a646dc9c1acbc&quot;]}"><code>Lsc::prepare</code> passes <code>quantizedCt</code>, which is <code>frameContext.awb.colourTemperature</code> quantized to <code>kColourTemperatureQuantization</code>, to <code>interpolateComponents</code>. <code>Lsc::prepare</code> assigns <code>set.at("r")[i]</code> to <code>lut-&gt;sets[s].r_and_gr[c].r</code> and <code>set.at("gr")[i]</code> to <code>lut-&gt;sets[s].r_and_gr[c].gr</code> from the LUT. <code>set.at("gb")[i]</code> is also assigned to <code>lut-&gt;sets[s].gb_and_b[c].gb</code>, and <code>set.at("b")[i]</code> to <code>lut-&gt;sets[s].gb_and_b[c].b</code>.</p>
+<p data-sdd-evidence="[[&quot;src/ipa/ipu3/algorithms/lsc.cpp:272&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L272\&quot;&gt;&lt;code&gt;src/ipa/ipu3/algorithms/lsc.cpp:272&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/ipa/ipu3/algorithms/lsc.cpp:273&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L273\&quot;&gt;&lt;code&gt;src/ipa/ipu3/algorithms/lsc.cpp:273&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/ipa/ipu3/algorithms/lsc.cpp:272&quot;: [&quot;#source-8fc123f7e3c227d7&quot;], &quot;src/ipa/ipu3/algorithms/lsc.cpp:273&quot;: [&quot;#source-bb86261a35600a17&quot;]}">After filling the LUT, <code>Lsc::prepare</code> stores <code>ct</code> in <code>lastAppliedCt_</code> and then <code>quantizedCt</code> in <code>lastAppliedQuantizedCt_</code>, in that order.</p>
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>9</span></summary><ul><li><code>src/ipa/ipu3/algorithms/lsc.cpp</code><span class="evidence-lines"><a href="#source-026024190618ffa6" aria-label="src/ipa/ipu3/algorithms/lsc.cpp:142 excerpt">Excerpt from <code>L142</code></a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:142" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L142">Full source <code>L142</code></a> · <a href="#source-2565eab3740cff67" aria-label="src/ipa/ipu3/algorithms/lsc.cpp:182 excerpt">Excerpt from <code>L182</code></a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:182" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L182">Full source <code>L182</code></a> · <a href="#source-bab7044c90ebf671" aria-label="src/ipa/ipu3/algorithms/lsc.cpp:207 excerpt">Excerpt from <code>L207</code></a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:207" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L207">Full source <code>L207</code></a> · <a href="#source-dba1ef8e8f2a8563" aria-label="src/ipa/ipu3/algorithms/lsc.cpp:248 excerpt">Excerpt from <code>L248</code></a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:248" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L248">Full source <code>L248</code></a> · <a href="#source-d9cad5cb8a925660" aria-label="src/ipa/ipu3/algorithms/lsc.cpp:255 excerpt">Excerpt from <code>L255</code></a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:255" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L255">Full source <code>L255</code></a> · <a href="#source-807a646dc9c1acbc" aria-label="src/ipa/ipu3/algorithms/lsc.cpp:263 excerpt">Excerpt from <code>L263</code></a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:263" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L263">Full source <code>L263</code></a> · <a href="#source-8fc123f7e3c227d7" aria-label="src/ipa/ipu3/algorithms/lsc.cpp:272 excerpt">Excerpt from <code>L272</code></a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:272" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L272">Full source <code>L272</code></a> · <a href="#source-bb86261a35600a17" aria-label="src/ipa/ipu3/algorithms/lsc.cpp:273 excerpt">Excerpt from <code>L273</code></a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:273" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L273">Full source <code>L273</code></a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:31" href="#source-af2cbcaa6410fbf4"><code>L31</code></a></span></li></ul></details>
+<!-- sdd:class-diagram -->
+<h2 id="클래스-관계">Class relationships</h2>
+<p>Arrow labels show the extracted relationship, and dashed lines indicate inheritance. Arrows point to the referenced target or base class. They do not indicate call order.</p>
+<pre class="mermaid">flowchart LR
+  c0["ipa::FrameContext"]:::context
+  c1["ipa::LscAlgorithm"]
+  c2["ipa::LscAlgorithmBase"]:::context
+  c3["ipa::ipu3::Algorithm"]:::context
+  c4["ipa::ipu3::IPAActiveState"]
+  c5["ipa::ipu3::IPAContext"]
+  c6["ipa::ipu3::IPAFrameContext"]
+  c7["ipa::ipu3::algorithms::Lsc"]
+  c8["ipa::lsc::ActiveState"]
+  c9["ipa::lsc::FrameContext"]
+  c1 -.-&gt;|inheritance| c2
+  c4 --&gt;|field reference| c8
+  c5 --&gt;|field reference| c4
+  c6 -.-&gt;|inheritance| c0
+  c6 --&gt;|field reference| c9
+  c7 --&gt;|field reference| c1
+  c7 -.-&gt;|inheritance| c3
+  classDef context fill:#fafafa,stroke:#aaa,stroke-dasharray:4 3,color:#555</pre>
+<!-- /sdd:class-diagram -->
+
+<h2 id="소스-근거">Source evidence</h2>
+<details class="source-excerpts"><summary>Source excerpts: <span>9</span></summary>
+<p>Include each excerpt only once. Expand the needed original text and check it against the explanation.</p>
+<p><a id="source-026024190618ffa6"></a></p>
+<details class="note">
+<summary>Source evidence: src/ipa/ipu3/algorithms/lsc.cpp:142</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L142"><code>src/ipa/ipu3/algorithms/lsc.cpp:142</code></a>. The end line is 282, and the source text below can be compared with the description.</p>
+<p>SHA-256: <code>1d11fc7397b377f682d4fab45d12dd20480e554176aae94ba2708a5f8f747268</code></p>
+<div class="highlight"><pre><span></span><code>static unsigned int quantize(unsigned int value, unsigned int step)
+{
+    return std::lround(value / static_cast&lt;double&gt;(step)) * step;
+}
+
+/**
+ * \copydoc libcamera::ipa::Algorithm::prepare
+ */
+void Lsc::prepare([[maybe_unused]] IPAContext &amp;context, [[maybe_unused]] const uint32_t frame,
+          IPAFrameContext &amp;frameContext, ipu3_uapi_params *params)
+{
+    uint32_t ct = frameContext.awb.colourTemperature;
+    unsigned int quantizedCt = quantize(ct, kColourTemperatureQuantization);
+
+    if (!frameContext.lsc.update) {
+        if (!frameContext.lsc.enabled)
+            return;
+
+        /*
+         * Add a threshold so that oscillations around a quantization
+         * step don't lead to constant changes.
+         */
+        if (utils::abs_diff(ct, lastAppliedCt_) &lt; kColourTemperatureQuantization / 2)
+            return;
+
+        if (quantizedCt == lastAppliedQuantizedCt_)
+            return;
+    }
+
+    /*
+     * This flag tells the kernel driver that it should read the LSC params
+     * passed from userspace instead of using its cached copy.
+     */
+    params-&gt;use.acc_shd = 1;
+
+    /*
+     * Pass the enabled flag. If we're not enabled, we can then just bail
+     * out.
+     */
+    ipu3_uapi_shd_config_static *config = &amp;params-&gt;acc_param.shd.shd;
+    config-&gt;general.shd_enable = frameContext.lsc.enabled;
+
+    if (!frameContext.lsc.enabled)
+        return;
+
+    config-&gt;grid.width = numHCells_;
+    config-&gt;grid.height = numVCells_;
+    config-&gt;grid.block_width_log2 = blockWidthLog2_;
+    config-&gt;grid.block_height_log2 = blockHeightLog2_;
+    config-&gt;grid.grid_height_per_slice = IPU3_UAPI_SHD_MAX_CELLS_PER_SET / numHCells_;
+
+    /*
+     * The IPU3's documentation describes the x_start and y_start members
+     * as follows:
+     *
+     * "[X/Y] value of top left corner of sensor relative to ROI
+     * s13, [-4096, 0], default 0, only negative values."
+     *
+     * I interpret that as allowing us to configure the cropped rectangle
+     * relative to the full grid. That's useful if we're running the tabular
+     * algorithm, which would otherwise apply the full grid inappropriately.
+     * If we're running the polynomial one though the calculated grid is
+     * probably more appropriate than a coarse application of the full grid
+     * so let's tell the hardware not to bother correcting in that case.
+     */
+    if (polynomial_) {
+        config-&gt;grid.x_start = 0;
+        config-&gt;grid.y_start = 0;
+    } else {
+        config-&gt;grid.x_start = (cropWidth_ - sensorWidth_) / 2;
+        config-&gt;grid.y_start = (cropHeight_ - sensorHeight_) / 2;
+    }
+
+    /* No idea what this is, but the docs say it should be set as so */
+    config-&gt;general.init_set_vrt_offst_ul =
+        config-&gt;grid.y_start &gt;&gt; (config-&gt;grid.block_height_log2 %
+                     config-&gt;grid.grid_height_per_slice);
+
+    /*
+     * Values in the LUT cease taking effect at 4096, and a value of 0.0 is
+     * "no correction" rather than black. The gain factor is described by
+     * the documentation like so:
+     *
+     * "Shift calculated anti shading value. Precision u2. 0x0 - gain factor
+     * [1, 5], means no shift interpolated value. 0x1 - gain factor [1, 9],
+     * means shift interpolated by 1. 0x2 - gain factor [1, 17], means shift
+     * interpolated by 2."
+     *
+     * The simplest interpretation for those pieces of information is I
+     * think that the LUT stores 12-bit Q numbers who's represented values
+     * depend on the gain_factor setting like so:
+     *
+     * 0: UQ&lt;2, 10&gt; representing values in range [0, 4)
+     * 1: UQ&lt;3, 9&gt; representing values in range [0, 8)
+     * 2: UQ&lt;4, 8&gt; representing values in range [0, 16)
+     *
+     * And that a base gain of 1.0 is added to those configured values. As a
+     * gain of more than 5.0 is fairly unlikely, let's fix gain_factor to 0
+     * for now and revisit if needed.
+     */
+    config-&gt;general.gain_factor = 0;
+
+    /*
+     * Disable the black level settings here - we do that through another
+     * parameters block.
+     */
+    config-&gt;black_level.bl_r = 0;
+    config-&gt;black_level.bl_gr = 0;
+    config-&gt;black_level.bl_gb = 0;
+    config-&gt;black_level.bl_b = 0;
+
+    ipu3_uapi_shd_lut *lut = &amp;params-&gt;acc_param.shd.shd_lut;
+
+    const auto &amp;set = lscAlgo_.interpolateComponents(quantizedCt);
+
+    unsigned int totalCells = numHCells_ * numVCells_;
+    unsigned int cellsPerSet = numHCells_ * config-&gt;grid.grid_height_per_slice;
+    unsigned int numSets = (numHCells_ + config-&gt;grid.grid_height_per_slice - 1) /
+                   config-&gt;grid.grid_height_per_slice;
+    unsigned int i = 0;
+
+    for (unsigned int s = 0; s &lt; numSets; s++) {
+        for (unsigned int c = 0; c &lt; cellsPerSet &amp;&amp; i &lt; totalCells; c++, i++) {
+            lut-&gt;sets[s].r_and_gr[c].r = set.at("r")[i];
+            lut-&gt;sets[s].r_and_gr[c].gr = set.at("gr")[i];
+            lut-&gt;sets[s].gb_and_b[c].gb = set.at("gb")[i];
+            lut-&gt;sets[s].gb_and_b[c].b = set.at("b")[i];
+        }
+    }
+
+    lastAppliedCt_ = ct;
+    lastAppliedQuantizedCt_ = quantizedCt;
+    LOG(IPU3Lsc, Debug)
+        &lt;&lt; "ct is " &lt;&lt; ct &lt;&lt; ", quantized to "
+        &lt;&lt; quantizedCt;
+}
+
+/**
+ * \copydoc libcamera::ipa::Algorithm::process
+ */
+void Lsc::process(
+</code></pre></div>
+</details>
+<p><a id="source-af2cbcaa6410fbf4"></a></p>
+<details class="note">
+<summary>Source evidence: src/ipa/ipu3/algorithms/lsc.cpp:31</summary>
+<p>This excerpt starts at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L31"><code>src/ipa/ipu3/algorithms/lsc.cpp:31</code></a> and ends at line 38. The original text below can be compared with the explanation.</p>
+<p>SHA-256: <code>7807718b4ae9327f1ca428627d2b00f59ba38ced03261465ee8c79312ea27833</code></p>
+<div class="highlight"><pre><span></span><code>static constexpr unsigned int kMaxNumHCells = 73;
+static constexpr unsigned int kMaxNumVCells = 56;
+static constexpr int kColourTemperatureQuantization = 10;
+
+/**
+ * \copydoc libcamera::ipa::Algorithm::init
+ */
+int Lsc::init(
+</code></pre></div>
+</details>
+<p><a id="source-2565eab3740cff67"></a></p>
+<details class="note">
+<summary>Source evidence: src/ipa/ipu3/algorithms/lsc.cpp:182</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L182"><code>src/ipa/ipu3/algorithms/lsc.cpp:182</code></a>. The end line is 185, and the source text below can be compared with the description.</p>
+<p>SHA-256: <code>c01350762a48814f82cd74a201743cc3a05182aca7837fdb61c61be2f23d0446</code></p>
+<div class="highlight"><pre><span></span><code>config-&gt;general.shd_enable = frameContext.lsc.enabled;
+
+    if (!frameContext.lsc.enabled)
+        return;
+</code></pre></div>
+</details>
+<p><a id="source-dba1ef8e8f2a8563"></a></p>
+<details class="note">
+<summary>Source evidence: src/ipa/ipu3/algorithms/lsc.cpp:248</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L248"><code>src/ipa/ipu3/algorithms/lsc.cpp:248</code></a>. The end line is 251, and the source text below can be compared with the description.</p>
+<p>SHA-256: <code>0d3f67f2135ab9779d48a9c37820f7d694dcd54b8d2fdd140ded1a91ef8c505f</code></p>
+<div class="highlight"><pre><span></span><code>config-&gt;black_level.bl_r = 0;
+    config-&gt;black_level.bl_gr = 0;
+    config-&gt;black_level.bl_gb = 0;
+    config-&gt;black_level.bl_b = 0;
+</code></pre></div>
+</details>
+<p><a id="source-d9cad5cb8a925660"></a></p>
+<details class="note">
+<summary>Source evidence: src/ipa/ipu3/algorithms/lsc.cpp:255</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L255"><code>src/ipa/ipu3/algorithms/lsc.cpp:255</code></a>. The end line is 255, and the source text below can be compared with the description.</p>
+<p>SHA-256: <code>0acd80d1672a74f03b1e8ac712a046a486d25382cfa71448f67dcf3c30edf13d</code></p>
+<div class="highlight"><pre><span></span><code>const auto &amp;set = lscAlgo_.interpolateComponents(quantizedCt);
+</code></pre></div>
+</details>
+<p><a id="source-807a646dc9c1acbc"></a></p>
+<details class="note">
+<summary>Source evidence: src/ipa/ipu3/algorithms/lsc.cpp:263</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L263"><code>src/ipa/ipu3/algorithms/lsc.cpp:263</code></a>. The end line is 272, and the source text below can be compared with the description.</p>
+<p>SHA-256: <code>4b7da473a595e23e82e1e8118afae2c1a044c6e1a510c1ac5e7fd1fd562be119</code></p>
+<div class="highlight"><pre><span></span><code>for (unsigned int s = 0; s &lt; numSets; s++) {
+        for (unsigned int c = 0; c &lt; cellsPerSet &amp;&amp; i &lt; totalCells; c++, i++) {
+            lut-&gt;sets[s].r_and_gr[c].r = set.at("r")[i];
+            lut-&gt;sets[s].r_and_gr[c].gr = set.at("gr")[i];
+            lut-&gt;sets[s].gb_and_b[c].gb = set.at("gb")[i];
+            lut-&gt;sets[s].gb_and_b[c].b = set.at("b")[i];
+        }
+    }
+
+    lastAppliedCt_ = ct;
+</code></pre></div>
+</details>
+<p><a id="source-8fc123f7e3c227d7"></a></p>
+<details class="note">
+<summary>Source evidence: src/ipa/ipu3/algorithms/lsc.cpp:272</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L272"><code>src/ipa/ipu3/algorithms/lsc.cpp:272</code></a>. The end line is 272, and the source text below can be compared with the description.</p>
+<p>SHA-256: <code>8ff337801a819f86b0e1912bd37319c93fe2cfaddaa718cc2437776b20fd55b2</code></p>
+<div class="highlight"><pre><span></span><code>lastAppliedCt_ = ct;
+</code></pre></div>
+</details>
+<p><a id="source-bb86261a35600a17"></a></p>
+<details class="note">
+<summary>Source evidence: src/ipa/ipu3/algorithms/lsc.cpp:273</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L273"><code>src/ipa/ipu3/algorithms/lsc.cpp:273</code></a>. The end line is 273, and the source text below can be compared with the description.</p>
+<p>SHA-256: <code>cf33d4637404946cb518e1bad89c7613d47f18ff75930a5af092bba468a014ed</code></p>
+<div class="highlight"><pre><span></span><code>lastAppliedQuantizedCt_ = quantizedCt;
+</code></pre></div>
+</details>
+<p><a id="source-bab7044c90ebf671"></a></p>
+<details class="note">
+<summary>Source evidence: src/ipa/ipu3/algorithms/lsc.cpp:207</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/ipa/ipu3/algorithms/lsc.cpp#L207"><code>src/ipa/ipu3/algorithms/lsc.cpp:207</code></a>. The end line is 213, and the source text below can be compared with the description.</p>
+<p>SHA-256: <code>03b2fe18d792ea317a04f630910098f72786262031e88589a85ee20479bb6678</code></p>
+<div class="highlight"><pre><span></span><code>if (polynomial_) {
+        config-&gt;grid.x_start = 0;
+        config-&gt;grid.y_start = 0;
+    } else {
+        config-&gt;grid.x_start = (cropWidth_ - sensorWidth_) / 2;
+        config-&gt;grid.y_start = (cropHeight_ - sensorHeight_) / 2;
+    }
+</code></pre></div>
+</details>
+</details>
+<h2 id="관련-클래스">Related classes</h2>
+<p>Check declarations, inheritance, and comments at each class link.</p><ul class="related-symbols"><li><a href="component-index.html#symbol-35864770c9b19571"><code>libcamera::ipa::LscAlgorithm</code></a></li><li><a href="component-index.html#symbol-3ad1329ffa9faf72"><code>libcamera::ipa::ipu3::IPAActiveState</code></a></li><li><a href="component-index.html#symbol-d69ce173b81f15c7"><code>libcamera::ipa::ipu3::IPAContext</code></a></li><li><a href="component-index.html#symbol-95c43781c510c214"><code>libcamera::ipa::ipu3::IPAFrameContext</code></a></li><li><a href="component-index.html#symbol-917573daa436fa73"><code>libcamera::ipa::ipu3::algorithms::Lsc</code></a></li><li><a href="component-index.html#symbol-e48939394fd77620"><code>libcamera::ipa::lsc::ActiveState</code></a></li><li><a href="component-index.html#symbol-d71d12576e0d63bf"><code>libcamera::ipa::lsc::FrameContext</code></a></li></ul>
+
+</article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>be7e83e91348250c015aad6d6f59f1468555bae8</code></dd><dt>Document generation time</dt><dd><code>2026-10-29 22:45:35+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>src/ipa/ipu3/algorithms/lsc.cpp</code>, <code>src/ipa/ipu3/algorithms/lsc.h</code>, <code>src/ipa/ipu3/ipa_context.h</code>, <code>src/ipa/libipa/lsc.h</code></li><li>Evidence level: code check (static analysis, simple_compdb configuration, commit <code>212c689fcf</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status record date: 2026-10-30 · Before human review</li></ul></details><a href="../ipu3-lsc-prepare.md">Markdown source ↗</a> <a href="ipu3-lsc-prepare.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="ipu3-lsc-flow.html"><small>Previous</small>IPU3 LSC Configuration and Frame Processing ←</a><a class="next" href="overview.html"><small>Next</small> System overview →</a></nav>
+<footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
+<aside class="page-toc"><nav aria-label="Table of contents for this page"><p>On this page</p><div class="toc">
+<ul>
+<li><a href="#파라미터-갱신-조건">Parameter update conditions</a><ul>
+<li><a href="#lsc-파라미터를-갱신하는-분기">Branch that updates LSC parameters</a></li>
+</ul>
+</li>
+<li><a href="#클래스-관계">Class relationships</a></li>
+<li><a href="#소스-근거">Source evidence</a></li>
+<li><a href="#관련-클래스">Related classes</a></li>
+</ul>
+</div>
+</nav></aside></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find document</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search documents, sections, terms, and code elements</label><input id="search-input" type="search" autocomplete="off" placeholder="Example: Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Diagram element and function names"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Collapse">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to screen</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">Drag with a mouse or swipe with touch to move the diagram. "Fit to screen" shows an overview of the whole diagram.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="Zoomed diagram"><div id="diagram-canvas"></div></div></dialog>
+<script id="site-config" type="application/json">{"root": "./", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "dd74862a2c", "language": "en"}</script><script defer src="../assets/site.js?v=dd3415510a"></script><script defer src="../assets/reader-tools.js?v=dd3415510a"></script></body></html>

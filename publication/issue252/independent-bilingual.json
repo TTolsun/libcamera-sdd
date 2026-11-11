@@ -1,0 +1,391 @@
+{
+  "status": "passed",
+  "human_review": "pending",
+  "questions": [
+    {
+      "id": "Q1",
+      "answer_location": "Both versions: submission to completion; preparation waits and reentrancy; UVC submission and completion.",
+      "diagnosis_values": "Inspect queued invocation at camera.cpp:1308, waitingRequests_ and its limit at pipeline_handler.cpp:435, fences and prepared_ at request.cpp:192, and the queuedRequests_ head at pipeline_handler.cpp:571.",
+      "next_branch": "If the posted method has not run, inspect message consumption and receiver lifetime. Otherwise follow preparation, timeout or device submission, DQBUF, ordered completion and callback delivery.",
+      "change_validation": "Check timeout cancellation, pop before recursive dispatch, cancelled-request device bypass, queue-head ordering and Poll timer processing.",
+      "answerable": true,
+      "source_windows": [
+        "src/libcamera/camera.cpp",
+        "src/libcamera/pipeline_handler.cpp",
+        "src/libcamera/request.cpp",
+        "src/libcamera/base/thread.cpp",
+        "src/libcamera/base/event_dispatcher_poll.cpp",
+        "src/libcamera/v4l2_videodevice.cpp"
+      ],
+      "missing": []
+    },
+    {
+      "id": "Q2",
+      "answer_location": "Both versions: UVC device submission and completion; change review.",
+      "diagnosis_values": "Inspect findBuffer and processControls at uvcvideo.cpp:327, 427 and 448, setControls and error_idx at v4l2_device.cpp:309, QBUF and cache state at v4l2_videodevice.cpp:1648, and sequence assignment at pipeline_handler.cpp:483.",
+      "next_branch": "Separate ignored individual conversion returns from negative setControls or queueBuffer results; follow a nonzero device return to cancelRequest without assuming control rollback.",
+      "change_validation": "Compare control, cache, plane and QBUF failure branches, original returns, guard put, new registration and cancellation; treat absent-cache Fatal separately.",
+      "answerable": true,
+      "source_windows": [
+        "src/libcamera/pipeline/uvcvideo/uvcvideo.cpp",
+        "src/libcamera/v4l2_device.cpp",
+        "src/libcamera/v4l2_videodevice.cpp",
+        "src/libcamera/pipeline_handler.cpp",
+        "include/libcamera/base/utils.h"
+      ],
+      "missing": []
+    },
+    {
+      "id": "Q3",
+      "answer_location": "Both versions: UVC submission and completion; internal buffer notification and request return.",
+      "diagnosis_values": "Inspect bufferCompleted before bookkeeping at pipeline_handler.cpp:547, pending_ and cancelled_ at request.cpp:103 and 125, DQBUF and frame status at v4l2_videodevice.cpp:1814, and the queue head at pipeline_handler.cpp:571.",
+      "next_branch": "DQBUF failure or unexpected index yields no bufferReady for that call. A returned UVC buffer reaches completeBuffer and explicit completeRequest, then head ordering and requestCompleted.",
+      "change_validation": "Check FrameError with possible RequestComplete, one completion per buffer, no pending buffers at request completion and notification delayed behind a pending head.",
+      "answerable": true,
+      "source_windows": [
+        "src/libcamera/pipeline_handler.cpp",
+        "src/libcamera/request.cpp",
+        "src/libcamera/v4l2_videodevice.cpp",
+        "src/libcamera/pipeline/uvcvideo/uvcvideo.cpp",
+        "src/libcamera/framebuffer.cpp"
+      ],
+      "missing": []
+    },
+    {
+      "id": "Q4",
+      "answer_location": "Both versions: request, buffer and fence lifetime; buffer notification boundary; queued receiver lifetime.",
+      "diagnosis_values": "Inspect ownership at camera.cpp:1243, addBuffer and fence recovery at request.cpp:442 and 462, bookkeeping at request.cpp:103 and 139, and pointer arguments at object.cpp:258.",
+      "next_branch": "A direct buffer callback can run before pending cleanup; recover a retained fence before reuse and coordinate each delayed receiver's final pointer use.",
+      "change_validation": "Check early buffer reassociation, retained pointer values after bulk cancellation, ReuseBuffers advice and delayed receiver lifetime before deletion or reuse.",
+      "answerable": true,
+      "source_windows": [
+        "src/libcamera/camera.cpp",
+        "src/libcamera/request.cpp",
+        "src/libcamera/framebuffer.cpp",
+        "src/libcamera/pipeline_handler.cpp",
+        "src/libcamera/base/object.cpp",
+        "src/libcamera/base/signal.cpp"
+      ],
+      "missing": []
+    },
+    {
+      "id": "Q5",
+      "answer_location": "Both versions: stop versus disconnect; UVC stop normal and failure boundaries.",
+      "diagnosis_values": "Inspect queue swap and assertions at pipeline_handler.cpp:359, CameraStopping and Blocking at camera.cpp:1431, ignored UVC returns at uvcvideo.cpp:320, and STREAMOFF and release at v4l2_videodevice.cpp:1616 and 2023.",
+      "next_branch": "STREAMOFF failure returns before buffer cancellation; UVC still calls releaseBuffers. Investigate a residual notification and known DQBUF index after cache reset.",
+      "change_validation": "Separate normal stop, STREAMOFF failure and releaseBuffers failure; record queues, notifier, cache, assertion reachability and requeue attempts. Do not infer device success from a normal stop return.",
+      "answerable": true,
+      "source_windows": [
+        "src/libcamera/camera.cpp",
+        "src/libcamera/pipeline_handler.cpp",
+        "src/libcamera/pipeline/uvcvideo/uvcvideo.cpp",
+        "src/libcamera/v4l2_videodevice.cpp"
+      ],
+      "missing": []
+    },
+    {
+      "id": "Q6",
+      "answer_location": "Both versions: callback threads and reentrancy; stop and separate receiver lifetime.",
+      "diagnosis_values": "Inspect connection types at bound_method.cpp:22, filtered recursive dispatch at thread.cpp:613, pointer lifetime at object.cpp:258, and synchronization and stop at camera.cpp:769 and 1431.",
+      "next_branch": "Compare sender and receiver threads and connection type, then inspect message consumption and receiver lifetime. Blocking stop does not establish that separate queued receivers have drained.",
+      "change_validation": "Distinguish documented recursive dispatch from undocumented same-function callback reentry; synchronize state changes and track each receiver's last use.",
+      "answerable": true,
+      "source_windows": [
+        "src/libcamera/base/bound_method.cpp",
+        "src/libcamera/base/thread.cpp",
+        "src/libcamera/base/object.cpp",
+        "src/libcamera/base/signal.cpp",
+        "src/libcamera/camera.cpp",
+        "Documentation/thread-safety.dox"
+      ],
+      "missing": []
+    },
+    {
+      "id": "Q7",
+      "answer_location": "Both versions: change review and execution check.",
+      "diagnosis_values": "Inspect pop order at pipeline_handler.cpp:435, erase and bulk cancellation at request.cpp:103 and 139, completion assertions at request.cpp:125, and stop and ordered completion at pipeline_handler.cpp:359 and 571.",
+      "next_branch": "Trace timeout, control and QBUF failures, DQBUF error or unexpected index, FrameError, STREAMOFF failure and delayed callbacks separately.",
+      "change_validation": "Compare per-request and per-buffer completion counts, submission order, pending state, stop requeue attempts, post-completion access and each receiver's last use.",
+      "answerable": true,
+      "source_windows": [
+        "src/libcamera/pipeline_handler.cpp",
+        "src/libcamera/request.cpp",
+        "src/libcamera/pipeline/uvcvideo/uvcvideo.cpp",
+        "src/libcamera/v4l2_videodevice.cpp",
+        "src/libcamera/base/bound_method.cpp"
+      ],
+      "missing": []
+    }
+  ],
+  "findings": [],
+  "items": [
+    {
+      "anchor": "item-01",
+      "visual_status": "diagram",
+      "question": "How do submission and completion connect?",
+      "reason": "Both versions show the normal-path stages."
+    },
+    {
+      "anchor": "item-02",
+      "visual_status": "diagram",
+      "question": "What are the submission and completion stages?",
+      "reason": "Both show preparation, device submission and explicit completion."
+    },
+    {
+      "anchor": "item-03",
+      "visual_status": "diagram",
+      "question": "How do return and completion notification differ?",
+      "reason": "Both distinguish queued invocation, return 0 and notification."
+    },
+    {
+      "anchor": "item-04",
+      "visual_status": "diagram",
+      "question": "When does forwarding the head stop?",
+      "reason": "Both show queue-limit and prepared_ branches."
+    },
+    {
+      "anchor": "item-05",
+      "visual_status": "diagram",
+      "question": "How do cancellation paths differ?",
+      "reason": "Both branch on cancelled_ and the device return."
+    },
+    {
+      "anchor": "item-06",
+      "visual_status": "diagram",
+      "question": "How do buffer and request completion differ?",
+      "reason": "Both show the buffer result and explicit completion obligation."
+    },
+    {
+      "anchor": "item-07",
+      "visual_status": "diagram",
+      "question": "How does the head affect return order?",
+      "reason": "Both show the head status check and removal."
+    },
+    {
+      "anchor": "item-08",
+      "visual_status": "diagram",
+      "question": "How are preparation waits and reentrancy investigated?",
+      "reason": "Both connect fence preparation, queue limits and pop before dispatch."
+    },
+    {
+      "anchor": "item-09",
+      "visual_status": "diagram",
+      "question": "What follows fence notification or timeout?",
+      "reason": "Both show preparation completion and the cancelled-request branch."
+    },
+    {
+      "anchor": "item-10",
+      "visual_status": "diagram",
+      "question": "Where is concurrent submission order observed?",
+      "reason": "Both show posting, registration and notification boundaries."
+    },
+    {
+      "anchor": "item-11",
+      "visual_status": "diagram",
+      "question": "How are fence and timer events handled in one Poll iteration?",
+      "reason": "Both show notifier-first processing for a positive poll result and the remaining-timer branch."
+    },
+    {
+      "anchor": "item-12",
+      "visual_status": "diagram",
+      "question": "Where do UVC submission and completion diverge?",
+      "reason": "Both show submission, cancellation and a separate completion event."
+    },
+    {
+      "anchor": "item-13",
+      "visual_status": "diagram",
+      "question": "How do QBUF failure and a completion event differ?",
+      "reason": "Both show control, queue and completion branches."
+    },
+    {
+      "anchor": "item-14",
+      "visual_status": "diagram",
+      "question": "What happens to cache entries on pre-QBUF failure?",
+      "reason": "Both show cache get, plane checks and guard cleanup."
+    },
+    {
+      "anchor": "item-15",
+      "visual_status": "diagram",
+      "question": "Who maintains request, buffer and fence lifetime?",
+      "reason": "Both include ownership and fence recovery figures."
+    },
+    {
+      "anchor": "item-16",
+      "visual_status": "omitted-with-reason",
+      "question": "What remains after successful submission?",
+      "reason": "The subsection states two short facts: queued invocation and separate completion notification."
+    },
+    {
+      "anchor": "item-17",
+      "visual_status": "diagram",
+      "question": "What are the ownership and completion boundaries?",
+      "reason": "Both show caller ownership, handler access and queued receiver lifetime."
+    },
+    {
+      "anchor": "item-18",
+      "visual_status": "diagram",
+      "question": "What separates buffer notification from request return?",
+      "reason": "Both show emission, tracking update and explicit completion."
+    },
+    {
+      "anchor": "item-19",
+      "visual_status": "diagram",
+      "question": "How do status, delayed return and cancellation differ?",
+      "reason": "Both show the head-order example and fence recovery."
+    },
+    {
+      "anchor": "item-20",
+      "visual_status": "diagram",
+      "question": "What contracts matter when completion responsibility changes?",
+      "reason": "Both map thread, ordering and lifetime checks."
+    },
+    {
+      "anchor": "item-21",
+      "visual_status": "diagram",
+      "question": "What is the internal buffer notification boundary?",
+      "reason": "Both show signal emission before pending bookkeeping and request notification."
+    },
+    {
+      "anchor": "item-22",
+      "visual_status": "diagram",
+      "question": "What happens between buffer signal and request return?",
+      "reason": "Both depict emission, pending removal, explicit completion and head inspection."
+    },
+    {
+      "anchor": "item-23",
+      "visual_status": "diagram",
+      "question": "How do callback threads and reentrancy differ?",
+      "reason": "Both show connection selection and dispatch boundaries."
+    },
+    {
+      "anchor": "item-24",
+      "visual_status": "diagram",
+      "question": "How does Auto select Direct or Queued?",
+      "reason": "Both show the current and receiver thread comparison."
+    },
+    {
+      "anchor": "item-25",
+      "visual_status": "diagram",
+      "question": "Who checks queued pointer lifetime?",
+      "reason": "Both distinguish emitter responsibility and the owner's verification plan."
+    },
+    {
+      "anchor": "item-26",
+      "visual_status": "diagram",
+      "question": "How do Direct nesting and Queued dispatch differ?",
+      "reason": "Both show activation, posting, dispatch and internal update boundaries."
+    },
+    {
+      "anchor": "item-27",
+      "visual_status": "diagram",
+      "question": "Why check a receiver's last use after stop?",
+      "reason": "Both distinguish Blocking stop from separate queued use."
+    },
+    {
+      "anchor": "item-28",
+      "visual_status": "diagram",
+      "question": "How do stop and disconnect differ?",
+      "reason": "Both show stop ordering and the disconnect TODO."
+    },
+    {
+      "anchor": "item-29",
+      "visual_status": "diagram",
+      "question": "How are waiting requests handled during stop?",
+      "reason": "Both show detachment, device stop and cancellation."
+    },
+    {
+      "anchor": "item-30",
+      "visual_status": "diagram",
+      "question": "What do the stop contract and disconnect TODO say?",
+      "reason": "Both distinguish the documented contract from unfinished disconnect handling."
+    },
+    {
+      "anchor": "item-31",
+      "visual_status": "diagram",
+      "question": "What are the Camera::stop branches?",
+      "reason": "Both show not-running, access-error and normal paths."
+    },
+    {
+      "anchor": "item-32",
+      "visual_status": "diagram",
+      "question": "Where should stopDevice be observed?",
+      "reason": "Both distinguish the call site, implementation entry and observed return."
+    },
+    {
+      "anchor": "item-33",
+      "visual_status": "diagram",
+      "question": "What are the completion caller's obligations?",
+      "reason": "Both map the thread, return order and access boundary."
+    },
+    {
+      "anchor": "item-34",
+      "visual_status": "diagram",
+      "question": "How should completion records be compared?",
+      "reason": "Both show separate entry and notification records and retained submission identity."
+    },
+    {
+      "anchor": "item-35",
+      "visual_status": "diagram",
+      "question": "What are the UVC stop success and failure boundaries?",
+      "reason": "Both show STREAMOFF branches and releaseBuffers."
+    },
+    {
+      "anchor": "item-36",
+      "visual_status": "diagram",
+      "question": "When do streamOff return paths reach releaseBuffers?",
+      "reason": "Both condition convergence on streamOff actually returning."
+    },
+    {
+      "anchor": "item-37",
+      "visual_status": "diagram",
+      "question": "What completion and failure branches should change review inspect?",
+      "reason": "Both include normal versus bulk cancellation and failure investigation figures."
+    },
+    {
+      "anchor": "item-38",
+      "visual_status": "diagram",
+      "question": "Where are normal completion and bulk cancellation checked?",
+      "reason": "Both show their distinct pending_ handling and completion assertion."
+    },
+    {
+      "anchor": "item-39",
+      "visual_status": "diagram",
+      "question": "What is the next branch for each illustrated failure?",
+      "reason": "Both show timeout, device submission failure and DQBUF failure."
+    },
+    {
+      "anchor": "item-40",
+      "visual_status": "diagram",
+      "question": "What did the bounded virtual probe observe?",
+      "reason": "Both show connection-specific markers and the near-return limitation."
+    },
+    {
+      "anchor": "item-41",
+      "visual_status": "diagram",
+      "question": "Where were cancellation callback markers observed?",
+      "reason": "Both limit the comparison to the three recorded probe runs."
+    },
+    {
+      "anchor": "item-42",
+      "visual_status": "diagram",
+      "question": "What can a near-return marker establish?",
+      "reason": "Both show subsequent counter and destruction work and the untraced C++ return."
+    },
+    {
+      "anchor": "item-43",
+      "visual_status": "omitted-with-reason",
+      "question": "Where is the source evidence?",
+      "reason": "The section is a reference collection; a process diagram would not clarify its purpose."
+    }
+  ],
+  "unreviewed_scope": [
+    "Browser rendering and actual non-author reader evaluation were not inspected.",
+    "Physical UVC capture, DMA correctness, other pipeline implementations and internal HAL validation are excluded.",
+    "The supplied virtual camera and signal probes are historical observations; no new execution was performed.",
+    "Prior source-navigation and introductory-navigation findings were rechecked against the supplied projection metadata and dispositions; this audit did not independently inspect the rendered DOM."
+  ],
+  "phase": "bilingual",
+  "source_commit": "be7e83e91348250c015aad6d6f59f1468555bae8",
+  "document_sha256": "2f29d21f77cee74d659389621323ff17b037aba9df91032d6dce2beee8bc118f",
+  "payload_sha256": "fb9545d02171a36483115363aca901ba8cb613e0e1f53ba7aec777e731955a1f"
+}

@@ -1,0 +1,21 @@
+flowchart TB
+
+  v_timeout["timeout asserts that <br/>unprocessed notifiers <br/>remain, clears the entries <br/>in notifiers#95;, and calls <br/>cancel#40;#41;."]
+  v_prepared["emitPrepareCompleted sets <br/>prepared#95; to true and emits <br/>the prepared signal."]
+  v_entry{"doQueueRequest adds the <br/>request to queuedRequests#95; <br/>as a common software <br/>record, sets sequence#95;, and <br/>then checks cancelled#95;."}
+  v_complete["completeRequest signals <br/>request completion. The <br/>caller must complete each <br/>buffer exactly once and <br/>call it from the <br/>CameraManager thread, and <br/>must not access the request <br/>after it returns."]
+  v_device["queueRequestDevice directly <br/>returns -ENOENT if <br/>findBuffer fails and <br/>returns the original ret if <br/>processControls or <br/>queueBuffer returns a <br/>negative value. cache#95;-#62;get <br/>can also return -ENOENT. If <br/>the QBUF ioctl returns a <br/>negative value, the active <br/>guard runs cache#95;-#62;put <br/>before the original ret is <br/>returned, and this buffer <br/>is not newly registered. <br/>Control rollback is not <br/>guaranteed. Record the <br/>failure location, ret, and <br/>available index and queue <br/>state."]
+  v_retcheck{"doQueueRequest checks ret <br/>after the device call <br/>returns."}
+  v_cancel["cancelRequest cancels the <br/>request and calls <br/>completeRequest. The same <br/>calling rules as <br/>completeRequest apply."]
+  v_available["bufferAvailable first calls <br/>dequeueBuffer."]
+  v_dequeue["dequeueBuffer returns <br/>nullptr if DQBUF returns a <br/>negative ret or if the <br/>index from a successful <br/>DQBUF is absent from <br/>queuedBuffers#95;. Record ret, <br/>the available index, and <br/>the queuedBuffers#95; state."]
+  v_available_return["When bufferAvailable <br/>receives nullptr, it <br/>returns without emitting <br/>bufferReady."]
+  v_timeout -->|"timeout calls <br/>emitPrepareCompleted after <br/>cancel#40;#41;."| v_prepared
+  v_prepared -->|"After the prepared signal <br/>invokes doQueueRequests, if <br/>the waiting queue is <br/>nonempty, its front request <br/>is prepared, and the limit <br/>comparison is false, <br/>doQueueRequests pops that <br/>request and calls <br/>doQueueRequest. · <br/>data-#62;queuedRequests#95;.size#40;#41;<br/> #61;#61; <br/>maxQueuedRequestsDevice#95; <br/>#91;false#93;"| v_entry
+  v_entry -->|"For an already cancelled <br/>request, doQueueRequest <br/>calls completeRequest and <br/>then returns. · <br/>request-#62;#95;d#40;#41;-#62;cancelled#95; <br/>#91;true#93;"| v_complete
+  v_entry -->|"For a request that is not <br/>cancelled, doQueueRequest <br/>calls queueRequestDevice. · <br/>request-#62;#95;d#40;#41;-#62;cancelled#95; <br/>#91;false#93;"| v_device
+  v_device -->|"When queueRequestDevice <br/>returns, doQueueRequest <br/>checks ret."| v_retcheck
+  v_retcheck -->|"If ret is nonzero, <br/>doQueueRequest calls <br/>cancelRequest. · ret #91;true#93;"| v_cancel
+  v_cancel -->|"cancelRequest calls <br/>completeRequest for the <br/>cancelled request."| v_complete
+  v_available -->|"bufferAvailable calls <br/>dequeueBuffer."| v_dequeue
+  v_dequeue -->|"If dequeueBuffer returns <br/>nullptr, bufferAvailable <br/>returns. · #33;buffer #91;true#93;"| v_available_return

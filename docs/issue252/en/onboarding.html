@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run it and read the design rationale · libcamera design document</title><link rel="stylesheet" href="../assets/reading.css?v=dd3415510a"><link rel="alternate" hreflang="ko" href="../onboarding.html"><link rel="alternate" hreflang="en" href="onboarding.html"></head>
+<body><a class="skip" href="#main">Go to body text</a>
+<header class="site-header"><a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera Design Document</a>
+<div class="header-actions"><details class="language-selector"><summary aria-label="Choose language">English ▾</summary><nav><a lang="ko" hreflang="ko" href="../onboarding.html">한국어</a><a lang="en" hreflang="en" href="onboarding.html" aria-current="true">English</a></nav></details><button id="search-open" hidden>Find document <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button></div></header>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Document menu"><details class="nav-group" data-nav-id="group-eb5fc4597bcab08dd609eb65" open><summary>Get started</summary><a href="index.html">Document guide</a><a href="glossary.html">Glossary</a></details><details class="nav-group" data-nav-id="group-d671e203b93701cc4b6e3099" open><summary>For Vendor</summary><details class="nav-section" data-nav-id="task-d6e030e93c998b7019a15936"><summary>Adoption decision</summary><a href="vendor-overview.html">libcamera product overview</a><a href="vendor-assurance.html">Support scope and validation</a></details><details class="nav-section" data-nav-id="task-3e788d9bf0a3e06fa9605fc7"><summary>Integration implementation</summary><a href="vendor-integration.html">Integration guide</a><a href="pipeline-handler.html">Pipeline Handler</a><a href="pipeline-requests.html">Pipeline Request Submission and Completion</a><a href="ipa.html">IPA management and implementation entry points</a><a href="ipa-algorithms.html">IPA Tuning and Software ISP</a></details><details class="nav-section" data-nav-id="task-4e6bf6a82fb4765e60a97382"><summary>Per-device feature implementation</summary><a href="ipu3-lsc-flow.html">IPU3 LSC Configuration and Frame Processing</a><a href="ipu3-lsc-prepare.html">IPU3 Lens Correction Table Preparation</a><a href="rkisp1-dewarp.html">RKISP1 Per-Camera Distortion Correction</a></details></details><details class="nav-group" data-nav-id="group-8c6df661e792ad45c78bb2ef" open><summary>For Developer</summary><details class="nav-section" data-nav-id="task-99be7fb5d49c7ce6147f371a"><summary>Structural understanding</summary><a href="team-overview.html">What this project does</a><a href="overview.html">System overview</a><a href="onboarding.html" aria-current="page">Run it and read the design rationale</a><a href="camera-model.html">Camera and request model</a><a href="camera-requests.html">Request object and buffer lifetime</a></details><details class="nav-section" data-nav-id="task-1fd1cf94625ce3af7bee3dfe"><summary>Behavior Tracing and Problem Diagnosis</summary><a href="request-lifecycle.html">Request handling and problem diagnosis</a><a href="request-diagnosis.html">Investigation of configuration and request errors</a><a href="scenarios/index.html">Key scenario</a><details class="nav-branch" data-nav-id="branch-6cdafc2d5a06483de679705c"><summary>6 sub-documents</summary><a class="nav-sub" href="scenarios/manager_start.html">Camera discovery</a><a class="nav-sub" href="scenarios/configure.html">Stream configuration</a><a class="nav-sub" href="scenarios/camera_start.html">Capture start</a><a class="nav-sub" href="scenarios/queue_request.html">Request submission</a><a class="nav-sub" href="scenarios/complete_request.html">Request completion notification</a><a class="nav-sub" href="scenarios/camera_stop.html">Request to end capture</a></details><a href="ipa-module-validation.html">IPA module information check and missing signature file</a><a href="framebuffer-allocator.html">FrameBufferAllocator Failures and Reference Lifetime</a><a href="official-cam-validation.html">Verifying virtual capture with the official cam in WSL</a></details><details class="nav-section" data-nav-id="task-832d04faf930a39f3dde0065"><summary>Code exploration</summary><a href="component-index.html">Component index</a><a href="ipu3-lsc.html">IPU3 LSC and State Connection</a></details></details></nav><p class="sidebar-note">Extract the structure from the code and review it together with <br> evidence.</p></aside>
+<main id="main"><p class="breadcrumb">For Developer <span>/</span> Running it and reading the design rationale</p><h1>Run it and read the design rationale</h1><div class="page-state"><span class="review-state">Before human review</span><span>Automated check passed</span><span class="generation-method">Authored: extracted structure and draft written by the model</span><a class="state-help" href="#page-evidence">State description ↓</a></div>
+<details class="mobile-toc"><summary>Table of contents of this page</summary><div class="toc">
+<ul>
+<li><a href="#직접-실행해-보기">Try running it directly</a></li>
+<li><a href="#요청-접수와-완료를-나눈-이유">Why request acceptance and completion are separated</a></li>
+<li><a href="#소스-근거">Source evidence</a></li>
+</ul>
+</div>
+</details><p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p><strong>First check the camera with the cam tool, then read the source comments to learn why request acceptance and completion are separated.</strong></p><details class="note">
+<summary>Design questions and validation scope</summary>
+<p>The answers to each question and their evidence links were checked. The meaning and execution results require human review.</p>
+<ul class="coverage-links"><li><p>What is run to check the camera directly?</p><p><a href="#직접-실행해-보기">Try running it directly</a></p></li><li><p>Among the reasons request acceptance and completion notification are separate stages, which does the source state directly?</p><p><a href="#요청-접수와-완료를-나눈-이유">Why request acceptance and completion are separated</a></p></li></ul><p><span>Verification scope</span>: <span>Linking code evidence to explanations</span></p>
+</details>
+<details class="page-terms">
+<summary>Terms in this document: Pipeline Handler</summary>
+<ul>
+<li><strong>Pipeline Handler</strong>: A libcamera component that finds the media device of a specific hardware platform (IPU3, RKISP1, etc.), creates cameras, passes requests to the device, and returns their completion. There is one per platform.</li>
+</ul>
+<p>Other terms can be found in <a href="glossary.html">Glossary</a>.</p>
+</details>
+
+<h2 id="직접-실행해-보기">Try running it directly</h2>
+<p data-sdd-evidence="[[&quot;README.rst:107&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/README.rst#L107\&quot;&gt;&lt;code&gt;README.rst:107&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;README.rst:107&quot;: [&quot;#source-5bc9ee57c1b6daee&quot;]}">The cameras detected on the system can be listed with <code>cam -l</code>. To capture 10 frames from the first camera and save them to disk, use <code>cam -c 1 --capture=10 --file</code>. If a problem occurs, you can obtain a detailed libcamera debug log by setting the environment variable with <code>LIBCAMERA_LOG_LEVELS=*:DEBUG cam -l</code>.</p>
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>1</span></summary><ul><li><code>README.rst</code><span class="evidence-lines"><a href="#source-5bc9ee57c1b6daee" aria-label="README.rst:107 excerpt">Excerpt from <code>L107</code></a> · <a aria-label="README.rst:107" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/README.rst#L107">Full source <code>L107</code></a></span></li></ul></details><h2 id="요청-접수와-완료를-나눈-이유">Why request acceptance and completion are separated</h2>
+<p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1311&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/libcamera/camera.cpp#L1311\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1311&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1311&quot;: [&quot;#source-a697a2ba4de7965c&quot;]}">The application must fill at least one capture buffer in a request allocated with createRequest() before calling queueRequest. Requests without buffers are invalid, so they are not added to the queue and are rejected. When a request is added to the queue, the camera notifies completion through the requestCompleted signal.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/pipeline_handler.cpp:551&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/libcamera/pipeline_handler.cpp#L551\&quot;&gt;&lt;code&gt;src/libcamera/pipeline_handler.cpp:551&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline_handler.cpp:551&quot;: [&quot;#source-9bd7c9fb9847e336&quot;]}">When the last buffer completes, the request is not completed automatically. This gives the pipeline handler a chance to perform any operation that may still be needed. The pipeline handler must complete the request explicitly with completeRequest().</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/pipeline_handler.cpp:574&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/libcamera/pipeline_handler.cpp#L574\&quot;&gt;&lt;code&gt;src/libcamera/pipeline_handler.cpp:574&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline_handler.cpp:574&quot;: [&quot;#source-77cb263c0a63392c&quot;]}">Requests are returned to the application in the order they were submitted. The pipeline handler may call completeRequest() on any completed request without an ordering constraint.</p>
+
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>3</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-a697a2ba4de7965c" aria-label="src/libcamera/camera.cpp:1311 excerpt">Excerpt from <code>L1311</code></a> · <a aria-label="src/libcamera/camera.cpp:1311" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/libcamera/camera.cpp#L1311">Full source <code>L1311</code></a></span></li><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="#source-9bd7c9fb9847e336" aria-label="src/libcamera/pipeline_handler.cpp:551 excerpt">Excerpt from <code>L551</code></a> · <a aria-label="src/libcamera/pipeline_handler.cpp:551" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/libcamera/pipeline_handler.cpp#L551">Full source <code>L551</code></a> · <a href="#source-77cb263c0a63392c" aria-label="src/libcamera/pipeline_handler.cpp:574 excerpt">Excerpt from <code>L574</code></a> · <a aria-label="src/libcamera/pipeline_handler.cpp:574" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/libcamera/pipeline_handler.cpp#L574">Full source <code>L574</code></a></span></li></ul></details><h2 id="소스-근거">Source evidence</h2>
+<details class="source-excerpts"><summary>Source excerpts: <span>4</span></summary>
+<p>Include each excerpt only once. Expand the needed original text and check it against the explanation.</p>
+<p><a id="source-5bc9ee57c1b6daee"></a></p>
+<details class="note">
+<summary>Source evidence: README.rst:107</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/README.rst#L107"><code>README.rst:107</code></a>. The end line is 117, and the source text below can be compared against the description.</p>
+<p>SHA-256: <code>c35f23844229f0b6dc8411bca6eea313eb05f11d9b9a4524f5375c921b09afc4</code></p>
+<div class="highlight"><pre><span></span><code>The ``cam`` utility can be used for basic testing. You can list the cameras
+detected on the system with ``cam -l``, and capture ten frames from the first
+camera and save them to disk with ``cam -c 1 --capture=10 --file``. See
+``cam -h`` for more information about the ``cam`` tool.
+
+In case of problems, a detailed debug log can be obtained from libcamera by
+setting the ``LIBCAMERA_LOG_LEVELS`` environment variable:
+
+.. code::
+
+    :~$ LIBCAMERA_LOG_LEVELS=*:DEBUG cam -l
+</code></pre></div>
+</details>
+<p><a id="source-a697a2ba4de7965c"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/camera.cpp:1311</summary>
+<p>Excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/libcamera/camera.cpp#L1311"><code>src/libcamera/camera.cpp:1311</code></a>. The end line is 1318, and the source text below can be compared with the description.</p>
+<p>SHA-256: <code>e28ed33dec85a5e783457be419afac5b7c646b588c24bc311d46265b1ae7f37a</code></p>
+<div class="highlight"><pre><span></span><code>This function queues a \a request to the camera for capture.
+ *
+ * After allocating the request with createRequest(), the application shall
+ * fill it with at least one capture buffer before queuing it. Requests that
+ * contain no buffers are invalid and are rejected without being queued.
+ *
+ * Once the request has been queued, the camera will notify its completion
+ * through the \ref requestCompleted signal.
+</code></pre></div>
+</details>
+<p><a id="source-9bd7c9fb9847e336"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/pipeline_handler.cpp:551</summary>
+<p>An excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/libcamera/pipeline_handler.cpp#L551"><code>src/libcamera/pipeline_handler.cpp:551</code></a>. The end line is 556, and the original text below can be compared against the explanation.</p>
+<p>SHA-256: <code>dc60b6f028df4f7341facfcbd3ebade17f81bb4d2e72ce580ba93c7a1c449b42</code></p>
+<div class="highlight"><pre><span></span><code>This function shall be called by pipeline handlers to signal completion of
+ * the \a buffer part of the \a request. It notifies applications of buffer
+ * completion and updates the request's internal buffer tracking. The request
+ * is not completed automatically when the last buffer completes to give
+ * pipeline handlers a chance to perform any operation that may still be
+ * needed. They shall complete requests explicitly with completeRequest().
+</code></pre></div>
+</details>
+<p><a id="source-77cb263c0a63392c"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/pipeline_handler.cpp:574</summary>
+<p>An excerpt starting at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/be7e83e91348250c015aad6d6f59f1468555bae8/src/libcamera/pipeline_handler.cpp#L574"><code>src/libcamera/pipeline_handler.cpp:574</code></a>. The end line is 580, and the original text below can be compared against the explanation.</p>
+<p>SHA-256: <code>5df554f7462852344c1f8f25dd3bf2f16f22ab34e3f96d948d54ec44baca7217</code></p>
+<div class="highlight"><pre><span></span><code>The pipeline handler shall call this function to notify the \a camera that
+ * the request has completed. The request is no longer managed by the pipeline
+ * handler and shall not be accessed once this function returns.
+ *
+ * This function ensures that requests will be returned to the application in
+ * submission order, the pipeline handler may call it on any complete request
+ * without any ordering constraint.
+</code></pre></div>
+</details>
+</details>
+
+</article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>be7e83e91348250c015aad6d6f59f1468555bae8</code></dd><dt>Document generation time</dt><dd><code>2026-10-29 22:35:49+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>README.rst</code>, <code>include/libcamera/camera.h</code>, <code>include/libcamera/internal/pipeline_handler.h</code>, <code>include/libcamera/request.h</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code>, <code>src/libcamera/request.cpp</code></li><li>Evidence level: code check (static analysis, simple_compdb configuration, commit <code>212c689fcf</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status record date: 2026-10-30 · Before human review</li></ul></details><a href="../onboarding.md">Markdown source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="overview.html"><small>Previous</small> System overview ←</a><a class="next" href="camera-model.html"><small>Next</small> Camera and request model →</a></nav>
+<footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
+<aside class="page-toc"><nav aria-label="Table of contents for this page"><p>On this page</p><div class="toc">
+<ul>
+<li><a href="#직접-실행해-보기">Try running it directly</a></li>
+<li><a href="#요청-접수와-완료를-나눈-이유">Why request acceptance and completion are separated</a></li>
+<li><a href="#소스-근거">Source evidence</a></li>
+</ul>
+</div>
+</nav></aside></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find document</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search documents, sections, terms, and code elements</label><input id="search-input" type="search" autocomplete="off" placeholder="Example: Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Diagram element and function names"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Collapse">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to screen</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">Drag with a mouse or swipe with touch to move the diagram. "Fit to screen" shows an overview of the whole diagram.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="Zoomed diagram"><div id="diagram-canvas"></div></div></dialog>
+<script id="site-config" type="application/json">{"root": "./", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "dd74862a2c", "language": "en"}</script><script defer src="../assets/site.js?v=dd3415510a"></script><script defer src="../assets/reader-tools.js?v=dd3415510a"></script></body></html>

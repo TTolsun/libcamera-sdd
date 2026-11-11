@@ -1,0 +1,21 @@
+flowchart TB
+
+  v_start_check{"Check camera start result"}
+  v_start_fail["Stop sink#95; if any, return <br/>error, no camera stop"]
+  v_remaining{"Check whether initial <br/>requests remain"}
+  v_limit_check{"Check whether submission <br/>limit is reached"}
+  v_camera_queue["Count +1, try camera queue <br/>call; check running"]
+  v_helper_ret{"Check submit result for <br/>negative error"}
+  v_stop_err["Stop started camera, sink#95; <br/>if any; return error"]
+  v_ok_result["Async call scheduled; <br/>returns 0"]
+  v_done["No initial requests left; <br/>loop ends normally"]
+  v_start_check -->|"start failed #91;true#93;"| v_start_fail
+  v_start_check -->|"start succeeded #91;false#93;"| v_remaining
+  v_remaining -->|"request remains"| v_limit_check
+  v_remaining -->|"none left, loop ends"| v_done
+  v_limit_check -->|"unset or below, call #91;false#93;"| v_camera_queue
+  v_limit_check -->|"at limit: 0, no call #91;true#93;"| v_remaining
+  v_camera_queue -->|"returns call result"| v_helper_ret
+  v_helper_ret -->|"if negative error #91;true#93;"| v_stop_err
+  v_helper_ret -->|"non-negative #91;false#93;"| v_ok_result
+  v_ok_result -->|"check remaining"| v_remaining
