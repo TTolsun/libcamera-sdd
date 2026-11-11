@@ -29,7 +29,7 @@ facts와 원고는 libcamera 293d751a814e0d4c34e85ad457ccd9d5eefd1a61에 고정�
 
 마지막 원문 검토의 탐색성 제안 한 건은 첫 탐색과 재초기화 사이에도 순서 간선을 추가하자는 것입니다. 현재 본문과 노드는 순서를 명시하고 그림은 중첩 구조와 별도 계산을 표현합니다. 이 제안을 반영 완료로 표시하지 않으며, 사이트 전체 그림 보완이나 #215·#249 완료를 주장하지 않습니다.
 
-[사내 양식](https://github.com/TTolsun/camera-hal-sdd-generator/blob/main/examples/inhouse-template/config/reader-paths.yaml)은 ready:false입니다. 실제 소스·빌드·장치·재현·계측·검토 책임·결정 권한·게시 경계와 승인된 생성 및 독립 검토 CLI 설정이 필요합니다. 개발 기간 단축률·ROI·사내 조직 역할을 추정하지 않았습니다. 역할 설정의 사람 승인을 기록하는 CLI가 없어 require_approval:true 게시를 차단합니다.
+[사내 양식](https://github.com/TTolsun/camera-hal-sdd-generator/blob/ea1582dfa37e0958f43a409e23b2c5cfe823f626/examples/inhouse-template/config/reader-paths.yaml)은 ready:false입니다. 실제 소스·빌드·장치·재현·계측·검토 책임·결정 권한·게시 경계와 승인된 생성 및 독립 검토 CLI 설정이 필요합니다. 개발 기간 단축률·ROI·사내 조직 역할을 추정하지 않았습니다. 역할 설정의 사람 승인을 기록하는 CLI가 없어 require_approval:true 게시를 차단합니다.
 
 ## 증거와 재현 범위
 
