@@ -1,0 +1,20 @@
+flowchart TB
+
+  v_events["For a positive result, the <br/>default Poll processes <br/>notifiers before timers."]
+  v_notifiers["It emits activated when a <br/>registered Read notifier <br/>has a matching valid event."]
+  v_activated["The activated signal of the <br/>notifier waiting for a <br/>fence is connected to <br/>notifierActivated."]
+  v_notifier{"It retrieves the signalled <br/>fence with releaseFence, <br/>removes its notifier, and <br/>checks for remaining <br/>notifiers."}
+  v_timer["When the last fence <br/>completes, timer#95;.reset <br/>destroys the Timer."]
+  v_stop["The destructor calls stop. <br/>A running timer is <br/>unregistered on the correct <br/>thread."]
+  v_timers["It processes a timer if it <br/>remains registered and its <br/>deadline has passed. Expiry <br/>alone does not guarantee <br/>that timeout runs first."]
+  v_timeout["timeout clears the <br/>remaining notifiers#95; and <br/>cancels the request. An <br/>unsignalled fence remains <br/>in the buffer and must be <br/>retrieved with <br/>FrameBuffer::releaseFence <br/>before reuse."]
+  v_prepared["It emits preparation <br/>completion. The request may <br/>still be cancelled due to a <br/>later device error."]
+  v_events -->|"It processes notifiers when <br/>poll returns a positive <br/>result. · ret #62; 0 #91;true#93;"| v_notifiers
+  v_notifiers -->|"It emits for a valid Read <br/>notifier when its event <br/>matches. · pfd.revents #38; <br/>event.events #91;true#93;"| v_activated
+  v_activated -->|"The notifier signal is <br/>connected to this callback."| v_notifier
+  v_notifiers -->|"It calls processTimers <br/>after processNotifiers <br/>returns."| v_timers
+  v_notifier -->|"If no notifier remains, it <br/>calls timer#95;.reset. · <br/>#33;notifiers#95;.empty#40;#41; #91;false#93;"| v_timer
+  v_timer -->|"The Timer destructor calls <br/>stop."| v_stop
+  v_notifier -->|"After removing the last <br/>notifier, it emits <br/>preparation completion <br/>after timer#95;.reset returns. <br/>· #33;notifiers#95;.empty#40;#41; <br/>#91;false#93;"| v_prepared
+  v_timers -->|"If another fence remains <br/>and the timer is still <br/>registered and expired, it <br/>emits timeout. · <br/>timer-#62;deadline#40;#41; #62; now <br/>#91;false#93;"| v_timeout
+  v_timeout -->|"It clears the remaining <br/>notifiers#95;, cancels the <br/>request, and emits <br/>preparation completion."| v_prepared

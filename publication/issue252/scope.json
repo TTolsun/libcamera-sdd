@@ -1,0 +1,674 @@
+{
+  "schema": 1,
+  "scope": "public libcamera common request path with one concrete UVC/V4L2 boundary",
+  "source_commit": "be7e83e91348250c015aad6d6f59f1468555bae8",
+  "observed_official_head": "be7e83e91348250c015aad6d6f59f1468555bae8",
+  "owner": "request-lifecycle.md",
+  "questions": [
+    {
+      "id": "Q1",
+      "question": "queueRequest가 0을 반환했는데 완료가 없으면 어느 큐·조건·콜백부터 좁혀야 합니까?",
+      "required": [
+        "queued invocation",
+        "waitingRequests_",
+        "prepared_",
+        "acquire fences",
+        "timeout",
+        "queue limit",
+        "queuedRequests_",
+        "head ordering"
+      ],
+      "before_gap": "기존 문서는 대기 조건을 설명하지만 prepare 생산자·타임아웃·재진입과 구체 장치의 다음 분기를 한 조사 경로로 연결하지 않습니다.",
+      "topics": [
+        "journey",
+        "preparation-depth",
+        "uvc-depth"
+      ]
+    },
+    {
+      "id": "Q2",
+      "question": "UVC 장치 제출의 어느 실패가 취소로 이어지며 어떤 부작용이 이미 발생했을 수 있습니까?",
+      "required": [
+        "findBuffer",
+        "processControls",
+        "queueBuffer",
+        "VIDIOC_QBUF",
+        "cancelRequest",
+        "sequence"
+      ],
+      "before_gap": "UVC의 구체 queueRequestDevice와 V4L2 실패 분기는 기존 요청 수명 문서의 근거 범위 밖입니다.",
+      "topics": [
+        "uvc-depth"
+      ]
+    },
+    {
+      "id": "Q3",
+      "question": "버퍼 완료·요청 상태 갱신·제출 순서 반환·촬영 성공은 각각 언제 확인합니까?",
+      "required": [
+        "bufferCompleted before pending erase",
+        "FrameError versus RequestComplete",
+        "explicit completeRequest",
+        "head ordering",
+        "requestCompleted"
+      ],
+      "before_gap": "공통 완료 책임은 설명하지만 UVC의 DQBUF 오류 메타데이터와 요청 상태가 서로 다른 성공 조건이라는 반례는 없습니다.",
+      "topics": [
+        "journey",
+        "uvc-depth",
+        "callback-depth",
+        "callback-order"
+      ]
+    },
+    {
+      "id": "Q4",
+      "question": "요청·버퍼·fence는 누가 언제까지 유지하며 콜백에서 언제 재사용할 수 있습니까?",
+      "required": [
+        "caller ownership",
+        "buffer lifetime",
+        "releaseFence",
+        "reuse",
+        "pending bookkeeping",
+        "queued pointer lifetime"
+      ],
+      "before_gap": "기존 자원 계약은 보존합니다. 버퍼 신호의 내부 처리 전 시점과 지연된 포인터 인자 수명을 연결하는 설명은 보완합니다.",
+      "topics": [
+        "resources",
+        "callback-depth",
+        "callback-order"
+      ]
+    },
+    {
+      "id": "Q5",
+      "question": "정지가 대기·장치 요청을 어떤 순서로 반환하며 STREAMOFF 실패 때 무엇을 보장할 수 없습니까?",
+      "required": [
+        "waiting queue swap",
+        "stopDevice",
+        "STREAMOFF early return",
+        "ignored UVC return",
+        "releaseBuffers",
+        "assertions",
+        "CameraStopping"
+      ],
+      "before_gap": "기존 stopDevice는 미검토 조사 대상으로 남았으며 실제 UVC STREAMOFF 실패와 반환값 미전달 경로를 검사하지 않았습니다.",
+      "topics": [
+        "stopping",
+        "stop-depth"
+      ]
+    },
+    {
+      "id": "Q6",
+      "question": "직접·자동·큐 콜백의 스레드와 재진입은 어떻게 다르며 정지 반환으로 무엇을 판단할 수 있습니까?",
+      "required": [
+        "CameraManager thread",
+        "ConnectionTypeAuto",
+        "Direct",
+        "Queued",
+        "Blocking",
+        "event loop",
+        "caller synchronization",
+        "callback drain"
+      ],
+      "before_gap": "기존 가상 프로브 관찰은 보존합니다. 신호 구현·접속 종류·중첩 콜백과 상태 변경 동기화의 소스 계약을 연결해 확장합니다.",
+      "topics": [
+        "callback-depth",
+        "preparation-depth",
+        "stop-depth"
+      ]
+    },
+    {
+      "id": "Q7",
+      "question": "제출·완료·취소·정지 코드를 바꾸기 전에 어느 불변조건과 반례를 다시 검사해야 합니까?",
+      "required": [
+        "pop before recursive dispatch",
+        "one buffer completion",
+        "no pending at completion",
+        "no access after completeRequest",
+        "no requeue during stop",
+        "fault injection matrix"
+      ],
+      "before_gap": "기존 기록 항목에 더해 선택 경로의 안전한 변경 조건과 실패 주입별 예상 분기를 연결해야 합니다.",
+      "topics": [
+        "preparation-depth",
+        "uvc-depth",
+        "stop-depth",
+        "callback-depth"
+      ]
+    }
+  ],
+  "excluded": [
+    "Other pipeline implementations, IPA processing and the kernel UVC driver implementation.",
+    "Physical UVC capture, DMA correctness, latency/performance and internal Camera HAL validation.",
+    "Full document visual coverage in issue 215 and real reader evaluation in issues 163/253."
+  ],
+  "review_rules": [
+    "Sentence accuracy and question evidence sufficiency are separate independent native CLI calls.",
+    "Sufficiency review reads complete related source files, including boundaries not used as generation excerpts.",
+    "A missing mandatory branch blocks completion; marking it unknown does not pass the question.",
+    "Source facts, API contracts, investigation plans and retained historical runtime observations remain distinct.",
+    "Automated/author assessment is not actual non-author human evaluation."
+  ],
+  "frozen_before_generation": true,
+  "generator_base": "5513808c7a999a9ce1c41456459e02877511a9c3",
+  "public_base": {
+    "base_build_id": "c9b9a9bbba2648614c3949955734b72833d789e6cd7fb9d5c5252e3fd2258fea",
+    "base_profile": "C:\\Users\\baboe\\.codex\\worktrees\\bb29\\camera-hal-sdd-generator\\build\\remaining-evidence\\publication\\sdd.yaml",
+    "source_commit": "be7e83e91348250c015aad6d6f59f1468555bae8",
+    "preserved_nonselected_manuscripts": [
+      {
+        "file": "camera-model.md",
+        "sha256": "3d693fd69b55381c8d111de51f1a58b64845a79574cceca369cbfc70b456fd1f"
+      },
+      {
+        "file": "camera-requests.md",
+        "sha256": "493764a46d7c33eab59bc2ef8358b56e0f2127b1f2b6ecde79308bf8be04264b"
+      },
+      {
+        "file": "component-index.md",
+        "sha256": "b548b1bf016712d5e56805bb7d9705eeecdf483d78508e7776a9555b1dc54fdd"
+      },
+      {
+        "file": "framebuffer-allocator.md",
+        "sha256": "3cb007f8442e388df575b8ef2396bd524aecc5af62bbba174363bce2b5585c68"
+      },
+      {
+        "file": "ipa-algorithms.md",
+        "sha256": "49435b1289da3605f90ce090883f12823324a9fbe0ff469dbad0b87116cbfd9b"
+      },
+      {
+        "file": "ipa-module-validation.md",
+        "sha256": "625c6c6dd7f79a23d881e303b3c8be8b47d6ee313bac775f528a8744bb9dd794"
+      },
+      {
+        "file": "ipa.md",
+        "sha256": "9e53ed015978003d457476df9553d21fb9f7b8df4425199ad298048606eb8643"
+      },
+      {
+        "file": "ipu3-lsc-flow.md",
+        "sha256": "ef283504cfa72f9bc0ee5c26bdce9eb175ef0fb7b8fa04062b4201cd6f336fda"
+      },
+      {
+        "file": "ipu3-lsc-prepare.md",
+        "sha256": "ff87d3965473d4c29c921e8a39a5d2e7e6fe1ca40558d42f70b02e38480ff545"
+      },
+      {
+        "file": "ipu3-lsc.md",
+        "sha256": "b72682de14fa0e81163a524deefca98c42fa341a89ae2087564c43616cfd5665"
+      },
+      {
+        "file": "official-cam-validation.md",
+        "sha256": "bad7a9732133cef55af1d92ab1507556c335a302e870cd6906bb2853fdcf1815"
+      },
+      {
+        "file": "onboarding.md",
+        "sha256": "2462d73a1d1ee6cfaf234c6b4b11530ea423c203066d78c7ee69358bcb6fd565"
+      },
+      {
+        "file": "overview.md",
+        "sha256": "502b342fa9627c0668122fd8973ffb0ab96c99ff380d0fda526ad128ffe89a0c"
+      },
+      {
+        "file": "pipeline-handler.md",
+        "sha256": "a007a66f5c3f49353ee27bda4b10282e2ce250c2f7b0b3c00b8a094fa4aacca9"
+      },
+      {
+        "file": "pipeline-requests.md",
+        "sha256": "7744ba839b3e91f84b2e3ace185416ac2e14d17beb9c0425236afee5d28fd58b"
+      },
+      {
+        "file": "request-diagnosis.md",
+        "sha256": "77efb1b9b63bfc83fd4f4c5dedfd4b980e99ba675b4fdf4e493d3b4b5d53407f"
+      },
+      {
+        "file": "rkisp1-dewarp.md",
+        "sha256": "08655dec1f8236e64072a1fc96b9c239fe93af167f53effd62147df0df66a55c"
+      },
+      {
+        "file": "team-overview.md",
+        "sha256": "a53f1ac6b5ca08cccc6151d2d7f14dbfde711263bba0e7f5d85f2de9e412d293"
+      },
+      {
+        "file": "vendor-assurance.md",
+        "sha256": "26041c2be363c4809f51be673d1e18fe537655f231a48e2030f7c51b9dfea997"
+      },
+      {
+        "file": "vendor-integration.md",
+        "sha256": "fb802dd41ad623fc7cb53b3735cbc13bda36eea9bf377676c170242345837f8c"
+      },
+      {
+        "file": "vendor-overview.md",
+        "sha256": "55ea13c036e343f5e02e19924a0558fd224f61b7df808e2875041fbe7c6730e1"
+      },
+      {
+        "file": "scenarios/camera_start.md",
+        "sha256": "4ca07bf45c020b1681b6a80c9c74d79821caff1f36dd3aaa6f960308fcdc1d66"
+      },
+      {
+        "file": "scenarios/camera_stop.md",
+        "sha256": "9c2953abc088af09b1b000fd8f320168f951d2a35ab0795192b5126bb09b9225"
+      },
+      {
+        "file": "scenarios/complete_request.md",
+        "sha256": "9fc4e1e9cb64a3c3dabb5877766cd39d3b4684b6cc7e170066fd5194332c727c"
+      },
+      {
+        "file": "scenarios/configure.md",
+        "sha256": "6bb21778baaf02e441536fbc86c44d2e84d0c7aa91e02d56c5a1fb1367de3ec4"
+      },
+      {
+        "file": "scenarios/index.md",
+        "sha256": "bf4474cb7584038d93c036a8fdbccc7ce3480550df0ca5edf37383dee29393bf"
+      },
+      {
+        "file": "scenarios/manager_start.md",
+        "sha256": "8504fc74443531fd3444af9808fe0448f078ca27a7bed7a1fb45c0e40149402b"
+      },
+      {
+        "file": "scenarios/queue_request.md",
+        "sha256": "8c233abe06228876b8507dc2f190262e7d34672fb520fd35b8e192c8815bd57a"
+      }
+    ],
+    "selected_resource_contract": "Current #249 topic and figures; actual re-generation required.",
+    "previous_run_snapshot": "C:\\Users\\baboe\\.codex\\worktrees\\d2e8\\camera-hal-sdd-generator\\build\\issue252\\run\\before-current-public-base"
+  },
+  "baseline_facts_sha256": "e1bea64a7ec610a4fe4ed8a88aec72a5ed33387ba888edb09b990c4562255fa7",
+  "source_windows": [
+    {
+      "file": "src/libcamera/camera.cpp",
+      "line": 1,
+      "end_line": 1491,
+      "sha256": "1aa9746b202ca505a0dd4d872f4c3c2e08f07c073028101ac414681a1c0322e8",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "src/libcamera/request.cpp",
+      "line": 1,
+      "end_line": 616,
+      "sha256": "f0e533dc919f833a8518c32384b09ee4bd807d6b837767c6abead9fce9f325c6",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "src/libcamera/pipeline_handler.cpp",
+      "line": 1,
+      "end_line": 1011,
+      "sha256": "cc4284a162a3eb5861ec0458c1c192e73fa90d0acea5d2d297b429393293f45b",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "src/libcamera/pipeline/uvcvideo/uvcvideo.cpp",
+      "line": 1,
+      "end_line": 907,
+      "sha256": "d46083dcd62ed1b03490fbaa8f735a8202258ce892a0eaa4a0f771a43dbeed56",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "src/libcamera/v4l2_videodevice.cpp",
+      "line": 1,
+      "end_line": 2257,
+      "sha256": "c82f4303aa37d0d57ae5ccb440fef6a98020e580906f714eee9411d405bf7786",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "src/libcamera/framebuffer.cpp",
+      "line": 1,
+      "end_line": 451,
+      "sha256": "28fabb383231546dae7955c692ea8dbb920fcf30fef81d348e7c44faab186616",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "src/libcamera/base/bound_method.cpp",
+      "line": 1,
+      "end_line": 110,
+      "sha256": "5237a109a178babeb7eb647b0f885d40b83b676c60cedcfc0c9fd956db73a3e1",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "src/libcamera/base/signal.cpp",
+      "line": 1,
+      "end_line": 205,
+      "sha256": "aa0187e6ece3ef1004fab24f12dcfa7ee63d4720ba05a50b1fd9a4365d79901e",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "src/libcamera/base/object.cpp",
+      "line": 1,
+      "end_line": 361,
+      "sha256": "1f80cd2ed945a1538eafd86676306a516064461abf36c4faee86a02dc460ba1d",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "src/libcamera/base/event_notifier.cpp",
+      "line": 1,
+      "end_line": 147,
+      "sha256": "6b1c2a0c7c76b62e19329538eda9f197624272231402609ca2557cbd4958b596",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "src/libcamera/base/timer.cpp",
+      "line": 1,
+      "end_line": 171,
+      "sha256": "9a66c8fac9104b3ecb70fcbbb1759f3987cfa1c66333f5f0e6e03594c6b8ce19",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "include/libcamera/base/signal.h",
+      "line": 1,
+      "end_line": 153,
+      "sha256": "2a92e5c5d05605af30707ad85d2df01d2c1a2899e950a3378a9836a81b957be0",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "include/libcamera/base/bound_method.h",
+      "line": 1,
+      "end_line": 209,
+      "sha256": "5b4901a2e90a81ba39564582817cec7db3d2d471ce34edb753c879bdf2b36ba5",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "include/libcamera/internal/camera.h",
+      "line": 1,
+      "end_line": 79,
+      "sha256": "a07b1d3b6d2bbe26dfee46e50c431a018112bbf236b60399d806213b55d44d7d",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "include/libcamera/internal/request.h",
+      "line": 1,
+      "end_line": 69,
+      "sha256": "61f5293525a568eb9243ff8e93d4104e98f655b4237d08cf483987b2e77cd3e3",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "include/libcamera/internal/framebuffer.h",
+      "line": 1,
+      "end_line": 50,
+      "sha256": "d886353a07b2dbae17b2eae885f04642daab68f30b693959d7ade2014b906790",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "include/libcamera/internal/pipeline_handler.h",
+      "line": 1,
+      "end_line": 162,
+      "sha256": "cbbeb62f73ed3fbc5142eb24190b44f8084c47920ae92a29069c334f9f1b83f8",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "include/libcamera/internal/v4l2_videodevice.h",
+      "line": 1,
+      "end_line": 314,
+      "sha256": "376a5fc327b111a579bb1986d77569d04f3a971473c288ed4a8b84bf5eaf04ee",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "Documentation/thread-safety.dox",
+      "line": 1,
+      "end_line": 46,
+      "sha256": "d554238b5392dede1cc1891756ed74abe9453139ab8b163473188d6b9660f26e",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "src/libcamera/v4l2_device.cpp",
+      "line": 1,
+      "end_line": 1107,
+      "sha256": "fa5a7fa07477791ba01ef9f45b100161a8dec7b8b4f523fa8bda42cb64e05515",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "src/libcamera/base/thread.cpp",
+      "line": 1,
+      "end_line": 730,
+      "sha256": "1853d635af0eadbf9b3938e9c24bc8c399d43a55c3f3b107330bac8dd625b530",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "src/libcamera/base/message.cpp",
+      "line": 1,
+      "end_line": 166,
+      "sha256": "7564faca16e22e220aaf9fc519db84eadc232c0e2a594e31cc00f93893ce4deb",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "src/libcamera/base/event_dispatcher_poll.cpp",
+      "line": 1,
+      "end_line": 306,
+      "sha256": "2a6b367422af1146a7ea95007d518806166dbf4f9e56111ed91bca77757fe037",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "include/libcamera/base/thread.h",
+      "line": 1,
+      "end_line": 83,
+      "sha256": "917bc1a23afa9caa69a2a2b42cbb0b2ba0ce1160a1fc316e0c9c5704fadb1ce0",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "include/libcamera/base/message.h",
+      "line": 1,
+      "end_line": 71,
+      "sha256": "335f2d99efa13aefb20b8591e1bf9f5ff237b7722c41ad237933a9e4544534b0",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "include/libcamera/base/object.h",
+      "line": 1,
+      "end_line": 75,
+      "sha256": "89f1f3fcfba72129f0f62f382b904297063ca41de2dcd96783830fa6890794d1",
+      "latest_blob_equal": true
+    },
+    {
+      "file": "include/libcamera/base/utils.h",
+      "line": 1,
+      "end_line": 454,
+      "sha256": "357e2de9c37eaae8bbbcc6ba1ec735dd99e09ce510168b71b55af93dbf960edb",
+      "latest_blob_equal": true
+    }
+  ],
+  "generation_topics": [
+    "journey",
+    "preparation-depth",
+    "uvc-depth",
+    "resources",
+    "callback-order",
+    "callback-depth",
+    "stopping",
+    "stop-depth",
+    "review",
+    "observed-callbacks"
+  ],
+  "new_runtime_execution": true,
+  "human_review": "pending",
+  "actual_non_author_reader_evaluation": "not-run",
+  "build": {
+    "status": "passed",
+    "record": "../build-provenance-current.json",
+    "record_sha256": "120c8d294262539ae39566c218fdc41e1974a7476fa9ee4a49cd2a1bb6dab490",
+    "source_commit": "be7e83e91348250c015aad6d6f59f1468555bae8",
+    "fresh_configuration": true,
+    "full_rebuild": true
+  },
+  "amendment": {
+    "previous_scope_sha256": "7c582656b1b2e2d91c7ac3fae262879b4080f1348a16949783b325a46330f1a6",
+    "reason": "Independent baseline audit exposed ignored per-control conversion returns and same-thread reentrancy semantics; expand source coverage before generating those additions.",
+    "new_source": "src/libcamera/v4l2_device.cpp",
+    "existing_source_reused": "Documentation/thread-safety.dox",
+    "preserved_manuscript_sha256": "f55ef6ebea7616e6793df976abaa8f60452d64989b2619f40cebaab0f53dbf09",
+    "initial_generation": "Failed visual validation; original manuscript preserved. Native draft responses retained in build/prompts."
+  },
+  "build_amendment": {
+    "prior_scope_sha256": "3ab9b1aacf8cfd56b7baa87d3075e5a421e604c90cd813bd7b4e8f8ed4d1157e",
+    "reason": "Independent code review required a new Meson directory and generated-header binding. Auxiliary lc-compliance app disabled; selected libcamera/UVC source and primary options unchanged. No physical capture validation.",
+    "source_unchanged": true
+  },
+  "fresh_uvc_extraction": {
+    "translation_units": 135,
+    "parse_stats": {
+      "tus": 135,
+      "errors": 0,
+      "classes": 726,
+      "methods": 3352,
+      "functions": 331
+    },
+    "source_commit": "be7e83e91348250c015aad6d6f59f1468555bae8",
+    "compile_db_sha256": "18335542224193e6e0fb33fee3684214ae999ed4f1b11b83fdb8d492aa34adfc",
+    "analysis_only_adjustments": [
+      {
+        "file": "/home/baboess/work/issue252-libcamera-current/src/libcamera/controls.cpp",
+        "flag": "-Wno-error=c99-designator",
+        "reason": "The actual GCC build accepts GNU C++ array designators; libclang reports the supported extension as a warning promoted by -Werror. Preserve that warning and all other parse errors."
+      }
+    ],
+    "build_provenance_sha256": "120c8d294262539ae39566c218fdc41e1974a7476fa9ee4a49cd2a1bb6dab490",
+    "source_clean_before_and_after": true,
+    "facts_sha256": "232082cb4a23b1619224cc53c7e6abb6c670b966c4a7af95588df22a54f5cd46",
+    "classes": 671,
+    "functions": 181,
+    "required_classes": [
+      "libcamera::Camera",
+      "libcamera::Request",
+      "libcamera::PipelineHandler",
+      "libcamera::V4L2Device",
+      "libcamera::V4L2VideoDevice",
+      "libcamera::PipelineHandlerUVC"
+    ],
+    "scope": "Fresh UVC-only structural extraction; does not replace the retained full-build publication facts.",
+    "hardware_execution": false,
+    "human_review": "pending"
+  },
+  "accuracy_refinement": {
+    "review": "audits/accuracy-01/review.json",
+    "questions_sha256": "acc3b401f8249f03633aa6a47b4e76d75b9238d79d4bc5ddac16629c4c80347c",
+    "note": "Source coverage remains the same 20 whole-file windows; add required failure-case validation questions and correct the completion diagram order before another native generation."
+  },
+  "refinements": [
+    {
+      "basis": [
+        "accuracy-04",
+        "sufficiency-01"
+      ],
+      "complete_source_windows_unchanged": true,
+      "questions_unchanged": true,
+      "changes": [
+        "conditional queued submission across stop",
+        "residual notifier with reset cache after STREAMOFF error",
+        "other FrameError branches"
+      ],
+      "phase": "before amended generation"
+    },
+    {
+      "basis": [
+        "accuracy-05",
+        "sufficiency-02"
+      ],
+      "source_windows_unchanged": true,
+      "questions_unchanged": true,
+      "changes": [
+        "cache absence Fatal boundary",
+        "bulk cancellation retained request value versus contractual pointer validity",
+        "request ownership figure completion/reuse boundary"
+      ],
+      "phase": "before amended generation"
+    },
+    {
+      "basis": [
+        "accuracy-08",
+        "sufficiency-05"
+      ],
+      "previous_scope_sha256": "0a9dd969712d48d5a784de2bf690a95e849c5299850f50fa0439fb4dd3bf7b8a",
+      "questions_unchanged": true,
+      "changes": [
+        "Expand to complete Thread/message/default-Poll producer-consumer windows before corrected generation",
+        "Separate generic Signal Doxygen wording from actual nonblocking posting and emit-return ordering"
+      ],
+      "phase": "before corrected generation",
+      "excluded": "Custom event dispatchers, concurrent connection destruction, physical camera capture and internal HAL verification remain outside this experiment."
+    }
+  ],
+  "runtime_execution_scope": {
+    "camera": false,
+    "signal_probe": true,
+    "record": "../signal-probe-06/verification.json",
+    "sha256": "31bd406c11c9c2f1e8ed5cf16c42d5d0abc14404c14ec71078752205ae125203",
+    "limits": "Stable connections, internal libcamera-base API and controlled second-slot gate only; no camera, DMA, pointer-lifetime fault injection, latency, or internal HAL validation. Receiver body marker, not exact receiver-return instruction.",
+    "build_proof": "../build-provenance-signal.json"
+  },
+  "amendments": [
+    {
+      "basis": [
+        "accuracy-17",
+        "sufficiency-14"
+      ],
+      "previous_scope_sha256": "9452a34d7faf6851b9aea306eea4fab4483d04d8fb75cd642a5d641b5f5c9e97",
+      "questions_unchanged": true,
+      "phase": "before corrected call-bridge generation",
+      "changes": [
+        "Add the complete Object::invokeMethod template header to connect API invocation, BoundMethod activation and message posting; retain prior 25-window audit records unchanged."
+      ]
+    },
+    {
+      "phase": "before current-public-base regeneration",
+      "previous_scope_sha256": "2dabca7b922357a001d2afea154d10a95653ddddbaeca6436c54fe7604a7b651",
+      "questions_unchanged": true,
+      "changes": [
+        "Adopt current public source commit be7e83e; all 26 complete selected source windows are byte-identical to original 293. Preserve #249 representative lifetime questions and three figures; preserve every other current public manuscript. Fresh be7 UVC build is bound separately before generation."
+      ]
+    },
+    {
+      "phase": "before corrected scope-exit generation",
+      "questions_unchanged": true,
+      "previous_scope_sha256": "23241428f873669d8a00694c06ae9a3e7797e1dad5c6e256d2bc80ec12064228",
+      "changes": [
+        "Add complete utils.h to verify actual scope_exit destructor/active/release semantics used by pre-QBUF cache cleanup. Same fixed source/build; not a new hardware run."
+      ]
+    }
+  ],
+  "previous_build_scope": "293d751a814e0d4c34e85ad457ccd9d5eefd1a61; retained fresh build/extraction and signal probe are historical, not relabelled.",
+  "historical_build": {
+    "status": "passed",
+    "record": "build-provenance-fresh.json",
+    "record_sha256": "a157590ea20e6bd1ccbaa07a19b2f61c7c578fa1889e6f10b43657c4efa23e0e",
+    "source_commit": "293d751a814e0d4c34e85ad457ccd9d5eefd1a61",
+    "configuration": {
+      "pipelines": [
+        "uvcvideo"
+      ],
+      "ipas": [],
+      "gstreamer": "disabled",
+      "test": false,
+      "cam": "enabled",
+      "qcam": "disabled",
+      "documentation": "disabled",
+      "lc-compliance": "disabled"
+    },
+    "generated_inputs": 16,
+    "fresh_configuration": true,
+    "full_rebuild": true
+  },
+  "historical_fresh_uvc_extraction": {
+    "source_commit": "293d751a814e0d4c34e85ad457ccd9d5eefd1a61",
+    "compile_db_sha256": "bdbbd1693e122102de37b548392d2a8d9e8abc9a5cc305787b1c99875241bc88",
+    "analysis_only_adjustments": [
+      {
+        "file": "/home/baboess/work/issue252-libcamera/src/libcamera/controls.cpp",
+        "flag": "-Wno-error=c99-designator",
+        "reason": "The actual GCC build accepts GNU C++ array designators; libclang reports the supported extension as a warning promoted by -Werror. Preserve that warning and all other parse errors."
+      }
+    ],
+    "build_provenance_sha256": "a157590ea20e6bd1ccbaa07a19b2f61c7c578fa1889e6f10b43657c4efa23e0e",
+    "source_clean_before_and_after": true,
+    "facts_sha256": "7c4ed5fd92f90878a55a8731d04b5e2e17e04027bd38106ca313231b382ce6b4",
+    "classes": 671,
+    "functions": 181,
+    "required_classes": [
+      "libcamera::Camera",
+      "libcamera::Request",
+      "libcamera::PipelineHandler",
+      "libcamera::V4L2Device",
+      "libcamera::V4L2VideoDevice",
+      "libcamera::PipelineHandlerUVC"
+    ],
+    "scope": "Fresh UVC-only structural extraction; does not replace the retained full-build publication facts.",
+    "hardware_execution": false,
+    "human_review": "pending"
+  },
+  "original_baseline_facts_sha256": "70a9a27295c16eddb9c5b1ffe453a0dfe53df30eb6a596250146f61ba8b66e7c",
+  "public_base_manifest_sha256": "97d30cd9fd951be3693080ea23d881079c4bb298641fae8004ae1681d8d6f4f3"
+}

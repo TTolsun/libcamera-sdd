@@ -1,0 +1,22 @@
+flowchart TB
+
+  v_acquire["acquire is a separate entry <br/>path. Each successful call <br/>must be matched by a <br/>release call; <br/>PipelineHandler must not <br/>call it directly because <br/>Camera handles access <br/>internally."]
+  v_acquire_count{"Check whether useCount#95; is <br/>0."}
+  v_lock["Iterate over all of <br/>mediaDevices#95; and lock each <br/>device. If any lock fails, <br/>call unlockMediaDevices#40;#41; <br/>and return false."]
+  v_acquire_device{"Call acquireDevice#40;camera#41;. <br/>On failure, call <br/>unlockMediaDevices#40;#41; if <br/>useCount#95; is 0, and return <br/>false."}
+  v_acquire_success["Increment useCount#95; and <br/>return true."]
+  v_release["release is a separate entry <br/>path. Each call must match <br/>a previous successful <br/>acquire call; calling it <br/>when the handler has not <br/>been acquired results in <br/>undefined behaviour. <br/>PipelineHandler must not <br/>call it directly because <br/>Camera handles access <br/>internally."]
+  v_release_device["First call <br/>releaseDevice#40;camera#41;."]
+  v_release_count{"Check whether useCount#95; is <br/>1."}
+  v_unlock["Call unlockMediaDevices#40;#41;."]
+  v_decrement["Decrement useCount#95;."]
+  v_acquire -->|"Check the count when <br/>acquiring."| v_acquire_count
+  v_acquire_count -->|"If the condition is true, <br/>attempt to lock the <br/>devices. · useCount#95; #61;#61; 0 <br/>#91;true#93;"| v_lock
+  v_acquire_count -->|"If the condition is false, <br/>skip locking. · useCount#95; <br/>#61;#61; 0 #91;false#93;"| v_acquire_device
+  v_lock -->|"Proceed when the entire <br/>loop completes without <br/>failure. An empty list also <br/>completes the loop."| v_acquire_device
+  v_acquire_device -->|"If device acquisition does <br/>not fail, increment the <br/>count. · <br/>#33;acquireDevice#40;camera#41; <br/>#91;false#93;"| v_acquire_success
+  v_release -->|"Call releaseDevice#40;camera#41;."| v_release_device
+  v_release_device -->|"Check the count after the <br/>call."| v_release_count
+  v_release_count -->|"If the condition is true, <br/>unlock the devices. · <br/>useCount#95; #61;#61; 1 #91;true#93;"| v_unlock
+  v_unlock -->|"Decrement the count after <br/>unlocking."| v_decrement
+  v_release_count -->|"Even if the condition is <br/>false, decrement the count. <br/>· useCount#95; #61;#61; 1 #91;false#93;"| v_decrement
