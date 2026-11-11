@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-10-30T22:41:11+00:00
+generated_at: 2026-10-30 22:41:11+00:00
 source_commit: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
 status: ok
 section: overview
@@ -7,8 +7,649 @@ generation_method: facts-and-llm
 evidence_fingerprint: 48ee0ce3dd22bea8395731271af652cc0c47a27037d9f368d2969a5b2e6331fc
 semantic_review: human-review-required
 agent: cli/claude/claude-haiku-5-5
-generated_design: {"schema": 1, "input_fingerprint": "48ee0ce3dd22bea8395731271af652cc0c47a27037d9f368d2969a5b2e6331fc", "answers": {"discovery": [{"text": "`CameraManager`는 libcamera의 진입점으로, 장치를 열거하고 애플리케이션에 시스템의 카메라 접근을 제공하는 역할을 합니다. 소개 주석에 따르면 `CameraManager`는 모든 `Camera` 객체를 소유하며, 핫플러그와 핫언플러그를 처리해 카메라의 수명을 관리합니다. `CameraManager::Private::pipelineFactoryMatch`는 주어진 팩토리로 `PipelineHandler`를 반복해서 생성하고, 각 객체의 `match(enumerator_.get())`가 참을 반환하는 동안 매칭되는 파이프라인을 가능한 한 많이 제공합니다. `match`가 거짓을 반환하면 반복을 멈추고, 매칭에 성공한 경우에만 `Debug` 로그를 남깁니다.", "evidence": ["manager", "manager-pipeline-implementation"], "covers": ["discovery"], "kind": "behavior", "quote": "The camera manager is the entry point to libcamera. It enumerates devices,\n * associates them with pipeline managers, and provides access to the cameras\n * in the system to applications. The manager owns all Camera objects and\n * handles hot-plugging and hot-unplugging to manage the lifetime of cameras.\n *\n * To interact with libcamera, an application starts by creating a camera\n * manager instance. Only a single instance of the camera manager may exist at\n * a time. Attempting to create a second instance without first deleting the\n * existing instance results in undefined behaviour.\n *\n * The manager is initially stopped,", "part_id": "entry"}, {"text": "동시에 존재할 수 있는 `CameraManager` 인스턴스는 하나뿐입니다.", "evidence": ["manager"], "covers": ["discovery"], "kind": "behavior", "quote": "The camera manager is the entry point to libcamera. It enumerates devices,\n * associates them with pipeline managers, and provides access to the cameras\n * in the system to applications. The manager owns all Camera objects and\n * handles hot-plugging and hot-unplugging to manage the lifetime of cameras.\n *\n * To interact with libcamera, an application starts by creating a camera\n * manager instance. Only a single instance of the camera manager may exist at\n * a time. Attempting to create a second instance without first deleting the\n * existing instance results in undefined behaviour.\n *\n * The manager is initially stopped,", "part_id": "singleton"}, {"text": "기존 인스턴스를 삭제하지 않은 상태에서 두 번째 `CameraManager` 인스턴스를 생성하면 정의되지 않은 동작(undefined behaviour)이 발생합니다. 따라서 호출하는 쪽은 새 인스턴스를 만들기 전에 기존 인스턴스를 먼저 삭제해야 합니다.", "evidence": ["manager"], "covers": ["discovery"], "kind": "limitation", "quote": "The camera manager is the entry point to libcamera. It enumerates devices,\n * associates them with pipeline managers, and provides access to the cameras\n * in the system to applications. The manager owns all Camera objects and\n * handles hot-plugging and hot-unplugging to manage the lifetime of cameras.\n *\n * To interact with libcamera, an application starts by creating a camera\n * manager instance. Only a single instance of the camera manager may exist at\n * a time. Attempting to create a second instance without first deleting the\n * existing instance results in undefined behaviour.\n *\n * The manager is initially stopped,", "part_id": "singleton"}, {"text": "`CameraManager::start()`가 성공하면 시작 과정에서 열거된 시스템의 카메라를 애플리케이션이 나열하고 사용할 수 있으며, 이 상태는 카메라 매니저가 중지되거나 카메라가 시스템에서 분리될 때까지 계속됩니다.", "evidence": ["start"], "covers": ["discovery"], "kind": "behavior", "quote": "\\brief Start the camera manager\n *\n * Start the camera manager and enumerate all devices in the system. Once\n * the start has been confirmed the user is free to list and otherwise\n * interact with cameras in the system until either the camera manager\n * is stopped or the camera is unplugged from the system.\n *\n * \\return 0 on success or a negative error code otherwise\n */\nint CameraManager::start()", "part_id": "start"}, {"text": "`CameraManager::cameras()`와 `CameraManager::get()`은 카메라 매니저가 실행 중인 상태에서 호출해야 하며, 이 상태를 확보할 책임은 호출하는 쪽에 있습니다.", "evidence": ["access"], "covers": ["discovery"], "kind": "behavior", "quote": "\\fn CameraManager::cameras()\n * \\brief Retrieve all available cameras\n *\n * Before calling this function the caller is responsible for ensuring that\n * the camera manager is running.\n *\n * \\context This function is \\threadsafe.\n *\n * \\return List of all available cameras\n */\nstd::vector<std::shared_ptr<Camera>> CameraManager::cameras() const\n{\n\tconst Private *const d = _d();", "part_id": "access"}, {"text": "`match()`를 구현하는 쪽은 필요한 장치를 모두 찾으면 `MediaDevice::acquire()`로 해당 장치를 모두 획득해야 합니다. 이어서 `Camera` 인스턴스를 생성해 내부에 저장하고 카메라 관리자에 등록한 뒤 `true`를 반환해야 합니다. 필요한 장치를 모두 찾지 못하면 어떤 장치도 획득하지 않거나, 이미 획득한 장치를 `MediaDevice::release()`로 모두 해제한 뒤 `false`를 반환해야 합니다.", "evidence": ["match"], "covers": ["discovery"], "kind": "behavior", "quote": "\\fn PipelineHandler::match(DeviceEnumerator *enumerator)\n * \\brief Match media devices and create camera instances\n * \\param[in] enumerator The enumerator providing all media devices found in the\n * system\n *\n * This function is the main entry point of the pipeline handler. It is called\n * by the camera manager with the \\a enumerator passed as an argument. It shall\n * acquire from the \\a enumerator all the media devices it needs for a single\n * pipeline, create one or multiple Camera instances and register them with the\n * camera manager.\n *\n * If all media devices needed by the pipeline handler are found, they must all\n * be acquired by a call to MediaDevice::acquire(). This function shall then\n * create the corresponding Camera instances, store them internally, and return\n * true. Otherwise it shall not acquire any media device (or shall release all\n * the media devices is has acquired by calling MediaDevice::release()) and\n * return false.\n *\n * If multiple instances of a pipeline are available in the system, the\n * PipelineHandler class will be instantiated once per instance, and its match()\n * function called for every instance. Each call shall acquire media devices for\n * one pipeline instance, until all compatible media devices are exhausted.\n *\n * If this function returns true, a new instance of the pipeline handler will\n * be created and its match() function called.\n *\n * \\context This function is called from the CameraManager thread.\n *\n * \\return true if media devices have been acquired and camera instances\n * created, or false otherwise\n */", "part_id": "match"}], "responsibility": [{"text": "`Camera` 클래스는 하나의 이미지 소스에서 하나 이상의 이미지 스트림을 만들 수 있는 카메라를 나타냅니다. 장치를 구성하고 제어하며 이미지 스트림을 캡처하는 주요 인터페이스를 제공하고, libcamera가 외부에 노출하는 중심 객체입니다.", "evidence": ["camera"], "covers": ["responsibility"], "kind": "behavior", "quote": "The Camera class models a camera capable of producing one or more image\n * streams from a single image source. It provides the main interface to\n * configuring and controlling the device, and capturing image streams. It is\n * the central object exposed by libcamera.\n *\n * To support the central nature of Camera objects, libcamera manages the\n * lifetime of camera instances with std::shared_ptr<>. Instances shall be\n * created with the create() function which returns a shared pointer. The\n * Camera constructors and destructor are private, to prevent instances from\n * being constructed and destroyed manually.\n *\n * \\section camera_operation", "part_id": "responsibility"}, {"text": "libcamera는 `Camera` 인스턴스의 수명을 `std::shared_ptr<>`로 관리합니다. 인스턴스는 `create()` 함수로 생성해야 하며, 이 함수는 공유 포인터를 반환합니다. `Camera`의 생성자와 소멸자는 private으로 선언되어 있어서, 인스턴스를 직접 생성하거나 파괴할 수 없습니다.", "evidence": ["camera"], "covers": ["responsibility"], "kind": "behavior", "quote": "The Camera class models a camera capable of producing one or more image\n * streams from a single image source. It provides the main interface to\n * configuring and controlling the device, and capturing image streams. It is\n * the central object exposed by libcamera.\n *\n * To support the central nature of Camera objects, libcamera manages the\n * lifetime of camera instances with std::shared_ptr<>. Instances shall be\n * created with the create() function which returns a shared pointer. The\n * Camera constructors and destructor are private, to prevent instances from\n * being constructed and destroyed manually.\n *\n * \\section camera_operation", "part_id": "responsibility"}], "creation": [{"text": "`Camera::createRequest`의 `cookie`는 애플리케이션용 불투명 입력 값입니다. 이 값은 생성된 요청에 저장되며, `Request::cookie()`로 언제든지 다시 읽을 수 있습니다. 소스 설명에 따르면 애플리케이션은 보통 완료 핸들러에서 이 값으로 요청을 외부 리소스와 연결하며, libcamera 입장에서 `cookie`는 completely opaque(완전히 불투명)한 값입니다.", "evidence": ["create"], "covers": ["creation"], "kind": "behavior", "quote": "\\brief Create a request object for the camera\n * \\param[in] cookie Opaque cookie for application use\n *\n * This function creates an empty request for the application to fill with\n * buffers and parameters, and queue for capture.\n *\n * The \\a cookie is stored in the request and is accessible through the\n * Request::cookie() function at any time. It is typically used by applications\n * to map the request to an external resource in the request completion\n * handler, and is completely opaque to libcamera.\n *\n * The ownership of the returned request is passed to the caller, which is\n * responsible for deleting it. The request may be deleted in the completion\n * handler, or reused after resetting its state with Request::reuse().\n *\n * \\context This function is \\threadsafe. It may only be called when the camera\n * is in the Configured or Running state as defined in \\ref camera_operation.\n *\n * \\return A pointer to the newly created request, or nullptr on error\n */\nstd::unique_ptr<Request> Camera::createRequest", "part_id": "cookie"}, {"text": "`Camera::createRequest()`는 카메라가 `Configured` 또는 `Running` 상태일 때만 호출할 수 있으며, 오류가 발생하면 `nullptr`을 반환합니다.", "evidence": ["create"], "covers": ["creation"], "kind": "behavior", "quote": "\\brief Create a request object for the camera\n * \\param[in] cookie Opaque cookie for application use\n *\n * This function creates an empty request for the application to fill with\n * buffers and parameters, and queue for capture.\n *\n * The \\a cookie is stored in the request and is accessible through the\n * Request::cookie() function at any time. It is typically used by applications\n * to map the request to an external resource in the request completion\n * handler, and is completely opaque to libcamera.\n *\n * The ownership of the returned request is passed to the caller, which is\n * responsible for deleting it. The request may be deleted in the completion\n * handler, or reused after resetting its state with Request::reuse().\n *\n * \\context This function is \\threadsafe. It may only be called when the camera\n * is in the Configured or Running state as defined in \\ref camera_operation.\n *\n * \\return A pointer to the newly created request, or nullptr on error\n */\nstd::unique_ptr<Request> Camera::createRequest", "part_id": "state"}, {"text": "`Camera::createRequest()`가 반환한 요청의 소유권은 호출자에게 넘어가며, 그 요청을 삭제할 책임도 호출자에게 있습니다.", "evidence": ["create"], "covers": ["creation"], "kind": "behavior", "quote": "\\brief Create a request object for the camera\n * \\param[in] cookie Opaque cookie for application use\n *\n * This function creates an empty request for the application to fill with\n * buffers and parameters, and queue for capture.\n *\n * The \\a cookie is stored in the request and is accessible through the\n * Request::cookie() function at any time. It is typically used by applications\n * to map the request to an external resource in the request completion\n * handler, and is completely opaque to libcamera.\n *\n * The ownership of the returned request is passed to the caller, which is\n * responsible for deleting it. The request may be deleted in the completion\n * handler, or reused after resetting its state with Request::reuse().\n *\n * \\context This function is \\threadsafe. It may only be called when the camera\n * is in the Configured or Running state as defined in \\ref camera_operation.\n *\n * \\return A pointer to the newly created request, or nullptr on error\n */\nstd::unique_ptr<Request> Camera::createRequest", "part_id": "ownership"}, {"text": "새 요청을 만드는 대신 같은 요청을 다시 큐에 넣으려면, 호출자는 큐에 넣기 전에 `Request::reuse()`를 호출해서 요청의 상태와 연결된 컨트롤을 초기화해야 합니다.", "evidence": ["reuse"], "covers": ["creation"], "kind": "behavior", "quote": "\\brief Reset the request for reuse\n * \\param[in] flags Indicate whether or not to reuse the buffers\n *\n * Reset the status and controls associated with the request, to allow it to\n * be reused and requeued without destruction. This function shall be called\n * prior to queueing the request to the camera, in lieu of constructing a new\n * request. The application can reuse the buffers that were previously added\n * to the request via addBuffer() by setting \\a flags to ReuseBuffers.\n */\nvoid Request::reuse(ReuseFlag flags)\n{\n\tLIBCAMERA_TRACEPOINT(request_reuse, this);", "part_id": "reuse"}, {"text": "`Request::reuse(ReuseFlag)`는 `flags & ReuseBuffers`가 참이면 `bufferMap_`의 각 버퍼에 `setRequest(this)`를 호출하고 `_d()->pending_`에 넣어, `addBuffer()`로 이미 추가한 버퍼를 유지한 채 재사용합니다. `ReuseBuffers`를 지정하지 않으면 `bufferMap_`을 비웁니다.", "evidence": ["reuse"], "covers": ["creation"], "kind": "behavior", "quote": "if (flags & ReuseBuffers) {\n\t\tfor (const auto &[stream, buffer] : bufferMap_) {\n\t\t\tbuffer->_d()->setRequest(this);\n\t\t\t_d()->pending_.insert(buffer);\n\t\t}\n\t} else {\n\t\tbufferMap_.clear();\n\t}", "part_id": "buffers"}], "lifecycle": [{"text": "캡처를 준비하려면 애플리케이션은 `acquire()`로 카메라를 획득한 뒤 `configure()`로 구성하고, 그다음 `start()`로 시작하는 순서로 진행해야 합니다.", "evidence": ["state"], "covers": ["lifecycle"], "kind": "behavior", "quote": "\\section camera_operation Operating the Camera\n *\n * An application needs to perform a sequence of operations on a camera before\n * it is ready to process requests. The camera needs to be acquired and\n * configured to prepare the camera for capture. Once started the camera can\n * process requests until it is stopped. When an application is done with a\n * camera, the camera needs to be released.\n *\n * An application may start and stop a camera multiple times as long as it is\n * not released. The camera may also be reconfigured.\n *\n * Functions that affect the camera state as defined below are generally not\n * synchronized with each other by the Camera class. The caller is responsible\n * for ensuring their synchronization if necessary.\n *\n * \\subsection Camera States\n *\n * To help manage the sequence of operations needed to control the camera a set\n * of states are defined. Each state describes which operations may be performed\n * on the camera. Performing an operation not allowed in the camera state\n * results in undefined behaviour. Operations not listed at all in the state\n * diagram are allowed in all states.\n *\n * \\dot\n * digraph camera_state_machine {\n *   node [shape = doublecircle ]; Available;\n *   node [shape = circle ]; Acquired;\n *   node [shape = circle ]; Configured;\n *   node [shape = circle ]; Stopping;\n *   node [shape = circle ]; Running;\n *\n *   Available -> Available [label = \"release()\"];\n *   Available -> Acquired [label = \"acquire()\"];\n *\n *   Acquired -> Available [label = \"release()\"];\n *   Acquired -> Configured [label = \"configure()\"];\n *\n *   Configured -> Available [label = \"release()\"];\n *   Configured -> Configured [label = \"configure(), createRequest()\"];\n *   Configured -> Running [label = \"start()\"];\n *\n *   Running -> Stopping [label = \"stop()\"];\n *   Stopping -> Configured;\n *   Running -> Running [label = \"createRequest(), queueRequest()\"];\n * }\n * \\enddot", "part_id": "prepare"}, {"text": "시작된 카메라는 정지되기 전까지 요청을 처리할 수 있으며, 이 구간이 `Running` 상태입니다. 완전히 끝내는 경로는 `Running`에서 `stop()`으로 `Stopping`을 거쳐 정지 후 `Configured`로 돌아가고, 이어서 `Configured`에서 `release()`로 `Available`로 해제하는 순서입니다.", "evidence": ["state"], "covers": ["lifecycle"], "kind": "behavior", "quote": "\\section camera_operation Operating the Camera\n *\n * An application needs to perform a sequence of operations on a camera before\n * it is ready to process requests. The camera needs to be acquired and\n * configured to prepare the camera for capture. Once started the camera can\n * process requests until it is stopped. When an application is done with a\n * camera, the camera needs to be released.\n *\n * An application may start and stop a camera multiple times as long as it is\n * not released. The camera may also be reconfigured.\n *\n * Functions that affect the camera state as defined below are generally not\n * synchronized with each other by the Camera class. The caller is responsible\n * for ensuring their synchronization if necessary.\n *\n * \\subsection Camera States\n *\n * To help manage the sequence of operations needed to control the camera a set\n * of states are defined. Each state describes which operations may be performed\n * on the camera. Performing an operation not allowed in the camera state\n * results in undefined behaviour. Operations not listed at all in the state\n * diagram are allowed in all states.\n *\n * \\dot\n * digraph camera_state_machine {\n *   node [shape = doublecircle ]; Available;\n *   node [shape = circle ]; Acquired;\n *   node [shape = circle ]; Configured;\n *   node [shape = circle ]; Stopping;\n *   node [shape = circle ]; Running;\n *\n *   Available -> Available [label = \"release()\"];\n *   Available -> Acquired [label = \"acquire()\"];\n *\n *   Acquired -> Available [label = \"release()\"];\n *   Acquired -> Configured [label = \"configure()\"];\n *\n *   Configured -> Available [label = \"release()\"];\n *   Configured -> Configured [label = \"configure(), createRequest()\"];\n *   Configured -> Running [label = \"start()\"];\n *\n *   Running -> Stopping [label = \"stop()\"];\n *   Stopping -> Configured;\n *   Running -> Running [label = \"createRequest(), queueRequest()\"];\n * }\n * \\enddot", "part_id": "finish"}, {"text": "카메라가 해제되지 않은 동안에는 애플리케이션이 시작과 정지를 여러 번 반복할 수 있으며, 카메라를 재구성하여 캡처 설정을 바꿀 수도 있습니다.", "evidence": ["state"], "covers": ["lifecycle"], "kind": "behavior", "quote": "\\section camera_operation Operating the Camera\n *\n * An application needs to perform a sequence of operations on a camera before\n * it is ready to process requests. The camera needs to be acquired and\n * configured to prepare the camera for capture. Once started the camera can\n * process requests until it is stopped. When an application is done with a\n * camera, the camera needs to be released.\n *\n * An application may start and stop a camera multiple times as long as it is\n * not released. The camera may also be reconfigured.\n *\n * Functions that affect the camera state as defined below are generally not\n * synchronized with each other by the Camera class. The caller is responsible\n * for ensuring their synchronization if necessary.\n *\n * \\subsection Camera States\n *\n * To help manage the sequence of operations needed to control the camera a set\n * of states are defined. Each state describes which operations may be performed\n * on the camera. Performing an operation not allowed in the camera state\n * results in undefined behaviour. Operations not listed at all in the state\n * diagram are allowed in all states.\n *\n * \\dot\n * digraph camera_state_machine {\n *   node [shape = doublecircle ]; Available;\n *   node [shape = circle ]; Acquired;\n *   node [shape = circle ]; Configured;\n *   node [shape = circle ]; Stopping;\n *   node [shape = circle ]; Running;\n *\n *   Available -> Available [label = \"release()\"];\n *   Available -> Acquired [label = \"acquire()\"];\n *\n *   Acquired -> Available [label = \"release()\"];\n *   Acquired -> Configured [label = \"configure()\"];\n *\n *   Configured -> Available [label = \"release()\"];\n *   Configured -> Configured [label = \"configure(), createRequest()\"];\n *   Configured -> Running [label = \"start()\"];\n *\n *   Running -> Stopping [label = \"stop()\"];\n *   Stopping -> Configured;\n *   Running -> Running [label = \"createRequest(), queueRequest()\"];\n * }\n * \\enddot", "part_id": "repeat"}], "request": [{"text": "애플리케이션은 `Camera::queueRequest()`로 제출하기 전에 `createRequest()`가 반환한 요청 객체에 캡처 버퍼를 최소 한 개 연결해야 합니다.", "evidence": ["queue"], "covers": ["request"], "kind": "behavior", "quote": "\\brief Queue a request to the camera\n * \\param[in] request The request to queue to the camera\n *\n * This function queues a \\a request to the camera for capture.\n *\n * After allocating the request with createRequest(), the application shall\n * fill it with at least one capture buffer before queuing it. Requests that\n * contain no buffers are invalid and are rejected without being queued.\n *\n * Once the request has been queued, the camera will notify its completion\n * through the \\ref requestCompleted signal.\n *\n * \\context This function is \\threadsafe. It may only be called when the camera\n * is in the Running state as defined in \\ref camera_operation.\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not running so requests can't be queued\n * \\retval -EXDEV The request does not belong to this camera\n * \\retval -EINVAL The request is invalid\n * \\retval -ENOMEM No buffer memory was available to handle the request\n */\nint Camera::queueRequest", "part_id": "buffers"}, {"text": "`Camera::queueRequest()`로 제출한 요청이 처리를 마치면, 카메라는 `requestCompleted` 신호로 완료를 알립니다.", "evidence": ["queue"], "covers": ["request"], "kind": "behavior", "quote": "\\brief Queue a request to the camera\n * \\param[in] request The request to queue to the camera\n *\n * This function queues a \\a request to the camera for capture.\n *\n * After allocating the request with createRequest(), the application shall\n * fill it with at least one capture buffer before queuing it. Requests that\n * contain no buffers are invalid and are rejected without being queued.\n *\n * Once the request has been queued, the camera will notify its completion\n * through the \\ref requestCompleted signal.\n *\n * \\context This function is \\threadsafe. It may only be called when the camera\n * is in the Running state as defined in \\ref camera_operation.\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not running so requests can't be queued\n * \\retval -EXDEV The request does not belong to this camera\n * \\retval -EINVAL The request is invalid\n * \\retval -ENOMEM No buffer memory was available to handle the request\n */\nint Camera::queueRequest", "part_id": "signal"}, {"text": "`Camera::queueRequest()`는 카메라가 `camera_operation`에 정의된 Running 상태일 때만 호출할 수 있습니다.", "evidence": ["queue"], "covers": ["request"], "kind": "behavior", "quote": "\\brief Queue a request to the camera\n * \\param[in] request The request to queue to the camera\n *\n * This function queues a \\a request to the camera for capture.\n *\n * After allocating the request with createRequest(), the application shall\n * fill it with at least one capture buffer before queuing it. Requests that\n * contain no buffers are invalid and are rejected without being queued.\n *\n * Once the request has been queued, the camera will notify its completion\n * through the \\ref requestCompleted signal.\n *\n * \\context This function is \\threadsafe. It may only be called when the camera\n * is in the Running state as defined in \\ref camera_operation.\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not running so requests can't be queued\n * \\retval -EXDEV The request does not belong to this camera\n * \\retval -EINVAL The request is invalid\n * \\retval -ENOMEM No buffer memory was available to handle the request\n */\nint Camera::queueRequest", "part_id": "state"}], "completion": [{"text": "파이프라인 핸들러는 요청의 버퍼 한 개가 완료되었음을 알리기 위해 `PipelineHandler::completeBuffer()`를 호출해야 합니다. `completeBuffer()`는 애플리케이션에 버퍼 완료를 통지하고, 요청의 내부 버퍼 추적 상태를 갱신합니다. 요청에 포함된 모든 버퍼가 완료되었으면 `true`를 반환하고, 그렇지 않으면 `false`를 반환합니다.", "evidence": ["buffer"], "covers": ["completion"], "kind": "behavior", "quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer", "part_id": "buffer"}, {"text": "마지막 버퍼가 완료된 뒤에도 파이프라인 핸들러는 `completeRequest()`를 명시적으로 호출해야 합니다.", "evidence": ["buffer"], "covers": ["completion"], "kind": "behavior", "quote": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer", "part_id": "request"}], "boundary": [{"text": "`Camera` 상태를 바꾸는 함수들은 `Camera` 클래스가 일반적으로 서로 동기화하지 않으므로, 필요한 경우 호출자가 이 함수들 사이의 동기화를 보장해야 합니다.", "evidence": ["synchronization"], "covers": ["boundary"], "kind": "behavior", "quote": "Functions that affect the camera state as defined below are generally not\n * synchronized with each other by the Camera class. The caller is responsible\n * for ensuring their synchronization if necessary.\n *\n * \\subsection Camera States", "part_id": "state"}, {"text": "`PipelineHandler::completeRequest()`의 호출 주체는 pipeline handler입니다. pipeline handler는 완료된 요청을 카메라에 알릴 때 이 함수를 호출해야 하며, 그 호출은 `CameraManager` 스레드에서 이루어져야 합니다.", "evidence": ["completion"], "covers": ["boundary"], "kind": "behavior", "quote": "\\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest", "part_id": "complete"}], "verification": [{"text": "`Camera::start()`는 `d->isAccessAllowed(Private::CameraConfigured)`로 카메라 상태를 검사하고 그 반환값을 `ret`에 저장합니다. `ret`가 음수이면(`ret < 0`) `start()`는 `return ret;`으로 그 값을 그대로 반환하며, 이 분기에서는 파이프라인 시작 호출과 `Private::CameraRunning` 상태 전환이 실행되지 않습니다. API 주석의 `-EACCES`는 카메라가 시작할 수 없는 상태를 뜻하지만, 이 코드 조각만으로는 `isAccessAllowed()`가 `-EACCES`를 반환하는지 확인할 수 없으므로 두 값을 같은 것으로 단정하지 않습니다.", "evidence": ["allowed-start-state", "start-api"], "covers": ["verification"], "kind": "behavior", "quote": "int ret = d->isAccessAllowed(Private::CameraConfigured);\n\tif (ret < 0)", "part_id": "contracts"}, {"text": "이 TODO 주석이 문서화를 요청한 대상은 카메라 시작 타이밍입니다.", "evidence": ["timing"], "covers": ["verification"], "kind": "behavior", "quote": "\\todo Add documentation for camera start timings.", "part_id": "timing"}]}, "topic_inputs": {"discovery": "74216ca939f7eee1f0c3d7aab49f43c686ec88b3535def0bc183c322eb55c678", "responsibility": "64eb3ae285a184be45c730e6163f29ebb63b53b8f89e1359d8bef2ba0512ef63", "creation": "393183cdeec1bcb25a03fd5af59f0204a22d8e558613fe1883f8a27879a79d7e", "lifecycle": "4b65e4120a7debd8695aac248a113c53fa11e45b72fbf96cbb3754222e08263f", "request": "451063d9ff4127e5fbf04c2a06460db16af935b8ac95b324f41c4d52c96015ab", "completion": "829e47aa3ba34dae8cd978975d8f006def049b5202ed19fe60afc7bf123afcb0", "boundary": "c6086439a20aca18c3ebf4a680c9eab01cfe861fc72b81c553399512e499bc05", "verification": "afc4879b963fb8f73a00e138f373a85b85c3535b9abef46f72c39c2c2499b62e"}, "reused_topics": ["discovery", "responsibility", "creation", "lifecycle", "request", "completion", "boundary", "verification"], "replayed_units": [], "generated_topics": [], "topic_agents": {"discovery": "cli/claude/claude-haiku-5-5", "responsibility": "cli/claude/claude-haiku-5-5", "creation": "cli/claude/claude-haiku-5-5", "lifecycle": "cli/claude/claude-haiku-5-5", "request": "cli/claude/claude-haiku-5-5", "completion": "cli/claude/claude-haiku-5-5", "boundary": "cli/claude/claude-haiku-5-5", "verification": "cli/claude/claude-haiku-5-5"}, "grounding_review": "passed", "grounding_policy": "3c9673abb403dee9aa554ee5b3c549ebfe95bb18ec0e9cd7bf6e495e060439c2", "reader_scope": {"revision": 1, "change_reason": "독자의 개요 과업을 고정하고 장치별 요청 수의 기본 한도는 기존 연동 상세로 이동합니다. 준비 실패·완료·소유권의 필수 조건과 예외는 유지합니다.", "tasks": [{"id": "onboarding", "goal": "신입사원이 전체 구조와 대표 흐름을 이해하고 첫 코드 탐색 순서를 찾습니다.", "completion": "책임·대표 요청 흐름·첫 파일·필수 예외와 확인 조건을 찾습니다.", "requirements": ["responsibility", "discovery", "creation", "lifecycle", "request", "completion", "boundary", "verification"]}], "optional": [{"id": "implementation-detail", "location": "scenarios/index.md", "reason": "내부 상세는 과업에 필요한 조건과 예외를 유지한 채 연결해서 읽습니다."}, {"id": "queue-limit-detail", "location": "pipeline-requests.md#장치-요청-한도와-대기-큐", "reason": "장치별 큐의 기본 수치는 연동 구현 상세에서 확인합니다. 개요의 요청 준비·실패·완료 조건은 유지합니다."}], "excluded": [{"id": "all-features", "reason": "전체 기능·모든 하드웨어 조합의 참조서는 이 개요의 목적이 아닙니다."}], "removed_requirements": ["queue-limit"]}, "validation_policy": {"manuscript": "e0c429a5c80a01c34563ce00a616df89d8f75c735f8669bcbd1f75d84cce82a6", "semantic": "571896e4854c21322a1ce4580107c235cae5a9f94e71adc8c97a7e2897405968", "duplicates": "93f0e8b5bdc1b40bf4ab38168e92c2772aa36747bec6add25921fbb90b909e38", "design_contracts": "9f54ecddce57c7a9caa6c02af77904b57eff2471f2a052951c1cffd18256a4f0", "validate": "78d29ffd1bf6235067edf5a0c7d9b1290f1f11e90599605a0e192e90be5f3372", "reader_profiles": "ad9005d08295212371f59e8934ace86786c0683f7a4c416301ee0e0cadc8b797", "contract_schema": "c80b476cf38b78ab674977c3f39584d8db6961a914e8ed13ac9370e2fec6fa45", "answer_contracts": "1e0d24e0cf26ded53ecec2e5a6fbc51836bac6e17530318a9fa7cffaa936c00b", "reader_scope": "1b9c26b10b74ae8cf034f5863cbac2114e1d844e5d8332eb1f10562a18371782", "product_context": "9db4d42a710b4a71a7d2bb16f69db06926409281dc1a200c796e77d5deaa25a0", "design_response": "deb70dda7ad27f001267e4a9712c5b0dc1fe9fa67acd13bedbfefaaad0ad83c8", "design_validation": "946deebb694018f6361ee86669e1a7a26cd61dfffef11bb3a7de0a193639fabe"}, "validation_model": "2eb3bf27fc8fdca03721abcecc71d006bc0c9612049018fdc117931887213ef9", "style_policy": {"fluent-korean.md": "ce5aa71e58371e3fc02ff8cb165e07c9234f5166f6541423a91cc4cb40878975", "i-have-adhd.md": "3170b16ace00aecb0dd7feb54c0b5aa642e7502acda06ecd24fd89a11c7127e9", "README.md": "f8fd5a3d8041c23fc68b93ff32b8727e98393383b5099032eb00ad0013e7611c"}, "reuse_lineage": {"source_commit": "293d751a814e0d4c34e85ad457ccd9d5eefd1a61", "body_sha256": "a46c0e35d12042851abfa2c40e52bffabae848175058a452cfabda9167adebc4", "topics": ["discovery", "responsibility", "creation", "lifecycle", "request", "completion", "boundary", "verification"], "validation": "current source, contract and editorial checks; human review pending"}, "body_sha256": "a46c0e35d12042851abfa2c40e52bffabae848175058a452cfabda9167adebc4"}
+generated_design:
+  schema: 1
+  input_fingerprint: 48ee0ce3dd22bea8395731271af652cc0c47a27037d9f368d2969a5b2e6331fc
+  answers:
+    discovery:
+    - text: '`CameraManager`는 libcamera의 진입점으로, 장치를 열거하고 애플리케이션에 시스템의 카메라 접근을 제공하는
+        역할을 합니다. 소개 주석에 따르면 `CameraManager`는 모든 `Camera` 객체를 소유하며, 핫플러그와 핫언플러그를 처리해
+        카메라의 수명을 관리합니다. `CameraManager::Private::pipelineFactoryMatch`는 주어진 팩토리로 `PipelineHandler`를
+        반복해서 생성하고, 각 객체의 `match(enumerator_.get())`가 참을 반환하는 동안 매칭되는 파이프라인을 가능한 한
+        많이 제공합니다. `match`가 거짓을 반환하면 반복을 멈추고, 매칭에 성공한 경우에만 `Debug` 로그를 남깁니다.'
+      evidence:
+      - manager
+      - manager-pipeline-implementation
+      covers:
+      - discovery
+      kind: behavior
+      quote: "The camera manager is the entry point to libcamera. It enumerates devices,\n\
+        \ * associates them with pipeline managers, and provides access to the cameras\n\
+        \ * in the system to applications. The manager owns all Camera objects and\n\
+        \ * handles hot-plugging and hot-unplugging to manage the lifetime of cameras.\n\
+        \ *\n * To interact with libcamera, an application starts by creating a camera\n\
+        \ * manager instance. Only a single instance of the camera manager may exist\
+        \ at\n * a time. Attempting to create a second instance without first deleting\
+        \ the\n * existing instance results in undefined behaviour.\n *\n * The manager\
+        \ is initially stopped,"
+      part_id: entry
+    - text: 동시에 존재할 수 있는 `CameraManager` 인스턴스는 하나뿐입니다.
+      evidence:
+      - manager
+      covers:
+      - discovery
+      kind: behavior
+      quote: "The camera manager is the entry point to libcamera. It enumerates devices,\n\
+        \ * associates them with pipeline managers, and provides access to the cameras\n\
+        \ * in the system to applications. The manager owns all Camera objects and\n\
+        \ * handles hot-plugging and hot-unplugging to manage the lifetime of cameras.\n\
+        \ *\n * To interact with libcamera, an application starts by creating a camera\n\
+        \ * manager instance. Only a single instance of the camera manager may exist\
+        \ at\n * a time. Attempting to create a second instance without first deleting\
+        \ the\n * existing instance results in undefined behaviour.\n *\n * The manager\
+        \ is initially stopped,"
+      part_id: singleton
+    - text: 기존 인스턴스를 삭제하지 않은 상태에서 두 번째 `CameraManager` 인스턴스를 생성하면 정의되지 않은 동작(undefined
+        behaviour)이 발생합니다. 따라서 호출하는 쪽은 새 인스턴스를 만들기 전에 기존 인스턴스를 먼저 삭제해야 합니다.
+      evidence:
+      - manager
+      covers:
+      - discovery
+      kind: limitation
+      quote: "The camera manager is the entry point to libcamera. It enumerates devices,\n\
+        \ * associates them with pipeline managers, and provides access to the cameras\n\
+        \ * in the system to applications. The manager owns all Camera objects and\n\
+        \ * handles hot-plugging and hot-unplugging to manage the lifetime of cameras.\n\
+        \ *\n * To interact with libcamera, an application starts by creating a camera\n\
+        \ * manager instance. Only a single instance of the camera manager may exist\
+        \ at\n * a time. Attempting to create a second instance without first deleting\
+        \ the\n * existing instance results in undefined behaviour.\n *\n * The manager\
+        \ is initially stopped,"
+      part_id: singleton
+    - text: '`CameraManager::start()`가 성공하면 시작 과정에서 열거된 시스템의 카메라를 애플리케이션이 나열하고 사용할
+        수 있으며, 이 상태는 카메라 매니저가 중지되거나 카메라가 시스템에서 분리될 때까지 계속됩니다.'
+      evidence:
+      - start
+      covers:
+      - discovery
+      kind: behavior
+      quote: "\\brief Start the camera manager\n *\n * Start the camera manager and\
+        \ enumerate all devices in the system. Once\n * the start has been confirmed\
+        \ the user is free to list and otherwise\n * interact with cameras in the\
+        \ system until either the camera manager\n * is stopped or the camera is unplugged\
+        \ from the system.\n *\n * \\return 0 on success or a negative error code\
+        \ otherwise\n */\nint CameraManager::start()"
+      part_id: start
+    - text: '`CameraManager::cameras()`와 `CameraManager::get()`은 카메라 매니저가 실행 중인 상태에서
+        호출해야 하며, 이 상태를 확보할 책임은 호출하는 쪽에 있습니다.'
+      evidence:
+      - access
+      covers:
+      - discovery
+      kind: behavior
+      quote: "\\fn CameraManager::cameras()\n * \\brief Retrieve all available cameras\n\
+        \ *\n * Before calling this function the caller is responsible for ensuring\
+        \ that\n * the camera manager is running.\n *\n * \\context This function\
+        \ is \\threadsafe.\n *\n * \\return List of all available cameras\n */\nstd::vector<std::shared_ptr<Camera>>\
+        \ CameraManager::cameras() const\n{\n\tconst Private *const d = _d();"
+      part_id: access
+    - text: '`match()`를 구현하는 쪽은 필요한 장치를 모두 찾으면 `MediaDevice::acquire()`로 해당 장치를 모두
+        획득해야 합니다. 이어서 `Camera` 인스턴스를 생성해 내부에 저장하고 카메라 관리자에 등록한 뒤 `true`를 반환해야 합니다.
+        필요한 장치를 모두 찾지 못하면 어떤 장치도 획득하지 않거나, 이미 획득한 장치를 `MediaDevice::release()`로 모두
+        해제한 뒤 `false`를 반환해야 합니다.'
+      evidence:
+      - match
+      covers:
+      - discovery
+      kind: behavior
+      quote: "\\fn PipelineHandler::match(DeviceEnumerator *enumerator)\n * \\brief\
+        \ Match media devices and create camera instances\n * \\param[in] enumerator\
+        \ The enumerator providing all media devices found in the\n * system\n *\n\
+        \ * This function is the main entry point of the pipeline handler. It is called\n\
+        \ * by the camera manager with the \\a enumerator passed as an argument. It\
+        \ shall\n * acquire from the \\a enumerator all the media devices it needs\
+        \ for a single\n * pipeline, create one or multiple Camera instances and register\
+        \ them with the\n * camera manager.\n *\n * If all media devices needed by\
+        \ the pipeline handler are found, they must all\n * be acquired by a call\
+        \ to MediaDevice::acquire(). This function shall then\n * create the corresponding\
+        \ Camera instances, store them internally, and return\n * true. Otherwise\
+        \ it shall not acquire any media device (or shall release all\n * the media\
+        \ devices is has acquired by calling MediaDevice::release()) and\n * return\
+        \ false.\n *\n * If multiple instances of a pipeline are available in the\
+        \ system, the\n * PipelineHandler class will be instantiated once per instance,\
+        \ and its match()\n * function called for every instance. Each call shall\
+        \ acquire media devices for\n * one pipeline instance, until all compatible\
+        \ media devices are exhausted.\n *\n * If this function returns true, a new\
+        \ instance of the pipeline handler will\n * be created and its match() function\
+        \ called.\n *\n * \\context This function is called from the CameraManager\
+        \ thread.\n *\n * \\return true if media devices have been acquired and camera\
+        \ instances\n * created, or false otherwise\n */"
+      part_id: match
+    responsibility:
+    - text: '`Camera` 클래스는 하나의 이미지 소스에서 하나 이상의 이미지 스트림을 만들 수 있는 카메라를 나타냅니다. 장치를 구성하고
+        제어하며 이미지 스트림을 캡처하는 주요 인터페이스를 제공하고, libcamera가 외부에 노출하는 중심 객체입니다.'
+      evidence:
+      - camera
+      covers:
+      - responsibility
+      kind: behavior
+      quote: "The Camera class models a camera capable of producing one or more image\n\
+        \ * streams from a single image source. It provides the main interface to\n\
+        \ * configuring and controlling the device, and capturing image streams. It\
+        \ is\n * the central object exposed by libcamera.\n *\n * To support the central\
+        \ nature of Camera objects, libcamera manages the\n * lifetime of camera instances\
+        \ with std::shared_ptr<>. Instances shall be\n * created with the create()\
+        \ function which returns a shared pointer. The\n * Camera constructors and\
+        \ destructor are private, to prevent instances from\n * being constructed\
+        \ and destroyed manually.\n *\n * \\section camera_operation"
+      part_id: responsibility
+    - text: libcamera는 `Camera` 인스턴스의 수명을 `std::shared_ptr<>`로 관리합니다. 인스턴스는 `create()`
+        함수로 생성해야 하며, 이 함수는 공유 포인터를 반환합니다. `Camera`의 생성자와 소멸자는 private으로 선언되어 있어서,
+        인스턴스를 직접 생성하거나 파괴할 수 없습니다.
+      evidence:
+      - camera
+      covers:
+      - responsibility
+      kind: behavior
+      quote: "The Camera class models a camera capable of producing one or more image\n\
+        \ * streams from a single image source. It provides the main interface to\n\
+        \ * configuring and controlling the device, and capturing image streams. It\
+        \ is\n * the central object exposed by libcamera.\n *\n * To support the central\
+        \ nature of Camera objects, libcamera manages the\n * lifetime of camera instances\
+        \ with std::shared_ptr<>. Instances shall be\n * created with the create()\
+        \ function which returns a shared pointer. The\n * Camera constructors and\
+        \ destructor are private, to prevent instances from\n * being constructed\
+        \ and destroyed manually.\n *\n * \\section camera_operation"
+      part_id: responsibility
+    creation:
+    - text: '`Camera::createRequest`의 `cookie`는 애플리케이션용 불투명 입력 값입니다. 이 값은 생성된 요청에
+        저장되며, `Request::cookie()`로 언제든지 다시 읽을 수 있습니다. 소스 설명에 따르면 애플리케이션은 보통 완료 핸들러에서
+        이 값으로 요청을 외부 리소스와 연결하며, libcamera 입장에서 `cookie`는 completely opaque(완전히 불투명)한
+        값입니다.'
+      evidence:
+      - create
+      covers:
+      - creation
+      kind: behavior
+      quote: "\\brief Create a request object for the camera\n * \\param[in] cookie\
+        \ Opaque cookie for application use\n *\n * This function creates an empty\
+        \ request for the application to fill with\n * buffers and parameters, and\
+        \ queue for capture.\n *\n * The \\a cookie is stored in the request and is\
+        \ accessible through the\n * Request::cookie() function at any time. It is\
+        \ typically used by applications\n * to map the request to an external resource\
+        \ in the request completion\n * handler, and is completely opaque to libcamera.\n\
+        \ *\n * The ownership of the returned request is passed to the caller, which\
+        \ is\n * responsible for deleting it. The request may be deleted in the completion\n\
+        \ * handler, or reused after resetting its state with Request::reuse().\n\
+        \ *\n * \\context This function is \\threadsafe. It may only be called when\
+        \ the camera\n * is in the Configured or Running state as defined in \\ref\
+        \ camera_operation.\n *\n * \\return A pointer to the newly created request,\
+        \ or nullptr on error\n */\nstd::unique_ptr<Request> Camera::createRequest"
+      part_id: cookie
+    - text: '`Camera::createRequest()`는 카메라가 `Configured` 또는 `Running` 상태일 때만 호출할
+        수 있으며, 오류가 발생하면 `nullptr`을 반환합니다.'
+      evidence:
+      - create
+      covers:
+      - creation
+      kind: behavior
+      quote: "\\brief Create a request object for the camera\n * \\param[in] cookie\
+        \ Opaque cookie for application use\n *\n * This function creates an empty\
+        \ request for the application to fill with\n * buffers and parameters, and\
+        \ queue for capture.\n *\n * The \\a cookie is stored in the request and is\
+        \ accessible through the\n * Request::cookie() function at any time. It is\
+        \ typically used by applications\n * to map the request to an external resource\
+        \ in the request completion\n * handler, and is completely opaque to libcamera.\n\
+        \ *\n * The ownership of the returned request is passed to the caller, which\
+        \ is\n * responsible for deleting it. The request may be deleted in the completion\n\
+        \ * handler, or reused after resetting its state with Request::reuse().\n\
+        \ *\n * \\context This function is \\threadsafe. It may only be called when\
+        \ the camera\n * is in the Configured or Running state as defined in \\ref\
+        \ camera_operation.\n *\n * \\return A pointer to the newly created request,\
+        \ or nullptr on error\n */\nstd::unique_ptr<Request> Camera::createRequest"
+      part_id: state
+    - text: '`Camera::createRequest()`가 반환한 요청의 소유권은 호출자에게 넘어가며, 그 요청을 삭제할 책임도 호출자에게
+        있습니다.'
+      evidence:
+      - create
+      covers:
+      - creation
+      kind: behavior
+      quote: "\\brief Create a request object for the camera\n * \\param[in] cookie\
+        \ Opaque cookie for application use\n *\n * This function creates an empty\
+        \ request for the application to fill with\n * buffers and parameters, and\
+        \ queue for capture.\n *\n * The \\a cookie is stored in the request and is\
+        \ accessible through the\n * Request::cookie() function at any time. It is\
+        \ typically used by applications\n * to map the request to an external resource\
+        \ in the request completion\n * handler, and is completely opaque to libcamera.\n\
+        \ *\n * The ownership of the returned request is passed to the caller, which\
+        \ is\n * responsible for deleting it. The request may be deleted in the completion\n\
+        \ * handler, or reused after resetting its state with Request::reuse().\n\
+        \ *\n * \\context This function is \\threadsafe. It may only be called when\
+        \ the camera\n * is in the Configured or Running state as defined in \\ref\
+        \ camera_operation.\n *\n * \\return A pointer to the newly created request,\
+        \ or nullptr on error\n */\nstd::unique_ptr<Request> Camera::createRequest"
+      part_id: ownership
+    - text: 새 요청을 만드는 대신 같은 요청을 다시 큐에 넣으려면, 호출자는 큐에 넣기 전에 `Request::reuse()`를 호출해서
+        요청의 상태와 연결된 컨트롤을 초기화해야 합니다.
+      evidence:
+      - reuse
+      covers:
+      - creation
+      kind: behavior
+      quote: "\\brief Reset the request for reuse\n * \\param[in] flags Indicate whether\
+        \ or not to reuse the buffers\n *\n * Reset the status and controls associated\
+        \ with the request, to allow it to\n * be reused and requeued without destruction.\
+        \ This function shall be called\n * prior to queueing the request to the camera,\
+        \ in lieu of constructing a new\n * request. The application can reuse the\
+        \ buffers that were previously added\n * to the request via addBuffer() by\
+        \ setting \\a flags to ReuseBuffers.\n */\nvoid Request::reuse(ReuseFlag flags)\n\
+        {\n\tLIBCAMERA_TRACEPOINT(request_reuse, this);"
+      part_id: reuse
+    - text: '`Request::reuse(ReuseFlag)`는 `flags & ReuseBuffers`가 참이면 `bufferMap_`의
+        각 버퍼에 `setRequest(this)`를 호출하고 `_d()->pending_`에 넣어, `addBuffer()`로 이미 추가한
+        버퍼를 유지한 채 재사용합니다. `ReuseBuffers`를 지정하지 않으면 `bufferMap_`을 비웁니다.'
+      evidence:
+      - reuse
+      covers:
+      - creation
+      kind: behavior
+      quote: "if (flags & ReuseBuffers) {\n\t\tfor (const auto &[stream, buffer] :\
+        \ bufferMap_) {\n\t\t\tbuffer->_d()->setRequest(this);\n\t\t\t_d()->pending_.insert(buffer);\n\
+        \t\t}\n\t} else {\n\t\tbufferMap_.clear();\n\t}"
+      part_id: buffers
+    lifecycle:
+    - text: 캡처를 준비하려면 애플리케이션은 `acquire()`로 카메라를 획득한 뒤 `configure()`로 구성하고, 그다음 `start()`로
+        시작하는 순서로 진행해야 합니다.
+      evidence:
+      - state
+      covers:
+      - lifecycle
+      kind: behavior
+      quote: "\\section camera_operation Operating the Camera\n *\n * An application\
+        \ needs to perform a sequence of operations on a camera before\n * it is ready\
+        \ to process requests. The camera needs to be acquired and\n * configured\
+        \ to prepare the camera for capture. Once started the camera can\n * process\
+        \ requests until it is stopped. When an application is done with a\n * camera,\
+        \ the camera needs to be released.\n *\n * An application may start and stop\
+        \ a camera multiple times as long as it is\n * not released. The camera may\
+        \ also be reconfigured.\n *\n * Functions that affect the camera state as\
+        \ defined below are generally not\n * synchronized with each other by the\
+        \ Camera class. The caller is responsible\n * for ensuring their synchronization\
+        \ if necessary.\n *\n * \\subsection Camera States\n *\n * To help manage\
+        \ the sequence of operations needed to control the camera a set\n * of states\
+        \ are defined. Each state describes which operations may be performed\n *\
+        \ on the camera. Performing an operation not allowed in the camera state\n\
+        \ * results in undefined behaviour. Operations not listed at all in the state\n\
+        \ * diagram are allowed in all states.\n *\n * \\dot\n * digraph camera_state_machine\
+        \ {\n *   node [shape = doublecircle ]; Available;\n *   node [shape = circle\
+        \ ]; Acquired;\n *   node [shape = circle ]; Configured;\n *   node [shape\
+        \ = circle ]; Stopping;\n *   node [shape = circle ]; Running;\n *\n *   Available\
+        \ -> Available [label = \"release()\"];\n *   Available -> Acquired [label\
+        \ = \"acquire()\"];\n *\n *   Acquired -> Available [label = \"release()\"\
+        ];\n *   Acquired -> Configured [label = \"configure()\"];\n *\n *   Configured\
+        \ -> Available [label = \"release()\"];\n *   Configured -> Configured [label\
+        \ = \"configure(), createRequest()\"];\n *   Configured -> Running [label\
+        \ = \"start()\"];\n *\n *   Running -> Stopping [label = \"stop()\"];\n *\
+        \   Stopping -> Configured;\n *   Running -> Running [label = \"createRequest(),\
+        \ queueRequest()\"];\n * }\n * \\enddot"
+      part_id: prepare
+    - text: 시작된 카메라는 정지되기 전까지 요청을 처리할 수 있으며, 이 구간이 `Running` 상태입니다. 완전히 끝내는 경로는 `Running`에서
+        `stop()`으로 `Stopping`을 거쳐 정지 후 `Configured`로 돌아가고, 이어서 `Configured`에서 `release()`로
+        `Available`로 해제하는 순서입니다.
+      evidence:
+      - state
+      covers:
+      - lifecycle
+      kind: behavior
+      quote: "\\section camera_operation Operating the Camera\n *\n * An application\
+        \ needs to perform a sequence of operations on a camera before\n * it is ready\
+        \ to process requests. The camera needs to be acquired and\n * configured\
+        \ to prepare the camera for capture. Once started the camera can\n * process\
+        \ requests until it is stopped. When an application is done with a\n * camera,\
+        \ the camera needs to be released.\n *\n * An application may start and stop\
+        \ a camera multiple times as long as it is\n * not released. The camera may\
+        \ also be reconfigured.\n *\n * Functions that affect the camera state as\
+        \ defined below are generally not\n * synchronized with each other by the\
+        \ Camera class. The caller is responsible\n * for ensuring their synchronization\
+        \ if necessary.\n *\n * \\subsection Camera States\n *\n * To help manage\
+        \ the sequence of operations needed to control the camera a set\n * of states\
+        \ are defined. Each state describes which operations may be performed\n *\
+        \ on the camera. Performing an operation not allowed in the camera state\n\
+        \ * results in undefined behaviour. Operations not listed at all in the state\n\
+        \ * diagram are allowed in all states.\n *\n * \\dot\n * digraph camera_state_machine\
+        \ {\n *   node [shape = doublecircle ]; Available;\n *   node [shape = circle\
+        \ ]; Acquired;\n *   node [shape = circle ]; Configured;\n *   node [shape\
+        \ = circle ]; Stopping;\n *   node [shape = circle ]; Running;\n *\n *   Available\
+        \ -> Available [label = \"release()\"];\n *   Available -> Acquired [label\
+        \ = \"acquire()\"];\n *\n *   Acquired -> Available [label = \"release()\"\
+        ];\n *   Acquired -> Configured [label = \"configure()\"];\n *\n *   Configured\
+        \ -> Available [label = \"release()\"];\n *   Configured -> Configured [label\
+        \ = \"configure(), createRequest()\"];\n *   Configured -> Running [label\
+        \ = \"start()\"];\n *\n *   Running -> Stopping [label = \"stop()\"];\n *\
+        \   Stopping -> Configured;\n *   Running -> Running [label = \"createRequest(),\
+        \ queueRequest()\"];\n * }\n * \\enddot"
+      part_id: finish
+    - text: 카메라가 해제되지 않은 동안에는 애플리케이션이 시작과 정지를 여러 번 반복할 수 있으며, 카메라를 재구성하여 캡처 설정을 바꿀
+        수도 있습니다.
+      evidence:
+      - state
+      covers:
+      - lifecycle
+      kind: behavior
+      quote: "\\section camera_operation Operating the Camera\n *\n * An application\
+        \ needs to perform a sequence of operations on a camera before\n * it is ready\
+        \ to process requests. The camera needs to be acquired and\n * configured\
+        \ to prepare the camera for capture. Once started the camera can\n * process\
+        \ requests until it is stopped. When an application is done with a\n * camera,\
+        \ the camera needs to be released.\n *\n * An application may start and stop\
+        \ a camera multiple times as long as it is\n * not released. The camera may\
+        \ also be reconfigured.\n *\n * Functions that affect the camera state as\
+        \ defined below are generally not\n * synchronized with each other by the\
+        \ Camera class. The caller is responsible\n * for ensuring their synchronization\
+        \ if necessary.\n *\n * \\subsection Camera States\n *\n * To help manage\
+        \ the sequence of operations needed to control the camera a set\n * of states\
+        \ are defined. Each state describes which operations may be performed\n *\
+        \ on the camera. Performing an operation not allowed in the camera state\n\
+        \ * results in undefined behaviour. Operations not listed at all in the state\n\
+        \ * diagram are allowed in all states.\n *\n * \\dot\n * digraph camera_state_machine\
+        \ {\n *   node [shape = doublecircle ]; Available;\n *   node [shape = circle\
+        \ ]; Acquired;\n *   node [shape = circle ]; Configured;\n *   node [shape\
+        \ = circle ]; Stopping;\n *   node [shape = circle ]; Running;\n *\n *   Available\
+        \ -> Available [label = \"release()\"];\n *   Available -> Acquired [label\
+        \ = \"acquire()\"];\n *\n *   Acquired -> Available [label = \"release()\"\
+        ];\n *   Acquired -> Configured [label = \"configure()\"];\n *\n *   Configured\
+        \ -> Available [label = \"release()\"];\n *   Configured -> Configured [label\
+        \ = \"configure(), createRequest()\"];\n *   Configured -> Running [label\
+        \ = \"start()\"];\n *\n *   Running -> Stopping [label = \"stop()\"];\n *\
+        \   Stopping -> Configured;\n *   Running -> Running [label = \"createRequest(),\
+        \ queueRequest()\"];\n * }\n * \\enddot"
+      part_id: repeat
+    request:
+    - text: 애플리케이션은 `Camera::queueRequest()`로 제출하기 전에 `createRequest()`가 반환한 요청 객체에
+        캡처 버퍼를 최소 한 개 연결해야 합니다.
+      evidence:
+      - queue
+      covers:
+      - request
+      kind: behavior
+      quote: "\\brief Queue a request to the camera\n * \\param[in] request The request\
+        \ to queue to the camera\n *\n * This function queues a \\a request to the\
+        \ camera for capture.\n *\n * After allocating the request with createRequest(),\
+        \ the application shall\n * fill it with at least one capture buffer before\
+        \ queuing it. Requests that\n * contain no buffers are invalid and are rejected\
+        \ without being queued.\n *\n * Once the request has been queued, the camera\
+        \ will notify its completion\n * through the \\ref requestCompleted signal.\n\
+        \ *\n * \\context This function is \\threadsafe. It may only be called when\
+        \ the camera\n * is in the Running state as defined in \\ref camera_operation.\n\
+        \ *\n * \\return 0 on success or a negative error code otherwise\n * \\retval\
+        \ -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES\
+        \ The camera is not running so requests can't be queued\n * \\retval -EXDEV\
+        \ The request does not belong to this camera\n * \\retval -EINVAL The request\
+        \ is invalid\n * \\retval -ENOMEM No buffer memory was available to handle\
+        \ the request\n */\nint Camera::queueRequest"
+      part_id: buffers
+    - text: '`Camera::queueRequest()`로 제출한 요청이 처리를 마치면, 카메라는 `requestCompleted` 신호로
+        완료를 알립니다.'
+      evidence:
+      - queue
+      covers:
+      - request
+      kind: behavior
+      quote: "\\brief Queue a request to the camera\n * \\param[in] request The request\
+        \ to queue to the camera\n *\n * This function queues a \\a request to the\
+        \ camera for capture.\n *\n * After allocating the request with createRequest(),\
+        \ the application shall\n * fill it with at least one capture buffer before\
+        \ queuing it. Requests that\n * contain no buffers are invalid and are rejected\
+        \ without being queued.\n *\n * Once the request has been queued, the camera\
+        \ will notify its completion\n * through the \\ref requestCompleted signal.\n\
+        \ *\n * \\context This function is \\threadsafe. It may only be called when\
+        \ the camera\n * is in the Running state as defined in \\ref camera_operation.\n\
+        \ *\n * \\return 0 on success or a negative error code otherwise\n * \\retval\
+        \ -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES\
+        \ The camera is not running so requests can't be queued\n * \\retval -EXDEV\
+        \ The request does not belong to this camera\n * \\retval -EINVAL The request\
+        \ is invalid\n * \\retval -ENOMEM No buffer memory was available to handle\
+        \ the request\n */\nint Camera::queueRequest"
+      part_id: signal
+    - text: '`Camera::queueRequest()`는 카메라가 `camera_operation`에 정의된 Running 상태일 때만
+        호출할 수 있습니다.'
+      evidence:
+      - queue
+      covers:
+      - request
+      kind: behavior
+      quote: "\\brief Queue a request to the camera\n * \\param[in] request The request\
+        \ to queue to the camera\n *\n * This function queues a \\a request to the\
+        \ camera for capture.\n *\n * After allocating the request with createRequest(),\
+        \ the application shall\n * fill it with at least one capture buffer before\
+        \ queuing it. Requests that\n * contain no buffers are invalid and are rejected\
+        \ without being queued.\n *\n * Once the request has been queued, the camera\
+        \ will notify its completion\n * through the \\ref requestCompleted signal.\n\
+        \ *\n * \\context This function is \\threadsafe. It may only be called when\
+        \ the camera\n * is in the Running state as defined in \\ref camera_operation.\n\
+        \ *\n * \\return 0 on success or a negative error code otherwise\n * \\retval\
+        \ -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES\
+        \ The camera is not running so requests can't be queued\n * \\retval -EXDEV\
+        \ The request does not belong to this camera\n * \\retval -EINVAL The request\
+        \ is invalid\n * \\retval -ENOMEM No buffer memory was available to handle\
+        \ the request\n */\nint Camera::queueRequest"
+      part_id: state
+    completion:
+    - text: 파이프라인 핸들러는 요청의 버퍼 한 개가 완료되었음을 알리기 위해 `PipelineHandler::completeBuffer()`를
+        호출해야 합니다. `completeBuffer()`는 애플리케이션에 버퍼 완료를 통지하고, 요청의 내부 버퍼 추적 상태를 갱신합니다.
+        요청에 포함된 모든 버퍼가 완료되었으면 `true`를 반환하고, 그렇지 않으면 `false`를 반환합니다.
+      evidence:
+      - buffer
+      covers:
+      - completion
+      kind: behavior
+      quote: "\\brief Complete a buffer for a request\n * \\param[in] request The\
+        \ request the buffer belongs to\n * \\param[in] buffer The buffer that has\
+        \ completed\n *\n * This function shall be called by pipeline handlers to\
+        \ signal completion of\n * the \\a buffer part of the \\a request. It notifies\
+        \ applications of buffer\n * completion and updates the request's internal\
+        \ buffer tracking. The request\n * is not completed automatically when the\
+        \ last buffer completes to give\n * pipeline handlers a chance to perform\
+        \ any operation that may still be\n * needed. They shall complete requests\
+        \ explicitly with completeRequest().\n *\n * \\context This function shall\
+        \ be called from the CameraManager thread.\n *\n * \\return True if all buffers\
+        \ contained in the request have completed, false\n * otherwise\n */\nbool\
+        \ PipelineHandler::completeBuffer"
+      part_id: buffer
+    - text: 마지막 버퍼가 완료된 뒤에도 파이프라인 핸들러는 `completeRequest()`를 명시적으로 호출해야 합니다.
+      evidence:
+      - buffer
+      covers:
+      - completion
+      kind: behavior
+      quote: "\\brief Complete a buffer for a request\n * \\param[in] request The\
+        \ request the buffer belongs to\n * \\param[in] buffer The buffer that has\
+        \ completed\n *\n * This function shall be called by pipeline handlers to\
+        \ signal completion of\n * the \\a buffer part of the \\a request. It notifies\
+        \ applications of buffer\n * completion and updates the request's internal\
+        \ buffer tracking. The request\n * is not completed automatically when the\
+        \ last buffer completes to give\n * pipeline handlers a chance to perform\
+        \ any operation that may still be\n * needed. They shall complete requests\
+        \ explicitly with completeRequest().\n *\n * \\context This function shall\
+        \ be called from the CameraManager thread.\n *\n * \\return True if all buffers\
+        \ contained in the request have completed, false\n * otherwise\n */\nbool\
+        \ PipelineHandler::completeBuffer"
+      part_id: request
+    boundary:
+    - text: '`Camera` 상태를 바꾸는 함수들은 `Camera` 클래스가 일반적으로 서로 동기화하지 않으므로, 필요한 경우 호출자가
+        이 함수들 사이의 동기화를 보장해야 합니다.'
+      evidence:
+      - synchronization
+      covers:
+      - boundary
+      kind: behavior
+      quote: "Functions that affect the camera state as defined below are generally\
+        \ not\n * synchronized with each other by the Camera class. The caller is\
+        \ responsible\n * for ensuring their synchronization if necessary.\n *\n *\
+        \ \\subsection Camera States"
+      part_id: state
+    - text: '`PipelineHandler::completeRequest()`의 호출 주체는 pipeline handler입니다. pipeline
+        handler는 완료된 요청을 카메라에 알릴 때 이 함수를 호출해야 하며, 그 호출은 `CameraManager` 스레드에서 이루어져야
+        합니다.'
+      evidence:
+      - completion
+      covers:
+      - boundary
+      kind: behavior
+      quote: "\\brief Signal request completion\n * \\param[in] request The request\
+        \ that has completed\n *\n * The pipeline handler shall call this function\
+        \ to notify the \\a camera that\n * the request has completed. The request\
+        \ is no longer managed by the pipeline\n * handler and shall not be accessed\
+        \ once this function returns.\n *\n * This function ensures that requests\
+        \ will be returned to the application in\n * submission order, the pipeline\
+        \ handler may call it on any complete request\n * without any ordering constraint.\n\
+        \ *\n * \\context This function shall be called from the CameraManager thread.\n\
+        \ */\nvoid PipelineHandler::completeRequest"
+      part_id: complete
+    verification:
+    - text: '`Camera::start()`는 `d->isAccessAllowed(Private::CameraConfigured)`로 카메라
+        상태를 검사하고 그 반환값을 `ret`에 저장합니다. `ret`가 음수이면(`ret < 0`) `start()`는 `return ret;`으로
+        그 값을 그대로 반환하며, 이 분기에서는 파이프라인 시작 호출과 `Private::CameraRunning` 상태 전환이 실행되지 않습니다.
+        API 주석의 `-EACCES`는 카메라가 시작할 수 없는 상태를 뜻하지만, 이 코드 조각만으로는 `isAccessAllowed()`가
+        `-EACCES`를 반환하는지 확인할 수 없으므로 두 값을 같은 것으로 단정하지 않습니다.'
+      evidence:
+      - allowed-start-state
+      - start-api
+      covers:
+      - verification
+      kind: behavior
+      quote: "int ret = d->isAccessAllowed(Private::CameraConfigured);\n\tif (ret\
+        \ < 0)"
+      part_id: contracts
+    - text: 이 TODO 주석이 문서화를 요청한 대상은 카메라 시작 타이밍입니다.
+      evidence:
+      - timing
+      covers:
+      - verification
+      kind: behavior
+      quote: \todo Add documentation for camera start timings.
+      part_id: timing
+  topic_inputs:
+    discovery: 74216ca939f7eee1f0c3d7aab49f43c686ec88b3535def0bc183c322eb55c678
+    responsibility: 64eb3ae285a184be45c730e6163f29ebb63b53b8f89e1359d8bef2ba0512ef63
+    creation: 393183cdeec1bcb25a03fd5af59f0204a22d8e558613fe1883f8a27879a79d7e
+    lifecycle: 4b65e4120a7debd8695aac248a113c53fa11e45b72fbf96cbb3754222e08263f
+    request: 451063d9ff4127e5fbf04c2a06460db16af935b8ac95b324f41c4d52c96015ab
+    completion: 829e47aa3ba34dae8cd978975d8f006def049b5202ed19fe60afc7bf123afcb0
+    boundary: c6086439a20aca18c3ebf4a680c9eab01cfe861fc72b81c553399512e499bc05
+    verification: afc4879b963fb8f73a00e138f373a85b85c3535b9abef46f72c39c2c2499b62e
+  reused_topics:
+  - discovery
+  - responsibility
+  - creation
+  - lifecycle
+  - request
+  - completion
+  - boundary
+  - verification
+  replayed_units: []
+  generated_topics: []
+  topic_agents:
+    discovery: cli/claude/claude-haiku-5-5
+    responsibility: cli/claude/claude-haiku-5-5
+    creation: cli/claude/claude-haiku-5-5
+    lifecycle: cli/claude/claude-haiku-5-5
+    request: cli/claude/claude-haiku-5-5
+    completion: cli/claude/claude-haiku-5-5
+    boundary: cli/claude/claude-haiku-5-5
+    verification: cli/claude/claude-haiku-5-5
+  grounding_review: passed
+  grounding_policy: 3c9673abb403dee9aa554ee5b3c549ebfe95bb18ec0e9cd7bf6e495e060439c2
+  reader_scope:
+    revision: 1
+    change_reason: 독자의 개요 과업을 고정하고 장치별 요청 수의 기본 한도는 기존 연동 상세로 이동합니다. 준비 실패·완료·소유권의
+      필수 조건과 예외는 유지합니다.
+    tasks:
+    - id: onboarding
+      goal: 신입사원이 전체 구조와 대표 흐름을 이해하고 첫 코드 탐색 순서를 찾습니다.
+      completion: 책임·대표 요청 흐름·첫 파일·필수 예외와 확인 조건을 찾습니다.
+      requirements:
+      - responsibility
+      - discovery
+      - creation
+      - lifecycle
+      - request
+      - completion
+      - boundary
+      - verification
+    optional:
+    - id: implementation-detail
+      location: scenarios/index.md
+      reason: 내부 상세는 과업에 필요한 조건과 예외를 유지한 채 연결해서 읽습니다.
+    - id: queue-limit-detail
+      location: pipeline-requests.md#장치-요청-한도와-대기-큐
+      reason: 장치별 큐의 기본 수치는 연동 구현 상세에서 확인합니다. 개요의 요청 준비·실패·완료 조건은 유지합니다.
+    excluded:
+    - id: all-features
+      reason: 전체 기능·모든 하드웨어 조합의 참조서는 이 개요의 목적이 아닙니다.
+    removed_requirements:
+    - queue-limit
+  validation_policy:
+    manuscript: e0c429a5c80a01c34563ce00a616df89d8f75c735f8669bcbd1f75d84cce82a6
+    semantic: 571896e4854c21322a1ce4580107c235cae5a9f94e71adc8c97a7e2897405968
+    duplicates: 93f0e8b5bdc1b40bf4ab38168e92c2772aa36747bec6add25921fbb90b909e38
+    design_contracts: 9f54ecddce57c7a9caa6c02af77904b57eff2471f2a052951c1cffd18256a4f0
+    validate: 78d29ffd1bf6235067edf5a0c7d9b1290f1f11e90599605a0e192e90be5f3372
+    reader_profiles: ad9005d08295212371f59e8934ace86786c0683f7a4c416301ee0e0cadc8b797
+    contract_schema: c80b476cf38b78ab674977c3f39584d8db6961a914e8ed13ac9370e2fec6fa45
+    answer_contracts: 1e0d24e0cf26ded53ecec2e5a6fbc51836bac6e17530318a9fa7cffaa936c00b
+    reader_scope: 1b9c26b10b74ae8cf034f5863cbac2114e1d844e5d8332eb1f10562a18371782
+    product_context: 9db4d42a710b4a71a7d2bb16f69db06926409281dc1a200c796e77d5deaa25a0
+    design_response: deb70dda7ad27f001267e4a9712c5b0dc1fe9fa67acd13bedbfefaaad0ad83c8
+    design_validation: 946deebb694018f6361ee86669e1a7a26cd61dfffef11bb3a7de0a193639fabe
+  validation_model: 2eb3bf27fc8fdca03721abcecc71d006bc0c9612049018fdc117931887213ef9
+  style_policy:
+    fluent-korean.md: ce5aa71e58371e3fc02ff8cb165e07c9234f5166f6541423a91cc4cb40878975
+    i-have-adhd.md: 3170b16ace00aecb0dd7feb54c0b5aa642e7502acda06ecd24fd89a11c7127e9
+    README.md: f8fd5a3d8041c23fc68b93ff32b8727e98393383b5099032eb00ad0013e7611c
+  reuse_lineage:
+    source_commit: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
+    body_sha256: a46c0e35d12042851abfa2c40e52bffabae848175058a452cfabda9167adebc4
+    topics:
+    - discovery
+    - responsibility
+    - creation
+    - lifecycle
+    - request
+    - completion
+    - boundary
+    - verification
+    validation: current source, contract and editorial checks; human review pending
+  body_sha256: 0935f31feda124967edcde821f50cc21abf6d807b04b1c52aa52361071d32382
 revalidated_from: be7e83e91348250c015aad6d6f59f1468555bae8
+managed_visual_refresh:
+- schema: 1
+  source_commit: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
+  original_manuscript_sha256: 6e42c9ed4e2a413705d2af0dafe774d70e1ad1e3d7f0ea1dc67eff60ebd9e149
+  previous_body_sha256: a46c0e35d12042851abfa2c40e52bffabae848175058a452cfabda9167adebc4
+  body_sha256: 0935f31feda124967edcde821f50cc21abf6d807b04b1c52aa52361071d32382
+  visual_definitions_sha256: 8a3f994de9ae69f6ae5ede3d3555c8c5d40dac4749c63a29c0dbb51c40368c8d
+  unchanged_native_records_sha256: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+  preserved_outside_body_sha256: 85e1f3f5c01d02c5c956704ac45c083684b3f0df607d1b9fb80c4867152885b6
+  owned_edit_regions:
+  - original_start_byte: 2165
+    original_end_byte: 4165
+    original_sha256: 93d80a6cedc7eb07aa4584b8db57fe4f70688b3a5359de6ac7d14909f169bfbb
+    replacement_sha256: 5588b512f66bb3986382a6d0b9697695387b8bfd37c020f8eda6eed412dfe6ad
+    visual_ids:
+    - discovery-map
+  - original_start_byte: 9806
+    original_end_byte: 11772
+    original_sha256: a9913c7341036e62b15e4cc915154841036c07f585241fee6b192010b76bba60
+    replacement_sha256: c05dac01561c0f15ea0243a28807c0687047680382f92ed7a40f2d63288fd061
+    visual_ids:
+    - submission-completion
+  added_visuals: []
+  scope: Configured figure reassembly only; figure authorship remains per visual
+  new_inference: false
+  semantic_approval: false
+  human_review: unchanged
 ---
 
 # 시스템 개요
@@ -32,16 +673,14 @@ revalidated_from: be7e83e91348250c015aad6d6f59f1468555bae8
 <!-- sdd:visual:discovery-map -->
 ### 장치 탐색에서 Camera 접근까지
 
-장치 매칭과 등록의 책임을 따라가세요. 그림은 책임 연결이며 전체 호출 순서나 실행 시간을 나타내지 않습니다.
-
 ```mermaid
 flowchart TB
-%% sdd:translations {"Camera 생성·등록": "Create and register Camera", "CameraManager 진입점": "CameraManager entry", "PipelineHandler::match()": "PipelineHandler::match()", "start()": "start()", "열거자를 전달해 장치를 매칭": "Pass enumerator to match <br/>devices", "장치 열거": "Enumerate devices", "필요한 장치를 확보한 경우": "When required devices are <br/>acquired"}
+%% sdd:translations {"Camera 생성·등록": "Create and register Camera", "CameraManager 진입점": "CameraManager entry", "PipelineHandler::match#40;#41;": "PipelineHandler::match#40;#41;", "start#40;#41;": "start#40;#41;", "열거자를 전달해 장치를 매칭": "Pass enumerator to match <br/>devices", "장치 열거": "Enumerate devices", "필요한 장치를 확보한 경우": "When required devices are <br/>acquired"}
   v_manager["CameraManager 진입점"]
   v_enumerate["장치 열거"]
-  v_handler["PipelineHandler::match()"]
+  v_handler["PipelineHandler::match#40;#41;"]
   v_camera["Camera 생성·등록"]
-  v_manager -->|"start()"| v_enumerate
+  v_manager -->|"start#40;#41;"| v_enumerate
   v_enumerate -->|"열거자를 전달해 장치를 매칭"| v_handler
   v_handler -->|"필요한 장치를 확보한 경우"| v_camera
 ```
@@ -49,17 +688,19 @@ flowchart TB
 [Mermaid 원문](overview.discovery-map.mmd)
 
 ??? note "그림 근거와 확인 범위"
+    장치 매칭과 등록의 책임을 따라가세요. 그림은 책임 연결이며 전체 호출 순서나 실행 시간을 나타내지 않습니다.
+    
     소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.
     
     | 요소·전이 | 소스 근거 |
     |---|---|
-    | CameraManager 진입점 | [src/libcamera/camera_manager.cpp:283](#source-f75d22cf73f3402d) |
-    | 장치 열거 | [src/libcamera/camera_manager.cpp:329](#source-f58d94d893e03971) |
-    | PipelineHandler::match() | [src/libcamera/pipeline_handler.cpp:86](#source-5bbd41c1e725138c) |
-    | Camera 생성·등록 | [src/libcamera/pipeline_handler.cpp:86](#source-5bbd41c1e725138c) |
-    | start() | [src/libcamera/camera_manager.cpp:329](#source-f58d94d893e03971) |
-    | 열거자를 전달해 장치를 매칭 | [src/libcamera/pipeline_handler.cpp:86](#source-5bbd41c1e725138c) |
-    | 필요한 장치를 확보한 경우 | [src/libcamera/pipeline_handler.cpp:86](#source-5bbd41c1e725138c) |
+    | <span data-sdd-label-en="CameraManager entry">CameraManager 진입점</span> | [src/libcamera/camera_manager.cpp:283](#source-f75d22cf73f3402d) |
+    | <span data-sdd-label-en="Enumerate devices">장치 열거</span> | [src/libcamera/camera_manager.cpp:329](#source-f58d94d893e03971) |
+    | <span data-sdd-label-en="PipelineHandler::match()">PipelineHandler::match&#40;&#41;</span> | [src/libcamera/pipeline_handler.cpp:86](#source-5bbd41c1e725138c) |
+    | <span data-sdd-label-en="Create and register Camera">Camera 생성·등록</span> | [src/libcamera/pipeline_handler.cpp:86](#source-5bbd41c1e725138c) |
+    | <span data-sdd-label-en="start()">start&#40;&#41;</span> | [src/libcamera/camera_manager.cpp:329](#source-f58d94d893e03971) |
+    | <span data-sdd-label-en="Pass enumerator to match devices">열거자를 전달해 장치를 매칭</span> | [src/libcamera/pipeline_handler.cpp:86](#source-5bbd41c1e725138c) |
+    | <span data-sdd-label-en="When required devices are acquired">필요한 장치를 확보한 경우</span> | [src/libcamera/pipeline_handler.cpp:86](#source-5bbd41c1e725138c) |
 <!-- /sdd:visual:discovery-map -->
 
 동시에 존재할 수 있는 `CameraManager` 인스턴스는 하나뿐입니다. `src/libcamera/camera_manager.cpp:283`
@@ -99,36 +740,46 @@ libcamera는 `Camera` 인스턴스의 수명을 `std::shared_ptr<>`로 관리합
 애플리케이션은 `Camera::queueRequest()`로 제출하기 전에 `createRequest()`가 반환한 요청 객체에 캡처 버퍼를 최소 한 개 연결해야 합니다. `Camera::queueRequest()`로 제출한 요청이 처리를 마치면, 카메라는 `requestCompleted` 신호로 완료를 알립니다. `Camera::queueRequest()`는 카메라가 `camera_operation`에 정의된 Running 상태일 때만 호출할 수 있습니다. `src/libcamera/camera.cpp:1308`
 
 <!-- sdd:visual:submission-completion -->
-### 접수 성공과 촬영 완료는 다른 시점
-
-queueRequest()의 0 반환은 접수 결과입니다. 요청 완료는 별도의 requestCompleted 신호로 확인합니다.
+### 요청 접수와 버퍼 완료, 요청 완료
 
 ```mermaid
 flowchart TB
-%% sdd:translations {"0 반환: 접수 성공": "Return 0: submission <br/>accepted", "Running 상태에서 제출": "Submit in Running state", "queueRequest()": "queueRequest()", "requestCompleted 신호": "requestCompleted signal", "버퍼를 연결한 Request": "Request with capture buffers", "접수 결과를 반환": "Return submission result", "촬영 완료는 별도로 통지": "Notify completion separately"}
+%% sdd:translations {"0 반환: 접수 성공": "Return 0: submission <br/>accepted", "Running 상태에서 제출": "Submit in Running state", "completeBuffer#40;#41;: 버퍼 완료 <br/>알림과 추적": "completeBuffer#40;#41;: buffer <br/>completion notification and <br/>tracking", "completeRequest#40;#41;: <br/>파이프라인 핸들러의 명시적 <br/>요청 완료": "completeRequest#40;#41;: explicit <br/>request completion by the <br/>pipeline handler", "queueRequest#40;#41;": "queueRequest#40;#41;", "requestCompleted 신호": "requestCompleted signal", "마지막 버퍼가 완료되어도 <br/>요청은 자동으로 완료되지 <br/>않으므로 핸들러가 별도로 <br/>완료해야 함": "Even the last buffer does <br/>not automatically complete <br/>the request; the handler <br/>must complete it separately", "버퍼를 연결한 Request": "Request with capture buffers", "접수 결과를 반환": "Return submission result", "촬영 완료는 별도로 통지": "Notify completion separately"}
   v_request["버퍼를 연결한 Request"]
-  v_queue["queueRequest()"]
+  v_queue["queueRequest#40;#41;"]
   v_accepted["0 반환: 접수 성공"]
   v_signal["requestCompleted 신호"]
+  v_complete-buffer["completeBuffer#40;#41;: 버퍼 완료 <br/>알림과 추적"]
+  v_complete-request["completeRequest#40;#41;: <br/>파이프라인 핸들러의 명시적 <br/>요청 완료"]
   v_request -->|"Running 상태에서 제출"| v_queue
   v_queue -->|"접수 결과를 반환"| v_accepted
   v_queue -->|"촬영 완료는 별도로 통지"| v_signal
+  v_complete-buffer -->|"마지막 버퍼가 완료되어도 <br/>요청은 자동으로 완료되지 <br/>않으므로 핸들러가 별도로 <br/>완료해야 함"| v_complete-request
 ```
 
 [Mermaid 원문](overview.submission-completion.mmd)
 
 ??? note "그림 근거와 확인 범위"
+    queueRequest()의 반환값은 접수 결과입니다. completeBuffer()는 버퍼 완료를 알리고 추적하며, 파이프라인 핸들러는 completeRequest()로 요청을 별도로 완료해야 합니다. requestCompleted 신호는 요청 완료를 별도로 알립니다.
+    
     소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.
+    
+    LLM 그림 초안 · 사람 검토 전
+    
+    작성 모델: `cli/codex/gpt-6.1-terra`
     
     | 요소·전이 | 소스 근거 |
     |---|---|
-    | 버퍼를 연결한 Request | [src/libcamera/camera.cpp:1308](#source-2f880c124115c9c4) |
-    | queueRequest() | [src/libcamera/camera.cpp:1308](#source-2f880c124115c9c4) |
-    | 0 반환: 접수 성공 | [src/libcamera/camera.cpp:1308](#source-2f880c124115c9c4) |
-    | requestCompleted 신호 | [src/libcamera/camera.cpp:1308](#source-2f880c124115c9c4) |
-    | Running 상태에서 제출 | [src/libcamera/camera.cpp:1308](#source-2f880c124115c9c4) |
-    | 접수 결과를 반환 | [src/libcamera/camera.cpp:1308](#source-2f880c124115c9c4) |
-    | 촬영 완료는 별도로 통지 | [src/libcamera/camera.cpp:1308](#source-2f880c124115c9c4) |
+    | <span data-sdd-label-en="Request with capture buffers">버퍼를 연결한 Request</span> | [src/libcamera/camera.cpp:1308](#source-2f880c124115c9c4) |
+    | <span data-sdd-label-en="queueRequest()">queueRequest&#40;&#41;</span> | [src/libcamera/camera.cpp:1308](#source-2f880c124115c9c4) |
+    | <span data-sdd-label-en="Return 0: submission accepted">0 반환: 접수 성공</span> | [src/libcamera/camera.cpp:1308](#source-2f880c124115c9c4) |
+    | <span data-sdd-label-en="requestCompleted signal">requestCompleted 신호</span> | [src/libcamera/camera.cpp:1308](#source-2f880c124115c9c4) |
+    | <span data-sdd-label-en="completeBuffer(): buffer completion notification and tracking">completeBuffer&#40;&#41;: 버퍼 완료 알림과 추적</span> | [src/libcamera/pipeline_handler.cpp:547](#source-ca3f659653ce3f6a) |
+    | <span data-sdd-label-en="completeRequest(): explicit request completion by the pipeline handler">completeRequest&#40;&#41;: 파이프라인 핸들러의 명시적 요청 완료</span> | [src/libcamera/pipeline_handler.cpp:547](#source-ca3f659653ce3f6a) |
+    | <span data-sdd-label-en="Submit in Running state">Running 상태에서 제출</span> | [src/libcamera/camera.cpp:1308](#source-2f880c124115c9c4) |
+    | <span data-sdd-label-en="Return submission result">접수 결과를 반환</span> | [src/libcamera/camera.cpp:1308](#source-2f880c124115c9c4) |
+    | <span data-sdd-label-en="Notify completion separately">촬영 완료는 별도로 통지</span> | [src/libcamera/camera.cpp:1308](#source-2f880c124115c9c4) |
+    | <span data-sdd-label-en="Even the last buffer does not automatically complete the request; the handler must complete it separately">마지막 버퍼가 완료되어도 요청은 자동으로 완료되지 않으므로 핸들러가 별도로 완료해야 함</span> | [src/libcamera/pipeline_handler.cpp:547](#source-ca3f659653ce3f6a) |
 <!-- /sdd:visual:submission-completion -->
 
 근거 원문: [src/libcamera/camera.cpp:1308](#source-2f880c124115c9c4)

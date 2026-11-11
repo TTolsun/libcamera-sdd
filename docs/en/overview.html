@@ -16,7 +16,7 @@
 <li><a href="#요청-생성과-소유권">Request creation and ownership</a></li>
 <li><a href="#캡처-세션의-상태와-자원">State and resources of the capture session</a></li>
 <li><a href="#요청-제출과-완료">Request submission and completion</a><ul>
-<li><a href="#접수-성공과-촬영-완료는-다른-시점">Acceptance success and capture completion occur at different times.</a></li>
+<li><a href="#요청-접수와-버퍼-완료-요청-완료">Request acceptance, buffer completion, and request completion</a></li>
 </ul>
 </li>
 <li><a href="#버퍼-완료와-요청-완료">Buffer completion and request completion</a></li>
@@ -117,23 +117,30 @@
 <p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:769&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L769\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:769&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:769&quot;: [&quot;#source-4b17a07667f3a55d&quot;]}">To prepare capture, the application must acquire the camera with <code>acquire()</code>, configure it with <code>configure()</code>, and then start it with <code>start()</code>. A started camera can process requests until it is stopped, and this period is the <code>Running</code> state. The full end path runs from <code>Running</code> via <code>stop()</code> through <code>Stopping</code>, returns to <code>Configured</code> after stopping, and then goes from <code>Configured</code> via <code>release()</code> to <code>Available</code>, releasing the camera. While the camera is not released, the application may repeat starting and stopping multiple times, and may also change the capture settings by reconfiguring the camera.</p>
 
 <details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>1</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-4b17a07667f3a55d" aria-label="src/libcamera/camera.cpp:769 excerpt"><code>L769</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:769" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L769">Full source <code>L769</code></a></span></li></ul></details><h2 id="요청-제출과-완료">Request submission and completion</h2>
+<p class="reading-links">See also: <a href="overview.html#%EB%B2%84%ED%8D%BC-%EC%99%84%EB%A3%8C%EC%99%80-%EC%9A%94%EC%B2%AD-%EC%99%84%EB%A3%8C">Distinguishing buffer completion from completion of the entire request</a> · <a href="overview.html#%EC%8A%A4%EB%A0%88%EB%93%9C-%EA%B2%BD%EA%B3%84%EC%99%80-%EB%8F%99%EA%B8%B0%ED%99%94">Completion caller and thread obligations</a></p>
+
 <p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1308&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78/src/libcamera/camera.cpp#L1308\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1308&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1308&quot;: [&quot;#source-2f880c124115c9c4&quot;]}">The application must attach at least one capture buffer to the request object returned by <code>createRequest()</code> before submitting it with <code>Camera::queueRequest()</code>. When a request submitted with <code>Camera::queueRequest()</code> finishes processing, the camera notifies completion through the <code>requestCompleted</code> signal. <code>Camera::queueRequest()</code> may be called only when the camera is in the Running state defined in <code>camera_operation</code>.</p>
 <!-- sdd:visual:submission-completion -->
-<h3 id="접수-성공과-촬영-완료는-다른-시점">Acceptance success and capture completion occur at different times.</h3>
+<h3 id="요청-접수와-버퍼-완료-요청-완료">Request acceptance, buffer completion, and request completion</h3>
 <pre class="mermaid">flowchart TB
 
   v_request["Request with capture buffers"]
   v_queue["queueRequest#40;#41;"]
   v_accepted["Return 0: submission &lt;br/&gt;accepted"]
   v_signal["requestCompleted signal"]
+  v_complete-buffer["completeBuffer#40;#41;: buffer &lt;br/&gt;completion notification and &lt;br/&gt;tracking"]
+  v_complete-request["completeRequest#40;#41;: explicit &lt;br/&gt;request completion by the &lt;br/&gt;pipeline handler"]
   v_request --&gt;|"Submit in Running state"| v_queue
   v_queue --&gt;|"Return submission result"| v_accepted
-  v_queue --&gt;|"Notify completion separately"| v_signal</pre>
+  v_queue --&gt;|"Notify completion separately"| v_signal
+  v_complete-buffer --&gt;|"Even the last buffer does &lt;br/&gt;not automatically complete &lt;br/&gt;the request; the handler &lt;br/&gt;must complete it separately"| v_complete-request</pre>
 <p><a href="overview.submission-completion.mmd">Mermaid source</a></p>
 <details class="note">
 <summary>Diagram evidence and verification scope</summary>
-<p>The 0 return value of queueRequest() is an acceptance result. Request completion is confirmed through a separate requestCompleted signal.</p>
+<p>The return value of queueRequest() is the acceptance result. completeBuffer() reports and tracks buffer completion, and the pipeline handler must separately complete the request using completeRequest(). The requestCompleted signal separately reports request completion.</p>
 <p>This is a design interpretation linked to the source. The automatic link check is not semantic approval or on-device execution verification.</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
 <div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
 <thead>
 <tr>
@@ -159,6 +166,14 @@
 <td><a href="#source-2f880c124115c9c4">src/libcamera/camera.cpp:1308</a></td>
 </tr>
 <tr>
+<td><span data-sdd-label-en="completeBuffer(): buffer completion notification and tracking">completeBuffer(): buffer completion notification and tracking</span></td>
+<td><a href="#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="completeRequest(): explicit request completion by the pipeline handler">completeRequest(): explicit request completion by the pipeline handler</span></td>
+<td><a href="#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
 <td><span data-sdd-label-en="Submit in Running state">Submit in Running state</span></td>
 <td><a href="#source-2f880c124115c9c4">src/libcamera/camera.cpp:1308</a></td>
 </tr>
@@ -169,6 +184,10 @@
 <tr>
 <td><span data-sdd-label-en="Notify completion separately">Notify completion separately</span></td>
 <td><a href="#source-2f880c124115c9c4">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Even the last buffer does not automatically complete the request; the handler must complete it separately">Even the last buffer does not automatically complete the request; the handler must complete it separately</span></td>
+<td><a href="#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
 </tr>
 </tbody>
 </table></div>
@@ -632,7 +651,7 @@ void PipelineHandler::completeRequest
 <li><a href="#요청-생성과-소유권">Request creation and ownership</a></li>
 <li><a href="#캡처-세션의-상태와-자원">State and resources of the capture session</a></li>
 <li><a href="#요청-제출과-완료">Request submission and completion</a><ul>
-<li><a href="#접수-성공과-촬영-완료는-다른-시점">Acceptance success and capture completion occur at different times.</a></li>
+<li><a href="#요청-접수와-버퍼-완료-요청-완료">Request acceptance, buffer completion, and request completion</a></li>
 </ul>
 </li>
 <li><a href="#버퍼-완료와-요청-완료">Buffer completion and request completion</a></li>
