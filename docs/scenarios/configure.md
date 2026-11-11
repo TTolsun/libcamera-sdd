@@ -1,6 +1,6 @@
 ---
 generated_at: 2026-10-30 16:46:15+00:00
-source_commit: be7e83e91348250c015aad6d6f59f1468555bae8
+source_commit: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
 status: ok
 section: scenario-configure
 generation_method: facts-and-llm
@@ -211,7 +211,7 @@ managed_format_refresh:
   change: Mermaid literal encoding only
   new_inference: false
   human_review: unchanged
-revalidated_from: 293d751a814e0d4c34e85ad457ccd9d5eefd1a61
+revalidated_from: be7e83e91348250c015aad6d6f59f1468555bae8
 ---
 
 # 스트림 구성
