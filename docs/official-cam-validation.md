@@ -1,6 +1,6 @@
 ---
 generated_at: 2026-11-04 05:26:14+00:00
-source_commit: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
+source_commit: da6a6ed33ed0ab305f10b6f8b44736150d39cef4
 status: ok
 section: official-cam-validation
 generation_method: facts-and-llm
@@ -7313,7 +7313,6 @@ generated_visuals:
         original_input_fingerprint: 2e10a408e7d5e700125947772c0e41b050987d4b1518ce642d8b8955dc0d5149
         new_inference: false
   body_sha256: cab80bb5023e14e842c89a5d851f6fc7b40ca2b7eed52d3160394d1120fbed39
-revalidated_from: be7e83e91348250c015aad6d6f59f1468555bae8
 managed_visual_refresh:
 - schema: 2
   source_commit: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
@@ -7427,6 +7426,7 @@ managed_visual_refresh:
   new_inference: false
   semantic_approval: false
   human_review: unchanged
+revalidated_from: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
 ---
 
 # WSL 공식 cam 가상 캡처 확인
