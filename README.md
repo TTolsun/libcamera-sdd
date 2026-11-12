@@ -5,11 +5,12 @@
 Public source-bound design documents and generator validation evidence.
 
 - [Public site](https://ttolsun.github.io/libcamera-sdd/)
+- [Upstream ColourTemperature supplement and first-run evidence](publication/issue304/README.md)
 - [Issue214 release evidence](publication/issue214/README.md)
 - [Seven automatic findings: source review and minimal correction](publication/issue214-unresolved/README.md)
 - [Original official cam reader/runtime evidence](publication/issue211-reader/README.md)
 
-The documents use analysis source `be7e83e91348250c015aad6d6f59f1468555bae8`. The official upstream mirror is `c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78`. The four source files for this contract review are byte-identical across those commits. The configured build was extracted again across 294 translation units, with no parsing errors. LC-compliance test-tool units were excluded; the resulting class inventory is 1,403 rather than the previous 1,412. Original virtual CPU trials remain at 293d751a814e0d4c34e85ad457ccd9d5eefd1a61 and were not rerun. Automatic checks remain separate from human approval and hardware/internal HAL validation.
+The earlier contract review used analysis source `be7e83e91348250c015aad6d6f59f1468555bae8` and upstream mirror `c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78`. The four source files for this contract review are byte-identical across those commits. The configured build was extracted again across 294 translation units, with no parsing errors. LC-compliance test-tool units were excluded; the resulting class inventory is 1,403 rather than the previous 1,412. Original virtual CPU trials remain at 293d751a814e0d4c34e85ad457ccd9d5eefd1a61 and were not rerun. Automatic checks remain separate from human approval and hardware/internal HAL validation.
 
 - [Request submission diagnosis evidence](publication/submission-diagnosis/README.md)
 - [Issue242: receipt-linked reuse decisions, native CLI sample and publication verification](publication/issue242/README.md)

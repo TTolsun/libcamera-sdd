@@ -1,0 +1,62 @@
+schema: 1
+sections:
+  colour-temperature:
+  - id: rpi-awb-branches
+    topic: temperature
+    kind: flow
+    title: Raspberry Pi의 색온도 요청 분기
+    question: Raspberry Pi IPA는 색온도 값을 받으면 언제 적용합니까?
+    nodes:
+    - id: request
+      label: 요청에 ColourTemperature가 있음
+      label_en: Request contains ColourTemperature
+      evidence:
+      - source: temperature/rpi-request
+        sha256: 76ca45fd660615f583ca4502c7c3dcce4cc95ca517f86ad4038ed57bb8188505
+        quote: if (colourTemperature)
+    - id: mono
+      label: 값을 무시함
+      label_en: Value ignored
+      evidence:
+      - source: temperature/rpi-request
+        sha256: 76ca45fd660615f583ca4502c7c3dcce4cc95ca517f86ad4038ed57bb8188505
+        quote: if (monoSensor_)
+    - id: missing
+      label: 경고를 기록하고 적용을 건너뜀
+      label_en: Warning logged and application skipped
+      evidence:
+      - source: temperature/rpi-request
+        sha256: 76ca45fd660615f583ca4502c7c3dcce4cc95ca517f86ad4038ed57bb8188505
+        quote: if (!awb) {
+    - id: manual
+      label: 색온도를 전달하고 AWB를 수동으로 전환
+      label_en: Set temperature and switch AWB to manual
+      evidence:
+      - source: temperature/rpi-request
+        sha256: 76ca45fd660615f583ca4502c7c3dcce4cc95ca517f86ad4038ed57bb8188505
+        quote: awb->setColourTemperature(temperatureK);
+    edges:
+    - from: request
+      to: mono
+      label: 모노 센서
+      label_en: Monochrome sensor
+      evidence:
+      - source: temperature/rpi-request
+        sha256: 76ca45fd660615f583ca4502c7c3dcce4cc95ca517f86ad4038ed57bb8188505
+        quote: if (monoSensor_)
+    - from: request
+      to: missing
+      label: 컬러 센서에 AWB 알고리즘이 없음
+      label_en: Colour sensor without AWB algorithm
+      evidence:
+      - source: temperature/rpi-request
+        sha256: 76ca45fd660615f583ca4502c7c3dcce4cc95ca517f86ad4038ed57bb8188505
+        quote: if (!awb) {
+    - from: request
+      to: manual
+      label: 컬러 센서에 AWB 알고리즘이 있음
+      label_en: Colour sensor with AWB algorithm
+      evidence:
+      - source: temperature/rpi-request
+        sha256: 76ca45fd660615f583ca4502c7c3dcce4cc95ca517f86ad4038ed57bb8188505
+        quote: awb->setColourTemperature(temperatureK);

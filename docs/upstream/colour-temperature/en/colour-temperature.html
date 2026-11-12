@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Distinguishing colour temperature requests from metadata · libcamera · ColourTemperature</title><link rel="stylesheet" href="../assets/reading.css?v=dd3415510a"><link rel="alternate" hreflang="ko" href="../colour-temperature.html"><link rel="alternate" hreflang="en" href="colour-temperature.html"></head>
+<body><a class="skip" href="#main">Go to main content</a>
+<header class="site-header"><a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera · ColourTemperature</a>
+<div class="header-actions"><details class="language-selector"><summary aria-label="Choose language">English ▾</summary><nav><a lang="ko" hreflang="ko" href="../colour-temperature.html">한국어</a><a lang="en" hreflang="en" href="colour-temperature.html" aria-current="true">English</a></nav></details><button id="search-open" hidden>Find documents <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button></div></header>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Document menu"><details class="nav-group" data-nav-id="group-eb5fc4597bcab08dd609eb65" open><summary>Getting started</summary><a href="index.html">Document guide</a><a href="glossary.html">Glossary</a></details><details class="nav-group" data-nav-id="group-8c6df661e792ad45c78bb2ef" open><summary>For Developer</summary><a href="colour-temperature.html" aria-current="page">Distinguishing colour temperature requests from metadata</a></details></nav><p class="sidebar-note">Extract the structure from the code and<br> review it alongside the evidence.</p></aside>
+<main id="main"><p class="breadcrumb">For Developer <span>/</span> Distinguishing colour temperature requests from metadata</p><h1>Distinguishing colour temperature requests from metadata</h1><div class="page-state"><span class="review-state">Before human review</span><span>Automated checks passed</span><span class="generation-method">Created from the extracted structure and a model-written draft</span><a class="state-help" href="#page-evidence">Status descriptions ↓</a></div>
+<details class="mobile-toc"><summary>Table of contents for this page</summary><div class="toc">
+<ul>
+<li><a href="#colourtemperature-요청과-결과">ColourTemperature requests and results</a><ul>
+<li><a href="#raspberry-pi의-색온도-요청-분기">Raspberry Pi color temperature request branch</a></li>
+</ul>
+</li>
+<li><a href="#소스-근거">Source evidence</a></li>
+</ul>
+</div>
+</details><p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p><strong>Check the conditions under which a colour temperature value is included in a request and the value indicated by the metadata of the actual frame.</strong></p><details class="note">
+<summary>Design questions and validation scope</summary>
+<p>The links between each question's answer and its evidence were checked. The meaning and execution results require human review.</p>
+<ul class="coverage-links"><li><p>What does the inout direction of ColourTemperature mean for request input and frame metadata? Explain the AWB conditions, how ColourGains and ColourCorrectionMatrix are handled when they are not specified together, and the conditions under which the Raspberry Pi IPA skips or applies the requested value.</p><p><a href="#colourtemperature-요청과-결과">ColourTemperature requests and results</a></p></li></ul><p><span>Scope of review</span>: <span>Links between code evidence and explanations</span></p>
+</details>
+<details class="page-terms">
+<summary>Terms in this document: AWB, IPA, LLM</summary>
+<ul>
+<li><strong>AWB</strong> (Automatic White Balance): Automatically adjusts white balance to reduce lighting-related color variations in captured images.</li>
+<li><strong>IPA</strong> (Image Processing Algorithms): A libcamera algorithm module that calculates control values used for image processing.</li>
+<li><strong>LLM</strong> (Large Language Model): A language model used on this site to generate draft documents based on source evidence and to perform a separate comparison.</li>
+</ul>
+<p>Other terms can be found in <a href="glossary.html">Glossary</a>.</p>
+</details>
+<h2 id="colourtemperature-요청과-결과">ColourTemperature requests and results</h2>
+<p data-sdd-evidence="[[&quot;src/libcamera/control_ids_core.yaml:603&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/control_ids_core.yaml#L603\&quot;&gt;&lt;code&gt;src/libcamera/control_ids_core.yaml:603&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/control_ids_core.yaml:603&quot;: [&quot;#source-d3108f17b82d0b49&quot;]}"><code>ColourTemperature</code> is an <code>inout</code> control value that represents the frame's colour temperature in kelvin and can be applied in a request only when AWB is disabled. The <code>ColourTemperature</code> used to process the frame is reported in metadata. If <code>ColourTemperature</code> is set in a request and <code>ColourGains</code> is not set, the implementation must calculate and set <code>ColourGains</code> based on the specified colour temperature. If <code>ColourTemperature</code> is set directly or indirectly by setting <code>ColourGains</code> and <code>ColourCorrectionMatrix</code> is not set, <code>ColourCorrectionMatrix</code> is updated based on <code>ColourTemperature</code>.</p>
+<!-- sdd:visual:rpi-awb-branches -->
+<h3 id="raspberry-pi의-색온도-요청-분기">Raspberry Pi color temperature request branch</h3>
+<pre class="mermaid">flowchart TB
+
+  v_request["Request contains &lt;br/&gt;ColourTemperature"]
+  v_mono["Value ignored"]
+  v_missing["Warning logged and &lt;br/&gt;application skipped"]
+  v_manual["Set temperature and switch &lt;br/&gt;AWB to manual"]
+  v_request --&gt;|"Monochrome sensor"| v_mono
+  v_request --&gt;|"Colour sensor without AWB &lt;br/&gt;algorithm"| v_missing
+  v_request --&gt;|"Colour sensor with AWB &lt;br/&gt;algorithm"| v_manual</pre>
+<p><a href="colour-temperature.rpi-awb-branches.mmd">Original Mermaid</a></p>
+<details class="note">
+<summary>Diagram evidence and scope of verification</summary>
+<p>When does the Raspberry Pi IPA apply a colour temperature value it receives?</p>
+<p>This is a design interpretation linked to the source. Automated link checks do not constitute semantic approval or device execution validation.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Request contains ColourTemperature">Request contains ColourTemperature</span></td>
+<td><a href="#source-89a050db0c9f481c">src/ipa/rpi/common/ipa_base.cpp:922</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Value ignored">Value ignored</span></td>
+<td><a href="#source-89a050db0c9f481c">src/ipa/rpi/common/ipa_base.cpp:922</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Warning logged and application skipped">Warning logged and application skipped</span></td>
+<td><a href="#source-89a050db0c9f481c">src/ipa/rpi/common/ipa_base.cpp:922</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Set temperature and switch AWB to manual">Set temperature and switch AWB to manual</span></td>
+<td><a href="#source-89a050db0c9f481c">src/ipa/rpi/common/ipa_base.cpp:922</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Monochrome sensor">Monochrome sensor</span></td>
+<td><a href="#source-89a050db0c9f481c">src/ipa/rpi/common/ipa_base.cpp:922</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Colour sensor without AWB algorithm">Colour sensor without AWB algorithm</span></td>
+<td><a href="#source-89a050db0c9f481c">src/ipa/rpi/common/ipa_base.cpp:922</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Colour sensor with AWB algorithm">Colour sensor with AWB algorithm</span></td>
+<td><a href="#source-89a050db0c9f481c">src/ipa/rpi/common/ipa_base.cpp:922</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:rpi-awb-branches -->
+
+<p data-sdd-evidence="[[&quot;src/ipa/rpi/common/ipa_base.cpp:922&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/ipa/rpi/common/ipa_base.cpp#L922\&quot;&gt;&lt;code&gt;src/ipa/rpi/common/ipa_base.cpp:922&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/ipa/rpi/common/ipa_base.cpp:1556&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/ipa/rpi/common/ipa_base.cpp#L1556\&quot;&gt;&lt;code&gt;src/ipa/rpi/common/ipa_base.cpp:1556&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/ipa/rpi/common/ipa_base.cpp:922&quot;: [&quot;#source-89a050db0c9f481c&quot;], &quot;src/ipa/rpi/common/ipa_base.cpp:1556&quot;: [&quot;#source-b162436961ceca50&quot;]}">If <code>ColourTemperature</code> is present, the Raspberry Pi IPA's request processing code silently ignores that control value for a mono sensor. If it cannot find an AWB algorithm, it logs a warning and ends that processing. Otherwise, it calls the AWB algorithm's <code>setColourTemperature()</code>, then sets <code>awbEnabled_</code> to <code>false</code>, switching AWB to manual mode. If <code>awb.status</code> is present, the metadata processing code sets <code>temperatureK</code> from that status as the <code>ColourTemperature</code> metadata.</p>
+
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>3</span> items</summary><ul><li><code>src/libcamera/control_ids_core.yaml</code><span class="evidence-lines"><a href="#source-d3108f17b82d0b49" aria-label="src/libcamera/control_ids_core.yaml:603 excerpt"><code>L603</code> excerpt</a> · <a aria-label="src/libcamera/control_ids_core.yaml:603" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/control_ids_core.yaml#L603">Full source <code>L603</code></a></span></li><li><code>src/ipa/rpi/common/ipa_base.cpp</code><span class="evidence-lines"><a href="#source-89a050db0c9f481c" aria-label="src/ipa/rpi/common/ipa_base.cpp:922 excerpt"><code>L922</code> excerpt</a> · <a aria-label="src/ipa/rpi/common/ipa_base.cpp:922" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/ipa/rpi/common/ipa_base.cpp#L922">Full source <code>L922</code></a> · <a href="#source-b162436961ceca50" aria-label="src/ipa/rpi/common/ipa_base.cpp:1556 excerpt"><code>L1556</code> excerpt</a> · <a aria-label="src/ipa/rpi/common/ipa_base.cpp:1556" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/ipa/rpi/common/ipa_base.cpp#L1556">Full source <code>L1556</code></a></span></li></ul></details><h2 id="소스-근거">Source evidence</h2>
+<details class="source-excerpts"><summary><span>3</span> source excerpts</summary>
+<p>Each excerpt is included only once. Expand the original text you need to compare it with the explanation.</p>
+<p><a id="source-d3108f17b82d0b49"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/control_ids_core.yaml:603</summary>
+<p>This excerpt starts at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/control_ids_core.yaml#L603"><code>src/libcamera/control_ids_core.yaml:603</code></a> and ends at line 624. You can compare the original text below with the explanation.</p>
+<p>SHA-256: <code>88d918f272cfe013114d36d9fe244120ed99ec7bc21a01e5235d403a752d2580</code></p>
+<pre class="highlight"><code class="language-text">  - ColourTemperature:
+      type: int32_t
+      direction: inout
+      description: |
+        ColourTemperature of the frame, in kelvin.
+
+        ColourTemperature can only be applied in a Request when the AWB is
+        disabled.
+
+        If ColourTemperature is set in a request but ColourGains is not, the
+        implementation shall calculate and set the ColourGains based on the
+        given ColourTemperature. If ColourTemperature is set (either directly,
+        or indirectly by setting ColourGains) but ColourCorrectionMatrix is not,
+        the ColourCorrectionMatrix is updated based on the ColourTemperature.
+
+        The ColourTemperature used to process the frame is reported in metadata.
+
+        \sa AwbEnable
+        \sa ColourCorrectionMatrix
+        \sa ColourGains
+
+  - Saturation:</code></pre>
+</details>
+<p><a id="source-89a050db0c9f481c"></a></p>
+<details class="note">
+<summary>Source evidence: src/ipa/rpi/common/ipa_base.cpp:922</summary>
+<p>This excerpt starts at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/ipa/rpi/common/ipa_base.cpp#L922"><code>src/ipa/rpi/common/ipa_base.cpp:922</code></a> and ends at line 945. You can compare the original text below with the explanation.</p>
+<p>SHA-256: <code>76ca45fd660615f583ca4502c7c3dcce4cc95ca517f86ad4038ed57bb8188505</code></p>
+<pre class="highlight"><code class="language-text">const auto colourTemperature = controls.get(controls::ColourTemperature);
+    if (colourTemperature)
+        do {
+            /* Silently ignore this control for a mono sensor. */
+            if (monoSensor_)
+                break;
+
+            auto temperatureK = *colourTemperature;
+            RPiController::AwbAlgorithm *awb = dynamic_cast&lt;RPiController::AwbAlgorithm *&gt;(
+                controller_.getAlgorithm("awb"));
+            if (!awb) {
+                LOG(IPARPI, Warning)
+                    &lt;&lt; "Could not set COLOUR_TEMPERATURE - no AWB algorithm";
+                break;
+            }
+
+            awb-&gt;setColourTemperature(temperatureK);
+            awbEnabled_ = false; /* doing this puts AWB into manual mode */
+
+            /* This metadata will get reported back automatically. */
+            break;
+        } while (false);
+
+    /* Iterate over controls */</code></pre>
+</details>
+<p><a id="source-b162436961ceca50"></a></p>
+<details class="note">
+<summary>Source evidence: src/ipa/rpi/common/ipa_base.cpp:1556</summary>
+<p>This excerpt starts at <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/ipa/rpi/common/ipa_base.cpp#L1556"><code>src/ipa/rpi/common/ipa_base.cpp:1556</code></a> and ends at line 1563. You can compare the original text below with the explanation.</p>
+<p>SHA-256: <code>67b7df55c1cbd610014091a35a5074aaf3adb72628b0a47ea55fa32902e41c28</code></p>
+<pre class="highlight"><code class="language-text">AwbStatus *awbStatus = rpiMetadata.getLocked&lt;AwbStatus&gt;("awb.status");
+    if (awbStatus) {
+        libcameraMetadata_.set(controls::ColourGains, { static_cast&lt;float&gt;(awbStatus-&gt;gainR),
+                                static_cast&lt;float&gt;(awbStatus-&gt;gainB) });
+        libcameraMetadata_.set(controls::ColourTemperature, awbStatus-&gt;temperatureK);
+    }
+
+    BlackLevelStatus *blackLevelStatus</code></pre>
+</details>
+</details>
+
+<p>Next step: <a href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/control_ids_core.yaml#L603">Related sources and descriptions</a></p></article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanations</dd><dt>Verification scope</dt><dd>Tables and figures are generated from facts, and the LLM writes the descriptions. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated checks</dt><dd>Passed (<code>ok</code>). The items checked are listed in the validation scope. A person verifies whether the descriptions are correct.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Commit used for analysis</dt><dd><code>da6a6ed33ed0ab305f10b6f8b44736150d39cef4</code></dd><dt>Document generation time</dt><dd><code>2026-11-12 18:09:45+00:00</code></dd><dt>Text generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Inter-document contracts</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the draft was written</summary><p>This is a record saved in the draft at the time it was written. It may differ from the criteria in the current documentation.</p><ul><li>Evidence files: <code>src/ipa/rpi/common/ipa_base.cpp</code>, <code>src/libcamera/control_ids_core.yaml</code></li><li>Evidence level: Code verified (static analysis, simple_compdb configuration, commit <code>da6a6ed33e</code>)</li><li>Automated checks (citations, sentences, and configured structure): Passed</li><li>Review status recorded: 2026-11-13 · Awaiting human review</li></ul></details><a href="../colour-temperature.md">Original Markdown ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="glossary.html"><small>Previous</small> Glossary ←</a></nav>
+<footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
+<aside class="page-toc"><nav aria-label="Current page table of contents"><p>On this page</p><div class="toc">
+<ul>
+<li><a href="#colourtemperature-요청과-결과">ColourTemperature requests and results</a><ul>
+<li><a href="#raspberry-pi의-색온도-요청-분기">Raspberry Pi color temperature request branch</a></li>
+</ul>
+</li>
+<li><a href="#소스-근거">Source evidence</a></li>
+</ul>
+</div>
+</nav></aside></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find documents</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search documents, sections, terms, and code elements</label><input id="search-input" type="search" autocomplete="off" placeholder="e.g., Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Diagram elements and function names"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Collapse">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to screen</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">The image can be moved by dragging with a mouse or swiping by touch. 'Fit to screen' is an overview that shows the entire image.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="Enlarged diagram"><div id="diagram-canvas"></div></div></dialog>
+<script id="site-config" type="application/json">{"root": "./", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "1a5afaa5ee", "language": "en"}</script><script defer src="../assets/site.js?v=dd3415510a"></script><script defer src="../assets/reader-tools.js?v=dd3415510a"></script></body></html>

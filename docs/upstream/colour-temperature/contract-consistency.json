@@ -1,0 +1,288 @@
+{
+  "schema": 1,
+  "source_commit": "da6a6ed33ed0ab305f10b6f8b44736150d39cef4",
+  "contracts": [
+    {
+      "id": "colour-temperature",
+      "input_sha256": "d9a12a3d1fbf4aee51737685b2b3b5781cd3bcc862745cf8a8a715f9ec5a6dee",
+      "findings": [
+        {
+          "claim_id": "colour-temperature.md/temperature/0",
+          "peers": [
+            "catalog/804237c62ca9bc36",
+            "catalog/804237c62ca9bc36/en"
+          ],
+          "status": "compatible",
+          "condition": "Request application requires AWB disabled; gain and matrix updates have the stated omission conditions.",
+          "actor": "The implementation calculates and sets gains; the control contract specifies the matrix update and metadata report.",
+          "timing": "Request application and frame-processing metadata reporting.",
+          "scope": "ColourTemperature control contract.",
+          "reason": "The claim preserves the contract’s direction, conditions, effects and obligation, as do its peers.",
+          "sources": [
+            {
+              "source_id": "colour-temperature/temperature/contract",
+              "source_quote": "  - ColourTemperature:\n      type: int32_t\n      direction: inout\n      description: |\n        ColourTemperature of the frame, in kelvin.\n\n        ColourTemperature can only be applied in a Request when the AWB is\n        disabled.\n\n        If ColourTemperature is set in a request but ColourGains is not, the\n        implementation shall calculate and set the ColourGains based on the\n        given ColourTemperature. If ColourTemperature is set (either directly,\n        or indirectly by setting ColourGains) but ColourCorrectionMatrix is not,\n        the ColourCorrectionMatrix is updated based on the ColourTemperature.\n\n        The ColourTemperature used to process the frame is reported in metadata.\n\n        \\sa AwbEnable\n        \\sa ColourCorrectionMatrix\n        \\sa ColourGains\n\n  - Saturation:"
+            }
+          ],
+          "claim_quote": "`ColourTemperature`은 `inout` 제어값으로 프레임의 색온도를 켈빈 단위로 나타내며, 요청에는 AWB가 비활성화된 경우에만 적용할 수 있습니다. 프레임 처리에 사용한 `ColourTemperature`은 메타데이터에 보고됩니다. 요청에 `ColourTemperature`을 설정하고 `ColourGains`를 설정하지 않으면 구현체는 지정된 색온도를 바탕으로 `ColourGains`를 계산하고 설정해야 합니다. `ColourTemperature`이 직접 설정되거나 `ColourGains` 설정을 통해 간접적으로 설정되고 `ColourCorrectionMatrix`가 설정되지 않으면, `ColourCorrectionMatrix`는 `ColourTemperature`을 바탕으로 갱신됩니다."
+        },
+        {
+          "claim_id": "colour-temperature.md/temperature/1",
+          "peers": [
+            "catalog/dc5efedd3c29cc51",
+            "catalog/dc5efedd3c29cc51/en"
+          ],
+          "status": "compatible",
+          "condition": "The request contains ColourTemperature; mono sensors and missing AWB algorithms take the stated exit paths. Metadata is set when awb.status exists.",
+          "actor": "Raspberry Pi IPA request and metadata processing; the AWB algorithm receives the temperature.",
+          "timing": "The algorithm call precedes setting awbEnabled_ to false; metadata is populated when status is available.",
+          "scope": "The supplied Raspberry Pi IPA code paths.",
+          "reason": "The claim and its peers accurately describe the conditional branches, call order and metadata value.",
+          "sources": [
+            {
+              "source_id": "colour-temperature/temperature/rpi-request",
+              "source_quote": "const auto colourTemperature = controls.get(controls::ColourTemperature);\n\tif (colourTemperature)\n\t\tdo {\n\t\t\t/* Silently ignore this control for a mono sensor. */\n\t\t\tif (monoSensor_)\n\t\t\t\tbreak;\n\n\t\t\tauto temperatureK = *colourTemperature;\n\t\t\tRPiController::AwbAlgorithm *awb = dynamic_cast<RPiController::AwbAlgorithm *>(\n\t\t\t\tcontroller_.getAlgorithm(\"awb\"));\n\t\t\tif (!awb) {\n\t\t\t\tLOG(IPARPI, Warning)\n\t\t\t\t\t<< \"Could not set COLOUR_TEMPERATURE - no AWB algorithm\";\n\t\t\t\tbreak;\n\t\t\t}\n\n\t\t\tawb->setColourTemperature(temperatureK);\n\t\t\tawbEnabled_ = false; /* doing this puts AWB into manual mode */\n\n\t\t\t/* This metadata will get reported back automatically. */\n\t\t\tbreak;\n\t\t} while (false);\n\n\t/* Iterate over controls */"
+            },
+            {
+              "source_id": "colour-temperature/temperature/rpi-metadata",
+              "source_quote": "AwbStatus *awbStatus = rpiMetadata.getLocked<AwbStatus>(\"awb.status\");\n\tif (awbStatus) {\n\t\tlibcameraMetadata_.set(controls::ColourGains, { static_cast<float>(awbStatus->gainR),\n\t\t\t\t\t\t\t\tstatic_cast<float>(awbStatus->gainB) });\n\t\tlibcameraMetadata_.set(controls::ColourTemperature, awbStatus->temperatureK);\n\t}\n\n\tBlackLevelStatus *blackLevelStatus"
+            }
+          ],
+          "claim_quote": "Raspberry Pi IPA의 요청 처리 코드는 `ColourTemperature`이 있으면 모노 센서에서 해당 제어값을 조용히 무시합니다. AWB 알고리즘을 찾지 못하면 경고를 기록하고 해당 처리를 끝냅니다. 그 외에는 AWB 알고리즘의 `setColourTemperature()`를 호출한 뒤 `awbEnabled_`를 `false`로 설정하여 AWB를 수동 모드로 전환합니다. 메타데이터 처리 코드는 `awb.status`가 있으면 그 상태의 `temperatureK`를 `ColourTemperature` 메타데이터로 설정합니다."
+        },
+        {
+          "claim_id": "catalog/804237c62ca9bc36",
+          "peers": [
+            "colour-temperature.md/temperature/0",
+            "catalog/804237c62ca9bc36/en"
+          ],
+          "status": "compatible",
+          "condition": "Request application requires AWB disabled; the gain and matrix effects depend on the stated omitted controls.",
+          "actor": "The implementation calculates and sets gains; the contract specifies the matrix update and metadata report.",
+          "timing": "Request application and frame-processing metadata reporting.",
+          "scope": "ColourTemperature control contract.",
+          "reason": "The Korean claim and both peers faithfully preserve the source contract.",
+          "sources": [
+            {
+              "source_id": "colour-temperature/temperature/contract",
+              "source_quote": "  - ColourTemperature:\n      type: int32_t\n      direction: inout\n      description: |\n        ColourTemperature of the frame, in kelvin.\n\n        ColourTemperature can only be applied in a Request when the AWB is\n        disabled.\n\n        If ColourTemperature is set in a request but ColourGains is not, the\n        implementation shall calculate and set the ColourGains based on the\n        given ColourTemperature. If ColourTemperature is set (either directly,\n        or indirectly by setting ColourGains) but ColourCorrectionMatrix is not,\n        the ColourCorrectionMatrix is updated based on the ColourTemperature.\n\n        The ColourTemperature used to process the frame is reported in metadata.\n\n        \\sa AwbEnable\n        \\sa ColourCorrectionMatrix\n        \\sa ColourGains\n\n  - Saturation:"
+            }
+          ],
+          "claim_quote": "ColourTemperature은 inout 제어값으로 프레임의 색온도를 켈빈 단위로 나타내며, 요청에는 AWB가 비활성화된 경우에만 적용할 수 있습니다. 프레임 처리에 사용한 ColourTemperature은 메타데이터에 보고됩니다. 요청에 ColourTemperature을 설정하고 ColourGains를 설정하지 않으면 구현체는 지정된 색온도를 바탕으로 ColourGains를 계산하고 설정해야 합니다. ColourTemperature이 직접 설정되거나 ColourGains 설정을 통해 간접적으로 설정되고 ColourCorrectionMatrix가 설정되지 않으면, ColourCorrectionMatrix는 ColourTemperature을 바탕으로 갱신됩니다."
+        },
+        {
+          "claim_id": "catalog/804237c62ca9bc36/en",
+          "peers": [
+            "colour-temperature.md/temperature/0",
+            "catalog/804237c62ca9bc36"
+          ],
+          "status": "compatible",
+          "condition": "Request application requires AWB disabled; the gain and matrix effects depend on the stated omitted controls.",
+          "actor": "The implementation calculates and sets gains; the contract specifies the matrix update and metadata report.",
+          "timing": "Request application and frame-processing metadata reporting.",
+          "scope": "ColourTemperature control contract.",
+          "reason": "The English translation preserves the source contract and the Korean peers’ conditions and modality.",
+          "sources": [
+            {
+              "source_id": "colour-temperature/temperature/contract",
+              "source_quote": "  - ColourTemperature:\n      type: int32_t\n      direction: inout\n      description: |\n        ColourTemperature of the frame, in kelvin.\n\n        ColourTemperature can only be applied in a Request when the AWB is\n        disabled.\n\n        If ColourTemperature is set in a request but ColourGains is not, the\n        implementation shall calculate and set the ColourGains based on the\n        given ColourTemperature. If ColourTemperature is set (either directly,\n        or indirectly by setting ColourGains) but ColourCorrectionMatrix is not,\n        the ColourCorrectionMatrix is updated based on the ColourTemperature.\n\n        The ColourTemperature used to process the frame is reported in metadata.\n\n        \\sa AwbEnable\n        \\sa ColourCorrectionMatrix\n        \\sa ColourGains\n\n  - Saturation:"
+            }
+          ],
+          "claim_quote": "ColourTemperature is an inout control value that represents the frame's colour temperature in kelvin and can be applied in a request only when AWB is disabled. The ColourTemperature used to process the frame is reported in metadata. If ColourTemperature is set in a request and ColourGains is not set, the implementation must calculate and set ColourGains based on the specified colour temperature. If ColourTemperature is set directly or indirectly by setting ColourGains and ColourCorrectionMatrix is not set, ColourCorrectionMatrix is updated based on ColourTemperature."
+        },
+        {
+          "claim_id": "catalog/dc5efedd3c29cc51",
+          "peers": [
+            "colour-temperature.md/temperature/1",
+            "catalog/dc5efedd3c29cc51/en"
+          ],
+          "status": "compatible",
+          "condition": "ColourTemperature is present; the request path distinguishes mono sensors and a missing AWB algorithm. Metadata requires awb.status.",
+          "actor": "Raspberry Pi IPA request and metadata processing; the AWB algorithm receives the temperature.",
+          "timing": "The algorithm call precedes setting awbEnabled_ to false; metadata is populated when status is available.",
+          "scope": "The supplied Raspberry Pi IPA code paths.",
+          "reason": "The claim and both peers match the conditional request handling and metadata assignment.",
+          "sources": [
+            {
+              "source_id": "colour-temperature/temperature/rpi-request",
+              "source_quote": "const auto colourTemperature = controls.get(controls::ColourTemperature);\n\tif (colourTemperature)\n\t\tdo {\n\t\t\t/* Silently ignore this control for a mono sensor. */\n\t\t\tif (monoSensor_)\n\t\t\t\tbreak;\n\n\t\t\tauto temperatureK = *colourTemperature;\n\t\t\tRPiController::AwbAlgorithm *awb = dynamic_cast<RPiController::AwbAlgorithm *>(\n\t\t\t\tcontroller_.getAlgorithm(\"awb\"));\n\t\t\tif (!awb) {\n\t\t\t\tLOG(IPARPI, Warning)\n\t\t\t\t\t<< \"Could not set COLOUR_TEMPERATURE - no AWB algorithm\";\n\t\t\t\tbreak;\n\t\t\t}\n\n\t\t\tawb->setColourTemperature(temperatureK);\n\t\t\tawbEnabled_ = false; /* doing this puts AWB into manual mode */\n\n\t\t\t/* This metadata will get reported back automatically. */\n\t\t\tbreak;\n\t\t} while (false);\n\n\t/* Iterate over controls */"
+            },
+            {
+              "source_id": "colour-temperature/temperature/rpi-metadata",
+              "source_quote": "AwbStatus *awbStatus = rpiMetadata.getLocked<AwbStatus>(\"awb.status\");\n\tif (awbStatus) {\n\t\tlibcameraMetadata_.set(controls::ColourGains, { static_cast<float>(awbStatus->gainR),\n\t\t\t\t\t\t\t\tstatic_cast<float>(awbStatus->gainB) });\n\t\tlibcameraMetadata_.set(controls::ColourTemperature, awbStatus->temperatureK);\n\t}\n\n\tBlackLevelStatus *blackLevelStatus"
+            }
+          ],
+          "claim_quote": "Raspberry Pi IPA의 요청 처리 코드는 ColourTemperature이 있으면 모노 센서에서 해당 제어값을 조용히 무시합니다. AWB 알고리즘을 찾지 못하면 경고를 기록하고 해당 처리를 끝냅니다. 그 외에는 AWB 알고리즘의 setColourTemperature()를 호출한 뒤 awbEnabled_를 false로 설정하여 AWB를 수동 모드로 전환합니다. 메타데이터 처리 코드는 awb.status가 있으면 그 상태의 temperatureK를 ColourTemperature 메타데이터로 설정합니다."
+        },
+        {
+          "claim_id": "catalog/dc5efedd3c29cc51/en",
+          "peers": [
+            "colour-temperature.md/temperature/1",
+            "catalog/dc5efedd3c29cc51"
+          ],
+          "status": "compatible",
+          "condition": "ColourTemperature is present; the request path distinguishes mono sensors and a missing AWB algorithm. Metadata requires awb.status.",
+          "actor": "Raspberry Pi IPA request and metadata processing; the AWB algorithm receives the temperature.",
+          "timing": "The algorithm call precedes setting awbEnabled_ to false; metadata is populated when status is available.",
+          "scope": "The supplied Raspberry Pi IPA code paths.",
+          "reason": "The English translation preserves the source-backed branches, call order and metadata assignment described by the Korean peers.",
+          "sources": [
+            {
+              "source_id": "colour-temperature/temperature/rpi-request",
+              "source_quote": "const auto colourTemperature = controls.get(controls::ColourTemperature);\n\tif (colourTemperature)\n\t\tdo {\n\t\t\t/* Silently ignore this control for a mono sensor. */\n\t\t\tif (monoSensor_)\n\t\t\t\tbreak;\n\n\t\t\tauto temperatureK = *colourTemperature;\n\t\t\tRPiController::AwbAlgorithm *awb = dynamic_cast<RPiController::AwbAlgorithm *>(\n\t\t\t\tcontroller_.getAlgorithm(\"awb\"));\n\t\t\tif (!awb) {\n\t\t\t\tLOG(IPARPI, Warning)\n\t\t\t\t\t<< \"Could not set COLOUR_TEMPERATURE - no AWB algorithm\";\n\t\t\t\tbreak;\n\t\t\t}\n\n\t\t\tawb->setColourTemperature(temperatureK);\n\t\t\tawbEnabled_ = false; /* doing this puts AWB into manual mode */\n\n\t\t\t/* This metadata will get reported back automatically. */\n\t\t\tbreak;\n\t\t} while (false);\n\n\t/* Iterate over controls */"
+            },
+            {
+              "source_id": "colour-temperature/temperature/rpi-metadata",
+              "source_quote": "AwbStatus *awbStatus = rpiMetadata.getLocked<AwbStatus>(\"awb.status\");\n\tif (awbStatus) {\n\t\tlibcameraMetadata_.set(controls::ColourGains, { static_cast<float>(awbStatus->gainR),\n\t\t\t\t\t\t\t\tstatic_cast<float>(awbStatus->gainB) });\n\t\tlibcameraMetadata_.set(controls::ColourTemperature, awbStatus->temperatureK);\n\t}\n\n\tBlackLevelStatus *blackLevelStatus"
+            }
+          ],
+          "claim_quote": "If ColourTemperature is present, the Raspberry Pi IPA's request processing code silently ignores that control value for a mono sensor. If it cannot find an AWB algorithm, it logs a warning and ends that processing. Otherwise, it calls the AWB algorithm's setColourTemperature(), then sets awbEnabled_ to false, switching AWB to manual mode. If awb.status is present, the metadata processing code sets temperatureK from that status as the ColourTemperature metadata."
+        }
+      ],
+      "claims": {
+        "colour-temperature.md/temperature/0": {
+          "document": "colour-temperature.md",
+          "topic": "temperature",
+          "language": "ko",
+          "text": "`ColourTemperature`은 `inout` 제어값으로 프레임의 색온도를 켈빈 단위로 나타내며, 요청에는 AWB가 비활성화된 경우에만 적용할 수 있습니다. 프레임 처리에 사용한 `ColourTemperature`은 메타데이터에 보고됩니다. 요청에 `ColourTemperature`을 설정하고 `ColourGains`를 설정하지 않으면 구현체는 지정된 색온도를 바탕으로 `ColourGains`를 계산하고 설정해야 합니다. `ColourTemperature`이 직접 설정되거나 `ColourGains` 설정을 통해 간접적으로 설정되고 `ColourCorrectionMatrix`가 설정되지 않으면, `ColourCorrectionMatrix`는 `ColourTemperature`을 바탕으로 갱신됩니다.",
+          "evidence": [
+            "colour-temperature/temperature/contract"
+          ],
+          "statement_kinds": [
+            "behavior"
+          ]
+        },
+        "colour-temperature.md/temperature/1": {
+          "document": "colour-temperature.md",
+          "topic": "temperature",
+          "language": "ko",
+          "text": "Raspberry Pi IPA의 요청 처리 코드는 `ColourTemperature`이 있으면 모노 센서에서 해당 제어값을 조용히 무시합니다. AWB 알고리즘을 찾지 못하면 경고를 기록하고 해당 처리를 끝냅니다. 그 외에는 AWB 알고리즘의 `setColourTemperature()`를 호출한 뒤 `awbEnabled_`를 `false`로 설정하여 AWB를 수동 모드로 전환합니다. 메타데이터 처리 코드는 `awb.status`가 있으면 그 상태의 `temperatureK`를 `ColourTemperature` 메타데이터로 설정합니다.",
+          "evidence": [
+            "colour-temperature/temperature/rpi-request",
+            "colour-temperature/temperature/rpi-metadata"
+          ],
+          "statement_kinds": [
+            "behavior"
+          ]
+        },
+        "catalog/804237c62ca9bc36": {
+          "document": "colour-temperature.md",
+          "topic": null,
+          "language": "ko",
+          "text": "ColourTemperature은 inout 제어값으로 프레임의 색온도를 켈빈 단위로 나타내며, 요청에는 AWB가 비활성화된 경우에만 적용할 수 있습니다. 프레임 처리에 사용한 ColourTemperature은 메타데이터에 보고됩니다. 요청에 ColourTemperature을 설정하고 ColourGains를 설정하지 않으면 구현체는 지정된 색온도를 바탕으로 ColourGains를 계산하고 설정해야 합니다. ColourTemperature이 직접 설정되거나 ColourGains 설정을 통해 간접적으로 설정되고 ColourCorrectionMatrix가 설정되지 않으면, ColourCorrectionMatrix는 ColourTemperature을 바탕으로 갱신됩니다.",
+          "evidence": [
+            "colour-temperature/temperature/contract"
+          ],
+          "origin_claims": [
+            "colour-temperature.md/temperature/0"
+          ],
+          "statement_kinds": [
+            "behavior"
+          ]
+        },
+        "catalog/804237c62ca9bc36/en": {
+          "document": "colour-temperature.md",
+          "topic": null,
+          "language": "en",
+          "text": "ColourTemperature is an inout control value that represents the frame's colour temperature in kelvin and can be applied in a request only when AWB is disabled. The ColourTemperature used to process the frame is reported in metadata. If ColourTemperature is set in a request and ColourGains is not set, the implementation must calculate and set ColourGains based on the specified colour temperature. If ColourTemperature is set directly or indirectly by setting ColourGains and ColourCorrectionMatrix is not set, ColourCorrectionMatrix is updated based on ColourTemperature.",
+          "evidence": [
+            "colour-temperature/temperature/contract"
+          ],
+          "translation_of": "catalog/804237c62ca9bc36",
+          "origin_claims": [
+            "colour-temperature.md/temperature/0"
+          ],
+          "statement_kinds": [
+            "behavior"
+          ]
+        },
+        "catalog/dc5efedd3c29cc51": {
+          "document": "colour-temperature.md",
+          "topic": null,
+          "language": "ko",
+          "text": "Raspberry Pi IPA의 요청 처리 코드는 ColourTemperature이 있으면 모노 센서에서 해당 제어값을 조용히 무시합니다. AWB 알고리즘을 찾지 못하면 경고를 기록하고 해당 처리를 끝냅니다. 그 외에는 AWB 알고리즘의 setColourTemperature()를 호출한 뒤 awbEnabled_를 false로 설정하여 AWB를 수동 모드로 전환합니다. 메타데이터 처리 코드는 awb.status가 있으면 그 상태의 temperatureK를 ColourTemperature 메타데이터로 설정합니다.",
+          "evidence": [
+            "colour-temperature/temperature/rpi-request",
+            "colour-temperature/temperature/rpi-metadata"
+          ],
+          "origin_claims": [
+            "colour-temperature.md/temperature/1"
+          ],
+          "statement_kinds": [
+            "behavior"
+          ]
+        },
+        "catalog/dc5efedd3c29cc51/en": {
+          "document": "colour-temperature.md",
+          "topic": null,
+          "language": "en",
+          "text": "If ColourTemperature is present, the Raspberry Pi IPA's request processing code silently ignores that control value for a mono sensor. If it cannot find an AWB algorithm, it logs a warning and ends that processing. Otherwise, it calls the AWB algorithm's setColourTemperature(), then sets awbEnabled_ to false, switching AWB to manual mode. If awb.status is present, the metadata processing code sets temperatureK from that status as the ColourTemperature metadata.",
+          "evidence": [
+            "colour-temperature/temperature/rpi-request",
+            "colour-temperature/temperature/rpi-metadata"
+          ],
+          "translation_of": "catalog/dc5efedd3c29cc51",
+          "origin_claims": [
+            "colour-temperature.md/temperature/1"
+          ],
+          "statement_kinds": [
+            "behavior"
+          ]
+        }
+      },
+      "sources": {
+        "colour-temperature/temperature/contract": {
+          "file": "src/libcamera/control_ids_core.yaml",
+          "line": 603,
+          "text": "  - ColourTemperature:\n      type: int32_t\n      direction: inout\n      description: |\n        ColourTemperature of the frame, in kelvin.\n\n        ColourTemperature can only be applied in a Request when the AWB is\n        disabled.\n\n        If ColourTemperature is set in a request but ColourGains is not, the\n        implementation shall calculate and set the ColourGains based on the\n        given ColourTemperature. If ColourTemperature is set (either directly,\n        or indirectly by setting ColourGains) but ColourCorrectionMatrix is not,\n        the ColourCorrectionMatrix is updated based on the ColourTemperature.\n\n        The ColourTemperature used to process the frame is reported in metadata.\n\n        \\sa AwbEnable\n        \\sa ColourCorrectionMatrix\n        \\sa ColourGains\n\n  - Saturation:",
+          "sha256": "88d918f272cfe013114d36d9fe244120ed99ec7bc21a01e5235d403a752d2580"
+        },
+        "colour-temperature/temperature/rpi-request": {
+          "file": "src/ipa/rpi/common/ipa_base.cpp",
+          "line": 922,
+          "text": "const auto colourTemperature = controls.get(controls::ColourTemperature);\n\tif (colourTemperature)\n\t\tdo {\n\t\t\t/* Silently ignore this control for a mono sensor. */\n\t\t\tif (monoSensor_)\n\t\t\t\tbreak;\n\n\t\t\tauto temperatureK = *colourTemperature;\n\t\t\tRPiController::AwbAlgorithm *awb = dynamic_cast<RPiController::AwbAlgorithm *>(\n\t\t\t\tcontroller_.getAlgorithm(\"awb\"));\n\t\t\tif (!awb) {\n\t\t\t\tLOG(IPARPI, Warning)\n\t\t\t\t\t<< \"Could not set COLOUR_TEMPERATURE - no AWB algorithm\";\n\t\t\t\tbreak;\n\t\t\t}\n\n\t\t\tawb->setColourTemperature(temperatureK);\n\t\t\tawbEnabled_ = false; /* doing this puts AWB into manual mode */\n\n\t\t\t/* This metadata will get reported back automatically. */\n\t\t\tbreak;\n\t\t} while (false);\n\n\t/* Iterate over controls */",
+          "sha256": "76ca45fd660615f583ca4502c7c3dcce4cc95ca517f86ad4038ed57bb8188505"
+        },
+        "colour-temperature/temperature/rpi-metadata": {
+          "file": "src/ipa/rpi/common/ipa_base.cpp",
+          "line": 1556,
+          "text": "AwbStatus *awbStatus = rpiMetadata.getLocked<AwbStatus>(\"awb.status\");\n\tif (awbStatus) {\n\t\tlibcameraMetadata_.set(controls::ColourGains, { static_cast<float>(awbStatus->gainR),\n\t\t\t\t\t\t\t\tstatic_cast<float>(awbStatus->gainB) });\n\t\tlibcameraMetadata_.set(controls::ColourTemperature, awbStatus->temperatureK);\n\t}\n\n\tBlackLevelStatus *blackLevelStatus",
+          "sha256": "67b7df55c1cbd610014091a35a5074aaf3adb72628b0a47ea55fa32902e41c28"
+        }
+      },
+      "source_aliases": {
+        "colour-temperature/temperature/contract": "colour-temperature/temperature/contract",
+        "colour-temperature/temperature/rpi-request": "colour-temperature/temperature/rpi-request",
+        "colour-temperature/temperature/rpi-metadata": "colour-temperature/temperature/rpi-metadata"
+      },
+      "excluded_navigation": [],
+      "review_units": [
+        {
+          "batch": 0,
+          "request_sha256": "0493ab5bdd3fe0fd6e3a0a79060acbf764752da36128620f30b07fa895493536",
+          "review_request_sha256": "0493ab5bdd3fe0fd6e3a0a79060acbf764752da36128620f30b07fa895493536",
+          "current_source_commit": "da6a6ed33ed0ab305f10b6f8b44736150d39cef4",
+          "reviewed_source_commit": "da6a6ed33ed0ab305f10b6f8b44736150d39cef4",
+          "receipts": [
+            "2a55eec0cb49473bae3a123bef13a751/001.receipt.json"
+          ],
+          "receipt_tag": "contract-77e723a11682499abfebfde264740ac0-0-0",
+          "receipt_sha256": "88bae5a048f05ccdb74411d601b35b180d1c947d224048f8fe0192eca7168f58"
+        }
+      ]
+    }
+  ],
+  "fresh_batches": 1,
+  "reused_batches": 0,
+  "source_equivalent_batches": 0,
+  "human_review": "pending",
+  "assessment": "automatic model review; not human approval",
+  "comparison_scope": "Every target is compared with supplied sources and all primary claims. Secondary pairs are compared when in the same batch; this is not an exhaustive all-pairs proof.",
+  "audit_run": {
+    "id": "77e723a11682499abfebfde264740ac0",
+    "document": 0,
+    "phase": 0
+  },
+  "status": "passed",
+  "unresolved": []
+}
