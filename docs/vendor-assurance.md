@@ -1,6 +1,6 @@
 ---
 generated_at: 2026-11-04 20:05:26+00:00
-source_commit: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
+source_commit: da6a6ed33ed0ab305f10b6f8b44736150d39cef4
 status: ok
 section: vendor-assurance
 generation_method: facts-and-llm
@@ -600,7 +600,7 @@ generated_visuals:
         original_input_fingerprint: 96232a874f0e49506eced7c4e4d7ab0b03a8dd252807b3f1ddd01d0942095c61
         new_inference: false
   body_sha256: 968aeae7dc836bca4bcf7be0ab78dc57acbcb5855a057c7ec7c2e5677a780978
-revalidated_from: be7e83e91348250c015aad6d6f59f1468555bae8
+revalidated_from: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
 ---
 
 # 지원 범위와 검증

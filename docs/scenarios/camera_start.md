@@ -1,6 +1,6 @@
 ---
 generated_at: 2026-11-04 05:03:21+00:00
-source_commit: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
+source_commit: da6a6ed33ed0ab305f10b6f8b44736150d39cef4
 status: ok
 section: scenario-camera_start
 generation_method: facts-and-llm
@@ -1041,7 +1041,6 @@ generated_visuals:
       citation_binding_policy: identifier-and-guard-boundaries-v2
       reused: false
   body_sha256: 119cbe385fdde8d5859e4aa678a043d2ba0dc99fa760d5be035ab4e22ce87c8e
-revalidated_from: be7e83e91348250c015aad6d6f59f1468555bae8
 managed_visual_refresh:
 - schema: 2
   source_commit: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
@@ -1072,6 +1071,7 @@ managed_visual_refresh:
   graph_records_replaced: true
   previous_native_records_sha256: 8e89f832d88244d4ce3b9a12fba8799060f5206ef9ad0e5f19aee42f51ef9eab
   current_native_records_sha256: 1b3cd43a2bc6531ae16984c90f2b4d3f79decac024ae2d8ac5d7e70a6bd7901b
+revalidated_from: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
 ---
 
 # 캡처 시작

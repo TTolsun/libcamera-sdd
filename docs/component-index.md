@@ -1,11 +1,12 @@
 ---
 generated_at: 2026-11-11T17:43:11+00:00
-source_commit: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
+source_commit: da6a6ed33ed0ab305f10b6f8b44736150d39cef4
 status: ok
 section: component-index
 generation_method: extracted-structure
 evidence_fingerprint: 528e32e2cbfb7b081a25eb3ddb712eb8c10034e9c57c912266d52b3e2569c2bc
 semantic_review: human-review-required
+revalidated_from: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
 ---
 
 # 구성 요소 색인

@@ -1,6 +1,6 @@
 ---
 generated_at: 2026-11-04 05:02:45+00:00
-source_commit: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
+source_commit: da6a6ed33ed0ab305f10b6f8b44736150d39cef4
 status: ok
 section: onboarding
 generation_method: facts-and-llm
@@ -396,7 +396,7 @@ generated_visuals:
         original_input_fingerprint: dda3f29fafc54cdad1b109bd79e5223477425d47a9bc17a1f59c8344cf4771e1
         new_inference: false
   body_sha256: 9bc413e0fa4cf38092682fa012da4c1ab39c6420332e1902b9fbe634f6fa8040
-revalidated_from: be7e83e91348250c015aad6d6f59f1468555bae8
+revalidated_from: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
 ---
 
 # 실행해 보고 설계 이유 읽기

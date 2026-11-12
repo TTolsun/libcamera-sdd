@@ -1,6 +1,6 @@
 ---
 generated_at: 2026-11-11 19:43:47+00:00
-source_commit: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
+source_commit: da6a6ed33ed0ab305f10b6f8b44736150d39cef4
 status: ok
 section: vendor-integration
 generation_method: facts-and-llm
@@ -1209,6 +1209,7 @@ managed_visual_refresh:
   new_inference: false
   semantic_approval: false
   human_review: unchanged
+revalidated_from: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
 ---
 
 # 연동 가이드

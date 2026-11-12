@@ -1,6 +1,6 @@
 ---
 generated_at: 2026-11-04 07:00:44+00:00
-source_commit: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
+source_commit: da6a6ed33ed0ab305f10b6f8b44736150d39cef4
 status: ok
 section: scenario-manager_start
 generation_method: facts-and-llm
@@ -914,7 +914,7 @@ generated_visuals:
         original_input_fingerprint: 18062c7353d76b4a4be24605b12763c79995a1e680f2310811a1faa164a37075
         new_inference: false
   body_sha256: 93b00b14dcd75a3aa5b336a9850d1710df98b41238d30b632e552baaee0857ed
-revalidated_from: be7e83e91348250c015aad6d6f59f1468555bae8
+revalidated_from: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
 ---
 
 # 카메라 탐색

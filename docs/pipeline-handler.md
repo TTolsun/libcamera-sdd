@@ -1,6 +1,6 @@
 ---
 generated_at: 2026-11-11 17:43:01+00:00
-source_commit: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
+source_commit: da6a6ed33ed0ab305f10b6f8b44736150d39cef4
 status: ok
 section: pipeline-handler
 generation_method: facts-and-llm
@@ -2525,6 +2525,7 @@ generated_visuals:
         original_input_fingerprint: 7528f0bfad232c8c10d5fca11f6c897a157e3bb5292e3d6080a72d26c9ca2bc9
         new_inference: false
   body_sha256: 7abddd434d45be47f03341fcb61f5a6f944335729a2c21501b6b593f997ce785
+revalidated_from: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
 ---
 
 # Pipeline Handler
