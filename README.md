@@ -1,5 +1,6 @@
 # libcamera SDD
 
+- [#323 excerpt and figure-note labels: render-time label replacement, contract audit and figure-review carryover](publication/issue323-labels/README.md)
 - [Supplied-fence condition and pretranslation/pre-merge validation evidence](publication/publication-preflight/README.md)
 
 Public source-bound design documents and generator validation evidence.
