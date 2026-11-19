@@ -1,5 +1,7 @@
 # libcamera SDD
 
+- [연결 해제와 요청 완료 상태](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.html#연결-해제와-요청-완료-상태) · [English](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.html#연결-해제와-요청-완료-상태) · [Publication evidence](publication/disconnect-completion-state/README.md)
+
 - [UVC 정지 중 특정 버퍼가 돌아오지 않을 때](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.html#uvc-정지-중-버퍼-하나가-돌아오지-않을-때) · [English](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.html#uvc-정지-중-버퍼-하나가-돌아오지-않을-때) · [Publication evidence](publication/uvc-stop-diagnosis/README.md)
 
 - [#323 excerpt and figure-note labels: render-time label replacement, contract audit and figure-review carryover](publication/issue323-labels/README.md)
