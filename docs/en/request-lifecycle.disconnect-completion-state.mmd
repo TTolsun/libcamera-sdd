@@ -1,0 +1,18 @@
+flowchart TB
+
+  v_disconnect{"State read by disconnect. <br/>disconnected#95; set"}
+  v_configured["If Running, store Configured"]
+  v_unchanged["Otherwise retain the value, <br/>including Stopping"]
+  v_handoff{"Check whether the same <br/>submitted request reached <br/>requestComplete at the FIFO <br/>head"}
+  v_unseen["Not entered or not <br/>observed: distinguish the <br/>two"]
+  v_sample{"isAccessAllowed reads the <br/>current state"}
+  v_signal["Stopping or Running: guard <br/>passes, then <br/>requestCompleted is emitted"]
+  v_rejected["Available, Acquired, or <br/>Configured: -EACCES, Fatal. <br/>no basis for normal emission"]
+  v_disconnect -->|"Read Running"| v_configured
+  v_disconnect -->|"Read a value other than <br/>Running"| v_unchanged
+  v_configured -->|"Next check: the same request"| v_handoff
+  v_unchanged -->|"Next check: the same request"| v_handoff
+  v_handoff -->|"Call did not occur or was <br/>not observed"| v_unseen
+  v_handoff -->|"Actually called"| v_sample
+  v_sample -->|"Read value is in the <br/>allowed range"| v_signal
+  v_sample -->|"Read value is outside the <br/>allowed range"| v_rejected
