@@ -1,5 +1,7 @@
 # libcamera SDD
 
+- [UVC 정지 중 특정 버퍼가 돌아오지 않을 때](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.html#uvc-정지-중-버퍼-하나가-돌아오지-않을-때) · [English](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.html#uvc-정지-중-버퍼-하나가-돌아오지-않을-때) · [Publication evidence](publication/uvc-stop-diagnosis/README.md)
+
 - [#323 excerpt and figure-note labels: render-time label replacement, contract audit and figure-review carryover](publication/issue323-labels/README.md)
 - [Supplied-fence condition and pretranslation/pre-merge validation evidence](publication/publication-preflight/README.md)
 

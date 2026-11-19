@@ -1,0 +1,30 @@
+flowchart TB
+
+  v_entry{"At streamOff entry, is this <br/>submission#39;s buffer in the <br/>device#39;s queuedBuffers#95;?"}
+  v_camera_stop["If entry was not observed, <br/>check Camera state, access <br/>and the pipeline stop path."]
+  v_streamoff_return{"What was the <br/>VIDIOC#95;STREAMOFF result?"}
+  v_early_exit["Record the device and <br/>negative return. This <br/>streamOff call returns <br/>before its queued-buffer <br/>cancellation loop; UVC <br/>ignores the return."]
+  v_ready{"Compare bufferReady <br/>emission and <br/>imageBufferReady entry for <br/>the same device and buffer. <br/>If the ioctl succeeds, <br/>bufferReady is emitted for <br/>queued buffers inside <br/>streamOff before the <br/>function returns."}
+  v_qbuf{"Check device state, the <br/>whole queue, and this <br/>submission#39;s QBUF history. <br/>If state#95; #33;#61; <br/>State::Streaming #38;#38; <br/>queuedBuffers#95;.empty#40;#41;, <br/>streamOff returns 0 without <br/>an ioctl."}
+  v_dequeue{"Trace slot entry, DQBUF <br/>match and erase, <br/>bufferReady, then UVC entry."}
+  v_dequeue_failure["Distinguish DQBUF failure, <br/>an unexpected index, and a <br/>null return. Check the <br/>return value, returned <br/>index and whether it <br/>matches the map, and probe <br/>coverage for the same <br/>device."]
+  v_no_qbuf["Distinguish the <br/>Camera::queueRequest return <br/>value, waitingRequests#95; <br/>during stop, direct <br/>bufferCompleted emission by <br/>doCancelRequest, and <br/>cancellation after <br/>queueRequestDevice failure. <br/>Also check for missing <br/>records."]
+  v_completion{"Check bufferCompleted <br/>observation and buffer <br/>status separately. Statuses <br/>include FrameSuccess, <br/>FrameError and <br/>FrameCancelled."}
+  v_fifo["Check whether the FIFO head <br/>is pending and whether the <br/>target requestCompleted was <br/>emitted and received."]
+  v_callback_gap["Compare records and probe <br/>coverage for the same <br/>submission, device, and <br/>buffer. Depending on the <br/>missing step, check the <br/>streamOff return and map; <br/>bufferAvailable entry, <br/>DQBUF return, returned <br/>index and map match, and <br/>map removal; bufferReady <br/>emission and <br/>imageBufferReady entry; and <br/>completeBuffer entry, <br/>bufferCompleted emission, <br/>and receipt."]
+  v_entry -->|"streamOff entry itself not <br/>observed"| v_camera_stop
+  v_entry -->|"Target buffer present at <br/>entry"| v_streamoff_return
+  v_entry -->|"Target buffer absent at <br/>entry"| v_qbuf
+  v_entry -->|"Entry observed, but target <br/>buffer#39;s map membership is <br/>inconclusive"| v_callback_gap
+  v_streamoff_return -->|"Negative ioctl result"| v_early_exit
+  v_streamoff_return -->|"ioctl succeeded"| v_ready
+  v_streamoff_return -->|"ioctl result not observed <br/>or inconclusive"| v_callback_gap
+  v_ready -->|"bufferReady emission and <br/>imageBufferReady entry <br/>observed for the same buffer"| v_completion
+  v_ready -->|"Emission or entry not <br/>observed, or their match is <br/>inconclusive"| v_callback_gap
+  v_qbuf -->|"Same submission#39;s <br/>successful QBUF and indexed <br/>map insertion confirmed"| v_dequeue
+  v_qbuf -->|"Otherwise: failed or <br/>success not established"| v_no_qbuf
+  v_dequeue -->|"Slot entry, successful <br/>same-index DQBUF and map <br/>erase, bufferReady <br/>emission, then <br/>imageBufferReady entry all <br/>confirmed"| v_completion
+  v_dequeue -->|"Negative DQBUF return, <br/>unexpected index, or <br/>dequeueBuffer null return <br/>observed before bufferReady <br/>emission"| v_dequeue_failure
+  v_dequeue -->|"Slot entry, DQBUF result, <br/>index or map erase, <br/>emission, or UVC entry is <br/>missing or inconclusive"| v_callback_gap
+  v_completion -->|"Same submission#39;s <br/>bufferCompleted observed; <br/>app still waiting"| v_fifo
+  v_completion -->|"bufferCompleted emission or <br/>app receipt not observed or <br/>inconclusive"| v_callback_gap
