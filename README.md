@@ -1,5 +1,7 @@
 # libcamera SDD
 
+- [실제 UVC 장치에서 요청을 대조하는 절차](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.html#실제-uvc-장치에서-같은-요청의-완료-기록을-대조하는-절차) · [English field procedure](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.html#실제-uvc-장치에서-같은-요청의-완료-기록을-대조하는-절차) · [검증 기록](publication/uvc-device-request-observation/README.md)
+
 - [연결 해제와 요청 완료 상태](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.html#연결-해제와-요청-완료-상태) · [English](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.html#연결-해제와-요청-완료-상태) · [Publication evidence](publication/disconnect-completion-state/README.md)
 
 - [UVC 정지 중 특정 버퍼가 돌아오지 않을 때](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.html#uvc-정지-중-버퍼-하나가-돌아오지-않을-때) · [English](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.html#uvc-정지-중-버퍼-하나가-돌아오지-않을-때) · [Publication evidence](publication/uvc-stop-diagnosis/README.md)

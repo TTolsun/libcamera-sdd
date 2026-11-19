@@ -1,0 +1,28 @@
+flowchart TB
+
+  v_identity{"Link the per-submission ID <br/>and generation from <br/>queueing through the <br/>callback and record <br/>Request#42; and request <br/>sequence when available. A <br/>pointer and sequence alone <br/>do not identify a reused <br/>request; do not use a frame <br/>sequence as the request key."}
+  v_remap["Check the missing or <br/>ambiguous association <br/>between submission and <br/>callback generation and the <br/>observation coverage. Do <br/>not fabricate device rows."]
+  v_timeline{"Record observed values for <br/>the state#95; read and actual <br/>store and disconnected#95; <br/>assignment in <br/>Camera::Private::<br/>disconnect#40;#41;. Record actual <br/>state writes in <br/>Camera::stop#40;#41; and <br/>release#40;#41; separately from <br/>notifications such as the <br/>disconnected signal."}
+  v_baseline["Reference capture: Verify <br/>that the disconnect <br/>observer was active for <br/>this camera throughout the <br/>relevant interval with no <br/>lost events. Record an <br/>ordinary capture as a <br/>reference only if coverage <br/>is complete and no <br/>disconnect event occurred; <br/>otherwise, disconnect <br/>status remains unknown."]
+  v_head{"Record observed values for <br/>completeBuffer#40;#41; and <br/>completeRequest#40;#41; in <br/>UVCCameraData::<br/>imageBufferReady#40;#41;. Compare <br/>the submission ID and <br/>status of the <br/>completeRequest#40;request#41; <br/>argument with those of req <br/>actually forwarded to <br/>requestComplete#40;req#41; after <br/>a non-Pending <br/>queuedRequests#95;.front#40;#41; was <br/>popped."}
+  v_pending["Record the earlier head#39;s <br/>submission ID and <br/>RequestPending status and <br/>that the target request was <br/>not forwarded in that <br/>iteration."]
+  v_guard{"Record state#95; actually read <br/>inside the range overload <br/>of isAccessAllowed#40;#41; called <br/>by <br/>Camera::requestComplete#40;#41;, <br/>that call#39;s result, and <br/>allowDisconnected#61;true. <br/>Distinguish the <br/>disconnect-time state from <br/>the guard-time state."}
+  v_rejected["Classify an observed <br/>-EACCES at the rejection <br/>boundary recorded by the <br/>caller and do not infer <br/>receiver state."]
+  v_emit{"When the guard result is 0, <br/>record whether the caller <br/>actually emitted <br/>requestCompleted. Record <br/>bufferCompleted as a <br/>separate signal."}
+  v_receiver{"Verify application handler <br/>entry for the same <br/>submission generation. If <br/>entry is absent, check the <br/>actual slot connection, <br/>receiver lifetime, direct <br/>or queued delivery, the <br/>relevant receiver thread#39;s <br/>event loop, observation <br/>window, and trace loss."}
+  v_end["Record the ordering and <br/>delay of matched events <br/>calculated on the shared <br/>clock."]
+  v_gap["Record the last confirmed <br/>point, first unobserved <br/>point, enabled probe, <br/>observation interval, and <br/>drop count."]
+  v_identity -->|"Identity is missing or <br/>ambiguous"| v_remap
+  v_identity -->|"Submission generation is <br/>linked"| v_timeline
+  v_timeline -->|"No disconnect observed"| v_baseline
+  v_timeline -->|"Compare the target <br/>request#39;s completion path"| v_head
+  v_head -->|"Earlier head is Pending"| v_pending
+  v_head -->|"Target req was actually <br/>forwarded"| v_guard
+  v_head -->|"If a different req was <br/>forwarded, record its ID <br/>and follow subsequent <br/>queue-head iterations for <br/>the target req. If <br/>forwarding is unknown, <br/>inspect trace coverage."| v_gap
+  v_guard -->|"Guard result is 0"| v_emit
+  v_guard -->|"-EACCES observed"| v_rejected
+  v_guard -->|"Guard or result was not <br/>observed"| v_gap
+  v_emit -->|"requestCompleted emission <br/>observed"| v_receiver
+  v_emit -->|"Emission was not observed"| v_gap
+  v_receiver -->|"Handler entry for the same <br/>submission generation <br/>confirmed"| v_end
+  v_receiver -->|"Handler entry not confirmed"| v_gap
