@@ -1,28 +1,27 @@
 flowchart TB
 
-  v_kconfig_survey["Survey Kconfig and <br/>allocator candidates <br/>without host change; choose <br/>one"]
-  v_wsl_plan["Plan impact, exact backup, <br/>recovery; no Docker/WSL <br/>stop before approval"]
-  v_host_approval["Separate approval <br/>immediately before host <br/>change; PR/Pages not enough"]
-  v_docker_decide{"Check whether the approved <br/>plan requires a Docker stop"}
-  v_docker_stop["After approval, stop Docker <br/>only if the plan requires it"]
-  v_kernel_prep["Install, boot test kernel <br/>only per approved plan; <br/>shared reboot"]
-  v_device_verify{"Checks 6–7: running kernel <br/>matches recorded, root <br/>opens /dev/udmabuf?"}
-  v_yaml_check{"Does Virtual2 YAML match <br/>400 × 300 size and lines <br/>pattern?"}
-  v_cam_check{"Does cam command match <br/>Virtual2, 400 × 300 NV12, <br/>cam capture limit 3?"}
-  v_run_cam["Run official cam 3 times; <br/>records go to a new dir <br/>that must not exist"]
-  v_mismatch_stop["If any check differs, do <br/>not capture"]
-  v_result_verify["Verify new result: camera, <br/>applied config, 3 frames, <br/>exit code 0"]
-  v_kconfig_survey -->|"Plan after survey"| v_wsl_plan
-  v_wsl_plan -->|"Request approval"| v_host_approval
-  v_host_approval -->|"After approval"| v_docker_decide
-  v_docker_decide -->|"If needed, stop"| v_docker_stop
-  v_docker_decide -->|"If not needed, skip"| v_kernel_prep
-  v_docker_stop -->|"Then install, boot"| v_kernel_prep
-  v_kernel_prep -->|"Check after boot"| v_device_verify
-  v_device_verify -->|"If all pass, next"| v_yaml_check
-  v_yaml_check -->|"If config matches"| v_cam_check
-  v_cam_check -->|"If all pass, run"| v_run_cam
-  v_device_verify -->|"If any differs"| v_mismatch_stop
-  v_yaml_check -->|"If any differs"| v_mismatch_stop
-  v_cam_check -->|"If any differs"| v_mismatch_stop
-  v_run_cam -->|"Verify after 3 runs"| v_result_verify
+  v_survey["Start read-only in an <br/>isolated test environment. <br/>Check Kconfig support, <br/>dependencies, and available <br/>modules. Choose one DMA-BUF <br/>allocator."]
+  v_host{"Does the test require host <br/>changes?"}
+  v_approval["Document impact, backup <br/>path, kernel image and <br/>SHA-256, boot and recovery. <br/>Get separate approval"]
+  v_docker{"Does the plan require <br/>stopping Docker?"}
+  v_stop_docker["Stop Docker after approval"]
+  v_boot["Boot the approved test <br/>kernel"]
+  v_device{"Is the running kernel <br/>6.18.33.2-microsoft-standard<br/>-WSL2-issue211 and can root <br/>open /dev/udmabuf?"}
+  v_stop["Stop before capture"]
+  v_run["Run official cam in three <br/>independent processes"]
+  v_confirm["Compare each run with <br/>expected Virtual2 and <br/>400×300 NV12/SMPTE170M. <br/>Check sequences 0–2, <br/>request status 1, buffer <br/>status 0, and exit code 0."]
+  v_options["YAML uses 400×300 lines. <br/>Check cam arguments: <br/>--camera Virtual2 <br/>--capture#61;3 --stream <br/>role#61;video,width#61;400,height#61;<br/>300,pixelformat#61;NV12"]
+  v_build["Check unmodified 293d751a, <br/>its debug Meson build, the <br/>GDB tools prefix, and the <br/>compiled DMA-BUF probe"]
+  v_survey -->|"Choose the test environment"| v_host
+  v_host -->|"Required"| v_approval
+  v_host -->|"No host change needed"| v_device
+  v_approval -->|"Check the approved plan"| v_docker
+  v_docker -->|"Required"| v_stop_docker
+  v_docker -->|"Skip"| v_boot
+  v_stop_docker -->|"Then boot"| v_boot
+  v_boot -->|"Check the running <br/>environment"| v_device
+  v_device -->|"Either check fails"| v_stop
+  v_device -->|"Both checks pass"| v_options
+  v_run -->|"Check each run in the new <br/>evidence directory"| v_confirm
+  v_options -->|"Also check the test source <br/>and build"| v_build
+  v_build -->|"Run after checking the <br/>pinned source and build"| v_run

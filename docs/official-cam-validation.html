@@ -37,20 +37,18 @@
 <li><a href="#소스-근거">소스 근거</a></li>
 </ul>
 </div>
-</details><article><p><strong>가상 캡처가 막힌 지점부터 확인하고, 완료 알림이 프레임 처리로 이어지는 경로를 따라가세요.</strong></p><details class="note">
+</details><article><p><strong>가상 캡처가 막힌 지점부터 확인하고, 완료 알림이 프레임 처리로 이어지는 경로를 따라가세요.</strong></p><details class="note scope-notices">
 <summary>설계 질문과 검증 범위</summary>
 <p>질문별 답변과 근거 연결을 검사했습니다. 의미와 실행 결과는 사람 검토가 필요합니다.</p>
 <ul class="coverage-links"><li><p>무엇이 캡처를 막았고, 어떤 조건에서 공식 cam 캡처가 성공했으며, 현재 바로 재실행할 수 있습니까?</p><p><a href="#할당기를-준비하자-공식-cam-캡처가-완료됐습니다">할당기를 준비하자 공식 cam 캡처가 완료됐습니다</a></p></li><li><p>센서 없이 가상 캡처가 가능한 이유와, Virtual2의 줄무늬 영상이 실제 DMA-BUF·요청·완료 알림 경로를 거쳐 cam에 전달되는 원리는 무엇입니까?</p><p><a href="#가상-파이프라인이-영상을-만들고-요청-완료를-알립니다">가상 파이프라인이 영상을 만들고 요청 완료를 알립니다</a></p></li><li><p>기록된 단일 스트림·출력 싱크 미요청 구성에서 모든 초기 요청·버퍼는 카메라 시작 전에 어떻게 준비되며 준비 실패는 어떻게 처리됩니까?</p><p><a href="#여러-초기-요청을-단일-스트림에-맞춰-준비합니다">여러 초기 요청을 단일 스트림에 맞춰 준비합니다</a></p></li><li><p>같은 기록 구성에서 카메라 시작 뒤 남은 초기 요청을 순회하며 제출 한도를 적용하고 큐 반환 오류와 정상 순회 종료를 어떻게 처리합니까?</p><p><a href="#준비된-초기-요청을-한도-안에서-제출합니다">준비된 초기 요청을 한도 안에서 제출합니다</a></p></li><li><p>완료 알림을 받은 함수가 왜 후속 처리를 이벤트 루프로 미루며, 정상 요청과 취소 요청은 어떻게 나뉩니까?</p><p><a href="#cam이-완료-알림을-받아-이벤트-루프에서-프레임을-처리합니다">cam이 완료 알림을 받아 이벤트 루프에서 프레임을 처리합니다.</a></p></li><li><p>개발자는 캡처 전에 어떤 환경·권한·소스 조건을 확인하고, 어느 절차로 재현하며, 결과를 어디까지 적용할 수 있습니까?</p><p><a href="#지원-커널과-장치-접근을-확인한-뒤-재현합니다">지원 커널과 장치 접근을 확인한 뒤 재현합니다</a></p><p>실행 확인 항목 별도</p></li></ul><p><span>확인 범위</span>: <span>코드 근거와 설명 연결</span></p>
 </details>
 <details class="page-terms">
-<summary>이 문서의 용어: WSL, Pipeline Handler, WSL2, NV12 외 5개</summary>
+<summary>이 문서의 용어: WSL, UDMABUF, NV12, 메타데이터 외 3개</summary>
 <ul>
 <li><strong>WSL</strong> (Windows Subsystem for Linux): Windows의 기능으로, Windows 컴퓨터에서 Linux 환경을 실행할 수 있게 해 줍니다.</li>
-<li><strong>Pipeline Handler</strong>: 특정 하드웨어 플랫폼(IPU3, RKISP1 등)의 미디어 장치를 찾아 카메라를 만들고, 요청을 장치에 넣고 완료를 돌려주는 libcamera 구성 요소입니다. 플랫폼마다 하나씩 있습니다.</li>
-<li><strong>WSL2</strong> (Windows Subsystem for Linux 2): Windows에서 Linux를 실행하는 환경입니다. 이 사이트는 libcamera를 WSL2에서 빌드하고 추출한 결과로 만듭니다.</li>
+<li><strong>UDMABUF</strong> (userspace dmabuf misc driver): Linux 커널의 드라이버 이름으로, 사용자 공간의 memfd 영역을 dma-buf로 바꿔 주는 드라이버입니다.</li>
 <li><strong>NV12</strong> (NV12): 성분당 8비트를 쓰는 4:2:0 포맷입니다. 첫 번째 평면은 휘도(Y)이고, 두 번째 평면에는 Cb와 Cr 값이 한 개씩 번갈아 저장되는 교차 색차 데이터가 들어 있으며, 전체가 선형으로 연속된 메모리에 놓입니다.</li>
 <li><strong>메타데이터</strong>: 영상 픽셀과 함께 확인하는 촬영 정보입니다. Request의 메타데이터는 ControlList로 제공되며, FrameBuffer의 FrameMetadata는 촬영 상태·타임스탬프·사용한 바이트 수 등을 담습니다. FrameMetadata의 다른 필드가 유효한지는 촬영 상태에 따라 달라집니다.</li>
-<li><strong>PR</strong> (Pull Request): 코드 변경 사항을 프로젝트에 병합해 달라고 제안하는 요청입니다.</li>
 <li><strong>DMA</strong> (Direct Memory Access): DMA(Direct Memory Access)는 I/O 장치가 시스템 메모리를 직접 읽거나 쓰는 방식을 뜻하는 용어입니다.</li>
 <li><strong>HAL</strong> (Hardware Abstraction Layer): 운영체제가 제조사마다 다른 하드웨어를 같은 인터페이스로 다루게 하는 계층입니다. 이 프로젝트의 최종 적용 대상은 사내 Android Camera HAL입니다.</li>
 <li><strong>GDB</strong> (GNU Project Debugger): 지정한 조건에서 프로그램을 멈추게 하고, 멈춘 뒤 실행 상태를 살펴볼 수 있는 GNU 디버거입니다.</li>
@@ -60,7 +58,7 @@
 
 <h2 id="할당기를-준비하자-공식-cam-캡처가-완료됐습니다">할당기를 준비하자 공식 cam 캡처가 완료됐습니다</h2>
 
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-10812730226e86cc\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&quot;, &quot;&lt;a href=\&quot;#source-d84e6ca3abcfec11\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;: [&quot;#source-10812730226e86cc&quot;], &quot;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&quot;: [&quot;#source-d84e6ca3abcfec11&quot;]}">이번 기준 재현에서 기본 WSL 커널은 DMA-BUF 할당기를 노출하지 않아 공식 cam이 버퍼를 할당하지 못했습니다.</p>
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&quot;, &quot;&lt;a href=\&quot;#source-d84e6ca3abcfec11\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&quot;: [&quot;#source-d84e6ca3abcfec11&quot;]}">이번 기준 재현에서 기본 WSL 커널은 DMA-BUF 할당기를 노출하지 않았고, 공식 cam은 버퍼를 할당하지 못했습니다.</p>
 <!-- sdd:visual:observed-kernel-boundaries -->
 <h3 id="기본-커널시험-커널복구-후-관측-범위">기본 커널·시험 커널·복구 후 관측 범위</h3>
 <pre class="mermaid">flowchart TB
@@ -128,10 +126,10 @@
 </details>
 <!-- /sdd:visual:observed-kernel-boundaries -->
 
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&quot;, &quot;&lt;a href=\&quot;#source-d84e6ca3abcfec11\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-10812730226e86cc\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&quot;: [&quot;#source-d84e6ca3abcfec11&quot;], &quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;: [&quot;#source-10812730226e86cc&quot;]}">소스 293d751a를 수정하지 않은 공식 cam이 WSL2 시험 커널에서 Virtual2 400x300 NV12 가상 카메라 구성으로 세 개의 독립 프로세스에서 각각 실행되었습니다. 각 실행에서 3프레임 정상 완료와 udmabuf 할당 성공이 관측되었고, 별도 DMA-BUF 프로브의 CPU 접근 성공은 이 cam 할당 관찰과 구분되어 기록되었습니다. 시험은 기본 커널로 원복된 상태로 마쳐져, 현재 상태에서는 이 구성을 그대로 재실행할 수 없습니다.</p>
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&quot;, &quot;&lt;a href=\&quot;#source-d84e6ca3abcfec11\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-10812730226e86cc\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1&quot;: [&quot;#source-d84e6ca3abcfec11&quot;], &quot;product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1&quot;: [&quot;#source-10812730226e86cc&quot;]}">승인된 UDMABUF 시험 커널의 WSL 가상 파이프라인 시뮬레이션에서 수정하지 않은 공식 cam이 Virtual2 400x300 NV12로 세 독립 프로세스에서 실행되어, 각 실행의 3프레임 정상 완료와 udmabuf 할당 성공이 관측되었습니다. 별도 DMA-BUF 프로브에서는 CPU 접근 성공이 관측되었습니다. 시험 후 기본 커널로 원복되어 현재 상태 그대로는 이 시험을 재실행할 수 없습니다.</p>
 
-<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>3</span>개</summary><ul><li><code>product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1" href="#source-10812730226e86cc"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/official-cam-reader.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1" href="#source-d84e6ca3abcfec11"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/execution-contract.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/execution-contract.txt:1" href="#source-6722470b9620a771"><code>L1</code></a></span></li></ul></details><h2 id="가상-파이프라인이-영상을-만들고-요청-완료를-알립니다">가상 파이프라인이 영상을 만들고 요청 완료를 알립니다</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/pipeline/virtual/README.md:3&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/README.md#L3\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/virtual/README.md:3&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline/virtual/data/virtual.yaml:28&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/data/virtual.yaml#L28\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/virtual/data/virtual.yaml:28&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/framebuffer_allocator.cpp:86&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/framebuffer_allocator.cpp#L86\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:86&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline/virtual/virtual.cpp:356&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/virtual.cpp#L356\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/virtual/virtual.cpp:356&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/apps/cam/camera_session.cpp:356&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L356\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:356&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/test_pattern_generator.cpp#L47\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline/virtual/README.md:3&quot;: [&quot;#source-4f7002340059b1cf&quot;], &quot;src/libcamera/pipeline/virtual/data/virtual.yaml:28&quot;: [&quot;#source-9858e22e2225cc10&quot;], &quot;src/libcamera/framebuffer_allocator.cpp:86&quot;: [&quot;#source-e91194807faa9e0c&quot;], &quot;src/libcamera/pipeline/virtual/virtual.cpp:356&quot;: [&quot;#source-1868fec3abf482b8&quot;], &quot;src/apps/cam/camera_session.cpp:356&quot;: [&quot;#source-4175eaf02282069c&quot;, &quot;#source-66f2ccd037a8a670&quot;], &quot;src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47&quot;: [&quot;#source-fa5429fa2c62882d&quot;]}">고정 libcamera 소스에서 분석한 virtual 파이프라인 핸들러는 테스트용 가상 카메라를 흉내 내며, 실제 센서 대신 소프트웨어 테스트 패턴이나 이미지 입력을 영상으로 지원합니다. 이번에 선택한 Virtual2 구성은 400x300 lines 패턴을 공급하는 사례이며, 이 구성 하나가 virtual 기능 전체를 정하지는 않습니다. 할당이 성공한 뒤 cam은 실제 DMA-BUF 버퍼를 요청에 붙여 요청 전달을 준비합니다. 소프트웨어 요청 처리에서 CPU가 NV12 변환과 매핑된 버퍼 쓰기를 함께 시도하는 경로입니다.</p>
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>3</span>개</summary><ul><li><code>product-evidence/libcamera-official-cam-trial/official-cam-reader.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/official-cam-reader.txt:1" href="#source-d84e6ca3abcfec11"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt:1" href="#source-10812730226e86cc"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/execution-contract.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/execution-contract.txt:1" href="#source-6722470b9620a771"><code>L1</code></a></span></li></ul></details><h2 id="가상-파이프라인이-영상을-만들고-요청-완료를-알립니다">가상 파이프라인이 영상을 만들고 요청 완료를 알립니다</h2>
+<p data-sdd-evidence="[[&quot;src/libcamera/pipeline/virtual/README.md:3&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/README.md#L3\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/virtual/README.md:3&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline/virtual/data/virtual.yaml:28&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/data/virtual.yaml#L28\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/virtual/data/virtual.yaml:28&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/apps/cam/camera_session.cpp:365&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L365\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:365&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/framebuffer_allocator.cpp:86&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/framebuffer_allocator.cpp#L86\&quot;&gt;&lt;code&gt;src/libcamera/framebuffer_allocator.cpp:86&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera.cpp:963&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L963\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:963&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline/virtual/virtual.cpp:356&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/virtual.cpp#L356\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/virtual/virtual.cpp:356&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/test_pattern_generator.cpp#L47\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline/virtual/README.md:3&quot;: [&quot;#source-4f7002340059b1cf&quot;], &quot;src/libcamera/pipeline/virtual/data/virtual.yaml:28&quot;: [&quot;#source-9858e22e2225cc10&quot;], &quot;src/apps/cam/camera_session.cpp:365&quot;: [&quot;#source-4c93e74b4521da77&quot;, &quot;#source-5723cb743173a3dd&quot;], &quot;src/libcamera/framebuffer_allocator.cpp:86&quot;: [&quot;#source-e91194807faa9e0c&quot;], &quot;src/libcamera/camera.cpp:963&quot;: [&quot;#source-80fd4657ae4c65d1&quot;], &quot;src/libcamera/pipeline/virtual/virtual.cpp:356&quot;: [&quot;#source-1868fec3abf482b8&quot;], &quot;src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47&quot;: [&quot;#source-fa5429fa2c62882d&quot;]}">고정 libcamera 소스에서 virtual 파이프라인은 실제 센서 대신 소프트웨어 테스트 패턴이나 이미지 입력으로 가상 카메라를 에뮬레이션합니다. 선택한 Virtual2 설정은 400x300 lines 패턴을 공급합니다. 버퍼 할당이 성공하면 cam은 실제 DMA-BUF 버퍼를 요청에 붙여 전달을 준비합니다. NV12 형식에서는 CPU가 변환과 매핑된 버퍼 쓰기를 함께 시도합니다.</p>
 <!-- sdd:visual:virtual-dmabuf-attachment -->
 <h3 id="가상-dma-buf-할당과-cam-요청-연결">가상 DMA-BUF 할당과 cam 요청 연결</h3>
 <pre class="mermaid">flowchart TB
@@ -162,7 +160,7 @@
 <tbody>
 <tr>
 <td><span data-sdd-label-en="cam calls allocate() for the configured stream.">cam은 구성된 스트림에 allocate&#40;&#41;를 호출합니다.</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Camera checks configured state and active stream, then calls the pipeline with blocking delivery.">카메라는 구성 상태와 활성 스트림을 검사한 뒤 파이프라인에 동기 위임합니다.</span></td>
@@ -174,7 +172,7 @@
 </tr>
 <tr>
 <td><span data-sdd-label-en="The virtual pipeline returns -ENOBUFS and cam returns -ENOMEM for allocation failure.">가상 파이프라인은 -ENOBUFS를 반환하고 cam은 할당 실패로 -ENOMEM을 반환합니다.</span></td>
-<td><a href="#source-1868fec3abf482b8">src/libcamera/pipeline/virtual/virtual.cpp:356</a> · <a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><a href="#source-1868fec3abf482b8">src/libcamera/pipeline/virtual/virtual.cpp:356</a> · <a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="The virtual pipeline exports using plane sizes and the configured buffer count.">가상 파이프라인은 플레인 크기와 구성의 버퍼 수로 내보냅니다.</span></td>
@@ -182,11 +180,11 @@
 </tr>
 <tr>
 <td><span data-sdd-label-en="cam uses addBuffer() to attach the indexed stream buffer to the new request.">cam은 새 요청에 해당 인덱스의 스트림 버퍼를 addBuffer&#40;&#41;로 연결합니다.</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Pass to Camera">카메라로 전달</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a> · <a href="#source-e91194807faa9e0c">src/libcamera/framebuffer_allocator.cpp:86</a> · <a href="#source-80fd4657ae4c65d1">src/libcamera/camera.cpp:963</a></td>
+<td><a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a> · <a href="#source-e91194807faa9e0c">src/libcamera/framebuffer_allocator.cpp:86</a> · <a href="#source-80fd4657ae4c65d1">src/libcamera/camera.cpp:963</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="After checks pass">검사 통과 후</span></td>
@@ -194,7 +192,7 @@
 </tr>
 <tr>
 <td><span data-sdd-label-en="No">아니오</span></td>
-<td><a href="#source-1868fec3abf482b8">src/libcamera/pipeline/virtual/virtual.cpp:356</a> · <a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><a href="#source-1868fec3abf482b8">src/libcamera/pipeline/virtual/virtual.cpp:356</a> · <a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Yes">예</span></td>
@@ -202,7 +200,7 @@
 </tr>
 <tr>
 <td><span data-sdd-label-en="After successful allocation">할당 성공 후</span></td>
-<td><a href="#source-1868fec3abf482b8">src/libcamera/pipeline/virtual/virtual.cpp:356</a> · <a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><a href="#source-1868fec3abf482b8">src/libcamera/pipeline/virtual/virtual.cpp:356</a> · <a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 </tbody>
 </table></div>
@@ -212,7 +210,7 @@
 <!-- sdd:visual:virtual-frame-path -->
 <h3 id="virtual2-줄-패턴-nv12-변환기록-시도-흐름">Virtual2 줄 패턴 NV12 변환·기록 시도 흐름</h3>
 <pre class="mermaid">flowchart TB
-%% sdd:translations {&quot;NV12 형식에서 CPU가 &lt;br/&gt;Virtual2 lines 패턴 변환과 &lt;br/&gt;매핑 쓰기 시도&quot;: &quot;For NV12: CPU tries &lt;br/&gt;Virtual2 lines conversion &lt;br/&gt;and mapped write&quot;, &quot;PipelineHandler::&lt;br/&gt;queueRequest가 요청을 대기 &lt;br/&gt;목록에 넣고 준비 시도&quot;: &quot;PipelineHandler::&lt;br/&gt;queueRequest adds request; &lt;br/&gt;tries preparation&quot;, &quot;queued 호출 + 목표 시각&quot;: &quot;Queued call + target&quot;, &quot;가상 핸들러가 queued 호출로 &lt;br/&gt;요청 처리와 목표 시각 &lt;br/&gt;인수를 넘김&quot;: &quot;Virtual handler queues &lt;br/&gt;request; target time is an &lt;br/&gt;argument&quot;, &quot;두 경우 모두 &lt;br/&gt;bufferCompleted로 버퍼 완료 &lt;br/&gt;신호; 요청 완료는 별도&quot;: &quot;Both emit buffer &lt;br/&gt;completion; request &lt;br/&gt;completion separate&quot;, &quot;변환·매핑 쓰기로&quot;: &quot;To conversion step&quot;, &quot;생성 결과 반환&quot;: &quot;Return frame result&quot;, &quot;생성 전 FrameSuccess 초기화 &lt;br/&gt;뒤, CPU 쓰기 동기화 &lt;br/&gt;범위에서 쓰기용 DMA-BUF &lt;br/&gt;매핑 시도&quot;: &quot;Pre-gen FrameSuccess; in &lt;br/&gt;CPU write sync, tries &lt;br/&gt;DMA-BUF write map&quot;, &quot;수신 측 &lt;br/&gt;VirtualCameraData::&lt;br/&gt;processRequest가 목표 &lt;br/&gt;시각까지 대기&quot;: &quot;Receiver &lt;br/&gt;VirtualCameraData::&lt;br/&gt;processRequest waits until &lt;br/&gt;target&quot;, &quot;오류: FrameError로 변경 &lt;br/&gt;#91;true#93;&quot;: &quot;Becomes FrameError #91;true#93;&quot;, &quot;일치 스트림만 프레임 생성&quot;: &quot;Matching stream only&quot;, &quot;정상: FrameSuccess 유지 &lt;br/&gt;#91;false#93;&quot;: &quot;Keeps FrameSuccess #91;false#93;&quot;, &quot;준비 완료 후 차례 확인&quot;: &quot;Once prepared&quot;, &quot;준비된 요청이 차례에 취소 &lt;br/&gt;상태입니까?&quot;: &quot;Is the prepared request &lt;br/&gt;cancelled at its turn?&quot;, &quot;취소 아님 #91;false#93;&quot;: &quot;Not cancelled #91;false#93;&quot;, &quot;취소된 요청은 &lt;br/&gt;RequestCancelled; 큐 앞부터 &lt;br/&gt;완료 통지, 앞 &lt;br/&gt;RequestPending이면 보류·중단&quot;: &quot;Set RequestCancelled; &lt;br/&gt;notify queue front; halt at &lt;br/&gt;RequestPending&quot;, &quot;취소됨 #91;true#93;&quot;: &quot;Cancelled #91;true#93;&quot;, &quot;프레임 생성 결과가 &lt;br/&gt;오류입니까?&quot;: &quot;Is the frame generation &lt;br/&gt;result an error?&quot;}
+%% sdd:translations {&quot;NV12 형식에서 CPU가 &lt;br/&gt;Virtual2 lines 패턴 변환과 &lt;br/&gt;매핑 쓰기 시도&quot;: &quot;For NV12: CPU tries &lt;br/&gt;Virtual2 lines conversion &lt;br/&gt;and mapped write&quot;, &quot;PipelineHandler::&lt;br/&gt;queueRequest가 요청을 대기 &lt;br/&gt;목록에 넣고 준비 시도&quot;: &quot;PipelineHandler::&lt;br/&gt;queueRequest adds request; &lt;br/&gt;tries preparation&quot;, &quot;queued 호출 + 목표 시각&quot;: &quot;Queued call + target&quot;, &quot;가상 핸들러가 queued 호출로 &lt;br/&gt;요청 처리와 목표 시각 &lt;br/&gt;인수를 넘김&quot;: &quot;Virtual handler queues &lt;br/&gt;request; target time is an &lt;br/&gt;argument&quot;, &quot;두 경우 모두 &lt;br/&gt;bufferCompleted로 버퍼 완료 &lt;br/&gt;신호; 요청 완료는 별도&quot;: &quot;Both emit buffer &lt;br/&gt;completion; request &lt;br/&gt;completion separate&quot;, &quot;변환·매핑 쓰기로&quot;: &quot;To conversion step&quot;, &quot;생성 결과 반환&quot;: &quot;Return frame result&quot;, &quot;생성 전 FrameSuccess 초기화 &lt;br/&gt;뒤, CPU 쓰기 동기화 &lt;br/&gt;범위에서 쓰기용 DMA-BUF &lt;br/&gt;매핑 시도&quot;: &quot;Init FrameSuccess pre-call; &lt;br/&gt;try DMA-BUF map in CPU &lt;br/&gt;write sync&quot;, &quot;수신 측 &lt;br/&gt;VirtualCameraData::&lt;br/&gt;processRequest가 목표 &lt;br/&gt;시각까지 대기&quot;: &quot;Receiver &lt;br/&gt;VirtualCameraData::&lt;br/&gt;processRequest waits until &lt;br/&gt;target&quot;, &quot;오류: FrameError로 변경 &lt;br/&gt;#91;true#93;&quot;: &quot;Becomes FrameError #91;true#93;&quot;, &quot;일치 스트림만 프레임 생성&quot;: &quot;Matching stream only&quot;, &quot;정상: FrameSuccess 유지 &lt;br/&gt;#91;false#93;&quot;: &quot;Keeps FrameSuccess #91;false#93;&quot;, &quot;준비 완료 후 차례 확인&quot;: &quot;Once prepared&quot;, &quot;준비된 요청이 차례에 취소 &lt;br/&gt;상태입니까?&quot;: &quot;Is the prepared request &lt;br/&gt;cancelled at its turn?&quot;, &quot;취소 아님 #91;false#93;&quot;: &quot;Not cancelled #91;false#93;&quot;, &quot;취소된 요청은 &lt;br/&gt;RequestCancelled; 큐 앞부터 &lt;br/&gt;완료 통지, 앞 &lt;br/&gt;RequestPending이면 보류·중단&quot;: &quot;RequestCancelled request; &lt;br/&gt;notify front; Stop at &lt;br/&gt;RequestPending&quot;, &quot;취소됨 #91;true#93;&quot;: &quot;Cancelled #91;true#93;&quot;, &quot;프레임 생성 결과가 &lt;br/&gt;오류입니까?&quot;: &quot;Is the frame generation &lt;br/&gt;result an error?&quot;}
   v_n0[&quot;PipelineHandler::&lt;br/&gt;queueRequest가 요청을 대기 &lt;br/&gt;목록에 넣고 준비 시도&quot;]
   v_n1{&quot;준비된 요청이 차례에 취소 &lt;br/&gt;상태입니까?&quot;}
   v_n2[&quot;취소된 요청은 &lt;br/&gt;RequestCancelled; 큐 앞부터 &lt;br/&gt;완료 통지, 앞 &lt;br/&gt;RequestPending이면 보류·중단&quot;]
@@ -234,10 +232,10 @@
 <p><a href="official-cam-validation.virtual-frame-path.mmd">Mermaid 원문</a></p>
 <details class="note">
 <summary>그림 근거와 확인 범위</summary>
-<p>가상 파이프라인은 실제 DMA-BUF 버퍼를 어떻게 확보하고 CPU 패턴을 기록해 버퍼 완료를 알립니까?</p>
+<p>버퍼를 연결한 뒤 가상 파이프라인은 CPU 패턴 기록을 어떻게 시도하고 버퍼 완료를 어떻게 알립니까?</p>
 <p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
 <p>LLM 그림 초안 · 사람 검토 전</p>
-<p>작성 모델: <code>cli/claude/claude-haiku-5-5</code></p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
 <div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
 <thead>
 <tr>
@@ -255,7 +253,7 @@
 <td><a href="#source-5e575d092c08b32d">src/libcamera/pipeline_handler.cpp:469</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Set RequestCancelled; notify queue front; halt at RequestPending">취소된 요청은 RequestCancelled; 큐 앞부터 완료 통지, 앞 RequestPending이면 보류·중단</span></td>
+<td><span data-sdd-label-en="RequestCancelled request; notify front; Stop at RequestPending">취소된 요청은 RequestCancelled; 큐 앞부터 완료 통지, 앞 RequestPending이면 보류·중단</span></td>
 <td><a href="#source-5e575d092c08b32d">src/libcamera/pipeline_handler.cpp:469</a> · <a href="#source-4fe013027055fa2d">src/libcamera/pipeline_handler.cpp:435</a> · <a href="#source-7cb889331b58a531">src/libcamera/pipeline_handler.cpp:563</a> · <a href="#source-0626196def047e5c">src/libcamera/request.cpp:125</a> · <a href="#source-ab86b02a265cd2b8">src/libcamera/pipeline/virtual/virtual.cpp:515</a></td>
 </tr>
 <tr>
@@ -267,7 +265,7 @@
 <td><a href="#source-1c0d5dcdba46688e">src/libcamera/pipeline/virtual/virtual.cpp:412</a> · <a href="#source-995da70adf556e1f">src/libcamera/pipeline/virtual/virtual.cpp:138</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Pre-gen FrameSuccess; in CPU write sync, tries DMA-BUF write map">생성 전 FrameSuccess 초기화 뒤, CPU 쓰기 동기화 범위에서 쓰기용 DMA-BUF 매핑 시도</span></td>
+<td><span data-sdd-label-en="Init FrameSuccess pre-call; try DMA-BUF map in CPU write sync">생성 전 FrameSuccess 초기화 뒤, CPU 쓰기 동기화 범위에서 쓰기용 DMA-BUF 매핑 시도</span></td>
 <td><a href="#source-fa5429fa2c62882d">src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47</a> · <a href="#source-995da70adf556e1f">src/libcamera/pipeline/virtual/virtual.cpp:138</a></td>
 </tr>
 <tr>
@@ -326,10 +324,10 @@
 <!-- sdd:visual:request-completion-order -->
 <h3 id="버퍼-완료와-요청-완료순서-통지는-별개입니다">버퍼 완료와 요청 완료·순서 통지는 별개입니다</h3>
 <pre class="mermaid">flowchart TB
-%% sdd:translations {&quot;RequestPending 상태 #91;true#93;&quot;: &quot;RequestPending state #91;true#93;&quot;, &quot;RequestPending 아님 #91;false#93;&quot;: &quot;Not RequestPending #91;false#93;&quot;, &quot;bufferCompleted: 가상 &lt;br/&gt;프레임 버퍼 완료 수신&quot;: &quot;bufferCompleted: receive &lt;br/&gt;virtual buffer done&quot;, &quot;completeBuffer 거짓: 남은 &lt;br/&gt;버퍼 대기, completeRequest &lt;br/&gt;미호출&quot;: &quot;Return false: await rest, &lt;br/&gt;no completeRequest&quot;, &quot;completeBuffer 판정: 요청의 &lt;br/&gt;모든 버퍼 완료 여부&quot;: &quot;completeBuffer check: all &lt;br/&gt;request buffers done?&quot;, &quot;남은 요청 있음 #91;true#93;&quot;: &quot;Requests remain #91;true#93;&quot;, &quot;뒤 요청 통지 보류, 반복 중단&quot;: &quot;Hold later notifies, stop &lt;br/&gt;loop&quot;, &quot;맨 앞 꺼내 requestComplete &lt;br/&gt;호출, requestCompleted 통지&quot;: &quot;Pop head; requestComplete &lt;br/&gt;emits requestCompleted&quot;, &quot;반복 종료&quot;: &quot;Loop ends&quot;, &quot;버퍼 완료 판정&quot;: &quot;Check buffer done&quot;, &quot;상태 표시: 정상 &lt;br/&gt;RequestComplete, 취소 &lt;br/&gt;RequestCancelled&quot;: &quot;Normal RequestComplete; &lt;br/&gt;cancel RequestCancelled&quot;, &quot;요청 미완료 #91;false#93;&quot;: &quot;Request incomplete #91;false#93;&quot;, &quot;요청 완료 판정 #91;true#93;&quot;: &quot;Request complete #91;true#93;&quot;, &quot;큐 맨 앞 요청이 &lt;br/&gt;RequestPending 상태인지 판정&quot;: &quot;Is front request in &lt;br/&gt;RequestPending state?&quot;, &quot;큐 비어 있음 #91;false#93;&quot;: &quot;Queue empty #91;false#93;&quot;, &quot;큐 상태 확인&quot;: &quot;Check queue&quot;, &quot;큐가 비어 있지 않은가?&quot;: &quot;Is queue not empty?&quot;, &quot;통지 검사 종료&quot;: &quot;Notify check ends&quot;, &quot;통지 후 큐 재확인&quot;: &quot;Recheck queue&quot;}
+%% sdd:translations {&quot;RequestPending 상태 #91;true#93;&quot;: &quot;RequestPending state #91;true#93;&quot;, &quot;RequestPending 아님 #91;false#93;&quot;: &quot;Not RequestPending #91;false#93;&quot;, &quot;bufferCompleted: 가상 &lt;br/&gt;프레임 버퍼 완료 수신&quot;: &quot;bufferCompleted: receive &lt;br/&gt;virtual buffer done&quot;, &quot;completeBuffer 판정: 요청의 &lt;br/&gt;모든 버퍼 완료 여부&quot;: &quot;completeBuffer check: all &lt;br/&gt;request buffers done?&quot;, &quot;나머지 버퍼 대기. &lt;br/&gt;completeRequest 미호출&quot;: &quot;Wait for remaining buffers; &lt;br/&gt;no completeRequest&quot;, &quot;남은 요청 있음 #91;true#93;&quot;: &quot;Requests remain #91;true#93;&quot;, &quot;뒤 요청 통지 보류, 반복 중단&quot;: &quot;Hold later notifies, stop &lt;br/&gt;loop&quot;, &quot;맨 앞 꺼내 requestComplete &lt;br/&gt;호출, requestCompleted 통지&quot;: &quot;Pop head; requestComplete &lt;br/&gt;emits requestCompleted&quot;, &quot;반복 종료&quot;: &quot;Loop ends&quot;, &quot;버퍼 완료 판정&quot;: &quot;Check buffer done&quot;, &quot;상태 표시: 정상 &lt;br/&gt;RequestComplete, 취소 &lt;br/&gt;RequestCancelled&quot;: &quot;Normal RequestComplete; &lt;br/&gt;cancel RequestCancelled&quot;, &quot;요청 미완료 #91;false#93;&quot;: &quot;Request incomplete #91;false#93;&quot;, &quot;요청 완료 판정 #91;true#93;&quot;: &quot;Request complete #91;true#93;&quot;, &quot;큐 맨 앞 요청이 &lt;br/&gt;RequestPending 상태인지 판정&quot;: &quot;Is front request in &lt;br/&gt;RequestPending state?&quot;, &quot;큐 비어 있음 #91;false#93;&quot;: &quot;Queue empty #91;false#93;&quot;, &quot;큐 상태 확인&quot;: &quot;Check queue&quot;, &quot;큐가 비어 있지 않은가?&quot;: &quot;Is queue not empty?&quot;, &quot;통지 검사 종료&quot;: &quot;Notify check ends&quot;, &quot;통지 후 큐 재확인&quot;: &quot;Recheck queue&quot;}
   v_n0[&quot;bufferCompleted: 가상 &lt;br/&gt;프레임 버퍼 완료 수신&quot;]
   v_n1{&quot;completeBuffer 판정: 요청의 &lt;br/&gt;모든 버퍼 완료 여부&quot;}
-  v_n2[&quot;completeBuffer 거짓: 남은 &lt;br/&gt;버퍼 대기, completeRequest &lt;br/&gt;미호출&quot;]
+  v_n2[&quot;나머지 버퍼 대기. &lt;br/&gt;completeRequest 미호출&quot;]
   v_n3[&quot;상태 표시: 정상 &lt;br/&gt;RequestComplete, 취소 &lt;br/&gt;RequestCancelled&quot;]
   v_n4{&quot;큐 맨 앞 요청이 &lt;br/&gt;RequestPending 상태인지 판정&quot;}
   v_n5[&quot;맨 앞 꺼내 requestComplete &lt;br/&gt;호출, requestCompleted 통지&quot;]
@@ -352,7 +350,7 @@
 <p>가상 버퍼 완료 경로의 모든 버퍼 완료 판정과, 완료 표시 뒤 제출 순서 큐의 연속 통지 및 반복 종료는 어떻게 연결됩니까?</p>
 <p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
 <p>LLM 그림 초안 · 사람 검토 전</p>
-<p>작성 모델: <code>cli/claude/claude-haiku-5-5</code></p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
 <div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
 <thead>
 <tr>
@@ -370,7 +368,7 @@
 <td><a href="#source-ab86b02a265cd2b8">src/libcamera/pipeline/virtual/virtual.cpp:515</a> · <a href="#source-7cb889331b58a531">src/libcamera/pipeline_handler.cpp:563</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Return false: await rest, no completeRequest">completeBuffer 거짓: 남은 버퍼 대기, completeRequest 미호출</span></td>
+<td><span data-sdd-label-en="Wait for remaining buffers; no completeRequest">나머지 버퍼 대기. completeRequest 미호출</span></td>
 <td><a href="#source-7cb889331b58a531">src/libcamera/pipeline_handler.cpp:563</a></td>
 </tr>
 <tr>
@@ -383,7 +381,7 @@
 </tr>
 <tr>
 <td><span data-sdd-label-en="Pop head; requestComplete emits requestCompleted">맨 앞 꺼내 requestComplete 호출, requestCompleted 통지</span></td>
-<td><a href="#source-655b027df7d08524">src/libcamera/camera.cpp:1481</a> · <a href="#source-b74ded27aa23baee">src/apps/cam/camera_session.cpp:296</a> · <a href="#source-7cb889331b58a531">src/libcamera/pipeline_handler.cpp:563</a></td>
+<td><a href="#source-655b027df7d08524">src/libcamera/camera.cpp:1481</a> · <a href="#source-fb9506413ce52fb0">src/apps/cam/camera_session.cpp:305</a> · <a href="#source-7cb889331b58a531">src/libcamera/pipeline_handler.cpp:563</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Hold later notifies, stop loop">뒤 요청 통지 보류, 반복 중단</span></td>
@@ -427,7 +425,7 @@
 </tr>
 <tr>
 <td><span data-sdd-label-en="Not RequestPending · req-&gt;status() == Request::RequestPending [false]">RequestPending 아님 · req-&gt;status&#40;&#41; == Request::RequestPending &#91;false&#93;</span></td>
-<td><a href="#source-7cb889331b58a531">src/libcamera/pipeline_handler.cpp:563</a> · <a href="#source-655b027df7d08524">src/libcamera/camera.cpp:1481</a> · <a href="#source-b74ded27aa23baee">src/apps/cam/camera_session.cpp:296</a></td>
+<td><a href="#source-7cb889331b58a531">src/libcamera/pipeline_handler.cpp:563</a> · <a href="#source-655b027df7d08524">src/libcamera/camera.cpp:1481</a> · <a href="#source-fb9506413ce52fb0">src/apps/cam/camera_session.cpp:305</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Recheck queue">통지 후 큐 재확인</span></td>
@@ -442,22 +440,22 @@
 </details>
 <!-- /sdd:visual:request-completion-order -->
 
-<p data-sdd-evidence="[[&quot;src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/test_pattern_generator.cpp#L47\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47&quot;: [&quot;#source-fa5429fa2c62882d&quot;]}">패턴 생성기는 쓰기 방향 동기화를 시도한 뒤, 그 동기화 범위 안에서 버퍼의 쓰기용 매핑을 시도합니다.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/pipeline/virtual/virtual.cpp:412&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/virtual.cpp#L412\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/virtual/virtual.cpp:412&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline/virtual/virtual.cpp:138&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/virtual.cpp#L138\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/virtual/virtual.cpp:138&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline/virtual/virtual.cpp:515&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/virtual.cpp#L515\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/virtual/virtual.cpp:515&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline_handler.cpp:563&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L563\&quot;&gt;&lt;code&gt;src/libcamera/pipeline_handler.cpp:563&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera.cpp:1481&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1481\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1481&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/apps/cam/camera_session.cpp:296&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L296\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:296&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline/virtual/virtual.cpp:412&quot;: [&quot;#source-1c0d5dcdba46688e&quot;], &quot;src/libcamera/pipeline/virtual/virtual.cpp:138&quot;: [&quot;#source-995da70adf556e1f&quot;], &quot;src/libcamera/pipeline/virtual/virtual.cpp:515&quot;: [&quot;#source-ab86b02a265cd2b8&quot;], &quot;src/libcamera/pipeline_handler.cpp:563&quot;: [&quot;#source-7cb889331b58a531&quot;], &quot;src/libcamera/camera.cpp:1481&quot;: [&quot;#source-655b027df7d08524&quot;], &quot;src/apps/cam/camera_session.cpp:296&quot;: [&quot;#source-b74ded27aa23baee&quot;]}">가상 요청은 비동기로 전달되고, <code>VirtualCameraData::processRequest</code>는 목표 시각까지 기다린 뒤 패턴 작성을 시도합니다. 생성 실패는 버퍼의 프레임 메타데이터 상태인 <code>FrameError</code>로 표시되며, 버퍼 완료 신호를 받았다는 사실만으로 프레임 생성이 성공했다고 판단할 수 없습니다. <code>completeBuffer</code>는 요청의 모든 버퍼가 완료됐는지를 나타내는 불리언을 반환하며, 가상 파이프라인의 버퍼 완료 처리 경로에서는 그 값이 true일 때만 <code>completeRequest</code>를 호출합니다. 통지 순서가 된 완료 요청은 <code>requestCompleted</code> 신호에 연결된 cam 콜백으로 전달되며, 앞선 요청이 아직 미완료이면 뒤 요청의 통지는 보류됩니다.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/test_pattern_generator.cpp#L47\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47&quot;: [&quot;#source-fa5429fa2c62882d&quot;]}">패턴 생성기는 쓰기 동기화를 시도한 뒤 그 범위에서 버퍼의 쓰기용 매핑을 시도합니다.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/pipeline/virtual/virtual.cpp:412&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/virtual.cpp#L412\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/virtual/virtual.cpp:412&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline/virtual/virtual.cpp:138&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/virtual.cpp#L138\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/virtual/virtual.cpp:138&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline/virtual/virtual.cpp:515&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/virtual.cpp#L515\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/virtual/virtual.cpp:515&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline_handler.cpp:563&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L563\&quot;&gt;&lt;code&gt;src/libcamera/pipeline_handler.cpp:563&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera.cpp:1481&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1481\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1481&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/apps/cam/camera_session.cpp:305&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L305\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:305&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline/virtual/virtual.cpp:412&quot;: [&quot;#source-1c0d5dcdba46688e&quot;], &quot;src/libcamera/pipeline/virtual/virtual.cpp:138&quot;: [&quot;#source-995da70adf556e1f&quot;], &quot;src/libcamera/pipeline/virtual/virtual.cpp:515&quot;: [&quot;#source-ab86b02a265cd2b8&quot;], &quot;src/libcamera/pipeline_handler.cpp:563&quot;: [&quot;#source-7cb889331b58a531&quot;], &quot;src/libcamera/camera.cpp:1481&quot;: [&quot;#source-655b027df7d08524&quot;], &quot;src/apps/cam/camera_session.cpp:305&quot;: [&quot;#source-fb9506413ce52fb0&quot;]}">가상 요청은 비동기로 전달되며 <code>VirtualCameraData::processRequest</code>는 목표 시각까지 기다린 뒤 패턴 작성을 시도합니다. 버퍼 메타데이터는 생성 실패를 FrameError로 표시하며, 버퍼 완료 신호를 받았다는 사실만으로 프레임 생성의 성공을 판단할 수 없습니다. 가상 파이프라인의 버퍼 완료 처리 경로에서는 모든 버퍼의 완료 여부를 나타내는 <code>completeBuffer</code>의 반환값이 true일 때만 <code>completeRequest</code>를 호출합니다. 완료된 요청은 차례가 되면 <code>requestCompleted</code>에 연결된 cam 콜백으로 전달되며, 앞선 요청이 미완료이면 뒤 요청의 통지는 보류됩니다.</p>
 
-<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>18</span>개</summary><ul><li><code>src/libcamera/pipeline/virtual/README.md</code><span class="evidence-lines"><a href="#source-4f7002340059b1cf" aria-label="src/libcamera/pipeline/virtual/README.md:3 발췌"><code>L3</code> 발췌</a> · <a aria-label="src/libcamera/pipeline/virtual/README.md:3" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/README.md#L3">전체 소스 <code>L3</code></a></span></li><li><code>src/libcamera/pipeline/virtual/data/virtual.yaml</code><span class="evidence-lines"><a href="#source-9858e22e2225cc10" aria-label="src/libcamera/pipeline/virtual/data/virtual.yaml:28 발췌"><code>L28</code> 발췌</a> · <a aria-label="src/libcamera/pipeline/virtual/data/virtual.yaml:28" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/data/virtual.yaml#L28">전체 소스 <code>L28</code></a></span></li><li><code>src/libcamera/framebuffer_allocator.cpp</code><span class="evidence-lines"><a href="#source-e91194807faa9e0c" aria-label="src/libcamera/framebuffer_allocator.cpp:86 발췌"><code>L86</code> 발췌</a> · <a aria-label="src/libcamera/framebuffer_allocator.cpp:86" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/framebuffer_allocator.cpp#L86">전체 소스 <code>L86</code></a></span></li><li><code>src/libcamera/pipeline/virtual/virtual.cpp</code><span class="evidence-lines"><a href="#source-1868fec3abf482b8" aria-label="src/libcamera/pipeline/virtual/virtual.cpp:356 발췌"><code>L356</code> 발췌</a> · <a aria-label="src/libcamera/pipeline/virtual/virtual.cpp:356" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/virtual.cpp#L356">전체 소스 <code>L356</code></a> · <a href="#source-1c0d5dcdba46688e" aria-label="src/libcamera/pipeline/virtual/virtual.cpp:412 발췌"><code>L412</code> 발췌</a> · <a aria-label="src/libcamera/pipeline/virtual/virtual.cpp:412" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/virtual.cpp#L412">전체 소스 <code>L412</code></a> · <a href="#source-995da70adf556e1f" aria-label="src/libcamera/pipeline/virtual/virtual.cpp:138 발췌"><code>L138</code> 발췌</a> · <a aria-label="src/libcamera/pipeline/virtual/virtual.cpp:138" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/virtual.cpp#L138">전체 소스 <code>L138</code></a> · <a href="#source-ab86b02a265cd2b8" aria-label="src/libcamera/pipeline/virtual/virtual.cpp:515 발췌"><code>L515</code> 발췌</a> · <a aria-label="src/libcamera/pipeline/virtual/virtual.cpp:515" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/virtual.cpp#L515">전체 소스 <code>L515</code></a> · <a aria-label="src/libcamera/pipeline/virtual/virtual.cpp:373" href="#source-4726a7d0b3f38c49"><code>L373</code></a></span></li><li><code>src/apps/cam/camera_session.cpp</code><span class="evidence-lines"><a aria-label="src/apps/cam/camera_session.cpp:356" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L356"><code>L356</code></a> · <a href="#source-b74ded27aa23baee" aria-label="src/apps/cam/camera_session.cpp:296 발췌"><code>L296</code> 발췌</a> · <a aria-label="src/apps/cam/camera_session.cpp:296" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L296">전체 소스 <code>L296</code></a> · <a aria-label="src/apps/cam/camera_session.cpp:356" href="#source-4175eaf02282069c"><code>L356</code></a></span></li><li><code>src/libcamera/pipeline/virtual/test_pattern_generator.cpp</code><span class="evidence-lines"><a href="#source-fa5429fa2c62882d" aria-label="src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47 발췌"><code>L47</code> 발췌</a> · <a aria-label="src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/test_pattern_generator.cpp#L47">전체 소스 <code>L47</code></a></span></li><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="#source-7cb889331b58a531" aria-label="src/libcamera/pipeline_handler.cpp:563 발췌"><code>L563</code> 발췌</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:563" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L563">전체 소스 <code>L563</code></a> · <a aria-label="src/libcamera/pipeline_handler.cpp:469" href="#source-5e575d092c08b32d"><code>L469</code></a> · <a aria-label="src/libcamera/pipeline_handler.cpp:435" href="#source-4fe013027055fa2d"><code>L435</code></a></span></li><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-655b027df7d08524" aria-label="src/libcamera/camera.cpp:1481 발췌"><code>L1481</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:1481" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1481">전체 소스 <code>L1481</code></a> · <a aria-label="src/libcamera/camera.cpp:963" href="#source-80fd4657ae4c65d1"><code>L963</code></a> · <a aria-label="src/libcamera/camera.cpp:1330" href="#source-d6d48aa78159fb58"><code>L1330</code></a></span></li><li><code>src/libcamera/request.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/request.cpp:125" href="#source-0626196def047e5c"><code>L125</code></a></span></li></ul></details><h2 id="여러-초기-요청을-단일-스트림에-맞춰-준비합니다">여러 초기 요청을 단일 스트림에 맞춰 준비합니다</h2>
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>18</span>개</summary><ul><li><code>src/libcamera/pipeline/virtual/README.md</code><span class="evidence-lines"><a href="#source-4f7002340059b1cf" aria-label="src/libcamera/pipeline/virtual/README.md:3 발췌"><code>L3</code> 발췌</a> · <a aria-label="src/libcamera/pipeline/virtual/README.md:3" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/README.md#L3">전체 소스 <code>L3</code></a></span></li><li><code>src/libcamera/pipeline/virtual/data/virtual.yaml</code><span class="evidence-lines"><a href="#source-9858e22e2225cc10" aria-label="src/libcamera/pipeline/virtual/data/virtual.yaml:28 발췌"><code>L28</code> 발췌</a> · <a aria-label="src/libcamera/pipeline/virtual/data/virtual.yaml:28" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/data/virtual.yaml#L28">전체 소스 <code>L28</code></a></span></li><li><code>src/apps/cam/camera_session.cpp</code><span class="evidence-lines"><a aria-label="src/apps/cam/camera_session.cpp:365" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L365"><code>L365</code></a> · <a href="#source-fb9506413ce52fb0" aria-label="src/apps/cam/camera_session.cpp:305 발췌"><code>L305</code> 발췌</a> · <a aria-label="src/apps/cam/camera_session.cpp:305" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L305">전체 소스 <code>L305</code></a> · <a aria-label="src/apps/cam/camera_session.cpp:365" href="#source-5723cb743173a3dd"><code>L365</code></a></span></li><li><code>src/libcamera/framebuffer_allocator.cpp</code><span class="evidence-lines"><a href="#source-e91194807faa9e0c" aria-label="src/libcamera/framebuffer_allocator.cpp:86 발췌"><code>L86</code> 발췌</a> · <a aria-label="src/libcamera/framebuffer_allocator.cpp:86" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/framebuffer_allocator.cpp#L86">전체 소스 <code>L86</code></a></span></li><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-80fd4657ae4c65d1" aria-label="src/libcamera/camera.cpp:963 발췌"><code>L963</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:963" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L963">전체 소스 <code>L963</code></a> · <a href="#source-655b027df7d08524" aria-label="src/libcamera/camera.cpp:1481 발췌"><code>L1481</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:1481" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1481">전체 소스 <code>L1481</code></a> · <a aria-label="src/libcamera/camera.cpp:1330" href="#source-d6d48aa78159fb58"><code>L1330</code></a></span></li><li><code>src/libcamera/pipeline/virtual/virtual.cpp</code><span class="evidence-lines"><a href="#source-1868fec3abf482b8" aria-label="src/libcamera/pipeline/virtual/virtual.cpp:356 발췌"><code>L356</code> 발췌</a> · <a aria-label="src/libcamera/pipeline/virtual/virtual.cpp:356" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/virtual.cpp#L356">전체 소스 <code>L356</code></a> · <a href="#source-1c0d5dcdba46688e" aria-label="src/libcamera/pipeline/virtual/virtual.cpp:412 발췌"><code>L412</code> 발췌</a> · <a aria-label="src/libcamera/pipeline/virtual/virtual.cpp:412" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/virtual.cpp#L412">전체 소스 <code>L412</code></a> · <a href="#source-995da70adf556e1f" aria-label="src/libcamera/pipeline/virtual/virtual.cpp:138 발췌"><code>L138</code> 발췌</a> · <a aria-label="src/libcamera/pipeline/virtual/virtual.cpp:138" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/virtual.cpp#L138">전체 소스 <code>L138</code></a> · <a href="#source-ab86b02a265cd2b8" aria-label="src/libcamera/pipeline/virtual/virtual.cpp:515 발췌"><code>L515</code> 발췌</a> · <a aria-label="src/libcamera/pipeline/virtual/virtual.cpp:515" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/virtual.cpp#L515">전체 소스 <code>L515</code></a> · <a aria-label="src/libcamera/pipeline/virtual/virtual.cpp:373" href="#source-4726a7d0b3f38c49"><code>L373</code></a></span></li><li><code>src/libcamera/pipeline/virtual/test_pattern_generator.cpp</code><span class="evidence-lines"><a href="#source-fa5429fa2c62882d" aria-label="src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47 발췌"><code>L47</code> 발췌</a> · <a aria-label="src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/test_pattern_generator.cpp#L47">전체 소스 <code>L47</code></a></span></li><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="#source-7cb889331b58a531" aria-label="src/libcamera/pipeline_handler.cpp:563 발췌"><code>L563</code> 발췌</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:563" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L563">전체 소스 <code>L563</code></a> · <a aria-label="src/libcamera/pipeline_handler.cpp:469" href="#source-5e575d092c08b32d"><code>L469</code></a> · <a aria-label="src/libcamera/pipeline_handler.cpp:435" href="#source-4fe013027055fa2d"><code>L435</code></a></span></li><li><code>src/libcamera/request.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/request.cpp:125" href="#source-0626196def047e5c"><code>L125</code></a></span></li></ul></details><h2 id="여러-초기-요청을-단일-스트림에-맞춰-준비합니다">여러 초기 요청을 단일 스트림에 맞춰 준비합니다</h2>
 
-<p data-sdd-evidence="[[&quot;src/apps/cam/camera_session.cpp:356&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L356\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:356&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&quot;, &quot;&lt;a href=\&quot;#source-077dc6a73bad3108\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/apps/cam/camera_session.cpp:356&quot;: [&quot;#source-4175eaf02282069c&quot;, &quot;#source-66f2ccd037a8a670&quot;], &quot;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&quot;: [&quot;#source-077dc6a73bad3108&quot;]}">기록된 단일 스트림이며 출력 옵션을 요청하지 않은 범위에서, cam은 스트림마다 버퍼를 할당한 뒤 초기 요청마다 버퍼를 연결합니다. 모든 준비가 끝나야 카메라 시작으로 넘어가며, 할당·요청 생성·버퍼 연결 중 오류가 나면 시작 전에 반환합니다.</p>
+<p data-sdd-evidence="[[&quot;src/apps/cam/camera_session.cpp:365&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L365\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:365&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&quot;, &quot;&lt;a href=\&quot;#source-077dc6a73bad3108\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/apps/cam/camera_session.cpp:365&quot;: [&quot;#source-4c93e74b4521da77&quot;, &quot;#source-5723cb743173a3dd&quot;], &quot;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&quot;: [&quot;#source-077dc6a73bad3108&quot;]}">기록된 단일 스트림과 출력 옵션 미요청 범위에서 cam은 버퍼를 할당해 각 초기 요청에 연결합니다. 모든 준비가 끝나야 카메라를 시작하며, 할당·요청 생성·버퍼 연결 중 오류가 나면 시작 전에 반환합니다.</p>
 <!-- sdd:visual:submission-gate -->
 <h3 id="초기-요청들의-준비-반복과-준비-완료">초기 요청들의 준비 반복과 준비 완료</h3>
 <pre class="mermaid">flowchart TB
-%% sdd:translations {&quot;남은 요청 없음&quot;: &quot;No requests left&quot;, &quot;남은 요청 있음&quot;: &quot;Requests left&quot;, &quot;모든 스트림 연결 뒤 현재 &lt;br/&gt;요청을 보관&quot;: &quot;After all streams attach, &lt;br/&gt;keep the current request&quot;, &quot;모든 초기 요청·버퍼 준비 &lt;br/&gt;완료, 카메라 시작 전 단계 &lt;br/&gt;종료&quot;: &quot;All initial requests and &lt;br/&gt;buffers ready before camera &lt;br/&gt;start&quot;, &quot;버퍼 연결이 실패했는가?&quot;: &quot;Did attaching the buffer &lt;br/&gt;fail?&quot;, &quot;생성 성공 #91;false#93;&quot;: &quot;Create OK #91;false#93;&quot;, &quot;생성 오류 #91;true#93;&quot;: &quot;Create error #91;true#93;&quot;, &quot;스트림 버퍼 할당 호출이 &lt;br/&gt;실패했는가?&quot;: &quot;Did the stream buffer &lt;br/&gt;allocation call fail?&quot;, &quot;연결 성공 #91;false#93;&quot;: &quot;Attach OK #91;false#93;&quot;, &quot;연결 오류 #91;true#93;&quot;: &quot;Attach error #91;true#93;&quot;, &quot;오류 값을 반환하고 카메라 &lt;br/&gt;시작 전에 종료&quot;: &quot;Return the error value and &lt;br/&gt;end before camera start&quot;, &quot;요청 생성이 실패했는가?&quot;: &quot;Did request creation fail?&quot;, &quot;저장 뒤 남은 요청 다시 확인&quot;: &quot;Stored: recheck left&quot;, &quot;준비할 초기 요청이 남았는가?&quot;: &quot;Are there initial requests &lt;br/&gt;left to prepare?&quot;, &quot;할당 성공 #91;false#93;&quot;: &quot;Alloc OK #91;false#93;&quot;, &quot;할당 오류 #91;true#93;&quot;: &quot;Alloc error #91;true#93;&quot;}
+%% sdd:translations {&quot;남은 요청 없음&quot;: &quot;No requests left&quot;, &quot;남은 요청 있음&quot;: &quot;Requests left&quot;, &quot;단일 스트림의 buffers#91;i#93;를 &lt;br/&gt;요청 i에 연결한 뒤 요청을 &lt;br/&gt;보관&quot;: &quot;Keep request i after &lt;br/&gt;attaching sole stream#39;s &lt;br/&gt;buffers#91;i#93;&quot;, &quot;모든 초기 요청·버퍼 준비 &lt;br/&gt;완료, 카메라 시작 전 단계 &lt;br/&gt;종료&quot;: &quot;All initial requests and &lt;br/&gt;buffers ready before camera &lt;br/&gt;start&quot;, &quot;생성 성공 #91;false#93;&quot;: &quot;Create OK #91;false#93;&quot;, &quot;생성 오류 #91;true#93;&quot;: &quot;Create error #91;true#93;&quot;, &quot;스트림 버퍼 i 연결에 &lt;br/&gt;실패했는가?&quot;: &quot;Failed to attach stream &lt;br/&gt;buffer i?&quot;, &quot;스트림 버퍼 할당 호출이 &lt;br/&gt;실패했는가?&quot;: &quot;Did the stream buffer &lt;br/&gt;allocation call fail?&quot;, &quot;연결 성공 #91;false#93;&quot;: &quot;Attach OK #91;false#93;&quot;, &quot;연결 오류 #91;true#93;&quot;: &quot;Attach error #91;true#93;&quot;, &quot;오류 값을 반환하고 카메라 &lt;br/&gt;시작 전에 종료&quot;: &quot;Return the error value and &lt;br/&gt;end before camera start&quot;, &quot;요청 생성이 실패했는가?&quot;: &quot;Did request creation fail?&quot;, &quot;저장 뒤 남은 요청 다시 확인&quot;: &quot;Stored: recheck left&quot;, &quot;할당 성공 #91;false#93;&quot;: &quot;Alloc OK #91;false#93;&quot;, &quot;할당 오류 #91;true#93;&quot;: &quot;Alloc error #91;true#93;&quot;, &quot;할당된 최소 버퍼 수만큼 &lt;br/&gt;만들 초기 요청이 남았는가?&quot;: &quot;Requests left to make up to &lt;br/&gt;the minimum buffer count?&quot;}
   v_alloc_check{&quot;스트림 버퍼 할당 호출이 &lt;br/&gt;실패했는가?&quot;}
   v_err_return[&quot;오류 값을 반환하고 카메라 &lt;br/&gt;시작 전에 종료&quot;]
-  v_more_requests{&quot;준비할 초기 요청이 남았는가?&quot;}
+  v_more_requests{&quot;할당된 최소 버퍼 수만큼 &lt;br/&gt;만들 초기 요청이 남았는가?&quot;}
   v_create_req{&quot;요청 생성이 실패했는가?&quot;}
-  v_attach_buf{&quot;버퍼 연결이 실패했는가?&quot;}
-  v_store_req[&quot;모든 스트림 연결 뒤 현재 &lt;br/&gt;요청을 보관&quot;]
+  v_attach_buf{&quot;스트림 버퍼 i 연결에 &lt;br/&gt;실패했는가?&quot;}
+  v_store_req[&quot;단일 스트림의 buffers#91;i#93;를 &lt;br/&gt;요청 i에 연결한 뒤 요청을 &lt;br/&gt;보관&quot;]
   v_ready_done[&quot;모든 초기 요청·버퍼 준비 &lt;br/&gt;완료, 카메라 시작 전 단계 &lt;br/&gt;종료&quot;]
   v_alloc_check --&gt;|&quot;할당 오류 #91;true#93;&quot;| v_err_return
   v_alloc_check --&gt;|&quot;할당 성공 #91;false#93;&quot;| v_more_requests
@@ -474,7 +472,7 @@
 <p>기록된 단일 스트림·출력 싱크 미요청 구성에서 모든 초기 요청·버퍼는 카메라 시작 전에 어떻게 준비되며 준비 실패는 어떻게 처리됩니까?</p>
 <p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
 <p>LLM 그림 초안 · 사람 검토 전</p>
-<p>작성 모델: <code>cli/claude/claude-haiku-5-5</code></p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
 <div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
 <thead>
 <tr>
@@ -485,67 +483,67 @@
 <tbody>
 <tr>
 <td><span data-sdd-label-en="Did the stream buffer allocation call fail?">스트림 버퍼 할당 호출이 실패했는가?</span></td>
-<td><a href="#source-66f2ccd037a8a670">src/apps/cam/camera_session.cpp:356</a></td>
+<td><a href="#source-4c93e74b4521da77">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Return the error value and end before camera start">오류 값을 반환하고 카메라 시작 전에 종료</span></td>
-<td><a href="#source-66f2ccd037a8a670">src/apps/cam/camera_session.cpp:356</a></td>
+<td><a href="#source-4c93e74b4521da77">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Are there initial requests left to prepare?">준비할 초기 요청이 남았는가?</span></td>
-<td><a href="#source-66f2ccd037a8a670">src/apps/cam/camera_session.cpp:356</a></td>
+<td><span data-sdd-label-en="Requests left to make up to the minimum buffer count?">할당된 최소 버퍼 수만큼 만들 초기 요청이 남았는가?</span></td>
+<td><a href="#source-4c93e74b4521da77">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Did request creation fail?">요청 생성이 실패했는가?</span></td>
-<td><a href="#source-66f2ccd037a8a670">src/apps/cam/camera_session.cpp:356</a></td>
+<td><a href="#source-4c93e74b4521da77">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Did attaching the buffer fail?">버퍼 연결이 실패했는가?</span></td>
-<td><a href="#source-66f2ccd037a8a670">src/apps/cam/camera_session.cpp:356</a></td>
+<td><span data-sdd-label-en="Failed to attach stream buffer i?">스트림 버퍼 i 연결에 실패했는가?</span></td>
+<td><a href="#source-4c93e74b4521da77">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="After all streams attach, keep the current request">모든 스트림 연결 뒤 현재 요청을 보관</span></td>
-<td><a href="#source-66f2ccd037a8a670">src/apps/cam/camera_session.cpp:356</a></td>
+<td><span data-sdd-label-en="Keep request i after attaching sole stream&#x27;s buffers[i]">단일 스트림의 buffers&#91;i&#93;를 요청 i에 연결한 뒤 요청을 보관</span></td>
+<td><a href="#source-4c93e74b4521da77">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="All initial requests and buffers ready before camera start">모든 초기 요청·버퍼 준비 완료, 카메라 시작 전 단계 종료</span></td>
-<td><a href="#source-66f2ccd037a8a670">src/apps/cam/camera_session.cpp:356</a></td>
+<td><a href="#source-4c93e74b4521da77">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Alloc error · ret &lt; 0 [true]">할당 오류 · ret &lt; 0 &#91;true&#93;</span></td>
-<td><a href="#source-66f2ccd037a8a670">src/apps/cam/camera_session.cpp:356</a></td>
+<td><a href="#source-4c93e74b4521da77">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Alloc OK · ret &lt; 0 [false]">할당 성공 · ret &lt; 0 &#91;false&#93;</span></td>
-<td><a href="#source-66f2ccd037a8a670">src/apps/cam/camera_session.cpp:356</a></td>
+<td><a href="#source-4c93e74b4521da77">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Requests left">남은 요청 있음</span></td>
-<td><a href="#source-66f2ccd037a8a670">src/apps/cam/camera_session.cpp:356</a></td>
+<td><a href="#source-4c93e74b4521da77">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="No requests left">남은 요청 없음</span></td>
-<td><a href="#source-66f2ccd037a8a670">src/apps/cam/camera_session.cpp:356</a></td>
+<td><a href="#source-4c93e74b4521da77">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Create error · !request [true]">생성 오류 · &#33;request &#91;true&#93;</span></td>
-<td><a href="#source-66f2ccd037a8a670">src/apps/cam/camera_session.cpp:356</a></td>
+<td><a href="#source-4c93e74b4521da77">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Create OK · !request [false]">생성 성공 · &#33;request &#91;false&#93;</span></td>
-<td><a href="#source-66f2ccd037a8a670">src/apps/cam/camera_session.cpp:356</a></td>
+<td><a href="#source-4c93e74b4521da77">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Attach error · ret &lt; 0 [true]">연결 오류 · ret &lt; 0 &#91;true&#93;</span></td>
-<td><a href="#source-66f2ccd037a8a670">src/apps/cam/camera_session.cpp:356</a></td>
+<td><a href="#source-4c93e74b4521da77">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Attach OK · ret &lt; 0 [false]">연결 성공 · ret &lt; 0 &#91;false&#93;</span></td>
-<td><a href="#source-66f2ccd037a8a670">src/apps/cam/camera_session.cpp:356</a></td>
+<td><a href="#source-4c93e74b4521da77">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Stored: recheck left">저장 뒤 남은 요청 다시 확인</span></td>
-<td><a href="#source-66f2ccd037a8a670">src/apps/cam/camera_session.cpp:356</a></td>
+<td><a href="#source-4c93e74b4521da77">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 </tbody>
 </table></div>
@@ -553,44 +551,44 @@
 <!-- /sdd:visual:submission-gate -->
 
 
-<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>5</span>개</summary><ul><li><code>src/apps/cam/camera_session.cpp</code><span class="evidence-lines"><a aria-label="src/apps/cam/camera_session.cpp:356" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L356"><code>L356</code></a> · <a aria-label="src/apps/cam/camera_session.cpp:356" href="#source-66f2ccd037a8a670"><code>L356</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-options.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-options.txt:1" href="#source-077dc6a73bad3108"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1" href="#source-67134777ea4213e0"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1" href="#source-e326d2b05d8f4ef8"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1" href="#source-5a006a90fe9f46ad"><code>L1</code></a></span></li></ul></details><h2 id="준비된-초기-요청을-한도-안에서-제출합니다">준비된 초기 요청을 한도 안에서 제출합니다</h2>
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>5</span>개</summary><ul><li><code>src/apps/cam/camera_session.cpp</code><span class="evidence-lines"><a aria-label="src/apps/cam/camera_session.cpp:365" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L365"><code>L365</code></a> · <a aria-label="src/apps/cam/camera_session.cpp:365" href="#source-4c93e74b4521da77"><code>L365</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-options.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-options.txt:1" href="#source-077dc6a73bad3108"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1" href="#source-67134777ea4213e0"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1" href="#source-e326d2b05d8f4ef8"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1" href="#source-5a006a90fe9f46ad"><code>L1</code></a></span></li></ul></details><h2 id="준비된-초기-요청을-한도-안에서-제출합니다">준비된 초기 요청을 한도 안에서 제출합니다</h2>
 
-<p data-sdd-evidence="[[&quot;src/apps/cam/camera_session.cpp:356&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L356\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:356&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera.cpp:1330&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1330\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1330&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/apps/cam/camera_session.cpp:356&quot;: [&quot;#source-4175eaf02282069c&quot;, &quot;#source-66f2ccd037a8a670&quot;], &quot;src/libcamera/camera.cpp:1330&quot;: [&quot;#source-d6d48aa78159fb58&quot;]}">cam은 요청 준비와 카메라 시작 뒤 한도 안에서만 제출하고, 한도에 도달하면 제출을 생략하며, 이때 반환되는 0은 실제 카메라 큐 API 성공이 아닙니다. 실제 카메라 큐 API 호출은 상태와 요청을 검사해 오류를 반환할 수 있고, 성공하면 비동기 호출을 예약할 뿐 처리 완료로 보지 않으며, 초기 제출이 실패하면 이미 시작한 카메라를 중지합니다.</p>
+<p data-sdd-evidence="[[&quot;src/apps/cam/camera_session.cpp:365&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L365\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:365&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/camera.cpp:1330&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1330\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1330&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/apps/cam/camera_session.cpp:365&quot;: [&quot;#source-4c93e74b4521da77&quot;, &quot;#source-5723cb743173a3dd&quot;], &quot;src/libcamera/camera.cpp:1330&quot;: [&quot;#source-d6d48aa78159fb58&quot;]}">cam은 요청을 준비하고 카메라를 시작한 뒤 한도 안에서만 제출하며, 한도 도달 시 제출을 생략하고 0을 반환합니다. 실제 카메라 큐 API는 상태와 요청을 검사해 오류를 반환할 수 있고 성공하면 비동기 호출을 예약하며, 초기 제출 실패 시 cam은 카메라를 중지합니다.</p>
 <!-- sdd:visual:initial-submission -->
 <h3 id="초기-요청-제출-반복과-오류-반환">초기 요청 제출 반복과 오류 반환</h3>
 <pre class="mermaid">flowchart TB
-%% sdd:translations {&quot;0 반환 후 호출자 검사&quot;: &quot;then caller checks&quot;, &quot;queueRequest 결과가 음수 &lt;br/&gt;오류인지 확인&quot;: &quot;Check if queueRequest &lt;br/&gt;result is a negative error&quot;, &quot;sink가 있으면 중지 후 시작 &lt;br/&gt;오류 반환, 카메라 중지 없음&quot;: &quot;Stop sink if present, &lt;br/&gt;return start error, no &lt;br/&gt;camera stop&quot;, &quot;검사 실패 시 음수 오류 코드 &lt;br/&gt;반환&quot;: &quot;On check failure, return &lt;br/&gt;negative error code&quot;, &quot;검사 실패, 오류&quot;: &quot;fails: return error&quot;, &quot;검사 통과, 비동기 호출&quot;: &quot;passes: async call&quot;, &quot;미설정 또는 미달 #91;false#93;&quot;: &quot;unset or below #91;false#93;&quot;, &quot;스크립트 있을 때만 제어 &lt;br/&gt;병합, 큐 API 호출 시도 &lt;br/&gt;횟수는 항상 1 증가&quot;: &quot;Merge controls only if &lt;br/&gt;script exists; always +1 &lt;br/&gt;queue API call attempts&quot;, &quot;시작 성공 #91;false#93;&quot;: &quot;start succeeded #91;false#93;&quot;, &quot;시작 실패 #91;true#93;&quot;: &quot;start failed #91;true#93;&quot;, &quot;요청 남음&quot;: &quot;requests remain&quot;, &quot;요청 순회 정상 종료, 한도 &lt;br/&gt;유무별 캡처 안내 출력 후 0 &lt;br/&gt;반환&quot;: &quot;Loop ends normally; print &lt;br/&gt;capture notice by limit, &lt;br/&gt;return 0&quot;, &quot;요청 없음, 순회 종료&quot;: &quot;none left, loop ends&quot;, &quot;음수 아니면 다음 요청 &lt;br/&gt;#91;false#93;&quot;: &quot;non-negative: next #91;false#93;&quot;, &quot;음수 오류 #91;true#93;&quot;: &quot;negative error #91;true#93;&quot;, &quot;처리할 초기 요청이 남았는지 &lt;br/&gt;확인&quot;: &quot;Check whether initial &lt;br/&gt;requests remain&quot;, &quot;카메라 시작 결과 확인&quot;: &quot;Check camera start result&quot;, &quot;카메라 실행 상태, 요청 &lt;br/&gt;소유, 요청 유효성 검사 통과 &lt;br/&gt;여부&quot;: &quot;Check camera Running state, &lt;br/&gt;request owner, request &lt;br/&gt;validity&quot;, &quot;카메라 큐 요청 호출&quot;: &quot;calls camera queue&quot;, &quot;카메라를 중지하고, sink가 &lt;br/&gt;있으면 중지한 뒤 오류 반환&quot;: &quot;Stop camera, stop sink if &lt;br/&gt;present, then return error&quot;, &quot;파이프라인 큐 호출을 &lt;br/&gt;비동기로 등록하고 API는 0 &lt;br/&gt;반환&quot;: &quot;Async pipeline queue call &lt;br/&gt;scheduled; API returns 0&quot;, &quot;한도 도달, 호출 없이 0 &lt;br/&gt;#91;true#93;&quot;: &quot;at limit: 0, no call #91;true#93;&quot;, &quot;한도가 있고 큐 API 호출 &lt;br/&gt;시도 횟수가 도달했는지 확인&quot;: &quot;Check if limit is set and &lt;br/&gt;queue API call attempts &lt;br/&gt;reached it&quot;, &quot;호출자에게 오류 전달&quot;: &quot;error to caller&quot;}
-  v_start_check{&quot;카메라 시작 결과 확인&quot;}
-  v_start_fail[&quot;sink가 있으면 중지 후 시작 &lt;br/&gt;오류 반환, 카메라 중지 없음&quot;]
-  v_remaining{&quot;처리할 초기 요청이 남았는지 &lt;br/&gt;확인&quot;}
-  v_limit_check{&quot;한도가 있고 큐 API 호출 &lt;br/&gt;시도 횟수가 도달했는지 확인&quot;}
-  v_control_merge[&quot;스크립트 있을 때만 제어 &lt;br/&gt;병합, 큐 API 호출 시도 &lt;br/&gt;횟수는 항상 1 증가&quot;]
-  v_camera_queue_check{&quot;카메라 실행 상태, 요청 &lt;br/&gt;소유, 요청 유효성 검사 통과 &lt;br/&gt;여부&quot;}
-  v_queue_error[&quot;검사 실패 시 음수 오류 코드 &lt;br/&gt;반환&quot;]
-  v_queue_async[&quot;파이프라인 큐 호출을 &lt;br/&gt;비동기로 등록하고 API는 0 &lt;br/&gt;반환&quot;]
-  v_caller_check{&quot;queueRequest 결과가 음수 &lt;br/&gt;오류인지 확인&quot;}
-  v_stop_on_error[&quot;카메라를 중지하고, sink가 &lt;br/&gt;있으면 중지한 뒤 오류 반환&quot;]
-  v_done[&quot;요청 순회 정상 종료, 한도 &lt;br/&gt;유무별 캡처 안내 출력 후 0 &lt;br/&gt;반환&quot;]
-  v_start_check --&gt;|&quot;시작 실패 #91;true#93;&quot;| v_start_fail
+%% sdd:translations {&quot;0 반환 후 검사&quot;: &quot;Check after return 0&quot;, &quot;sink가 있으면 중지하고 시작 &lt;br/&gt;오류를 반환합니다.&quot;: &quot;Stop the sink if present &lt;br/&gt;and return the start error.&quot;, &quot;검사 실패&quot;: &quot;Checks fail&quot;, &quot;검사 통과&quot;: &quot;Checks pass&quot;, &quot;검사에 실패하면 API가 음수 &lt;br/&gt;오류를 반환합니다.&quot;: &quot;If a check fails, the API &lt;br/&gt;returns a negative error.&quot;, &quot;도달: API 호출 없이 0 #91;true#93;&quot;: &quot;At limit: 0, no call #91;true#93;&quot;, &quot;순회가 끝나면 한도 유무에 &lt;br/&gt;따른 캡처 안내를 출력하고 &lt;br/&gt;0을 반환합니다.&quot;: &quot;After the loop, print the &lt;br/&gt;capture notice for the &lt;br/&gt;limit and return 0.&quot;, &quot;스크립트가 있을 때만 제어를 &lt;br/&gt;병합하고 큐 API 호출 시도 &lt;br/&gt;횟수는 항상 1 늘립니다.&quot;: &quot;Merge controls only with a &lt;br/&gt;script; always increment &lt;br/&gt;queue API call attempts.&quot;, &quot;시작 성공 #91;false#93;&quot;: &quot;Start succeeded #91;false#93;&quot;, &quot;시작 오류 #91;true#93;&quot;: &quot;Start error #91;true#93;&quot;, &quot;오류 반환 후 검사&quot;: &quot;Check after error&quot;, &quot;요청이 남음&quot;: &quot;Requests remain&quot;, &quot;요청이 없음&quot;: &quot;No requests remain&quot;, &quot;음수 결과 #91;true#93;&quot;: &quot;Negative result #91;true#93;&quot;, &quot;음수가 아님 #91;false#93;&quot;: &quot;Not negative #91;false#93;&quot;, &quot;처리할 초기 요청이 남았는지 &lt;br/&gt;확인합니다.&quot;: &quot;Check whether initial &lt;br/&gt;requests remain.&quot;, &quot;카메라 시작 결과를 &lt;br/&gt;확인합니다.&quot;: &quot;Check the camera start &lt;br/&gt;result.&quot;, &quot;카메라 실행 상태와 요청의 &lt;br/&gt;생성 카메라, 상태, 제어 &lt;br/&gt;목록, 버퍼와 스트림을 &lt;br/&gt;검사합니다.&quot;: &quot;Check the running state and &lt;br/&gt;the request#39;s camera, &lt;br/&gt;status, controls, buffers &lt;br/&gt;and runs.&quot;, &quot;카메라 큐 API 호출&quot;: &quot;Call camera queue&quot;, &quot;카메라와 존재하는 sink를 &lt;br/&gt;중지한 뒤 오류를 반환합니다.&quot;: &quot;Stop the camera and any &lt;br/&gt;sink, then return the error.&quot;, &quot;큐 API 호출 시도 횟수가 &lt;br/&gt;설정된 한도에 도달했는지 &lt;br/&gt;확인합니다.&quot;: &quot;Check whether queue API &lt;br/&gt;call attempts reached the &lt;br/&gt;configured limit.&quot;, &quot;파이프라인 큐 호출을 &lt;br/&gt;비동기로 등록하고 API가 0을 &lt;br/&gt;반환합니다.&quot;: &quot;Queue the pipeline call &lt;br/&gt;asynchronously and return 0 &lt;br/&gt;from the API.&quot;, &quot;한도 없음 또는 미달 #91;false#93;&quot;: &quot;Unset or below limit #91;false#93;&quot;, &quot;호출자가 helper의 반환값이 &lt;br/&gt;음수인지 확인합니다.&quot;: &quot;The caller checks whether &lt;br/&gt;the helper#39;s return value &lt;br/&gt;is negative.&quot;}
+  v_start_check{&quot;카메라 시작 결과를 &lt;br/&gt;확인합니다.&quot;}
+  v_start_fail[&quot;sink가 있으면 중지하고 시작 &lt;br/&gt;오류를 반환합니다.&quot;]
+  v_remaining{&quot;처리할 초기 요청이 남았는지 &lt;br/&gt;확인합니다.&quot;}
+  v_limit_check{&quot;큐 API 호출 시도 횟수가 &lt;br/&gt;설정된 한도에 도달했는지 &lt;br/&gt;확인합니다.&quot;}
+  v_control_merge[&quot;스크립트가 있을 때만 제어를 &lt;br/&gt;병합하고 큐 API 호출 시도 &lt;br/&gt;횟수는 항상 1 늘립니다.&quot;]
+  v_camera_queue_check{&quot;카메라 실행 상태와 요청의 &lt;br/&gt;생성 카메라, 상태, 제어 &lt;br/&gt;목록, 버퍼와 스트림을 &lt;br/&gt;검사합니다.&quot;}
+  v_queue_error[&quot;검사에 실패하면 API가 음수 &lt;br/&gt;오류를 반환합니다.&quot;]
+  v_queue_async[&quot;파이프라인 큐 호출을 &lt;br/&gt;비동기로 등록하고 API가 0을 &lt;br/&gt;반환합니다.&quot;]
+  v_caller_check{&quot;호출자가 helper의 반환값이 &lt;br/&gt;음수인지 확인합니다.&quot;}
+  v_stop_on_error[&quot;카메라와 존재하는 sink를 &lt;br/&gt;중지한 뒤 오류를 반환합니다.&quot;]
+  v_done[&quot;순회가 끝나면 한도 유무에 &lt;br/&gt;따른 캡처 안내를 출력하고 &lt;br/&gt;0을 반환합니다.&quot;]
+  v_start_check --&gt;|&quot;시작 오류 #91;true#93;&quot;| v_start_fail
   v_start_check --&gt;|&quot;시작 성공 #91;false#93;&quot;| v_remaining
-  v_remaining --&gt;|&quot;요청 남음&quot;| v_limit_check
-  v_remaining --&gt;|&quot;요청 없음, 순회 종료&quot;| v_done
-  v_limit_check --&gt;|&quot;미설정 또는 미달 #91;false#93;&quot;| v_control_merge
-  v_limit_check --&gt;|&quot;한도 도달, 호출 없이 0 &lt;br/&gt;#91;true#93;&quot;| v_caller_check
-  v_control_merge --&gt;|&quot;카메라 큐 요청 호출&quot;| v_camera_queue_check
-  v_camera_queue_check --&gt;|&quot;검사 실패, 오류&quot;| v_queue_error
-  v_camera_queue_check --&gt;|&quot;검사 통과, 비동기 호출&quot;| v_queue_async
-  v_queue_error --&gt;|&quot;호출자에게 오류 전달&quot;| v_caller_check
-  v_queue_async --&gt;|&quot;0 반환 후 호출자 검사&quot;| v_caller_check
-  v_caller_check --&gt;|&quot;음수 오류 #91;true#93;&quot;| v_stop_on_error
-  v_caller_check --&gt;|&quot;음수 아니면 다음 요청 &lt;br/&gt;#91;false#93;&quot;| v_remaining</pre>
+  v_remaining --&gt;|&quot;요청이 남음&quot;| v_limit_check
+  v_remaining --&gt;|&quot;요청이 없음&quot;| v_done
+  v_limit_check --&gt;|&quot;도달: API 호출 없이 0 #91;true#93;&quot;| v_caller_check
+  v_limit_check --&gt;|&quot;한도 없음 또는 미달 #91;false#93;&quot;| v_control_merge
+  v_control_merge --&gt;|&quot;카메라 큐 API 호출&quot;| v_camera_queue_check
+  v_camera_queue_check --&gt;|&quot;검사 실패&quot;| v_queue_error
+  v_camera_queue_check --&gt;|&quot;검사 통과&quot;| v_queue_async
+  v_queue_error --&gt;|&quot;오류 반환 후 검사&quot;| v_caller_check
+  v_queue_async --&gt;|&quot;0 반환 후 검사&quot;| v_caller_check
+  v_caller_check --&gt;|&quot;음수 결과 #91;true#93;&quot;| v_stop_on_error
+  v_caller_check --&gt;|&quot;음수가 아님 #91;false#93;&quot;| v_remaining</pre>
 <p><a href="official-cam-validation.initial-submission.mmd">Mermaid 원문</a></p>
 <details class="note">
 <summary>그림 근거와 확인 범위</summary>
 <p>같은 기록 구성에서 카메라 시작 뒤 남은 초기 요청을 순회하며 제출 한도를 적용하고 큐 반환 오류와 정상 순회 종료를 어떻게 처리합니까?</p>
 <p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
 <p>LLM 그림 초안 · 사람 검토 전</p>
-<p>작성 모델: <code>cli/claude/claude-haiku-5-5</code></p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
 <div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
 <thead>
 <tr>
@@ -600,100 +598,100 @@
 </thead>
 <tbody>
 <tr>
-<td><span data-sdd-label-en="Check camera start result">카메라 시작 결과 확인</span></td>
-<td><a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a> · <a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><span data-sdd-label-en="Check the camera start result.">카메라 시작 결과를 확인합니다.</span></td>
+<td><a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a> · <a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Stop sink if present, return start error, no camera stop">sink가 있으면 중지 후 시작 오류 반환, 카메라 중지 없음</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><span data-sdd-label-en="Stop the sink if present and return the start error.">sink가 있으면 중지하고 시작 오류를 반환합니다.</span></td>
+<td><a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Check whether initial requests remain">처리할 초기 요청이 남았는지 확인</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><span data-sdd-label-en="Check whether initial requests remain.">처리할 초기 요청이 남았는지 확인합니다.</span></td>
+<td><a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Check if limit is set and queue API call attempts reached it">한도가 있고 큐 API 호출 시도 횟수가 도달했는지 확인</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><span data-sdd-label-en="Check whether queue API call attempts reached the configured limit.">큐 API 호출 시도 횟수가 설정된 한도에 도달했는지 확인합니다.</span></td>
+<td><a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Merge controls only if script exists; always +1 queue API call attempts">스크립트 있을 때만 제어 병합, 큐 API 호출 시도 횟수는 항상 1 증가</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><span data-sdd-label-en="Merge controls only with a script; always increment queue API call attempts.">스크립트가 있을 때만 제어를 병합하고 큐 API 호출 시도 횟수는 항상 1 늘립니다.</span></td>
+<td><a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Check camera Running state, request owner, request validity">카메라 실행 상태, 요청 소유, 요청 유효성 검사 통과 여부</span></td>
+<td><span data-sdd-label-en="Check the running state and the request&#x27;s camera, status, controls, buffers and runs.">카메라 실행 상태와 요청의 생성 카메라, 상태, 제어 목록, 버퍼와 스트림을 검사합니다.</span></td>
 <td><a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="On check failure, return negative error code">검사 실패 시 음수 오류 코드 반환</span></td>
+<td><span data-sdd-label-en="If a check fails, the API returns a negative error.">검사에 실패하면 API가 음수 오류를 반환합니다.</span></td>
 <td><a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Async pipeline queue call scheduled; API returns 0">파이프라인 큐 호출을 비동기로 등록하고 API는 0 반환</span></td>
+<td><span data-sdd-label-en="Queue the pipeline call asynchronously and return 0 from the API.">파이프라인 큐 호출을 비동기로 등록하고 API가 0을 반환합니다.</span></td>
 <td><a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Check if queueRequest result is a negative error">queueRequest 결과가 음수 오류인지 확인</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><span data-sdd-label-en="The caller checks whether the helper&#x27;s return value is negative.">호출자가 helper의 반환값이 음수인지 확인합니다.</span></td>
+<td><a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Stop camera, stop sink if present, then return error">카메라를 중지하고, sink가 있으면 중지한 뒤 오류 반환</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><span data-sdd-label-en="Stop the camera and any sink, then return the error.">카메라와 존재하는 sink를 중지한 뒤 오류를 반환합니다.</span></td>
+<td><a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Loop ends normally; print capture notice by limit, return 0">요청 순회 정상 종료, 한도 유무별 캡처 안내 출력 후 0 반환</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><span data-sdd-label-en="After the loop, print the capture notice for the limit and return 0.">순회가 끝나면 한도 유무에 따른 캡처 안내를 출력하고 0을 반환합니다.</span></td>
+<td><a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="start failed · ret [true]">시작 실패 · ret &#91;true&#93;</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a> · <a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
+<td><span data-sdd-label-en="Start error · ret [true]">시작 오류 · ret &#91;true&#93;</span></td>
+<td><a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a> · <a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="start succeeded · ret [false]">시작 성공 · ret &#91;false&#93;</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a> · <a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
+<td><span data-sdd-label-en="Start succeeded · ret [false]">시작 성공 · ret &#91;false&#93;</span></td>
+<td><a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a> · <a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="requests remain">요청 남음</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><span data-sdd-label-en="Requests remain">요청이 남음</span></td>
+<td><a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="none left, loop ends">요청 없음, 순회 종료</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><span data-sdd-label-en="No requests remain">요청이 없음</span></td>
+<td><a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="unset or below · captureLimit_ &amp;&amp; queueCount_ &gt;= captureLimit_ [false]">미설정 또는 미달 · captureLimit&#95; &amp;&amp; queueCount&#95; &gt;= captureLimit&#95; &#91;false&#93;</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><span data-sdd-label-en="At limit: 0, no call · captureLimit_ &amp;&amp; queueCount_ &gt;= captureLimit_ [true]">도달: API 호출 없이 0 · captureLimit&#95; &amp;&amp; queueCount&#95; &gt;= captureLimit&#95; &#91;true&#93;</span></td>
+<td><a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="at limit: 0, no call · captureLimit_ &amp;&amp; queueCount_ &gt;= captureLimit_ [true]">한도 도달, 호출 없이 0 · captureLimit&#95; &amp;&amp; queueCount&#95; &gt;= captureLimit&#95; &#91;true&#93;</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><span data-sdd-label-en="Unset or below limit · captureLimit_ &amp;&amp; queueCount_ &gt;= captureLimit_ [false]">한도 없음 또는 미달 · captureLimit&#95; &amp;&amp; queueCount&#95; &gt;= captureLimit&#95; &#91;false&#93;</span></td>
+<td><a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="calls camera queue">카메라 큐 요청 호출</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a> · <a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
+<td><span data-sdd-label-en="Call camera queue">카메라 큐 API 호출</span></td>
+<td><a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a> · <a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="fails: return error">검사 실패, 오류</span></td>
+<td><span data-sdd-label-en="Checks fail">검사 실패</span></td>
 <td><a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="passes: async call">검사 통과, 비동기 호출</span></td>
+<td><span data-sdd-label-en="Checks pass">검사 통과</span></td>
 <td><a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="error to caller">호출자에게 오류 전달</span></td>
-<td><a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a> · <a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><span data-sdd-label-en="Check after error">오류 반환 후 검사</span></td>
+<td><a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a> · <a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="then caller checks">0 반환 후 호출자 검사</span></td>
-<td><a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a> · <a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><span data-sdd-label-en="Check after return 0">0 반환 후 검사</span></td>
+<td><a href="#source-d6d48aa78159fb58">src/libcamera/camera.cpp:1330</a> · <a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="negative error · ret &lt; 0 [true]">음수 오류 · ret &lt; 0 &#91;true&#93;</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><span data-sdd-label-en="Negative result · ret &lt; 0 [true]">음수 결과 · ret &lt; 0 &#91;true&#93;</span></td>
+<td><a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="non-negative: next · ret &lt; 0 [false]">음수 아니면 다음 요청 · ret &lt; 0 &#91;false&#93;</span></td>
-<td><a href="#source-4175eaf02282069c">src/apps/cam/camera_session.cpp:356</a></td>
+<td><span data-sdd-label-en="Not negative · ret &lt; 0 [false]">음수가 아님 · ret &lt; 0 &#91;false&#93;</span></td>
+<td><a href="#source-5723cb743173a3dd">src/apps/cam/camera_session.cpp:365</a></td>
 </tr>
 </tbody>
 </table></div>
@@ -701,9 +699,9 @@
 <!-- /sdd:visual:initial-submission -->
 
 
-<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>6</span>개</summary><ul><li><code>src/apps/cam/camera_session.cpp</code><span class="evidence-lines"><a aria-label="src/apps/cam/camera_session.cpp:356" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L356"><code>L356</code></a> · <a aria-label="src/apps/cam/camera_session.cpp:356" href="#source-4175eaf02282069c"><code>L356</code></a></span></li><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-d6d48aa78159fb58" aria-label="src/libcamera/camera.cpp:1330 발췌"><code>L1330</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:1330" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1330">전체 소스 <code>L1330</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1" href="#source-67134777ea4213e0"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1" href="#source-e326d2b05d8f4ef8"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-options.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-options.txt:1" href="#source-077dc6a73bad3108"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1" href="#source-5a006a90fe9f46ad"><code>L1</code></a></span></li></ul></details><h2 id="cam이-완료-알림을-받아-이벤트-루프에서-프레임을-처리합니다">cam이 완료 알림을 받아 이벤트 루프에서 프레임을 처리합니다.</h2>
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>6</span>개</summary><ul><li><code>src/apps/cam/camera_session.cpp</code><span class="evidence-lines"><a aria-label="src/apps/cam/camera_session.cpp:365" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L365"><code>L365</code></a> · <a aria-label="src/apps/cam/camera_session.cpp:365" href="#source-5723cb743173a3dd"><code>L365</code></a></span></li><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-d6d48aa78159fb58" aria-label="src/libcamera/camera.cpp:1330 발췌"><code>L1330</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:1330" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1330">전체 소스 <code>L1330</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1" href="#source-67134777ea4213e0"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1" href="#source-e326d2b05d8f4ef8"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-options.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-options.txt:1" href="#source-077dc6a73bad3108"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1" href="#source-5a006a90fe9f46ad"><code>L1</code></a></span></li></ul></details><h2 id="cam이-완료-알림을-받아-이벤트-루프에서-프레임을-처리합니다">cam이 완료 알림을 받아 이벤트 루프에서 프레임을 처리합니다.</h2>
 
-<p data-sdd-evidence="[[&quot;src/apps/cam/camera_session.cpp:458&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L458\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:458&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/apps/cam/camera_session.cpp:458&quot;: [&quot;#source-6b5bd0b09b7f63ff&quot;]}"><code>CameraSession::requestComplete</code>는 요청 상태가 <code>Request::RequestCancelled</code>이면 아무 처리 없이 반환합니다. 그 밖의 요청은 <code>EventLoop::instance()-&gt;callLater</code>로 <code>CameraSession::processRequest</code> 호출을 이벤트 루프에 미룹니다. 이유는 완료된 요청의 처리를 이벤트 루프로 넘겨 카메라 매니저 스레드를 막지 않으려는 것입니다. 소스 주석이 이 목적을 명시합니다.</p>
+<p data-sdd-evidence="[[&quot;src/apps/cam/camera_session.cpp:467&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L467\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:467&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/apps/cam/camera_session.cpp:467&quot;: [&quot;#source-24d83931ed92dc57&quot;]}"><code>CameraSession::requestComplete</code>는 요청 상태가 <code>RequestCancelled</code>이면 반환하고, 그 밖에는 <code>callLater</code>로 <code>CameraSession::processRequest</code>를 이벤트 루프에 미룹니다. 이는 카메라 매니저 스레드를 막지 않기 위해서입니다.</p>
 <!-- sdd:visual:completion-flow -->
 <h3 id="기록된-출력-싱크-미요청-콜백-경로">기록된 출력 싱크 미요청 콜백 경로</h3>
 <pre class="mermaid">flowchart TB
@@ -733,7 +731,7 @@
 <p>기록된 출력 싱크 미요청 경로에서 완료 콜백은 어떤 처리와 종료로 이어집니까?</p>
 <p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
 <p>LLM 그림 초안 · 사람 검토 전</p>
-<p>작성 모델: <code>cli/claude/claude-haiku-5-5</code></p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
 <div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
 <thead>
 <tr>
@@ -744,169 +742,166 @@
 <tbody>
 <tr>
 <td><span data-sdd-label-en="Enter CameraSession::requestComplete with Request">완료된 Request를 받아 CameraSession::requestComplete 진입</span></td>
-<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a> · <a href="#source-009073d2370150c1">src/apps/cam/camera_session.cpp:274</a></td>
+<td><a href="#source-24d83931ed92dc57">src/apps/cam/camera_session.cpp:467</a> · <a href="#source-fed2a2e4116ab528">src/apps/cam/camera_session.cpp:283</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Check whether Request status is RequestCancelled">Request 상태가 RequestCancelled인지 확인</span></td>
-<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+<td><a href="#source-24d83931ed92dc57">src/apps/cam/camera_session.cpp:467</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="requestComplete returns; no captureDone signal">requestComplete가 즉시 반환, captureDone 신호 없음</span></td>
-<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a> · <a href="#source-009073d2370150c1">src/apps/cam/camera_session.cpp:274</a></td>
+<td><a href="#source-24d83931ed92dc57">src/apps/cam/camera_session.cpp:467</a> · <a href="#source-fed2a2e4116ab528">src/apps/cam/camera_session.cpp:283</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Defer via callLater; avoids blocking camera manager">callLater로 이벤트 루프에 위임해 카메라 매니저 스레드 차단 회피</span></td>
-<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+<td><a href="#source-24d83931ed92dc57">src/apps/cam/camera_session.cpp:467</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Entry: captureLimit_ set AND captureCount_ reached?">진입 시 captureLimit&#95; 설정 AND captureCount&#95; 도달인지 확인</span></td>
-<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+<td><a href="#source-24d83931ed92dc57">src/apps/cam/camera_session.cpp:467</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="processRequest returns; no captureDone signal">processRequest가 즉시 반환, captureDone 신호 없이 종료</span></td>
-<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+<td><a href="#source-24d83931ed92dc57">src/apps/cam/camera_session.cpp:467</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Print frame info, then increment captureCount_ by 1">프레임 정보 출력 후 captureCount&#95;를 1 증가</span></td>
-<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a> · <a href="#source-009073d2370150c1">src/apps/cam/camera_session.cpp:274</a></td>
+<td><a href="#source-24d83931ed92dc57">src/apps/cam/camera_session.cpp:467</a> · <a href="#source-fed2a2e4116ab528">src/apps/cam/camera_session.cpp:283</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Check: captureLimit_ set AND captureCount_ reached?">증가 후 captureLimit&#95; 설정 AND captureCount&#95; 도달인지 확인</span></td>
-<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a> · <a href="#source-009073d2370150c1">src/apps/cam/camera_session.cpp:274</a></td>
+<td><a href="#source-24d83931ed92dc57">src/apps/cam/camera_session.cpp:467</a> · <a href="#source-fed2a2e4116ab528">src/apps/cam/camera_session.cpp:283</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Emit captureDone, then processRequest returns">captureDone.emit&#40;&#41; 신호 후 processRequest가 반환</span></td>
-<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+<td><a href="#source-24d83931ed92dc57">src/apps/cam/camera_session.cpp:467</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Keep buffers (Request::ReuseBuffers); queueRequest">Request::ReuseBuffers로 버퍼 유지 후 queueRequest 호출</span></td>
-<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+<td><a href="#source-24d83931ed92dc57">src/apps/cam/camera_session.cpp:467</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Check cancel status">취소 여부 확인</span></td>
-<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+<td><a href="#source-24d83931ed92dc57">src/apps/cam/camera_session.cpp:467</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="If cancelled · request-&gt;status() == Request::RequestCancelled [true]">취소 상태면 · request-&gt;status&#40;&#41; == Request::RequestCancelled &#91;true&#93;</span></td>
-<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+<td><a href="#source-24d83931ed92dc57">src/apps/cam/camera_session.cpp:467</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="If not cancelled · request-&gt;status() == Request::RequestCancelled [false]">취소 아니면 · request-&gt;status&#40;&#41; == Request::RequestCancelled &#91;false&#93;</span></td>
-<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+<td><a href="#source-24d83931ed92dc57">src/apps/cam/camera_session.cpp:467</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Event loop runs">이벤트 루프 실행</span></td>
-<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+<td><a href="#source-24d83931ed92dc57">src/apps/cam/camera_session.cpp:467</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Limit set &amp; reached · captureLimit_ &amp;&amp; captureCount_ &gt;= captureLimit_ [true]">한도 설정 AND 도달 · captureLimit&#95; &amp;&amp; captureCount&#95; &gt;= captureLimit&#95; &#91;true&#93;</span></td>
-<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+<td><a href="#source-24d83931ed92dc57">src/apps/cam/camera_session.cpp:467</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Unset or not reached · captureLimit_ &amp;&amp; captureCount_ &gt;= captureLimit_ [false]">미설정 또는 미도달 · captureLimit&#95; &amp;&amp; captureCount&#95; &gt;= captureLimit&#95; &#91;false&#93;</span></td>
-<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+<td><a href="#source-24d83931ed92dc57">src/apps/cam/camera_session.cpp:467</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Then check">증가 후 확인</span></td>
-<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+<td><a href="#source-24d83931ed92dc57">src/apps/cam/camera_session.cpp:467</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Limit set &amp; reached · captureLimit_ &amp;&amp; captureCount_ &gt;= captureLimit_ [true]">한도 설정 AND 도달 · captureLimit&#95; &amp;&amp; captureCount&#95; &gt;= captureLimit&#95; &#91;true&#93;</span></td>
-<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+<td><a href="#source-24d83931ed92dc57">src/apps/cam/camera_session.cpp:467</a></td>
 </tr>
 <tr>
 <td><span data-sdd-label-en="Unset or not reached · captureLimit_ &amp;&amp; captureCount_ &gt;= captureLimit_ [false]">미설정 또는 미도달 · captureLimit&#95; &amp;&amp; captureCount&#95; &gt;= captureLimit&#95; &#91;false&#93;</span></td>
-<td><a href="#source-6b5bd0b09b7f63ff">src/apps/cam/camera_session.cpp:458</a></td>
+<td><a href="#source-24d83931ed92dc57">src/apps/cam/camera_session.cpp:467</a></td>
 </tr>
 </tbody>
 </table></div>
 </details>
 <!-- /sdd:visual:completion-flow -->
 
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&quot;, &quot;&lt;a href=\&quot;#source-077dc6a73bad3108\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/apps/cam/camera_session.cpp:458&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L458\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:458&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&quot;: [&quot;#source-077dc6a73bad3108&quot;], &quot;src/apps/cam/camera_session.cpp:458&quot;: [&quot;#source-6b5bd0b09b7f63ff&quot;]}">이번 세 실제 실행 명령은 화면·파일 출력 옵션을 요청하지 않았습니다. 다른 출력 옵션을 선택한 동작은 이번 실행으로 검증하지 않았습니다. <code>processRequest</code>가 호출될 때 처리 한도가 설정되어 있고 처리 수가 이미 그 한도에 도달했다면, <code>captureDone</code>을 다시 내지 않고 즉시 반환하여 후속 프레임 처리를 건너뜁니다.</p>
-<p data-sdd-evidence="[[&quot;src/apps/cam/camera_session.cpp:458&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L458\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:458&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/apps/cam/camera_session.cpp:548&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L548\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:548&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/apps/cam/camera_session.cpp:444&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L444\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:444&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/apps/cam/camera_session.cpp:458&quot;: [&quot;#source-6b5bd0b09b7f63ff&quot;], &quot;src/apps/cam/camera_session.cpp:548&quot;: [&quot;#source-3735f60a0df6bce5&quot;], &quot;src/apps/cam/camera_session.cpp:444&quot;: [&quot;#source-bc965624cfbc157e&quot;]}"><code>processRequest</code>는 프레임 정보를 출력하고 처리 수를 하나 늘립니다. 이후 <code>processRequest</code>는 처리 수가 설정된 캡처 한도에 도달하면 <code>captureDone</code> 신호를 내보내고 함수를 반환합니다. 앞서 정한 출력 조건에서 <code>CameraSession::processRequest</code>는 처리 한도가 미설정이거나 처리 수가 아직 한도에 도달하지 않았으면 버퍼를 유지한 채 요청을 재사용하고 <code>queueRequest</code>를 호출합니다. <code>processRequest</code>는 처리 수를 캡처 한도와 비교하고, 제출 시도 수는 <code>queueRequest</code>에서 같은 캡처 한도와 비교하므로 두 검사는 요청을 처리할 때와 제출할 때로 시점이 다릅니다.</p>
-<p data-sdd-evidence="[[&quot;src/apps/cam/camera_session.cpp:458&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L458\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:458&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-5a006a90fe9f46ad\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/apps/cam/camera_session.cpp:458&quot;: [&quot;#source-6b5bd0b09b7f63ff&quot;], &quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;: [&quot;#source-5a006a90fe9f46ad&quot;]}">이번 실행에서 요청 완료 콜백 스레드와 후속 <code>processRequest</code> 처리 스레드는 서로 달랐습니다. 다만 이 스레드 배치가 모든 실행에서 보장되는 것은 아니며, <code>requestComplete</code>의 <code>RequestCancelled</code> 취소 분기는 소스에 존재하지만 이번 실행에서 동적으로 시험하지 않았습니다.</p>
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&quot;, &quot;&lt;a href=\&quot;#source-077dc6a73bad3108\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/apps/cam/camera_session.cpp:467&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L467\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:467&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&quot;: [&quot;#source-077dc6a73bad3108&quot;], &quot;src/apps/cam/camera_session.cpp:467&quot;: [&quot;#source-24d83931ed92dc57&quot;]}">세 실제 실행 명령은 화면·파일 출력 옵션을 요청하지 않았습니다. 다른 출력 옵션을 선택한 동작은 이번 실행으로 검증하지 않았습니다. <code>processRequest</code>가 호출될 때 처리 한도가 설정되어 있고 처리 수가 이미 한도에 도달했다면, <code>captureDone</code>을 다시 내지 않고 즉시 반환하여 후속 프레임 처리를 건너뜁니다.</p>
+<p data-sdd-evidence="[[&quot;src/apps/cam/camera_session.cpp:467&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L467\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:467&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/apps/cam/camera_session.cpp:557&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L557\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:557&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&quot;, &quot;&lt;a href=\&quot;#source-077dc6a73bad3108\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/apps/cam/camera_session.cpp:453&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L453\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:453&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/apps/cam/camera_session.cpp:467&quot;: [&quot;#source-24d83931ed92dc57&quot;], &quot;src/apps/cam/camera_session.cpp:557&quot;: [&quot;#source-eb19d6a7f4a0f3f0&quot;], &quot;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&quot;: [&quot;#source-077dc6a73bad3108&quot;], &quot;src/apps/cam/camera_session.cpp:453&quot;: [&quot;#source-a93e2b65e7577aaf&quot;]}"><code>processRequest</code>는 프레임 정보를 출력하고 처리 수를 하나 늘립니다. <code>processRequest</code>는 설정된 한도에 도달하면 <code>captureDone</code> 신호를 내고 반환합니다. 앞서 정한 출력 조건에서 처리 한도가 미설정이거나 처리 수가 아직 한도에 도달하지 않았으면 <code>CameraSession::processRequest</code>는 버퍼를 유지해 요청을 재사용하고 제출 도우미 <code>queueRequest</code>를 호출합니다. 처리 함수는 처리 수를, 제출 도우미는 제출 시도 수를 같은 캡처 한도 값과 서로 다른 시점에 비교합니다.</p>
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&quot;, &quot;&lt;a href=\&quot;#source-e326d2b05d8f4ef8\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/apps/cam/camera_session.cpp:467&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L467\&quot;&gt;&lt;code&gt;src/apps/cam/camera_session.cpp:467&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&quot;: [&quot;#source-e326d2b05d8f4ef8&quot;], &quot;src/apps/cam/camera_session.cpp:467&quot;: [&quot;#source-24d83931ed92dc57&quot;]}">이번 세 실행에서는 콜백과 후속 처리가 서로 다른 스레드에서 관측됐지만, 모든 실행에서 같은 배치를 보장하지는 않습니다. <code>requestComplete</code>에는 취소된 요청의 분기가 있지만, 이번 실행에서는 해당 분기를 동적으로 시험하지 않았습니다.</p>
 
-<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>9</span>개</summary><ul><li><code>src/apps/cam/camera_session.cpp</code><span class="evidence-lines"><a href="#source-6b5bd0b09b7f63ff" aria-label="src/apps/cam/camera_session.cpp:458 발췌"><code>L458</code> 발췌</a> · <a aria-label="src/apps/cam/camera_session.cpp:458" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L458">전체 소스 <code>L458</code></a> · <a href="#source-3735f60a0df6bce5" aria-label="src/apps/cam/camera_session.cpp:548 발췌"><code>L548</code> 발췌</a> · <a aria-label="src/apps/cam/camera_session.cpp:548" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L548">전체 소스 <code>L548</code></a> · <a href="#source-bc965624cfbc157e" aria-label="src/apps/cam/camera_session.cpp:444 발췌"><code>L444</code> 발췌</a> · <a aria-label="src/apps/cam/camera_session.cpp:444" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L444">전체 소스 <code>L444</code></a> · <a aria-label="src/apps/cam/camera_session.cpp:274" href="#source-009073d2370150c1"><code>L274</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-options.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-options.txt:1" href="#source-077dc6a73bad3108"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1" href="#source-5a006a90fe9f46ad"><code>L1</code></a></span></li><li><code>src/apps/cam/camera_session.h</code><span class="evidence-lines"><a aria-label="src/apps/cam/camera_session.h:61" href="#source-3122754fc16929a5"><code>L61</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1" href="#source-67134777ea4213e0"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1" href="#source-e326d2b05d8f4ef8"><code>L1</code></a></span></li></ul></details><h2 id="지원-커널과-장치-접근을-확인한-뒤-재현합니다">지원 커널과 장치 접근을 확인한 뒤 재현합니다</h2>
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>9</span>개</summary><ul><li><code>src/apps/cam/camera_session.cpp</code><span class="evidence-lines"><a href="#source-24d83931ed92dc57" aria-label="src/apps/cam/camera_session.cpp:467 발췌"><code>L467</code> 발췌</a> · <a aria-label="src/apps/cam/camera_session.cpp:467" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L467">전체 소스 <code>L467</code></a> · <a href="#source-eb19d6a7f4a0f3f0" aria-label="src/apps/cam/camera_session.cpp:557 발췌"><code>L557</code> 발췌</a> · <a aria-label="src/apps/cam/camera_session.cpp:557" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L557">전체 소스 <code>L557</code></a> · <a href="#source-a93e2b65e7577aaf" aria-label="src/apps/cam/camera_session.cpp:453 발췌"><code>L453</code> 발췌</a> · <a aria-label="src/apps/cam/camera_session.cpp:453" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L453">전체 소스 <code>L453</code></a> · <a aria-label="src/apps/cam/camera_session.cpp:283" href="#source-fed2a2e4116ab528"><code>L283</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-options.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-options.txt:1" href="#source-077dc6a73bad3108"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1" href="#source-e326d2b05d8f4ef8"><code>L1</code></a></span></li><li><code>src/apps/cam/camera_session.h</code><span class="evidence-lines"><a aria-label="src/apps/cam/camera_session.h:61" href="#source-3122754fc16929a5"><code>L61</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1" href="#source-67134777ea4213e0"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1" href="#source-5a006a90fe9f46ad"><code>L1</code></a></span></li></ul></details><h2 id="지원-커널과-장치-접근을-확인한-뒤-재현합니다">지원 커널과 장치 접근을 확인한 뒤 재현합니다</h2>
 
 <ol>
 <li>
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-5a006a90fe9f46ad\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1&quot;, &quot;&lt;a href=\&quot;#source-67134777ea4213e0\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;: [&quot;#source-5a006a90fe9f46ad&quot;], &quot;product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1&quot;: [&quot;#source-67134777ea4213e0&quot;]}"><strong>준비 (1–3)</strong> 호스트를 바꾸지 않고 사용할 커널의 Kconfig와 의존 조건을 조사하세요.</p>
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-5a006a90fe9f46ad\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1&quot;, &quot;&lt;a href=\&quot;#source-67134777ea4213e0\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;: [&quot;#source-5a006a90fe9f46ad&quot;], &quot;product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1&quot;: [&quot;#source-67134777ea4213e0&quot;]}"><strong>준비 (1–3)</strong> 호스트 상태를 바꾸지 않고 사용할 커널의 Kconfig와 의존 조건을 조사하세요.</p>
 </li>
 <li>
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-5a006a90fe9f46ad\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1&quot;, &quot;&lt;a href=\&quot;#source-67134777ea4213e0\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&quot;, &quot;&lt;a href=\&quot;#source-e326d2b05d8f4ef8\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;: [&quot;#source-5a006a90fe9f46ad&quot;], &quot;product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1&quot;: [&quot;#source-67134777ea4213e0&quot;], &quot;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&quot;: [&quot;#source-e326d2b05d8f4ef8&quot;]}">조사 결과에 맞는 DMA-BUF 할당기를 선택하세요. 이 기록과 같은 조건으로 재현할 때는 udmabuf가 필요합니다.</p>
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-5a006a90fe9f46ad\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&quot;, &quot;&lt;a href=\&quot;#source-e326d2b05d8f4ef8\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1&quot;, &quot;&lt;a href=\&quot;#source-67134777ea4213e0\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;: [&quot;#source-5a006a90fe9f46ad&quot;], &quot;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&quot;: [&quot;#source-e326d2b05d8f4ef8&quot;], &quot;product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1&quot;: [&quot;#source-67134777ea4213e0&quot;]}"><strong>DMA-BUF 할당기 선택:</strong> 선택한 커널의 Kconfig, 의존성, 실제 사용 가능한 모듈과 할당기 후보를 조사하고 결과에 맞는 할당기 하나를 선택하세요. 이 기록과 같은 조건으로 재현하려면 udmabuf를 사용하세요.</p>
 </li>
 <li>
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-5a006a90fe9f46ad\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&quot;, &quot;&lt;a href=\&quot;#source-e326d2b05d8f4ef8\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;: [&quot;#source-5a006a90fe9f46ad&quot;], &quot;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&quot;: [&quot;#source-e326d2b05d8f4ef8&quot;]}">선택한 커널과 할당기에 실제로 필요한 모듈에 대해서만 설치 여부와 커널 버전 일치를 확인하세요. 기록된 udmabuf 시험은 내장 드라이버였으며 별도 모듈을 설치하지 않았습니다.</p>
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-5a006a90fe9f46ad\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&quot;, &quot;&lt;a href=\&quot;#source-e326d2b05d8f4ef8\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;: [&quot;#source-5a006a90fe9f46ad&quot;], &quot;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&quot;: [&quot;#source-e326d2b05d8f4ef8&quot;]}">선택한 커널과 할당기에 필요한 모듈만 설치 여부와 커널 버전 일치를 조사하세요. 기록된 udmabuf 시험에서는 드라이버가 내장되어 있었고 별도 모듈을 설치하지 않았습니다.</p>
 </li>
 <li>
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-5a006a90fe9f46ad\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1&quot;, &quot;&lt;a href=\&quot;#source-67134777ea4213e0\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;: [&quot;#source-5a006a90fe9f46ad&quot;], &quot;product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1&quot;: [&quot;#source-67134777ea4213e0&quot;]}"><strong>호스트 변경 (4–5)</strong> 변경안, 커널 이미지 SHA-256, 영향, 정확한 백업 경로, 복구 절차를 포함한 호스트 변경 계획을 실행 직전에 별도 승인을 받으세요. PR 병합이나 Pages 배포 승인으로 이 호스트 변경 승인을 대신하지 마세요.</p>
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-5a006a90fe9f46ad\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;: [&quot;#source-5a006a90fe9f46ad&quot;]}"><strong>호스트 변경 (4–5)</strong> 변경안, 부팅할 커널과 이미지 SHA-256, 영향, 정확한 백업 경로, 부팅 및 복구 절차가 포함된 호스트 변경 계획에 대해 실행 직전에 별도 승인을 받으세요.</p>
 </li>
 <li>
 <p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-5a006a90fe9f46ad\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;: [&quot;#source-5a006a90fe9f46ad&quot;]}">승인된 계획에 따라 시험 커널을 설치하고 부팅하세요.</p>
 </li>
 <li>
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-5a006a90fe9f46ad\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;: [&quot;#source-5a006a90fe9f46ad&quot;]}"><strong>실행 전 검사 (6–11)</strong> 실행 중인 커널이 <code>6.18.33.2-microsoft-standard-WSL2-issue211</code>과 일치하는지 확인하고, 다르면 캡처하지 마세요.</p>
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-5a006a90fe9f46ad\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;: [&quot;#source-5a006a90fe9f46ad&quot;]}"><strong>실행 전 검사 (6–11)</strong> 실행 중인 커널 버전이 <code>6.18.33.2-microsoft-standard-WSL2-issue211</code>인지 확인하세요.</p>
 </li>
 <li>
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-5a006a90fe9f46ad\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;: [&quot;#source-5a006a90fe9f46ad&quot;]}">WSL root 자식 컨텍스트에서 <code>/dev/udmabuf</code>을 열 수 있는 접근 권한이 있는지 확인하고, 없으면 캡처를 시작하지 마세요.</p>
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-5a006a90fe9f46ad\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;: [&quot;#source-5a006a90fe9f46ad&quot;]}">WSL root 자식 컨텍스트에서 <code>/dev/udmabuf</code>을 열 수 있는 권한을 확인하세요.</p>
 </li>
 <li>
-<p data-sdd-evidence="[[&quot;src/libcamera/pipeline/virtual/data/virtual.yaml:28&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/data/virtual.yaml#L28\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/virtual/data/virtual.yaml:28&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline/virtual/data/virtual.yaml:28&quot;: [&quot;#source-9858e22e2225cc10&quot;]}">사용할 Virtual2 YAML의 크기 400x300과 패턴 값 lines를 하나의 구성 조합으로 대조하세요.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/pipeline/virtual/data/virtual.yaml:28&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/data/virtual.yaml#L28\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/virtual/data/virtual.yaml:28&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline/virtual/data/virtual.yaml:28&quot;: [&quot;#source-9858e22e2225cc10&quot;]}">사용할 Virtual2 YAML에서 크기 400x300과 패턴 값 lines를 하나의 구성 조합으로 대조하세요.</p>
 </li>
 <li>
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&quot;, &quot;&lt;a href=\&quot;#source-077dc6a73bad3108\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-5a006a90fe9f46ad\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&quot;: [&quot;#source-077dc6a73bad3108&quot;], &quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;: [&quot;#source-5a006a90fe9f46ad&quot;]}">실행할 cam 명령에서 카메라 선택 인자인 <code>--camera</code>의 값이 <code>Virtual2</code>인지 확인하세요.</p>
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&quot;, &quot;&lt;a href=\&quot;#source-077dc6a73bad3108\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&quot;: [&quot;#source-077dc6a73bad3108&quot;]}">사용할 cam 명령의 카메라 선택 인자가 <code>Virtual2</code>인지 확인하세요.</p>
 </li>
 <li>
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&quot;, &quot;&lt;a href=\&quot;#source-077dc6a73bad3108\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&quot;: [&quot;#source-077dc6a73bad3108&quot;]}">사용할 cam 스트림 인자가 <code>role=video,width=400,height=300,pixelformat=NV12</code>를 요청하는지 확인하세요.</p>
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&quot;, &quot;&lt;a href=\&quot;#source-077dc6a73bad3108\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&quot;: [&quot;#source-077dc6a73bad3108&quot;]}">사용할 cam 스트림 인자가 400x300 NV12를 요청하는지 확인하세요.</p>
 </li>
 <li>
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&quot;, &quot;&lt;a href=\&quot;#source-077dc6a73bad3108\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-5a006a90fe9f46ad\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&quot;: [&quot;#source-077dc6a73bad3108&quot;], &quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;: [&quot;#source-5a006a90fe9f46ad&quot;]}">실행할 공식 cam 명령의 인자에 <code>--capture=3</code>이 포함되어 3프레임을 요청하도록 지정되었는지 직접 확인합니다.</p>
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&quot;, &quot;&lt;a href=\&quot;#source-077dc6a73bad3108\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-options.txt:1&quot;: [&quot;#source-077dc6a73bad3108&quot;]}">실행할 공식 cam 명령에 3프레임을 요청하는 <code>--capture=3</code> 인자가 지정되어 있는지 확인합니다.</p>
 </li>
 <li>
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-5a006a90fe9f46ad\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;: [&quot;#source-5a006a90fe9f46ad&quot;]}"><strong>실행·검증 (12–13)</strong> 연결된 실행 절차를 따라 소스를 수정하지 않은 공식 <code>cam</code>을 세 개의 독립 프로세스로 실행합니다.</p>
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-5a006a90fe9f46ad\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&quot;, &quot;&lt;a href=\&quot;#source-e326d2b05d8f4ef8\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;: [&quot;#source-5a006a90fe9f46ad&quot;], &quot;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&quot;: [&quot;#source-e326d2b05d8f4ef8&quot;]}"><strong>실행·검증 (12–13)</strong> 연결된 실행 절차에 따라 수정하지 않은 공식 cam을 세 독립 프로세스로 실행합니다.</p>
 </li>
 <li>
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-5a006a90fe9f46ad\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&quot;, &quot;&lt;a href=\&quot;#source-e326d2b05d8f4ef8\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;: [&quot;#source-5a006a90fe9f46ad&quot;], &quot;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&quot;: [&quot;#source-e326d2b05d8f4ef8&quot;]}">새 실행 결과를 증거로 삼아 카메라 Virtual2, 실제 적용 스트림 400x300 NV12, 각 독립 실행의 정상 3프레임, 종료 코드 0이라는 하나의 기대 결과 조합과 대조하세요.</p>
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&quot;, &quot;&lt;a href=\&quot;#source-e326d2b05d8f4ef8\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-5a006a90fe9f46ad\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&quot;: [&quot;#source-e326d2b05d8f4ef8&quot;], &quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;: [&quot;#source-5a006a90fe9f46ad&quot;]}">새 실행의 증거를 카메라 Virtual2, 실제 적용 스트림 400x300 NV12, 각 독립 실행의 정상 3프레임 처리와 종료 코드 0이라는 기대 결과 조합과 대조하세요.</p>
 </li>
 </ol>
 <!-- sdd:visual:reproduction-flow -->
 <h3 id="환경-확인에서-재현-실행까지">환경 확인에서 재현 실행까지</h3>
 <pre class="mermaid">flowchart TB
-%% sdd:translations {&quot;Virtual2 YAML의 400 × 300 &lt;br/&gt;크기와 lines 패턴이 &lt;br/&gt;맞습니까?&quot;: &quot;Does Virtual2 YAML match &lt;br/&gt;400 × 300 size and lines &lt;br/&gt;pattern?&quot;, &quot;WSL 변경 계획을 &lt;br/&gt;씁니다#40;영향·정확한 백업 &lt;br/&gt;경로·복구#41;. 승인 전 Docker &lt;br/&gt;중지·WSL 종료 금지&quot;: &quot;Plan impact, exact backup, &lt;br/&gt;recovery; no Docker/WSL &lt;br/&gt;stop before approval&quot;, &quot;검사 중 하나라도 다르면 &lt;br/&gt;캡처하지 않습니다&quot;: &quot;If any check differs, do &lt;br/&gt;not capture&quot;, &quot;공식 cam을 3회 실행하고, &lt;br/&gt;실행별 기록을 미리 존재하지 &lt;br/&gt;않아야 하는 새 디렉터리에 &lt;br/&gt;분리합니다&quot;: &quot;Run official cam 3 times; &lt;br/&gt;records go to a new dir &lt;br/&gt;that must not exist&quot;, &quot;구성 일치 시&quot;: &quot;If config matches&quot;, &quot;모두 통과 시 실행&quot;: &quot;If all pass, run&quot;, &quot;부팅 후 조건 확인&quot;: &quot;Check after boot&quot;, &quot;불필요 시 생략&quot;: &quot;If not needed, skip&quot;, &quot;새 결과 검증: 카메라, 적용 &lt;br/&gt;구성, 3프레임, 종료 코드 0 &lt;br/&gt;확인&quot;: &quot;Verify new result: camera, &lt;br/&gt;applied config, 3 frames, &lt;br/&gt;exit code 0&quot;, &quot;세 실행 후 검증&quot;: &quot;Verify after 3 runs&quot;, &quot;승인 요청&quot;: &quot;Request approval&quot;, &quot;승인 후 계획이 요구할 때만 &lt;br/&gt;Docker를 중지합니다&quot;: &quot;After approval, stop Docker &lt;br/&gt;only if the plan requires it&quot;, &quot;승인 후 진행&quot;: &quot;After approval&quot;, &quot;승인된 계획대로만 시험 &lt;br/&gt;커널을 설치하고 &lt;br/&gt;부팅합니다#40;공유 커널 재부팅#41;&quot;: &quot;Install, boot test kernel &lt;br/&gt;only per approved plan; &lt;br/&gt;shared reboot&quot;, &quot;승인된 계획이 Docker 중지를 &lt;br/&gt;요구하는지 확인합니다&quot;: &quot;Check whether the approved &lt;br/&gt;plan requires a Docker stop&quot;, &quot;실제 cam 명령이 Virtual2, &lt;br/&gt;400 × 300 NV12, cam 캡처 &lt;br/&gt;한도 3과 맞습니까?&quot;: &quot;Does cam command match &lt;br/&gt;Virtual2, 400 × 300 NV12, &lt;br/&gt;cam capture limit 3?&quot;, &quot;실행 전 검사 6–7: 실행 중 &lt;br/&gt;커널이 기록된 커널과 같고, &lt;br/&gt;root가 /dev/udmabuf을 열 수 &lt;br/&gt;있습니까?&quot;: &quot;Checks 6–7: running kernel &lt;br/&gt;matches recorded, root &lt;br/&gt;opens /dev/udmabuf?&quot;, &quot;조사 후 계획&quot;: &quot;Plan after survey&quot;, &quot;중지 후 설치·부팅&quot;: &quot;Then install, boot&quot;, &quot;통과 시 다음 검사&quot;: &quot;If all pass, next&quot;, &quot;필요 시 중지&quot;: &quot;If needed, stop&quot;, &quot;하나라도 다르면&quot;: &quot;If any differs&quot;, &quot;호스트 변경 실행 직전에 &lt;br/&gt;받는 별도 &lt;br/&gt;승인입니다#40;PR·Pages &lt;br/&gt;승인으로 대신하지 않음#41;&quot;: &quot;Separate approval &lt;br/&gt;immediately before host &lt;br/&gt;change; PR/Pages not enough&quot;, &quot;호스트를 바꾸지 않고 &lt;br/&gt;Kconfig와 할당기 후보를 &lt;br/&gt;조사해 하나를 고릅니다&quot;: &quot;Survey Kconfig and &lt;br/&gt;allocator candidates &lt;br/&gt;without host change; choose &lt;br/&gt;one&quot;}
-  v_kconfig_survey[&quot;호스트를 바꾸지 않고 &lt;br/&gt;Kconfig와 할당기 후보를 &lt;br/&gt;조사해 하나를 고릅니다&quot;]
-  v_wsl_plan[&quot;WSL 변경 계획을 &lt;br/&gt;씁니다#40;영향·정확한 백업 &lt;br/&gt;경로·복구#41;. 승인 전 Docker &lt;br/&gt;중지·WSL 종료 금지&quot;]
-  v_host_approval[&quot;호스트 변경 실행 직전에 &lt;br/&gt;받는 별도 &lt;br/&gt;승인입니다#40;PR·Pages &lt;br/&gt;승인으로 대신하지 않음#41;&quot;]
-  v_docker_decide{&quot;승인된 계획이 Docker 중지를 &lt;br/&gt;요구하는지 확인합니다&quot;}
-  v_docker_stop[&quot;승인 후 계획이 요구할 때만 &lt;br/&gt;Docker를 중지합니다&quot;]
-  v_kernel_prep[&quot;승인된 계획대로만 시험 &lt;br/&gt;커널을 설치하고 &lt;br/&gt;부팅합니다#40;공유 커널 재부팅#41;&quot;]
-  v_device_verify{&quot;실행 전 검사 6–7: 실행 중 &lt;br/&gt;커널이 기록된 커널과 같고, &lt;br/&gt;root가 /dev/udmabuf을 열 수 &lt;br/&gt;있습니까?&quot;}
-  v_yaml_check{&quot;Virtual2 YAML의 400 × 300 &lt;br/&gt;크기와 lines 패턴이 &lt;br/&gt;맞습니까?&quot;}
-  v_cam_check{&quot;실제 cam 명령이 Virtual2, &lt;br/&gt;400 × 300 NV12, cam 캡처 &lt;br/&gt;한도 3과 맞습니까?&quot;}
-  v_run_cam[&quot;공식 cam을 3회 실행하고, &lt;br/&gt;실행별 기록을 미리 존재하지 &lt;br/&gt;않아야 하는 새 디렉터리에 &lt;br/&gt;분리합니다&quot;]
-  v_mismatch_stop[&quot;검사 중 하나라도 다르면 &lt;br/&gt;캡처하지 않습니다&quot;]
-  v_result_verify[&quot;새 결과 검증: 카메라, 적용 &lt;br/&gt;구성, 3프레임, 종료 코드 0 &lt;br/&gt;확인&quot;]
-  v_kconfig_survey --&gt;|&quot;조사 후 계획&quot;| v_wsl_plan
-  v_wsl_plan --&gt;|&quot;승인 요청&quot;| v_host_approval
-  v_host_approval --&gt;|&quot;승인 후 진행&quot;| v_docker_decide
-  v_docker_decide --&gt;|&quot;필요 시 중지&quot;| v_docker_stop
-  v_docker_decide --&gt;|&quot;불필요 시 생략&quot;| v_kernel_prep
-  v_docker_stop --&gt;|&quot;중지 후 설치·부팅&quot;| v_kernel_prep
-  v_kernel_prep --&gt;|&quot;부팅 후 조건 확인&quot;| v_device_verify
-  v_device_verify --&gt;|&quot;통과 시 다음 검사&quot;| v_yaml_check
-  v_yaml_check --&gt;|&quot;구성 일치 시&quot;| v_cam_check
-  v_cam_check --&gt;|&quot;모두 통과 시 실행&quot;| v_run_cam
-  v_device_verify --&gt;|&quot;하나라도 다르면&quot;| v_mismatch_stop
-  v_yaml_check --&gt;|&quot;하나라도 다르면&quot;| v_mismatch_stop
-  v_cam_check --&gt;|&quot;하나라도 다르면&quot;| v_mismatch_stop
-  v_run_cam --&gt;|&quot;세 실행 후 검증&quot;| v_result_verify</pre>
+%% sdd:translations {&quot;YAML은 400×300 lines. cam &lt;br/&gt;인자를 확인합니다. --camera &lt;br/&gt;Virtual2 --capture#61;3 &lt;br/&gt;--stream &lt;br/&gt;role#61;video,width#61;400,height#61;&lt;br/&gt;300,pixelformat#61;NV12&quot;: &quot;YAML uses 400×300 lines. &lt;br/&gt;Check cam arguments: &lt;br/&gt;--camera Virtual2 &lt;br/&gt;--capture#61;3 --stream &lt;br/&gt;role#61;video,width#61;400,height#61;&lt;br/&gt;300,pixelformat#61;NV12&quot;, &quot;각 실행의 실제 적용값 대조: &lt;br/&gt;Virtual2, 400×300 &lt;br/&gt;NV12/SMPTE170M. 시퀀스 0–2, &lt;br/&gt;요청 상태 1, 버퍼 상태 0, &lt;br/&gt;종료 코드 0&quot;: &quot;Compare each run with &lt;br/&gt;expected Virtual2 and &lt;br/&gt;400×300 NV12/SMPTE170M. &lt;br/&gt;Check sequences 0–2, &lt;br/&gt;request status 1, buffer &lt;br/&gt;status 0, and exit code 0.&quot;, &quot;격리된 환경에서 호스트 변경 &lt;br/&gt;없이 조사합니다. Kconfig, &lt;br/&gt;의존성, 사용 가능한 모듈을 &lt;br/&gt;확인하고 DMA-BUF 할당기 &lt;br/&gt;하나를 선택합니다.&quot;: &quot;Start read-only in an &lt;br/&gt;isolated test environment. &lt;br/&gt;Check Kconfig support, &lt;br/&gt;dependencies, and available &lt;br/&gt;modules. Choose one DMA-BUF &lt;br/&gt;allocator.&quot;, &quot;계획에 Docker 중지가 있는가?&quot;: &quot;Does the plan require &lt;br/&gt;stopping Docker?&quot;, &quot;고정 소스와 빌드 확인 뒤 &lt;br/&gt;실행&quot;: &quot;Run after checking the &lt;br/&gt;pinned source and build&quot;, &quot;공식 cam을 세 독립 &lt;br/&gt;프로세스로 실행&quot;: &quot;Run official cam in three &lt;br/&gt;independent processes&quot;, &quot;그 다음 부팅&quot;: &quot;Then boot&quot;, &quot;두 조건이 일치&quot;: &quot;Both checks pass&quot;, &quot;변경 불필요&quot;: &quot;No host change needed&quot;, &quot;부팅 뒤 실제 환경 확인&quot;: &quot;Check the running &lt;br/&gt;environment&quot;, &quot;새 경로에서 실행별 기록 확인&quot;: &quot;Check each run in the new &lt;br/&gt;evidence directory&quot;, &quot;생략&quot;: &quot;Skip&quot;, &quot;수정하지 않은 293d751a, &lt;br/&gt;디버그 Meson 빌드, GDB 도구 &lt;br/&gt;경로, 컴파일된 DMA-BUF &lt;br/&gt;프로브 확인&quot;: &quot;Check unmodified 293d751a, &lt;br/&gt;its debug Meson build, the &lt;br/&gt;GDB tools prefix, and the &lt;br/&gt;compiled DMA-BUF probe&quot;, &quot;승인을 받은 뒤 Docker 중지&quot;: &quot;Stop Docker after approval&quot;, &quot;승인한 계획 확인&quot;: &quot;Check the approved plan&quot;, &quot;승인한 시험 커널로 부팅&quot;: &quot;Boot the approved test &lt;br/&gt;kernel&quot;, &quot;시험 소스와 빌드도 확인&quot;: &quot;Also check the test source &lt;br/&gt;and build&quot;, &quot;시험 환경 선택&quot;: &quot;Choose the test environment&quot;, &quot;실행 중인 커널이 &lt;br/&gt;6.18.33.2-microsoft-standard&lt;br/&gt;-WSL2-issue211이고 root가 &lt;br/&gt;/dev/udmabuf을 열 수 있는가?&quot;: &quot;Is the running kernel &lt;br/&gt;6.18.33.2-microsoft-standard&lt;br/&gt;-WSL2-issue211 and can root &lt;br/&gt;open /dev/udmabuf?&quot;, &quot;영향·백업 경로·커널 &lt;br/&gt;이미지와 SHA-256·부팅·복구 &lt;br/&gt;절차를 기록하고 별도 승인&quot;: &quot;Document impact, backup &lt;br/&gt;path, kernel image and &lt;br/&gt;SHA-256, boot and recovery. &lt;br/&gt;Get separate approval&quot;, &quot;캡처 중단&quot;: &quot;Stop before capture&quot;, &quot;필요&quot;: &quot;Required&quot;, &quot;하나라도 다름&quot;: &quot;Either check fails&quot;, &quot;호스트 변경이 필요한가?&quot;: &quot;Does the test require host &lt;br/&gt;changes?&quot;}
+  v_survey[&quot;격리된 환경에서 호스트 변경 &lt;br/&gt;없이 조사합니다. Kconfig, &lt;br/&gt;의존성, 사용 가능한 모듈을 &lt;br/&gt;확인하고 DMA-BUF 할당기 &lt;br/&gt;하나를 선택합니다.&quot;]
+  v_host{&quot;호스트 변경이 필요한가?&quot;}
+  v_approval[&quot;영향·백업 경로·커널 &lt;br/&gt;이미지와 SHA-256·부팅·복구 &lt;br/&gt;절차를 기록하고 별도 승인&quot;]
+  v_docker{&quot;계획에 Docker 중지가 있는가?&quot;}
+  v_stop_docker[&quot;승인을 받은 뒤 Docker 중지&quot;]
+  v_boot[&quot;승인한 시험 커널로 부팅&quot;]
+  v_device{&quot;실행 중인 커널이 &lt;br/&gt;6.18.33.2-microsoft-standard&lt;br/&gt;-WSL2-issue211이고 root가 &lt;br/&gt;/dev/udmabuf을 열 수 있는가?&quot;}
+  v_stop[&quot;캡처 중단&quot;]
+  v_run[&quot;공식 cam을 세 독립 &lt;br/&gt;프로세스로 실행&quot;]
+  v_confirm[&quot;각 실행의 실제 적용값 대조: &lt;br/&gt;Virtual2, 400×300 &lt;br/&gt;NV12/SMPTE170M. 시퀀스 0–2, &lt;br/&gt;요청 상태 1, 버퍼 상태 0, &lt;br/&gt;종료 코드 0&quot;]
+  v_options[&quot;YAML은 400×300 lines. cam &lt;br/&gt;인자를 확인합니다. --camera &lt;br/&gt;Virtual2 --capture#61;3 &lt;br/&gt;--stream &lt;br/&gt;role#61;video,width#61;400,height#61;&lt;br/&gt;300,pixelformat#61;NV12&quot;]
+  v_build[&quot;수정하지 않은 293d751a, &lt;br/&gt;디버그 Meson 빌드, GDB 도구 &lt;br/&gt;경로, 컴파일된 DMA-BUF &lt;br/&gt;프로브 확인&quot;]
+  v_survey --&gt;|&quot;시험 환경 선택&quot;| v_host
+  v_host --&gt;|&quot;필요&quot;| v_approval
+  v_host --&gt;|&quot;변경 불필요&quot;| v_device
+  v_approval --&gt;|&quot;승인한 계획 확인&quot;| v_docker
+  v_docker --&gt;|&quot;필요&quot;| v_stop_docker
+  v_docker --&gt;|&quot;생략&quot;| v_boot
+  v_stop_docker --&gt;|&quot;그 다음 부팅&quot;| v_boot
+  v_boot --&gt;|&quot;부팅 뒤 실제 환경 확인&quot;| v_device
+  v_device --&gt;|&quot;하나라도 다름&quot;| v_stop
+  v_device --&gt;|&quot;두 조건이 일치&quot;| v_options
+  v_run --&gt;|&quot;새 경로에서 실행별 기록 확인&quot;| v_confirm
+  v_options --&gt;|&quot;시험 소스와 빌드도 확인&quot;| v_build
+  v_build --&gt;|&quot;고정 소스와 빌드 확인 뒤 &lt;br/&gt;실행&quot;| v_run</pre>
 <p><a href="official-cam-validation.reproduction-flow.mmd">Mermaid 원문</a></p>
 <details class="note">
 <summary>그림 근거와 확인 범위</summary>
-<p>기록된 재현 절차에서 현재 환경 조사, 필요한 공유 호스트 변경의 별도 승인, 지원 커널 부팅과 장치 접근 확인, 공식 cam 재현 실행은 어떤 준비 순서로 이어집니까?</p>
+<p>기존 WSL에 기록된 시험 커널을 설치하는 호스트 변경이 필요한 경우, 승인과 실행 전 검사를 거쳐 어떤 조건에서 재현을 진행합니까?</p>
 <p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
-<p>LLM 그림 초안 · 사람 검토 전</p>
-<p>작성 모델: <code>cli/claude/claude-haiku-5-5</code></p>
 <div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
 <thead>
 <tr>
@@ -916,118 +911,114 @@
 </thead>
 <tbody>
 <tr>
-<td><span data-sdd-label-en="Survey Kconfig and allocator candidates without host change; choose one">호스트를 바꾸지 않고 Kconfig와 할당기 후보를 조사해 하나를 고릅니다</span></td>
-<td><a href="#source-67134777ea4213e0">product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1</a> · <a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
-</tr>
-<tr>
-<td><span data-sdd-label-en="Plan impact, exact backup, recovery; no Docker/WSL stop before approval">WSL 변경 계획을 씁니다&#40;영향·정확한 백업 경로·복구&#41;. 승인 전 Docker 중지·WSL 종료 금지</span></td>
-<td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a> · <a href="#source-67134777ea4213e0">product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1</a></td>
-</tr>
-<tr>
-<td><span data-sdd-label-en="Separate approval immediately before host change; PR/Pages not enough">호스트 변경 실행 직전에 받는 별도 승인입니다&#40;PR·Pages 승인으로 대신하지 않음&#41;</span></td>
-<td><a href="#source-67134777ea4213e0">product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1</a> · <a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
-</tr>
-<tr>
-<td><span data-sdd-label-en="Check whether the approved plan requires a Docker stop">승인된 계획이 Docker 중지를 요구하는지 확인합니다</span></td>
+<td><span data-sdd-label-en="Start read-only in an isolated test environment. Check Kconfig support, dependencies, and available modules. Choose one DMA-BUF allocator.">격리된 환경에서 호스트 변경 없이 조사합니다. Kconfig, 의존성, 사용 가능한 모듈을 확인하고 DMA-BUF 할당기 하나를 선택합니다.</span></td>
 <td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="After approval, stop Docker only if the plan requires it">승인 후 계획이 요구할 때만 Docker를 중지합니다</span></td>
+<td><span data-sdd-label-en="Does the test require host changes?">호스트 변경이 필요한가?</span></td>
 <td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Install, boot test kernel only per approved plan; shared reboot">승인된 계획대로만 시험 커널을 설치하고 부팅합니다&#40;공유 커널 재부팅&#41;</span></td>
+<td><span data-sdd-label-en="Document impact, backup path, kernel image and SHA-256, boot and recovery. Get separate approval">영향·백업 경로·커널 이미지와 SHA-256·부팅·복구 절차를 기록하고 별도 승인</span></td>
 <td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Checks 6–7: running kernel matches recorded, root opens /dev/udmabuf?">실행 전 검사 6–7: 실행 중 커널이 기록된 커널과 같고, root가 /dev/udmabuf을 열 수 있습니까?</span></td>
-<td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a> · <a href="#source-e326d2b05d8f4ef8">product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1</a></td>
-</tr>
-<tr>
-<td><span data-sdd-label-en="Does Virtual2 YAML match 400 × 300 size and lines pattern?">Virtual2 YAML의 400 × 300 크기와 lines 패턴이 맞습니까?</span></td>
-<td><a href="#source-9858e22e2225cc10">src/libcamera/pipeline/virtual/data/virtual.yaml:28</a> · <a href="#source-e326d2b05d8f4ef8">product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1</a></td>
-</tr>
-<tr>
-<td><span data-sdd-label-en="Does cam command match Virtual2, 400 × 300 NV12, cam capture limit 3?">실제 cam 명령이 Virtual2, 400 × 300 NV12, cam 캡처 한도 3과 맞습니까?</span></td>
-<td><a href="#source-077dc6a73bad3108">product-evidence/libcamera-official-cam-trial/invocation-options.txt:1</a> · <a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
-</tr>
-<tr>
-<td><span data-sdd-label-en="Run official cam 3 times; records go to a new dir that must not exist">공식 cam을 3회 실행하고, 실행별 기록을 미리 존재하지 않아야 하는 새 디렉터리에 분리합니다</span></td>
+<td><span data-sdd-label-en="Does the plan require stopping Docker?">계획에 Docker 중지가 있는가?</span></td>
 <td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="If any check differs, do not capture">검사 중 하나라도 다르면 캡처하지 않습니다</span></td>
+<td><span data-sdd-label-en="Stop Docker after approval">승인을 받은 뒤 Docker 중지</span></td>
 <td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Verify new result: camera, applied config, 3 frames, exit code 0">새 결과 검증: 카메라, 적용 구성, 3프레임, 종료 코드 0 확인</span></td>
-<td><a href="#source-e326d2b05d8f4ef8">product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1</a> · <a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
-</tr>
-<tr>
-<td><span data-sdd-label-en="Plan after survey">조사 후 계획</span></td>
-<td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a> · <a href="#source-67134777ea4213e0">product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1</a></td>
-</tr>
-<tr>
-<td><span data-sdd-label-en="Request approval">승인 요청</span></td>
-<td><a href="#source-67134777ea4213e0">product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1</a> · <a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
-</tr>
-<tr>
-<td><span data-sdd-label-en="After approval">승인 후 진행</span></td>
+<td><span data-sdd-label-en="Boot the approved test kernel">승인한 시험 커널로 부팅</span></td>
 <td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="If needed, stop">필요 시 중지</span></td>
+<td><span data-sdd-label-en="Is the running kernel 6.18.33.2-microsoft-standard-WSL2-issue211 and can root open /dev/udmabuf?">실행 중인 커널이 6.18.33.2-microsoft-standard-WSL2-issue211이고 root가 /dev/udmabuf을 열 수 있는가?</span></td>
 <td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="If not needed, skip">불필요 시 생략</span></td>
+<td><span data-sdd-label-en="Stop before capture">캡처 중단</span></td>
 <td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Then install, boot">중지 후 설치·부팅</span></td>
+<td><span data-sdd-label-en="Run official cam in three independent processes">공식 cam을 세 독립 프로세스로 실행</span></td>
 <td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Check after boot">부팅 후 조건 확인</span></td>
+<td><span data-sdd-label-en="Compare each run with expected Virtual2 and 400×300 NV12/SMPTE170M. Check sequences 0–2, request status 1, buffer status 0, and exit code 0.">각 실행의 실제 적용값 대조: Virtual2, 400×300 NV12/SMPTE170M. 시퀀스 0–2, 요청 상태 1, 버퍼 상태 0, 종료 코드 0</span></td>
+<td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a> · <a href="#source-e326d2b05d8f4ef8">product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1</a> · <a href="#source-077dc6a73bad3108">product-evidence/libcamera-official-cam-trial/invocation-options.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="YAML uses 400×300 lines. Check cam arguments: --camera Virtual2 --capture=3 --stream role=video,width=400,height=300,pixelformat=NV12">YAML은 400×300 lines. cam 인자를 확인합니다. --camera Virtual2 --capture=3 --stream role=video,width=400,height=300,pixelformat=NV12</span></td>
+<td><a href="#source-9858e22e2225cc10">src/libcamera/pipeline/virtual/data/virtual.yaml:28</a> · <a href="#source-077dc6a73bad3108">product-evidence/libcamera-official-cam-trial/invocation-options.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check unmodified 293d751a, its debug Meson build, the GDB tools prefix, and the compiled DMA-BUF probe">수정하지 않은 293d751a, 디버그 Meson 빌드, GDB 도구 경로, 컴파일된 DMA-BUF 프로브 확인</span></td>
 <td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="If all pass, next">통과 시 다음 검사</span></td>
-<td><a href="#source-e326d2b05d8f4ef8">product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1</a> · <a href="#source-9858e22e2225cc10">src/libcamera/pipeline/virtual/data/virtual.yaml:28</a></td>
+<td><span data-sdd-label-en="Choose the test environment">시험 환경 선택</span></td>
+<td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="If config matches">구성 일치 시</span></td>
-<td><a href="#source-077dc6a73bad3108">product-evidence/libcamera-official-cam-trial/invocation-options.txt:1</a> · <a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+<td><span data-sdd-label-en="Required">필요</span></td>
+<td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="If all pass, run">모두 통과 시 실행</span></td>
-<td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a> · <a href="#source-077dc6a73bad3108">product-evidence/libcamera-official-cam-trial/invocation-options.txt:1</a></td>
+<td><span data-sdd-label-en="No host change needed">변경 불필요</span></td>
+<td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="If any differs">하나라도 다르면</span></td>
-<td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a> · <a href="#source-e326d2b05d8f4ef8">product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1</a></td>
+<td><span data-sdd-label-en="Check the approved plan">승인한 계획 확인</span></td>
+<td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="If any differs">하나라도 다르면</span></td>
-<td><a href="#source-9858e22e2225cc10">src/libcamera/pipeline/virtual/data/virtual.yaml:28</a> · <a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+<td><span data-sdd-label-en="Required">필요</span></td>
+<td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="If any differs">하나라도 다르면</span></td>
-<td><a href="#source-077dc6a73bad3108">product-evidence/libcamera-official-cam-trial/invocation-options.txt:1</a> · <a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+<td><span data-sdd-label-en="Skip">생략</span></td>
+<td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
 </tr>
 <tr>
-<td><span data-sdd-label-en="Verify after 3 runs">세 실행 후 검증</span></td>
-<td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a> · <a href="#source-e326d2b05d8f4ef8">product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1</a></td>
+<td><span data-sdd-label-en="Then boot">그 다음 부팅</span></td>
+<td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the running environment">부팅 뒤 실제 환경 확인</span></td>
+<td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Either check fails">하나라도 다름</span></td>
+<td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Both checks pass">두 조건이 일치</span></td>
+<td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a> · <a href="#source-9858e22e2225cc10">src/libcamera/pipeline/virtual/data/virtual.yaml:28</a> · <a href="#source-077dc6a73bad3108">product-evidence/libcamera-official-cam-trial/invocation-options.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check each run in the new evidence directory">새 경로에서 실행별 기록 확인</span></td>
+<td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Also check the test source and build">시험 소스와 빌드도 확인</span></td>
+<td><a href="#source-9858e22e2225cc10">src/libcamera/pipeline/virtual/data/virtual.yaml:28</a> · <a href="#source-077dc6a73bad3108">product-evidence/libcamera-official-cam-trial/invocation-options.txt:1</a> · <a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Run after checking the pinned source and build">고정 소스와 빌드 확인 뒤 실행</span></td>
+<td><a href="#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
 </tr>
 </tbody>
 </table></div>
 </details>
 <!-- /sdd:visual:reproduction-flow -->
 
-<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&quot;, &quot;&lt;a href=\&quot;#source-e326d2b05d8f4ef8\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-5a006a90fe9f46ad\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&quot;: [&quot;#source-e326d2b05d8f4ef8&quot;], &quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;: [&quot;#source-5a006a90fe9f46ad&quot;]}">실행 확인 항목: 가상 캡처 결과는 WSL2 <code>Virtual2</code> NV12 시뮬레이션 구성에만 적용됩니다. 물리 DMA·카메라·제품 앱·사내 HAL은 미검증이며, GDB는 타이밍에 영향을 주어 콜백 반환 명령과 성능을 검증하지 않았습니다.</p>
+<p data-sdd-evidence="[[&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;, &quot;&lt;a href=\&quot;#source-5a006a90fe9f46ad\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&quot;, &quot;&lt;a href=\&quot;#source-e326d2b05d8f4ef8\&quot;&gt;&lt;code&gt;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1&quot;: [&quot;#source-5a006a90fe9f46ad&quot;], &quot;product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1&quot;: [&quot;#source-e326d2b05d8f4ef8&quot;]}">실행 확인 항목: 이 결과는 WSL 가상 카메라의 시뮬레이션 구성에만 해당하며, 물리 DMA·카메라·제품 앱·사내 HAL은 검증하지 않았습니다. GDB는 타이밍에 영향을 주므로 콜백 반환 명령과 성능은 검증하지 않았습니다.</p>
 
 
-<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>5</span>개</summary><ul><li><code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1" href="#source-5a006a90fe9f46ad"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1" href="#source-67134777ea4213e0"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1" href="#source-e326d2b05d8f4ef8"><code>L1</code></a></span></li><li><code>src/libcamera/pipeline/virtual/data/virtual.yaml</code><span class="evidence-lines"><a href="#source-9858e22e2225cc10" aria-label="src/libcamera/pipeline/virtual/data/virtual.yaml:28 발췌"><code>L28</code> 발췌</a> · <a aria-label="src/libcamera/pipeline/virtual/data/virtual.yaml:28" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/data/virtual.yaml#L28">전체 소스 <code>L28</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-options.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-options.txt:1" href="#source-077dc6a73bad3108"><code>L1</code></a></span></li></ul></details><details class="note scope-notices"><summary>가상 시험의 검증 범위</summary><p><strong>가상 시험 구성입니다. 실제 제품의 지원·성능 주장으로 사용하지 마세요.</strong></p><ul><li><a href="#할당기를-준비하자-공식-cam-캡처가-완료됐습니다">할당기를 준비하자 공식 cam 캡처가 완료됐습니다</a></li><li><a href="#여러-초기-요청을-단일-스트림에-맞춰-준비합니다">여러 초기 요청을 단일 스트림에 맞춰 준비합니다</a></li><li><a href="#준비된-초기-요청을-한도-안에서-제출합니다">준비된 초기 요청을 한도 안에서 제출합니다</a></li><li><a href="#cam이-완료-알림을-받아-이벤트-루프에서-프레임을-처리합니다">cam이 완료 알림을 받아 이벤트 루프에서 프레임을 처리합니다.</a></li><li><a href="#지원-커널과-장치-접근을-확인한-뒤-재현합니다">지원 커널과 장치 접근을 확인한 뒤 재현합니다</a></li></ul></details>
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>5</span>개</summary><ul><li><code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1" href="#source-5a006a90fe9f46ad"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1" href="#source-67134777ea4213e0"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1" href="#source-e326d2b05d8f4ef8"><code>L1</code></a></span></li><li><code>src/libcamera/pipeline/virtual/data/virtual.yaml</code><span class="evidence-lines"><a href="#source-9858e22e2225cc10" aria-label="src/libcamera/pipeline/virtual/data/virtual.yaml:28 발췌"><code>L28</code> 발췌</a> · <a aria-label="src/libcamera/pipeline/virtual/data/virtual.yaml:28" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/data/virtual.yaml#L28">전체 소스 <code>L28</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-options.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-options.txt:1" href="#source-077dc6a73bad3108"><code>L1</code></a></span></li></ul></details><details class="note scope-notices"><summary>가상 시험의 검증 범위</summary><p><strong>가상 시험 구성입니다. 실제 제품의 지원·성능 주장으로 사용하지 마세요.</strong></p><ul><li><a href="#할당기를-준비하자-공식-cam-캡처가-완료됐습니다">할당기를 준비하자 공식 cam 캡처가 완료됐습니다</a></li><li><a href="#여러-초기-요청을-단일-스트림에-맞춰-준비합니다">여러 초기 요청을 단일 스트림에 맞춰 준비합니다</a></li><li><a href="#준비된-초기-요청을-한도-안에서-제출합니다">준비된 초기 요청을 한도 안에서 제출합니다</a></li><li><a href="#cam이-완료-알림을-받아-이벤트-루프에서-프레임을-처리합니다">cam이 완료 알림을 받아 이벤트 루프에서 프레임을 처리합니다.</a></li><li><a href="#지원-커널과-장치-접근을-확인한-뒤-재현합니다">지원 커널과 장치 접근을 확인한 뒤 재현합니다</a></li></ul></details>
 <h2 id="소스-근거">소스 근거</h2>
 <details class="source-excerpts"><summary>소스 발췌 <span>31</span>개</summary>
 <p>같은 발췌는 한 번만 싣습니다. 필요한 원문을 펼쳐 설명과 대조하세요.</p>
@@ -1405,7 +1396,7 @@ CPU 전용 과거 프로브는 [README.md](README.md)를, 원본 관측 기록�
 <p><a id="source-4f7002340059b1cf"></a></p>
 <details class="note">
 <summary>소스 근거: src/libcamera/pipeline/virtual/README.md:3</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/README.md#L3"><code>src/libcamera/pipeline/virtual/README.md:3</code></a> ~ <code>47</code></p>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/README.md#L3"><code>src/libcamera/pipeline/virtual/README.md:3</code></a> ~ <code>47</code></p>
 <p>SHA-256: <code>a5bd122270c864d666142a7027e54f0948d458545dd452fbfe97b87e7d66565c</code></p>
 <div class="highlight"><pre><span></span><code># Virtual Pipeline Handler
 
@@ -1457,7 +1448,7 @@ Check `data/virtual.yaml` as the sample config file.
 <p><a id="source-9858e22e2225cc10"></a></p>
 <details class="note">
 <summary>소스 근거: src/libcamera/pipeline/virtual/data/virtual.yaml:28</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/data/virtual.yaml#L28"><code>src/libcamera/pipeline/virtual/data/virtual.yaml:28</code></a> ~ <code>32</code></p>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/data/virtual.yaml#L28"><code>src/libcamera/pipeline/virtual/data/virtual.yaml:28</code></a> ~ <code>32</code></p>
 <p>SHA-256: <code>b9a78428bbde1f8b2a7ae34fc352cf6576ca0f24ee5d0ba7a94a0b790bfd2dc3</code></p>
 <div class="highlight"><pre><span></span><code>"Virtual2":
   supported_formats:
@@ -1469,7 +1460,7 @@ Check `data/virtual.yaml` as the sample config file.
 <p><a id="source-1868fec3abf482b8"></a></p>
 <details class="note">
 <summary>소스 근거: src/libcamera/pipeline/virtual/virtual.cpp:356</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/virtual.cpp#L356"><code>src/libcamera/pipeline/virtual/virtual.cpp:356</code></a> ~ <code>373</code></p>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/virtual.cpp#L356"><code>src/libcamera/pipeline/virtual/virtual.cpp:356</code></a> ~ <code>373</code></p>
 <p>SHA-256: <code>17db9f86c10efedebf2b21298865cea7070c1c384427e7a2e386899273d07f86</code></p>
 <div class="highlight"><pre><span></span><code>int PipelineHandlerVirtual::exportFrameBuffers([[maybe_unused]] Camera *camera,
                            Stream *stream,
@@ -1494,7 +1485,7 @@ int PipelineHandlerVirtual::start(
 <p><a id="source-1c0d5dcdba46688e"></a></p>
 <details class="note">
 <summary>소스 근거: src/libcamera/pipeline/virtual/virtual.cpp:412</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/virtual.cpp#L412"><code>src/libcamera/pipeline/virtual/virtual.cpp:412</code></a> ~ <code>438</code></p>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/virtual.cpp#L412"><code>src/libcamera/pipeline/virtual/virtual.cpp:412</code></a> ~ <code>438</code></p>
 <p>SHA-256: <code>8e757a1e7d0904f9affb3c2ba07e42c9f40b5bcd029d7dd834f853192c9192bc</code></p>
 <div class="highlight"><pre><span></span><code>int PipelineHandlerVirtual::queueRequestDevice(Camera *camera, Request *request)
 {
@@ -1528,7 +1519,7 @@ bool PipelineHandlerVirtual::match(
 <p><a id="source-995da70adf556e1f"></a></p>
 <details class="note">
 <summary>소스 근거: src/libcamera/pipeline/virtual/virtual.cpp:138</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/virtual.cpp#L138"><code>src/libcamera/pipeline/virtual/virtual.cpp:138</code></a> ~ <code>175</code></p>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/virtual.cpp#L138"><code>src/libcamera/pipeline/virtual/virtual.cpp:138</code></a> ~ <code>175</code></p>
 <p>SHA-256: <code>3aa1f6c1a27781a50ede523a3aa971590d1a2a0fdc4d8730ec320bd03d5586df</code></p>
 <div class="highlight"><pre><span></span><code>void VirtualCameraData::processRequest(Request *request,
                        uint64_t targetTimestamp)
@@ -1573,7 +1564,7 @@ void VirtualCameraData::processControls(
 <p><a id="source-fa5429fa2c62882d"></a></p>
 <details class="note">
 <summary>소스 근거: src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/test_pattern_generator.cpp#L47"><code>src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47</code></a> ~ <code>108</code></p>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/test_pattern_generator.cpp#L47"><code>src/libcamera/pipeline/virtual/test_pattern_generator.cpp:47</code></a> ~ <code>108</code></p>
 <p>SHA-256: <code>738b0b9f5b7bfe29a00c643ec5f51174b012a5798ed3bf0c7e0e2b7f8bdc1243</code></p>
 <div class="highlight"><pre><span></span><code>int TestPatternGenerator::generateFrame(const StreamConfiguration &amp;cfg,
                     const FrameBuffer *buffer)
@@ -1642,7 +1633,7 @@ void ColorBarsGenerator::configure(
 <p><a id="source-ab86b02a265cd2b8"></a></p>
 <details class="note">
 <summary>소스 근거: src/libcamera/pipeline/virtual/virtual.cpp:515</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/virtual.cpp#L515"><code>src/libcamera/pipeline/virtual/virtual.cpp:515</code></a> ~ <code>523</code></p>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/virtual.cpp#L515"><code>src/libcamera/pipeline/virtual/virtual.cpp:515</code></a> ~ <code>523</code></p>
 <p>SHA-256: <code>28644312a9d533446fd2224c0294814b45f335d63f67b78e19dff31eae9537da</code></p>
 <div class="highlight"><pre><span></span><code>void PipelineHandlerVirtual::bufferCompleted(FrameBuffer *buffer)
 {
@@ -1658,7 +1649,7 @@ REGISTER_PIPELINE_HANDLER
 <p><a id="source-5e575d092c08b32d"></a></p>
 <details class="note">
 <summary>소스 근거: src/libcamera/pipeline_handler.cpp:469</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L469"><code>src/libcamera/pipeline_handler.cpp:469</code></a> ~ <code>530</code></p>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L469"><code>src/libcamera/pipeline_handler.cpp:469</code></a> ~ <code>530</code></p>
 <p>SHA-256: <code>cb607d060ba4eb069998bde3ed10bd4cdec9a7315e40b4b5da7ba877b5f98678</code></p>
 <div class="highlight"><pre><span></span><code>void PipelineHandler::queueRequest(Request *request)
 {
@@ -1727,7 +1718,7 @@ void PipelineHandler::doQueueRequests(Camera *camera)
 <p><a id="source-7cb889331b58a531"></a></p>
 <details class="note">
 <summary>소스 근거: src/libcamera/pipeline_handler.cpp:563</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L563"><code>src/libcamera/pipeline_handler.cpp:563</code></a> ~ <code>613</code></p>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L563"><code>src/libcamera/pipeline_handler.cpp:563</code></a> ~ <code>613</code></p>
 <p>SHA-256: <code>eae578aef59d31f488400f7739ce0af433b2a47d857efdca754584f4b850b637</code></p>
 <div class="highlight"><pre><span></span><code>bool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)
 {
@@ -1785,7 +1776,7 @@ void PipelineHandler::cancelRequest(
 <p><a id="source-655b027df7d08524"></a></p>
 <details class="note">
 <summary>소스 근거: src/libcamera/camera.cpp:1481</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1481"><code>src/libcamera/camera.cpp:1481</code></a> ~ <code>1491</code></p>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1481"><code>src/libcamera/camera.cpp:1481</code></a> ~ <code>1491</code></p>
 <p>SHA-256: <code>aadfd6b4fdf910083a3d97fb11c623145f71553c9240f8e882d619fce61c43bb</code></p>
 <div class="highlight"><pre><span></span><code>void Camera::requestComplete(Request *request)
 {
@@ -1800,10 +1791,10 @@ void PipelineHandler::cancelRequest(
 } /* namespace libcamera */
 </code></pre></div>
 </details>
-<p><a id="source-4175eaf02282069c"></a></p>
+<p><a id="source-5723cb743173a3dd"></a></p>
 <details class="note">
-<summary>소스 근거: src/apps/cam/camera_session.cpp:356</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L356"><code>src/apps/cam/camera_session.cpp:356</code></a> ~ <code>458</code></p>
+<summary>소스 근거: src/apps/cam/camera_session.cpp:365</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L365"><code>src/apps/cam/camera_session.cpp:365</code></a> ~ <code>467</code></p>
 <p>SHA-256: <code>37ab5790b8eb30e2c5c484e7a3e86f59ec2a4927dcbf8c1b2aa8ffd9ba5af417</code></p>
 <div class="highlight"><pre><span></span><code>int CameraSession::startCapture()
 {
@@ -1910,10 +1901,10 @@ int CameraSession::queueRequest(Request *request)
 void CameraSession::requestComplete(
 </code></pre></div>
 </details>
-<p><a id="source-b74ded27aa23baee"></a></p>
+<p><a id="source-fb9506413ce52fb0"></a></p>
 <details class="note">
-<summary>소스 근거: src/apps/cam/camera_session.cpp:296</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L296"><code>src/apps/cam/camera_session.cpp:296</code></a> ~ <code>298</code></p>
+<summary>소스 근거: src/apps/cam/camera_session.cpp:305</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L305"><code>src/apps/cam/camera_session.cpp:305</code></a> ~ <code>307</code></p>
 <p>SHA-256: <code>837c0da1b2fd6f71aaabdb090306d3deda89c0fae6de39e91393d1111748e1b7</code></p>
 <div class="highlight"><pre><span></span><code>    camera_-&gt;requestCompleted.connect(this, &amp;CameraSession::requestComplete);
 
@@ -1923,7 +1914,7 @@ void CameraSession::requestComplete(
 <p><a id="source-e91194807faa9e0c"></a></p>
 <details class="note">
 <summary>소스 근거: src/libcamera/framebuffer_allocator.cpp:86</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/framebuffer_allocator.cpp#L86"><code>src/libcamera/framebuffer_allocator.cpp:86</code></a> ~ <code>119</code></p>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/framebuffer_allocator.cpp#L86"><code>src/libcamera/framebuffer_allocator.cpp:86</code></a> ~ <code>119</code></p>
 <p>SHA-256: <code>860da864490293ef6a9228ca9babb066369470fecf3936e4b0807c8e43364403</code></p>
 <div class="highlight"><pre><span></span><code>int FrameBufferAllocator::allocate(Stream *stream)
 {
@@ -1964,7 +1955,7 @@ int FrameBufferAllocator::free(
 <p><a id="source-80fd4657ae4c65d1"></a></p>
 <details class="note">
 <summary>소스 근거: src/libcamera/camera.cpp:963</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L963"><code>src/libcamera/camera.cpp:963</code></a> ~ <code>1007</code></p>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L963"><code>src/libcamera/camera.cpp:963</code></a> ~ <code>1007</code></p>
 <p>SHA-256: <code>bfd7aa3f1785e3d1dbc4c8507aafbb7c799371e924ec743523f6078a3c37640f</code></p>
 <div class="highlight"><pre><span></span><code>int Camera::exportFrameBuffers(Stream *stream,
                    std::vector&lt;std::unique_ptr&lt;FrameBuffer&gt;&gt; *buffers)
@@ -2016,7 +2007,7 @@ int Camera::acquire(
 <p><a id="source-d6d48aa78159fb58"></a></p>
 <details class="note">
 <summary>소스 근거: src/libcamera/camera.cpp:1330</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1330"><code>src/libcamera/camera.cpp:1330</code></a> ~ <code>1400</code></p>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1330"><code>src/libcamera/camera.cpp:1330</code></a> ~ <code>1400</code></p>
 <p>SHA-256: <code>886535d24df67a4b6f18fd5ed7b1db02e74e189ebfcb7ddd396eb86cf30980ef</code></p>
 <div class="highlight"><pre><span></span><code>int Camera::queueRequest(Request *request)
 {
@@ -2094,7 +2085,7 @@ int Camera::start(
 <p><a id="source-4726a7d0b3f38c49"></a></p>
 <details class="note">
 <summary>소스 근거: src/libcamera/pipeline/virtual/virtual.cpp:373</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/virtual.cpp#L373"><code>src/libcamera/pipeline/virtual/virtual.cpp:373</code></a> ~ <code>395</code></p>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/virtual.cpp#L373"><code>src/libcamera/pipeline/virtual/virtual.cpp:373</code></a> ~ <code>395</code></p>
 <p>SHA-256: <code>a874aaf3a8902d67c4b8bfe9166ff2783f4dc95ba98b2ce2e72b454de78b7a2b</code></p>
 <div class="highlight"><pre><span></span><code>int PipelineHandlerVirtual::start(Camera *camera, const ControlList *controls)
 {
@@ -2124,7 +2115,7 @@ void PipelineHandlerVirtual::stopDevice(
 <p><a id="source-4fe013027055fa2d"></a></p>
 <details class="note">
 <summary>소스 근거: src/libcamera/pipeline_handler.cpp:435</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L435"><code>src/libcamera/pipeline_handler.cpp:435</code></a> ~ <code>469</code></p>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L435"><code>src/libcamera/pipeline_handler.cpp:435</code></a> ~ <code>469</code></p>
 <p>SHA-256: <code>e26bfa8d7aabb043998df27778cce4f5a3724b9130695499701db24012fa111d</code></p>
 <div class="highlight"><pre><span></span><code>void PipelineHandler::registerRequest(Request *request)
 {
@@ -2166,7 +2157,7 @@ void PipelineHandler::queueRequest(
 <p><a id="source-0626196def047e5c"></a></p>
 <details class="note">
 <summary>소스 근거: src/libcamera/request.cpp:125</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L125"><code>src/libcamera/request.cpp:125</code></a> ~ <code>139</code></p>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L125"><code>src/libcamera/request.cpp:125</code></a> ~ <code>139</code></p>
 <p>SHA-256: <code>2efec13b708bff2ca232445ef868877a30facef1b6fa17ddcff47bfd013e2289</code></p>
 <div class="highlight"><pre><span></span><code>void Request::Private::complete()
 {
@@ -2185,10 +2176,10 @@ void PipelineHandler::queueRequest(
 void Request::Private::doCancelRequest()
 </code></pre></div>
 </details>
-<p><a id="source-66f2ccd037a8a670"></a></p>
+<p><a id="source-4c93e74b4521da77"></a></p>
 <details class="note">
-<summary>소스 근거: src/apps/cam/camera_session.cpp:356</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L356"><code>src/apps/cam/camera_session.cpp:356</code></a> ~ <code>413</code></p>
+<summary>소스 근거: src/apps/cam/camera_session.cpp:365</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L365"><code>src/apps/cam/camera_session.cpp:365</code></a> ~ <code>422</code></p>
 <p>SHA-256: <code>0d14fd27f930b07e23e8bbfe0e8b58d62e414bf7a7dab34789501d1c55423e56</code></p>
 <div class="highlight"><pre><span></span><code>int CameraSession::startCapture()
 {
@@ -2694,10 +2685,10 @@ CPU 전용 과거 프로브는 [README.md](README.md)를, 원본 관측 기록�
 <span class="p">}</span>
 </code></pre></div>
 </details>
-<p><a id="source-6b5bd0b09b7f63ff"></a></p>
+<p><a id="source-24d83931ed92dc57"></a></p>
 <details class="note">
-<summary>소스 근거: src/apps/cam/camera_session.cpp:458</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L458"><code>src/apps/cam/camera_session.cpp:458</code></a> ~ <code>552</code></p>
+<summary>소스 근거: src/apps/cam/camera_session.cpp:467</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L467"><code>src/apps/cam/camera_session.cpp:467</code></a> ~ <code>561</code></p>
 <p>SHA-256: <code>1cc65de3cbc313bb70f938f939d3d99420f17526290c216b538bbf117adbfd6d</code></p>
 <div class="highlight"><pre><span></span><code>void CameraSession::requestComplete(Request *request)
 {
@@ -2796,10 +2787,10 @@ void CameraSession::processRequest(Request *request)
 void CameraSession::sinkRelease(Request *request)
 </code></pre></div>
 </details>
-<p><a id="source-bc965624cfbc157e"></a></p>
+<p><a id="source-a93e2b65e7577aaf"></a></p>
 <details class="note">
-<summary>소스 근거: src/apps/cam/camera_session.cpp:444</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L444"><code>src/apps/cam/camera_session.cpp:444</code></a> ~ <code>458</code></p>
+<summary>소스 근거: src/apps/cam/camera_session.cpp:453</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L453"><code>src/apps/cam/camera_session.cpp:453</code></a> ~ <code>467</code></p>
 <p>SHA-256: <code>1e0c758f1f31a09a5f212f7cfc6f11637a365912ec73efa9e59f0bf32a97a220</code></p>
 <div class="highlight"><pre><span></span><code>int CameraSession::queueRequest(Request *request)
 {
@@ -2818,10 +2809,10 @@ void CameraSession::sinkRelease(Request *request)
 void CameraSession::requestComplete(Request *request)
 </code></pre></div>
 </details>
-<p><a id="source-009073d2370150c1"></a></p>
+<p><a id="source-fed2a2e4116ab528"></a></p>
 <details class="note">
-<summary>소스 근거: src/apps/cam/camera_session.cpp:274</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L274"><code>src/apps/cam/camera_session.cpp:274</code></a> ~ <code>337</code></p>
+<summary>소스 근거: src/apps/cam/camera_session.cpp:283</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L283"><code>src/apps/cam/camera_session.cpp:283</code></a> ~ <code>346</code></p>
 <p>SHA-256: <code>6f04ac47e3fa6496c3bc271f987bee51f2793e64b360223d3455b6c080c684f0</code></p>
 <div class="highlight"><pre><span></span><code>int CameraSession::start()
 {
@@ -2892,7 +2883,7 @@ void CameraSession::stop()
 <p><a id="source-3122754fc16929a5"></a></p>
 <details class="note">
 <summary>소스 근거: src/apps/cam/camera_session.h:61</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.h#L61"><code>src/apps/cam/camera_session.h:61</code></a> ~ <code>68</code></p>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.h#L61"><code>src/apps/cam/camera_session.h:61</code></a> ~ <code>68</code></p>
 <p>SHA-256: <code>d1dd7739a5bca1909d81a1d336de9ee15a51005f05f733f1c958d72f96117bec</code></p>
 <div class="highlight"><pre><span></span><code>std::shared_ptr&lt;libcamera::Camera&gt; camera_;
     std::unique_ptr&lt;libcamera::CameraConfiguration&gt; config_;
@@ -2904,10 +2895,10 @@ void CameraSession::stop()
     unsigned int cameraIndex_;
 </code></pre></div>
 </details>
-<p><a id="source-3735f60a0df6bce5"></a></p>
+<p><a id="source-eb19d6a7f4a0f3f0"></a></p>
 <details class="note">
-<summary>소스 근거: src/apps/cam/camera_session.cpp:548</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/apps/cam/camera_session.cpp#L548"><code>src/apps/cam/camera_session.cpp:548</code></a> ~ <code>549</code></p>
+<summary>소스 근거: src/apps/cam/camera_session.cpp:557</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L557"><code>src/apps/cam/camera_session.cpp:557</code></a> ~ <code>558</code></p>
 <p>SHA-256: <code>5a8a9a7c7f09b886f5286eea0793521d017e38b53e50f94cd976404e01658f08</code></p>
 <div class="highlight"><pre><span></span><code>request-&gt;reuse(Request::ReuseBuffers);
     queueRequest(request);
@@ -2915,7 +2906,7 @@ void CameraSession::stop()
 </details>
 </details>
 
-<p>다음 단계: <a href="https://github.com/TTolsun/camera-hal-sdd-generator/blob/main/examples/libcamera/runtime/OFFICIAL_CAM.md">공식 cam 재현 절차</a></p></article><section class="evidence"><h2 id="page-evidence">문서 생성·검토 정보</h2><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>사람 검토</dt><dd>사람 검토 전</dd><dt>분석 기준 커밋</dt><dd><code>da6a6ed33ed0ab305f10b6f8b44736150d39cef4</code></dd><dt>문서 생성 시각</dt><dd><code>2026-11-04 05:26:14+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>cli/claude/claude-haiku-5-5</code></dd><dt>문서 간 계약</dt><dd><a href="contract-consistency.json">자동 대조 보고서</a> · 사람 검토 전</dd><dt>제품 설명 입력</dt><dd><a href="product-context.json">적용 범위·조건·자료</a></dd></dl><details class="note manuscript-record"><summary>원고 작성 당시 기록</summary><p>원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.</p><ul><li>근거 파일: <code>product-evidence/libcamera-official-cam-trial/execution-contract.txt</code>, <code>product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt</code>, <code>product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt</code>, <code>product-evidence/libcamera-official-cam-trial/invocation-options.txt</code>, <code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt</code>, <code>product-evidence/libcamera-official-cam-trial/official-cam-reader.txt</code>, <code>product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt</code>, <code>src/apps/cam/camera_session.cpp</code>, <code>src/apps/cam/camera_session.h</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/framebuffer_allocator.cpp</code>, <code>src/libcamera/pipeline/virtual/README.md</code>, <code>src/libcamera/pipeline/virtual/data/virtual.yaml</code>, <code>src/libcamera/pipeline/virtual/test_pattern_generator.cpp</code>, <code>src/libcamera/pipeline/virtual/virtual.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code>, <code>src/libcamera/request.cpp</code></li><li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>293d751a81</code>)</li><li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li><li>검토 상태 기록일: 2026-11-04 · 사람 검토 전</li></ul></details><a href="official-cam-validation.md">Markdown 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="framebuffer-allocator.html"><small>이전</small>FrameBufferAllocator의 실패와 참조 수명 ←</a><a class="next" href="component-index.html"><small>다음</small>구성 요소 색인 →</a></nav>
+<p>다음 단계: <a href="https://github.com/TTolsun/camera-hal-sdd-generator/blob/main/examples/libcamera/runtime/OFFICIAL_CAM.md">공식 cam 재현 절차</a></p></article><section class="evidence"><h2 id="page-evidence">문서 생성·검토 정보</h2><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>사람 검토</dt><dd>사람 검토 전</dd><dt>분석 기준 커밋</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>문서 생성 시각</dt><dd><code>2026-11-20 20:07:34+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>문서 간 계약</dt><dd><a href="contract-consistency.json">자동 대조 보고서</a> · 사람 검토 전</dd><dt>제품 설명 입력</dt><dd><a href="product-context.json">적용 범위·조건·자료</a></dd></dl><details class="note manuscript-record"><summary>원고 작성 당시 기록</summary><p>원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.</p><ul><li>근거 파일: <code>product-evidence/libcamera-official-cam-trial/execution-contract.txt</code>, <code>product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt</code>, <code>product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt</code>, <code>product-evidence/libcamera-official-cam-trial/invocation-options.txt</code>, <code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt</code>, <code>product-evidence/libcamera-official-cam-trial/official-cam-reader.txt</code>, <code>product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt</code>, <code>src/apps/cam/camera_session.cpp</code>, <code>src/apps/cam/camera_session.h</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/framebuffer_allocator.cpp</code>, <code>src/libcamera/pipeline/virtual/README.md</code>, <code>src/libcamera/pipeline/virtual/data/virtual.yaml</code>, <code>src/libcamera/pipeline/virtual/test_pattern_generator.cpp</code>, <code>src/libcamera/pipeline/virtual/virtual.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code>, <code>src/libcamera/request.cpp</code></li><li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>adfa719f8e</code>)</li><li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li><li>검토 상태 기록일: 2026-11-21 · 사람 검토 전</li></ul></details><a href="official-cam-validation.md">Markdown 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="framebuffer-allocator.html"><small>이전</small>FrameBufferAllocator의 실패와 참조 수명 ←</a><a class="next" href="component-index.html"><small>다음</small>구성 요소 색인 →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · 인용 검사와 사람의 내용 검토는 별도입니다.</footer></main>
 <aside class="page-toc"><nav aria-label="현재 페이지 목차"><p>이 페이지에서</p><div class="toc">
 <ul>

@@ -1,12 +1,11 @@
 ---
-generated_at: 2026-10-30T17:20:44+00:00
-source_commit: da6a6ed33ed0ab305f10b6f8b44736150d39cef4
+generated_at: 2026-11-20T16:39:48+00:00
+source_commit: adfa719f8ed67d18fd8a0739fc088a1f8b9e7252
 status: ok
 section: scenarios
 generation_method: deterministic
 scenario_index_fingerprint: 911dedbcdc3ecbb5a97dbb746a1cda781743a19d9b1587295b92fbe8bff9d29f
-scenario_index_body_sha256: 5f5a05fccd457f0094c17b57e4d73a5afc1ee0c714d0d87c37c0d43ef52d551e
-revalidated_from: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
+scenario_index_body_sha256: 2384f5115d71065c157ab648592ef7fb6bef19c647d1b503c3ec810b693f7198
 ---
 
 # 핵심 시나리오
@@ -37,8 +36,8 @@ revalidated_from: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
     - 생성 방식: 추출 사실과 설정으로 생성
     - 검증 범위: 표와 목록을 facts 또는 문서 설정에서 구성합니다. LLM을 호출하지 않습니다.
     - 근거 파일: (없음)
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `212c689fcf`)
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `adfa719f8e`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-10-31 · 사람 검토 전
+    - 검토 상태 기록일: 2026-11-21 · 사람 검토 전
 
 다음 단계: [요청 처리와 문제 진단](../request-lifecycle.md)

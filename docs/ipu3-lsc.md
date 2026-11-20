@@ -1,12 +1,12 @@
 ---
 generated_at: 2026-10-29T20:32:18+00:00
-source_commit: da6a6ed33ed0ab305f10b6f8b44736150d39cef4
+source_commit: adfa719f8ed67d18fd8a0739fc088a1f8b9e7252
 status: ok
 section: ipu3-lsc
 generation_method: extracted-structure
 evidence_fingerprint: ea0a1be98289a029e50beb0b5ee846ae82f2435348b23ed6c994ff019ac68dd3
 semantic_review: human-review-required
-revalidated_from: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
+revalidated_from: da6a6ed33ed0ab305f10b6f8b44736150d39cef4
 ---
 
 # IPU3 LSC와 상태 연결
