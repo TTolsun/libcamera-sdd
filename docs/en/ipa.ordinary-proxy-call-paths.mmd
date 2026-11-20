@@ -1,0 +1,27 @@
+flowchart TB
+
+  v_calls["Two proxies for ordinary <br/>IPA methods"]
+  v_threaded{"Is the Threaded method <br/>asynchronous?"}
+  v_direct["Call the IPA method directly"]
+  v_queued["Check ProxyRunning and <br/>enqueue the call"]
+  v_isolated{"Serialize inputs. Is this <br/>an async call?"}
+  v_transfer{"Did the synchronous send <br/>return an error?"}
+  v_error["Non-void: cast error. Void: <br/>return."]
+  v_value["Decode the non-void return <br/>value first"]
+  v_outputs["Decode output arguments <br/>when present"]
+  v_done["Return the decoded non-void <br/>value"]
+  v_done_void["A void call returns without <br/>a value"]
+  v_async_done["sendAsync sends without <br/>waiting for a sync reply."]
+  v_calls -->|"Threaded"| v_threaded
+  v_threaded -->|"Synchronous"| v_direct
+  v_threaded -->|"Asynchronous"| v_queued
+  v_calls -->|"Isolated"| v_isolated
+  v_isolated -->|"Sync: sendSync. Use a <br/>response when needed."| v_transfer
+  v_transfer -->|"Yes"| v_error
+  v_transfer -->|"No. Non-void response"| v_value
+  v_transfer -->|"No. Void with output <br/>arguments"| v_outputs
+  v_transfer -->|"No. Void with no outputs"| v_done_void
+  v_value -->|"Decode output arguments <br/>after the return value"| v_outputs
+  v_outputs -->|"Return from the non-void <br/>branch"| v_done
+  v_outputs -->|"Finish the void branch"| v_done_void
+  v_isolated -->|"Async branch"| v_async_done

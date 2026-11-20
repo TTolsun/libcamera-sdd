@@ -1,6 +1,6 @@
 ---
 generated_at: 2026-11-11 17:00:37+00:00
-source_commit: da6a6ed33ed0ab305f10b6f8b44736150d39cef4
+source_commit: adfa719f8ed67d18fd8a0739fc088a1f8b9e7252
 status: ok
 section: camera-requests
 generation_method: facts-and-llm
@@ -614,7 +614,7 @@ managed_visual_refresh:
   new_inference: false
   semantic_approval: false
   human_review: unchanged
-revalidated_from: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
+revalidated_from: da6a6ed33ed0ab305f10b6f8b44736150d39cef4
 ---
 
 # 요청 객체와 버퍼 수명

@@ -1,6 +1,6 @@
 ---
 generated_at: 2026-11-19 18:15:19+00:00
-source_commit: da6a6ed33ed0ab305f10b6f8b44736150d39cef4
+source_commit: adfa719f8ed67d18fd8a0739fc088a1f8b9e7252
 status: ok
 section: request-lifecycle
 generation_method: facts-and-llm
@@ -18238,6 +18238,7 @@ managed_visual_refresh:
   new_inference: false
   semantic_approval: false
   human_review: unchanged
+revalidated_from: da6a6ed33ed0ab305f10b6f8b44736150d39cef4
 ---
 
 # 요청 처리와 문제 진단

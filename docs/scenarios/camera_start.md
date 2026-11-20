@@ -1,6 +1,6 @@
 ---
 generated_at: 2026-11-04 05:03:21+00:00
-source_commit: da6a6ed33ed0ab305f10b6f8b44736150d39cef4
+source_commit: adfa719f8ed67d18fd8a0739fc088a1f8b9e7252
 status: ok
 section: scenario-camera_start
 generation_method: facts-and-llm
@@ -1071,7 +1071,7 @@ managed_visual_refresh:
   graph_records_replaced: true
   previous_native_records_sha256: 8e89f832d88244d4ce3b9a12fba8799060f5206ef9ad0e5f19aee42f51ef9eab
   current_native_records_sha256: 1b3cd43a2bc6531ae16984c90f2b4d3f79decac024ae2d8ac5d7e70a6bd7901b
-revalidated_from: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
+revalidated_from: da6a6ed33ed0ab305f10b6f8b44736150d39cef4
 ---
 
 # 캡처 시작
