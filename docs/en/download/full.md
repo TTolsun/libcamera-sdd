@@ -3,6 +3,7 @@
 31 pages
 
 - **Analyzed source commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
+- **Source site**: [https://ttolsun.github.io/libcamera-sdd/en/](https://ttolsun.github.io/libcamera-sdd/en/)
 
 This file combines every page of the site into one copy. Code and documents changed after it was made are not included, so check the analyzed source commit. Automated checks such as citation checks are not human review approval. Each page ends with its generation and review record.
 
@@ -105,7 +106,7 @@ flowchart TB
   v_apps -->|"Use the native C++ API and <br/>optional language bindings"| v_framework
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/index.camera-stack.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -236,7 +237,7 @@ For the original library usage, check [libcamera official documentation](https:/
 
 ## Document generation and review information
 
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <a id="doc-2"></a>
 
@@ -325,7 +326,7 @@ Quick links: [0–9](#d2-term-3a) · [A](#d2-term-af) · [B](#d2-term-bayer) · 
 
 ## Document generation and review information
 
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <a id="doc-3"></a>
 
@@ -398,7 +399,7 @@ flowchart TB
   v_apps -->|"Use the native C++ API and <br/>optional language bindings"| v_framework
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/vendor-overview.camera-stack.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -466,7 +467,7 @@ flowchart TB
   v_media -->|"Create Camera after <br/>acquisition"| v_camera
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/vendor-overview.hardware-boundary.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -530,7 +531,7 @@ flowchart TB
   v_fwd -->|"Recheck loop condition"| v_waiting
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/vendor-overview.vendor-waiting-queue-conditions.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -588,7 +589,7 @@ flowchart TB
   v_stop_track -->|"Completion signalling method"| v_stop_signal
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/vendor-overview.vendor-buffer-and-request-completion.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -1208,9 +1209,9 @@ void PipelineHandler::doQueueRequests(Camera *camera)
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-05 02:19:45+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
-- **Reader scope**: Answers by task and unreviewed scope
-- **Enter product description**: Scope, conditions, and sources
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
+- **Reader scope**: [Answers by task and unreviewed scope](https://ttolsun.github.io/libcamera-sdd/reader-scope.json)
+- **Enter product description**: [Scope, conditions, and sources](https://ttolsun.github.io/libcamera-sdd/product-context.json)
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -1224,7 +1225,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗ Mermaid source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/vendor-overview.md) [Mermaid source ↗](https://ttolsun.github.io/libcamera-sdd/en/vendor-overview.mmd)
 
 <a id="doc-4"></a>
 
@@ -1236,13 +1237,16 @@ Before human reviewAutomated check passedAuthored: extracted structure and draft
 
 English translation · human review pending. Review states below refer to the Korean source.
 
-**Check the support conditions and configuration constraints, and define the scope to validate before product adoption.**
+**Read the WSL2 virtual capture record and determine the remaining first capture test on the customer board. The commit currently analyzed is listed in the document generation and review information at the bottom of the page.**
 
 <details open>
 <summary>Design questions and validation scope</summary>
 
 The answers to each question and their evidence links were checked. The meaning and execution results require human review.
 
+- Can this record be used to report that the first capture on the customer board has been validated?
+
+  [Has the first capture on the customer board been validated?](#d4-고객-보드의-첫-촬영을-검증했습니까)
 - What are the support prerequisites and constraints, and what items require separate validation?
 
   [Support conditions and constraints](#d4-지원-조건과-제약)
@@ -1255,19 +1259,89 @@ Verification scope: Linking code evidence to explanations
 </details>
 
 <details open>
-<summary>Terms in this document: Pipeline Handler, debayer, bayer</summary>
+<summary>Terms in this document: WSL2, Pipeline Handler, NV12, DMA, and 3 others</summary>
 
+- **WSL2** (Windows Subsystem for Linux 2): An environment for running Linux on Windows. This site is built from the results of building and extracting libcamera on WSL2.
 - **Pipeline Handler**: A libcamera component that finds the media device of a specific hardware platform (IPU3, RKISP1, etc.), creates cameras, passes requests to the device, and returns their completion. There is one per platform.
+- **NV12** (NV12): A 4:2:0 format that uses 8 bits per component. The first plane is luminance (Y). The second plane contains interleaved chroma data, in which Cb and Cr values are stored alternately, one each. The whole layout is placed in linearly contiguous memory.
+- **DMA** (Direct Memory Access): DMA (Direct Memory Access) is a term for a method in which an I/O device reads from or writes to system memory directly.
 - **Debayer**: A process that interpolates the missing colors of each pixel from neighboring pixels in bayer raw data to create an RGB image. Also called demosaicing.
 - **bayer**: A color filter array in which each pixel of the sensor records only one color among R, G, and B. Raw data in this format must go through demosaicing before each pixel has RGB values.
+- **ISP** (Image Signal Processor): A processing unit that converts raw (Bayer) data output by the sensor into an image that can be displayed on screen. It performs operations such as black level correction, lens shading correction, white balance, and debayering.
 
 Other terms can be found in [Glossary](#doc-2).
 
 </details>
 
+## <a id="d4-고객-보드의-첫-촬영을-검증했습니까"></a>Has the first capture on the customer board been validated?
+
+This record cannot be used to report that the first capture on the customer board has been validated. The WSL2 test configuration used the Virtual2 virtual camera instead of a physical sensor, and there is no record of a capture using the customer board's physical sensor.
+
+### Virtual capture observation and customer board testing
+
+```mermaid
+flowchart TB
+
+  v_decision["The first capture on the <br/>customer board has not yet <br/>been verified."]
+  v_observed["On the WSL2 trial kernel, <br/>the Virtual2 400×300 NV12 <br/>stream completed three <br/>frames in each of three <br/>independent runs."]
+  v_configure["On the customer board, <br/>check the physical sensor <br/>and the applied stream."]
+  v_complete["Check whether the first <br/>Request and FrameBuffer <br/>completed successfully."]
+  v_inspect["Save and inspect the sensor <br/>frames."]
+  v_decision -->|"This is the past <br/>observation."| v_observed
+  v_decision -->|"This is the customer-board <br/>test plan."| v_configure
+  v_configure -->|"In the test plan, check <br/>completion next."| v_complete
+  v_complete -->|"In the test plan, save and <br/>inspect the frames next."| v_inspect
+```
+
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/vendor-assurance.first-capture-boundary.mmd)
+
+<details open>
+<summary>Diagram evidence and verification scope</summary>
+
+What was verified in WSL2, and in what order is the first capture checked on the customer board?
+
+Source-linked interpretation · automatic link check only · meaning and device execution not yet verified
+
+LLM diagram draft · before human review
+
+Authoring model: `cli/codex/gpt-6.1-terra`
+
+| Elements and transitions | Source evidence |
+| --- | --- |
+| The first capture on the customer board has not yet been verified. | [product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1](#d4-source-3c4ba1aba4901083) |
+| On the WSL2 trial kernel, the Virtual2 400×300 NV12 stream completed three frames in each of three independent runs. | [product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1](#d4-source-3c4ba1aba4901083) |
+| On the customer board, check the physical sensor and the applied stream. | [product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1](#d4-source-3c4ba1aba4901083) · [README.rst:107](#d4-source-ce71f2f0de50caf3) · [include/libcamera/camera.h:126](#d4-source-aba605be681da98e) |
+| Check whether the first Request and FrameBuffer completed successfully. | [include/libcamera/camera.h:126](#d4-source-aba605be681da98e) · [include/libcamera/request.h:34](#d4-source-cb2be6f3ec7f91fc) · [include/libcamera/framebuffer.h:25](#d4-source-094e6fd7ddda824a) |
+| Save and inspect the sensor frames. | [include/libcamera/camera.h:126](#d4-source-aba605be681da98e) · [README.rst:107](#d4-source-ce71f2f0de50caf3) |
+| This is the past observation. | [product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1](#d4-source-3c4ba1aba4901083) |
+| This is the customer-board test plan. | [product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1](#d4-source-3c4ba1aba4901083) · [README.rst:107](#d4-source-ce71f2f0de50caf3) |
+| In the test plan, check completion next. | [include/libcamera/camera.h:126](#d4-source-aba605be681da98e) · [README.rst:107](#d4-source-ce71f2f0de50caf3) |
+| In the test plan, save and inspect the frames next. | [include/libcamera/camera.h:126](#d4-source-aba605be681da98e) · [README.rst:107](#d4-source-ce71f2f0de50caf3) |
+
+</details>
+
+As far as can be confirmed from the official libcamera project documentation, the Virtual Pipeline Handler emulates a virtual external camera for testing. The example YAML specifies a 400×300 size and the `lines` test pattern for Virtual2.
+
+The virtual capture test on October 31, 2026 used source commit 293d751a814e0d4c34e85ad457ccd9d5eefd1a61 and the WSL2 trial kernel 6.18.33.2-microsoft-standard-WSL2-issue211 with udmabuf built in. All three runs on Virtual2 at 400×300 NV12, each in a separate process, completed three frames each. This observation does not constitute validation of a physical camera or board DMA.
+
+In the first capture test on the customer board, the board, physical sensor, kernel and driver, libcamera build, and target application are recorded, and the actual sensor is opened to check the applied stream format and size. The first request's RequestComplete and the buffer's FrameSuccess are checked, and frames from the sensor are saved and inspected. cam can be used as an example of a basic test tool's save functionality. Existing records are limited to a test configuration using udmabuf and Virtual2 on a WSL2 test kernel; the physical camera, physical DMA, and product application have not been validated.
+
+<details open>
+<summary>Section-wide evidence: 7</summary>
+
+- `product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt`[`L1`](#d4-source-3c4ba1aba4901083)
+- `src/libcamera/pipeline/virtual/README.md`[`L3` excerpt](#d4-source-eb7d1ae4ac9df3f9) · [Full source `L3`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/README.md#L3)
+- `src/libcamera/pipeline/virtual/data/virtual.yaml`[`L28` excerpt](#d4-source-fb6397b1c5827be7) · [Full source `L28`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/data/virtual.yaml#L28)
+- `include/libcamera/request.h`[`L34` excerpt](#d4-source-cb2be6f3ec7f91fc) · [Full source `L34`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/request.h#L34)
+- `include/libcamera/framebuffer.h`[`L25` excerpt](#d4-source-094e6fd7ddda824a) · [Full source `L25`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/framebuffer.h#L25)
+- `README.rst`[`L107` excerpt](#d4-source-ce71f2f0de50caf3) · [Full source `L107`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/README.rst#L107)
+- `include/libcamera/camera.h`[`L126` excerpt](#d4-source-aba605be681da98e) · [Full source `L126`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/camera.h#L126)
+
+</details>
+
 ## <a id="d4-지원-조건과-제약"></a>Support conditions and constraints
 
-`CameraConfiguration::Invalid` means that the configuration is invalid and cannot be adjusted, and may occur only in extreme cases, such as when the configuration is empty. `CameraConfiguration::Adjusted` indicates that the configuration was adjusted and is valid after adjustment. If `CameraConfiguration::validate()` returns `CameraConfiguration::Adjusted`, parameters for any stream may have changed, only some streams may have changed, and stream configurations may have been removed. When the status is `CameraConfiguration::Adjusted`, the caller must check the configuration carefully.
+`CameraConfiguration::Invalid` means that the configuration is invalid and cannot be adjusted, and may occur only in extreme cases such as when the configuration is empty. `CameraConfiguration::Adjusted` indicates that the configuration has been adjusted and is valid after adjustment. If `CameraConfiguration::validate()` returns `Adjusted`, parameters may have changed for any stream, only some streams may have changed, and stream configurations may have been removed. When the status is `CameraConfiguration::Adjusted`, the caller must check the configuration carefully.
 
 ### Caller responsibilities by validate() result.
 
@@ -1283,7 +1357,7 @@ flowchart TB
   v_n0 -->|"It may return Valid as the <br/>validation status."| v_n3
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/vendor-assurance.validation-results.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -1320,7 +1394,7 @@ flowchart TB
   v_request -->|"It returns this if the <br/>requested roles cannot be <br/>satisfied."| v_null
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/vendor-assurance.configuration-contract-validity.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -1343,7 +1417,7 @@ Authoring model: `cli/codex/gpt-6.1-terra`
 
 </details>
 
-If `CameraConfiguration::validate()` returns `CameraConfiguration::Valid`, it means that the original configuration was already valid and had not been adjusted. `PipelineHandler::generateConfiguration()` returns a valid `CameraConfiguration` if it can satisfy the stream roles requested through `roles`, and a `null` pointer otherwise. The configuration passed to `PipelineHandler::configure()` is guaranteed to have been validated by `CameraConfiguration::validate()`, so pipeline handler implementers must not perform further validation. Implementers of `PipelineHandler::configure()` must return `0` on successful configuration and a negative error code on failure.
+If `CameraConfiguration::validate()` returns `CameraConfiguration::Valid`, the original configuration was already valid and has not been adjusted. `PipelineHandler::generateConfiguration()` takes `roles`, a list of stream roles, and returns a valid `CameraConfiguration` if the requested roles can be satisfied, or a `null` pointer otherwise. The configuration passed to `PipelineHandler::configure()` is guaranteed to have been validated by `CameraConfiguration::validate()`, and pipeline handler implementers must not perform additional validation. The implementer of `PipelineHandler::configure()` must return `0` if configuration succeeds and a negative error code if it fails.
 
 <details open>
 <summary>Section-wide evidence: 9</summary>
@@ -1355,7 +1429,7 @@ If `CameraConfiguration::validate()` returns `CameraConfiguration::Valid`, it me
 
 ## <a id="d4-성능-근거를-읽는-기준"></a>Criteria for reading performance evidence
 
-The built-in benchmark in `DebayerCpu` measures only the time spent collecting statistics and debayering. It does not measure the time spent capturing or outputting frames. The benchmark can be used by running `cam` or `qcam` with a pipeline that uses `Software ISP`.
+The built-in benchmark in `DebayerCpu` measures only the time spent processing statistics collection and debayering. It does not include the time spent capturing or outputting frames. The built-in benchmark can be used by running `cam` or `qcam` with a pipeline that uses the Software ISP.
 
 <details open>
 <summary>Section-wide evidence: 1</summary>
@@ -1387,12 +1461,239 @@ flowchart LR
   classDef context fill:#fafafa,stroke:#aaa,stroke-dasharray:4 3,color:#555
 ```
 
+<details open>
+<summary>Verification scope of the virtual test</summary>
+
+**This is a virtual test configuration. It must not be used as a support or performance claim for an actual product.**
+
+- [Has the first capture on the customer board been validated?](#d4-고객-보드의-첫-촬영을-검증했습니까)
+
+</details>
+
 ## Source evidence
 
 <details open>
-<summary>10 source excerpts</summary>
+<summary>17 source excerpts</summary>
 
 Include each excerpt only once. Expand the needed original text and check it against the explanation.
+
+<a id="d4-source-eb7d1ae4ac9df3f9"></a>
+
+<details open>
+<summary>Source evidence: src/libcamera/pipeline/virtual/README.md:3</summary>
+
+Excerpt range: [`src/libcamera/pipeline/virtual/README.md:3`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/README.md#L3) to `5`
+
+SHA-256: `493f7417e35aff44c5d8402be054cedfa0cf3d5cfa6007789c2a3bbc1d359491`
+
+```
+# Virtual Pipeline Handler
+
+Virtual pipeline handler emulates fake external camera(s) for testing.
+```
+
+</details>
+
+<a id="d4-source-fb6397b1c5827be7"></a>
+
+<details open>
+<summary>Source evidence: src/libcamera/pipeline/virtual/data/virtual.yaml:28</summary>
+
+Excerpt range: [`src/libcamera/pipeline/virtual/data/virtual.yaml:28`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/data/virtual.yaml#L28) to `34`
+
+SHA-256: `4b1c7d6a7ad0a5de6e033d508a6a85e6e166dcabdca7866b1b61b23657d91c8d`
+
+```
+"Virtual2":
+  supported_formats:
+  - width: 400
+    height: 300
+  test_pattern: "lines"
+  location: "Front"
+  model: "Virtual Video Device2"
+```
+
+</details>
+
+<a id="d4-source-aba605be681da98e"></a>
+
+<details open>
+<summary>Source evidence: include/libcamera/camera.h:126</summary>
+
+Excerpt range: [`include/libcamera/camera.h:126`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/camera.h#L126) to `153`
+
+SHA-256: `5c3c69878cf992146820a6ecf3d639f1b4d9cf15b6626a6adf39fbaa15fa8a87`
+
+```
+Signal<Request *, FrameBuffer *> bufferCompleted;
+    Signal<Request *> requestCompleted;
+    Signal<> disconnected;
+
+    int acquire();
+    int release();
+
+    const ControlInfoMap &controls() const;
+    const ControlList &properties() const;
+
+    const std::set<Stream *> &streams() const;
+
+    std::unique_ptr<CameraConfiguration>
+    generateConfiguration(std::span<const StreamRole> roles = {});
+
+    std::unique_ptr<CameraConfiguration>
+    generateConfiguration(std::initializer_list<StreamRole> roles)
+    {
+        return generateConfiguration(std::span(roles.begin(), roles.end()));
+    }
+
+    int configure(CameraConfiguration *config);
+
+    std::unique_ptr<Request> createRequest(uint64_t cookie = 0);
+    int queueRequest(Request *request);
+
+    int start(const ControlList *controls = nullptr);
+    int stop();
+```
+
+</details>
+
+<a id="d4-source-cb2be6f3ec7f91fc"></a>
+
+<details open>
+<summary>Source evidence: include/libcamera/request.h:34</summary>
+
+Excerpt range: [`include/libcamera/request.h:34`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/request.h#L34) to `37`
+
+SHA-256: `eaa5d321971fa026c205d6687465279a50cccbeec286ccbaecd1a8ff149652f0`
+
+```
+enum Status {
+        RequestPending,
+        RequestComplete,
+        RequestCancelled,
+```
+
+</details>
+
+<a id="d4-source-094e6fd7ddda824a"></a>
+
+<details open>
+<summary>Source evidence: include/libcamera/framebuffer.h:25</summary>
+
+Excerpt range: [`include/libcamera/framebuffer.h:25`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/framebuffer.h#L25) to `28`
+
+SHA-256: `dc2d776d3644c8251b2b5c814b24afbe1669453df099ff38f2948283af83b987`
+
+```
+enum Status {
+        FrameSuccess,
+        FrameError,
+        FrameCancelled,
+```
+
+</details>
+
+<a id="d4-source-ce71f2f0de50caf3"></a>
+
+<details open>
+<summary>Source evidence: README.rst:107</summary>
+
+Excerpt range: [`README.rst:107`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/README.rst#L107) to `110`
+
+SHA-256: `ef4dcb6f295c819bccc9abda78c8416492644df33013d7602ab5f5bb170c4b05`
+
+```
+The ``cam`` utility can be used for basic testing. You can list the cameras
+detected on the system with ``cam -l``, and capture ten frames from the first
+camera and save them to disk with ``cam -c 1 --capture=10 --file``. See
+``cam -h`` for more information about the ``cam`` tool.
+```
+
+</details>
+
+<a id="d4-source-3c4ba1aba4901083"></a>
+
+<details open>
+<summary>Product evidence: product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1</summary>
+
+This material is provided separately from the source. Check the provider, version, and scope of application in the record below. Automatic checks are not human approval.
+
+Excerpt range: `product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1` to `49`
+
+SHA-256: `2284397098a8a2871f76f695264af00a36c57a8fc324630367a26e598ee165e8`
+
+```
+{
+  "archive": "https://github.com/TTolsun/camera-hal-sdd-generator/tree/6adb29515c6a250d05e06ad0cf3b047205380be9/examples/libcamera/validation/issue211/runs/20261031-wsl-cam-3",
+  "date": "2026-10-31",
+  "source_commit": "293d751a814e0d4c34e85ad457ccd9d5eefd1a61",
+  "source_tracked_clean": true,
+  "kernel": "6.18.33.2-microsoft-standard-WSL2-issue211",
+  "allocator": "udmabuf (built into the WSL2 trial kernel, CONFIG_UDMABUF=y)",
+  "camera": "Virtual2",
+  "requested_stream": "role=video,width=400,height=300,pixelformat=NV12",
+  "runs": [
+    {
+      "pid": 434,
+      "completed_frames": 3,
+      "successful_buffer_sequences": [
+        0,
+        1,
+        2
+      ],
+      "exit_code": 0
+    },
+    {
+      "pid": 449,
+      "completed_frames": 3,
+      "successful_buffer_sequences": [
+        0,
+        1,
+        2
+      ],
+      "exit_code": 0
+    },
+    {
+      "pid": 464,
+      "completed_frames": 3,
+      "successful_buffer_sequences": [
+        0,
+        1,
+        2
+      ],
+      "exit_code": 0
+    }
+  ],
+  "physical_camera": "not-run",
+  "physical_dma": "not-validated",
+  "production_application": "not-run",
+  "internal_hal": "not-run",
+  "applied_stream": "(0) 400x300-NV12/SMPTE170M",
+  "kernel_evidence": "https://github.com/TTolsun/camera-hal-sdd-generator/blob/6adb29515c6a250d05e06ad0cf3b047205380be9/examples/libcamera/validation/issue211/runs/20261031-after-kernel-inventory/stdout"
+}
+```
+
+```
+{
+  "type": "measurement",
+  "supplier": "Public official cam trial archive, selected run fields",
+  "version": "2026-10-31",
+  "date": "2026-10-31",
+  "valid_until": "2026-10-31",
+  "product": "libcamera-first-capture-trial",
+  "release": "293d751a814e0d4c34e85ad457ccd9d5eefd1a61",
+  "configuration": "wsl2-virtual2-official-cam-udmabuf",
+  "feature": "virtual-first-capture",
+  "conditions": [
+    "WSL2 trial kernel with built-in udmabuf",
+    "Unmodified official cam at the recorded source commit",
+    "Virtual2, 400x300 NV12"
+  ],
+  "sha256": "2284397098a8a2871f76f695264af00a36c57a8fc324630367a26e598ee165e8"
+}
+```
+
+</details>
 
 <a id="d4-source-60ab47044c6107c5"></a>
 
@@ -1611,23 +1912,24 @@ or "qcam" with a pipeline using the Software ISP.
 - **Automated check**: Passed (`ok`). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.
 - **Human review**: Before human review
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
-- **Document generation time**: `2026-11-04 20:05:26+00:00`
+- **Document generation time**: `2026-11-20 15:53:14+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
+- **Enter product description**: [Scope, conditions, and sources](https://ttolsun.github.io/libcamera-sdd/product-context.json)
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
 
 This is a record saved in the manuscript as of that time. It may differ from the current document's standards.
 
-- Evidence files: `Documentation/software-isp-benchmarking.rst`, `include/libcamera/camera.h`, `include/libcamera/internal/ipa_manager.h`, `include/libcamera/internal/pipeline_handler.h`, `src/libcamera/camera.cpp`, `src/libcamera/ipa_manager.cpp`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/pipeline_handler.cpp`
-- Evidence level: Code verified (static analysis, simple_compdb configuration, commit `293d751a81`)
+- Evidence files: `Documentation/software-isp-benchmarking.rst`, `README.rst`, `include/libcamera/camera.h`, `include/libcamera/framebuffer.h`, `include/libcamera/internal/ipa_manager.h`, `include/libcamera/internal/pipeline_handler.h`, `include/libcamera/request.h`, `product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt`, `src/libcamera/camera.cpp`, `src/libcamera/ipa_manager.cpp`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/pipeline/virtual/README.md`, `src/libcamera/pipeline/virtual/data/virtual.yaml`, `src/libcamera/pipeline_handler.cpp`
+- Evidence level: Code verified (static analysis, simple_compdb configuration, commit `da6a6ed33e`)
 - Automated check (citation, sentence, and configured structure checks): passed
-- Review status recorded on: 2026-11-05 · Awaiting human review
+- Review status recorded on: 2026-11-21 · Awaiting human review
 
 </details>
 
-Markdown source ↗ Mermaid source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/vendor-assurance.md) [Mermaid source ↗](https://ttolsun.github.io/libcamera-sdd/en/vendor-assurance.mmd)
 
 <a id="doc-5"></a>
 
@@ -1704,7 +2006,7 @@ flowchart TB
   v_stop -->|"May restart before release"| v_start
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/vendor-integration.integration-stages.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -1757,7 +2059,7 @@ flowchart TB
   v_register -->|"The call returned true."| v_repeat
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/vendor-integration.item-boundary.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -1811,7 +2113,7 @@ flowchart TB
   v_configure -->|"configure returns a success <br/>or error result."| v_return
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/vendor-integration.handler-configuration-contracts.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -1874,7 +2176,7 @@ flowchart TB
   v_last -->|"Explicit request completion"| v_request
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/vendor-integration.device-queue-and-completion.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -1938,7 +2240,7 @@ flowchart TB
   v_valid -->|"The proxy is valid."| v_return
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/vendor-integration.item-algorithm.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -2004,7 +2306,7 @@ flowchart TB
   v_waiting -->|"The local queue is empty."| v_reset
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/vendor-integration.shutdown-device-and-waiting-requests.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -2915,7 +3217,7 @@ SHA-256: `57320fd2a94f3a559970ad0de0160f8f6bd1373d83f964ff7ecd5c6a51485d7c`
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-11 19:43:47+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -2929,7 +3231,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗ Mermaid source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/vendor-integration.md) [Mermaid source ↗](https://ttolsun.github.io/libcamera-sdd/en/vendor-integration.mmd)
 
 <a id="doc-6"></a>
 
@@ -3014,7 +3316,7 @@ flowchart TB
   v_devices -->|"When the handler is <br/>destroyed, it releases each <br/>device in mediaDevices#95;."| v_release
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/pipeline-handler.handler-device-ownership.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -3070,7 +3372,7 @@ flowchart TB
   v_release_count -->|"Even if the condition is <br/>false, decrement the count. <br/>· useCount#95; #61;#61; 1 #91;false#93;"| v_decrement
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/pipeline-handler.acquire-release-locks.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -3138,7 +3440,7 @@ flowchart TB
   v_configure -->|"When configuring the <br/>camera, the pipeline <br/>handler shall use <br/>StreamConfiguration::<br/>setStream to associate a <br/>Stream with each <br/>StreamConfiguration entry <br/>in the CameraConfiguration."| v_setstream
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/pipeline-handler.configuration-contracts.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -3195,7 +3497,7 @@ flowchart TB
   v_stop -->|"After stopDevice returns, <br/>stop removes each detached <br/>request, marks it <br/>cancelled, and calls <br/>doQueueRequest to preserve <br/>order. This gives each <br/>request a sequence number <br/>and temporarily adds it to <br/>queuedRequests#95; so <br/>completeRequest can <br/>complete it properly."| v_queue
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/pipeline-handler.normal-dispatch-and-stop.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -3256,7 +3558,7 @@ flowchart TB
   v_input_height -->|"minIFHeight is calculated <br/>by subtracting <br/>ImgUDevice::<br/>kIFMaxCropHeight from <br/>iif.height."| v_minimum_height
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/pipeline-handler.input-search-loops.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -3951,7 +4253,7 @@ Check declarations, inheritance, and comments at each class link.
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-11 17:43:01+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -3965,7 +4267,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗ Mermaid source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/pipeline-handler.md) [Mermaid source ↗](https://ttolsun.github.io/libcamera-sdd/en/pipeline-handler.mmd)
 
 <a id="doc-7"></a>
 
@@ -4032,7 +4334,7 @@ flowchart TB
   v_ready -->|"Skip device for cancelled <br/>request"| v_cancel
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/pipeline-requests.queue-gates.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -4103,7 +4405,7 @@ flowchart TB
   v_dispatch -->|"This applies when <br/>completeRequest#40;#41; returns."| v_access-ends
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/pipeline-requests.buffer-request-completion.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -5163,7 +5465,7 @@ Check declarations, inheritance, and comments at each class link.
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-11 23:07:27+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -5177,7 +5479,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗ Mermaid source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/pipeline-requests.md) [Mermaid source ↗](https://ttolsun.github.io/libcamera-sdd/en/pipeline-requests.mmd)
 
 <a id="doc-8"></a>
 
@@ -5272,7 +5574,7 @@ flowchart TB
   v_valid -->|"Yes"| v_success
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/ipa.proxy-selection.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -5344,7 +5646,7 @@ flowchart TB
   v_invoke -->|"It returns the result after <br/>invokeMethod returns <br/>normally."| v_start_return
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/ipa.threaded-init-start.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -5397,7 +5699,7 @@ flowchart TB
   v_events -->|"After connecting the <br/>events, the constructor <br/>stores true in valid#95;."| v_valid
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/ipa.interface-creation-outcomes.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -5454,7 +5756,7 @@ flowchart TB
   v_transfer -->|"Set valid#95; after <br/>transferring ownership."| v_valid
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/ipa.isolated-constructor-connection.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -5557,7 +5859,7 @@ flowchart TB
   v_dispatch -->|"When message dispatch <br/>returns normally, update <br/>the state."| v_stopped
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/ipa.threaded-stop-order.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -5604,7 +5906,7 @@ flowchart TB
   v_check -->|"If the condition is false, <br/>it skips the if body. · <br/>ipc#95; #91;false#93;"| v_end
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/ipa.isolated-destructor-guard.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -5666,7 +5968,7 @@ flowchart TB
   v_lookup -->|"If false, set the factory. <br/>#91;false#93;"| v_success
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/ipa.module-load-error-branches.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -5730,7 +6032,7 @@ flowchart TB
   v_events -->|"Check done again after <br/>processing events."| v_done
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/ipa.synchronous-ipc-outcomes.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -6989,7 +7291,7 @@ Check declarations, inheritance, and comments at each class link.
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-11 21:03:20+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -7003,7 +7305,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗ Mermaid source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/ipa.md) [Mermaid source ↗](https://ttolsun.github.io/libcamera-sdd/en/ipa.mmd)
 
 <a id="doc-9"></a>
 
@@ -7077,7 +7379,7 @@ flowchart TB
   v_fallback -->|"No"| v_alternative
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/ipa-algorithms.ipa-tuning-file-fallback.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -7140,7 +7442,7 @@ flowchart TB
   v_output -->|"No"| v_success
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/ipa-algorithms.softisp-dmabuf-import-paths.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -7201,7 +7503,7 @@ flowchart TB
   v_awb -->|"After AWB"| v_color
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/ipa-algorithms.softisp-lsc-shader-order.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -7701,7 +8003,7 @@ Check declarations, inheritance, and comments at each class link.
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-11 17:51:40+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -7715,7 +8017,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗ Mermaid source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/ipa-algorithms.md) [Mermaid source ↗](https://ttolsun.github.io/libcamera-sdd/en/ipa-algorithms.mmd)
 
 <a id="doc-10"></a>
 
@@ -7797,7 +8099,7 @@ flowchart TB
   v_frame -->|"Lsc::queueRequest passes <br/>frameContext.lsc to <br/>lscAlgo#95;."| v_queue
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/ipu3-lsc-flow.lsc-build-state-integration.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -7870,7 +8172,7 @@ flowchart TB
   v_y -->|"Pass both position vectors <br/>and analogCrop."| v_configure
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/ipu3-lsc-flow.item-setup.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -7934,7 +8236,7 @@ flowchart TB
   v_default -->|"Forward after applying <br/>default"| v_common
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/ipu3-lsc-flow.lsc-request-input.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -8409,7 +8711,7 @@ Check declarations, inheritance, and comments at each class link.
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-11 20:17:55+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -8423,7 +8725,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗ Mermaid source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/ipu3-lsc-flow.md) [Mermaid source ↗](https://ttolsun.github.io/libcamera-sdd/en/ipu3-lsc-flow.mmd)
 
 <a id="doc-11"></a>
 
@@ -8489,7 +8791,7 @@ flowchart TB
   v_notify -->|"Only when enabled"| v_lut
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/ipu3-lsc-prepare.lsc-update-gates.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -8895,7 +9197,7 @@ Check declarations, inheritance, and comments at each class link.
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-10-29 22:45:35+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -8909,7 +9211,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗ Mermaid source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/ipu3-lsc-prepare.md) [Mermaid source ↗](https://ttolsun.github.io/libcamera-sdd/en/ipu3-lsc-prepare.mmd)
 
 <a id="doc-12"></a>
 
@@ -8978,7 +9280,7 @@ flowchart TB
   v_optional -->|"Separate configure#40;#41; passes <br/>the possibly empty optional <br/>upon reaching the main path <br/>with usesDewarper#95; true."| v_converter
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/rkisp1-dewarp.per-camera-parameters.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -9056,7 +9358,7 @@ flowchart TB
   v_save-new -->|"The supplied matrix is <br/>ready."| v_store
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/rkisp1-dewarp.item-parameters.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -9142,7 +9444,7 @@ flowchart TB
   v_update -->|"The function checks for the <br/>next output."| v_loop
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/rkisp1-dewarp.per-output-vertex-map.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -9210,7 +9512,7 @@ flowchart TB
   v_warning -->|"After the log call returns <br/>normally, end the function."| v_end
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/rkisp1-dewarp.control-info-and-request-support.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -9277,7 +9579,7 @@ flowchart TB
   v_log -->|"The function ends when <br/>logging the error returns <br/>normally."| v_finish
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/rkisp1-dewarp.stream-control-update.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -9340,7 +9642,7 @@ flowchart TB
   v_dewarp -->|"Finish the function if the <br/>write call returns normally."| v_end
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/rkisp1-dewarp.configured-stream-metadata.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -9404,7 +9706,7 @@ flowchart TB
   v_crop -->|"Configure the main path <br/>after calling setControls."| v_main_configure
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/rkisp1-dewarp.main-path-dewarp-handoff.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -10606,7 +10908,7 @@ void ConverterDW100Module::populateMetadata(const Stream *stream, ControlList &m
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-11 19:12:32+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -10620,7 +10922,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/rkisp1-dewarp.md)
 
 <a id="doc-13"></a>
 
@@ -10687,7 +10989,7 @@ flowchart TB
   v_framework -->|"Control through the V4L2 <br/>family of APIs"| v_kernel
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/team-overview.camera-stack.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -10743,7 +11045,7 @@ flowchart TB
   v_userspace -->|"Pipeline Handler manages <br/>the pipelines exposed <br/>through Media Controller <br/>and V4L2."| v_handlers
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/team-overview.item-inputs.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -10801,7 +11103,7 @@ flowchart TB
   v_adaptation -->|"Integration examples"| v_examples
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/team-overview.interfaces-to-upper-layers.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -10860,7 +11162,7 @@ flowchart TB
   v_modules -->|"IPA Modules use only the <br/>Pipeline Handler API to <br/>interact with libcamera and <br/>cannot directly access <br/>kernel camera devices."| v_pipeline
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/team-overview.item-boundaries.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -11239,8 +11541,8 @@ IPA Modules built with libcamera are run in the same process space as the
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-11 20:35:47+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
-- **Reader scope**: Answers by task and unreviewed scope
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
+- **Reader scope**: [Answers by task and unreviewed scope](https://ttolsun.github.io/libcamera-sdd/reader-scope.json)
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -11254,7 +11556,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/team-overview.md)
 
 <a id="doc-14"></a>
 
@@ -11349,7 +11651,7 @@ flowchart TB
   v_running -->|"Look up a Camera by ID."| v_get
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/overview.discovery-map.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -11431,7 +11733,7 @@ flowchart TB
   v_map -->|"Reset after buffer handling."| v_reset
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/overview.item-creation.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -11495,7 +11797,7 @@ flowchart TB
   v_running -->|"createRequest#40;#41; or <br/>queueRequest#40;#41; leaves the <br/>camera Running."| v_running
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/overview.item-lifecycle.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -11554,7 +11856,7 @@ flowchart TB
   v_complete-buffer -->|"Even the last buffer does <br/>not automatically complete <br/>the request; the handler <br/>must complete it separately"| v_complete-request
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/overview.submission-completion.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -11609,7 +11911,7 @@ flowchart TB
   v_all_complete -->|"Even after the last buffer, <br/>the handler must complete <br/>the request explicitly."| v_request_completion
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/overview.item-completion.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -11684,7 +11986,7 @@ flowchart TB
   v_result_check -->|"If false, it sets the state <br/>and returns 0. · ret #91;false#93;"| v_running
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/overview.item-verification.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -12333,8 +12635,8 @@ int Camera::start(const ControlList *controls)
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-11 20:46:11+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
-- **Reader scope**: Answers by task and unreviewed scope
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
+- **Reader scope**: [Answers by task and unreviewed scope](https://ttolsun.github.io/libcamera-sdd/reader-scope.json)
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -12348,7 +12650,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗ Mermaid source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/overview.md) [Mermaid source ↗](https://ttolsun.github.io/libcamera-sdd/en/overview.mmd)
 
 <a id="doc-15"></a>
 
@@ -12418,7 +12720,7 @@ flowchart TB
   v_explicit -->|"The camera signals the <br/>request#39;s completion."| v_notification
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/onboarding.request-completion-contract.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -12561,7 +12863,7 @@ The pipeline handler shall call this function to notify the \a camera that
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-04 05:02:45+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -12575,7 +12877,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/onboarding.md)
 
 <a id="doc-16"></a>
 
@@ -12660,7 +12962,7 @@ flowchart TB
   v_application -->|"An application may hold <br/>references to Camera <br/>objects."| v_camera
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/camera-model.item-responsibility.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -12728,7 +13030,7 @@ flowchart TB
   v_running -->|"createRequest#40;#41;, <br/>queueRequest#40;#41;"| v_running
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/camera-model.camera-states.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -12803,7 +13105,7 @@ flowchart TB
   v_configured -->|"Return after changing the <br/>state."| v_success
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/camera-model.stop-running-and-noop.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -12872,7 +13174,7 @@ flowchart TB
   v_patch -->|"After preprocessing, make <br/>the queued call and return <br/>0."| v_queued
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/camera-model.queue-validation-order.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -12957,7 +13259,7 @@ flowchart TB
   v_cancel -->|"PipelineHandler::<br/>cancelRequest#40;#41; follows the <br/>same rules as <br/>completeRequest#40;#41;."| v_complete
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/camera-model.item-concurrency.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -13022,7 +13324,7 @@ flowchart TB
   v_flag -->|"After Private::disconnect <br/>returns, it emits the <br/>signal."| v_signal
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/camera-model.disconnection-state-notification.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -13076,7 +13378,7 @@ flowchart TB
   v_range_assert -->|"If valid low and high pass <br/>ASSERT, it returns an error."| v_range_error
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/camera-model.disconnection-access-results.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -13965,7 +14267,7 @@ Check declarations, inheritance, and comments at each class link.
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-11 22:15:40+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -13979,7 +14281,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗ Mermaid source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/camera-model.md) [Mermaid source ↗](https://ttolsun.github.io/libcamera-sdd/en/camera-model.mmd)
 
 <a id="doc-17"></a>
 
@@ -14045,7 +14347,7 @@ flowchart TB
   v_attach -->|"Move a valid supplied fence <br/>if present, then return"| v_success
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/camera-requests.add-buffer-rejections.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -14087,7 +14389,7 @@ flowchart TB
   v_queued -->|"API completion-notification <br/>contract"| v_complete
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/camera-requests.queue-return-completion.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -14132,7 +14434,7 @@ flowchart TB
   v_streams -->|"Every stream is in the <br/>active set."| v_submit
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/camera-requests.queued-request-data-checks.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -14204,7 +14506,7 @@ flowchart TB
 
 The app owns the request created by createRequest(). The buffer reference stored by addBuffer() and the raw pointer passed by queueRequest() do not extend object lifetimes. Keep the buffer valid until the request completion callback and the queued request valid at least until the method is invoked. [`camera.cpp:1254`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1254) · [`request.cpp:447`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L447) · [`camera.cpp:1377`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1377) · [`object.cpp:269`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/base/object.cpp#L269)
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/camera-requests.request-ownership.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -14243,7 +14545,7 @@ flowchart TB
 
 Use frame data only when the buffer status is FrameSuccess. [`framebuffer.cpp:42`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/framebuffer.cpp#L42)
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/camera-requests.timeout-fence-recovery.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -14278,7 +14580,7 @@ flowchart TB
 
 Default reuse() clears the buffer map. Attach buffers again with addBuffer() before resubmitting. [`request.cpp:397`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L397)
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/camera-requests.reuse-buffer-relink.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -14313,7 +14615,7 @@ flowchart TB
 
 If a fence remains on the buffer after a timeout, retrieve it with releaseFence() before resubmitting the same request, even with ReuseBuffers. [`request.cpp:391`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L391) · [`request.cpp:464`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L464)
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/camera-requests.reuse-buffer-fence-distinction.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -14352,7 +14654,7 @@ flowchart TB
   v_valid -->|"No valid fence was supplied."| v_none
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/camera-requests.add-buffer-fence-transfer.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -14996,7 +15298,7 @@ Check declarations, inheritance, and comments at each class link.
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-11 17:00:37+00:00`
 - **Sentence generation model**: `cli/claude/claude-haiku-5-5`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -15010,7 +15312,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗ Mermaid source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/camera-requests.md) [Mermaid source ↗](https://ttolsun.github.io/libcamera-sdd/en/camera-requests.mmd)
 
 <a id="doc-18"></a>
 
@@ -15141,7 +15443,7 @@ flowchart TB
   v_buffer -->|"false"| v_pending
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.request-stages.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -15187,7 +15489,7 @@ flowchart TB
   v_queued -->|"API completion-notification <br/>contract after queuing"| v_signal
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.lifecycle-queue-return-completion.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -15232,7 +15534,7 @@ flowchart TB
 
 PipelineHandler::queueRequest() passes 300 ms as the timeout argument for request preparation. If forwarding stops, check separately whether queuedRequests\_.size() equals maxQueuedRequestsDevice\_ and whether the request at the front of waitingRequests\_ is prepared. [`pipeline_handler.cpp:477`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L477) · [`pipeline_handler.cpp:513`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L513) · [`pipeline_handler.cpp:517`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L517)
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.waiting-queue-conditions.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -15276,7 +15578,7 @@ flowchart TB
   v_ret -->|"No"| v_end
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.dispatch-cancel-or-device.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -15319,7 +15621,7 @@ flowchart TB
 
 A true return from completeBuffer() means all buffers in the request have completed. The request does not complete automatically when its last buffer completes, so if it remains incomplete, check whether the pipeline handler explicitly calls completeRequest(). [`pipeline_handler.cpp:556`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L556) · [`pipeline_handler.cpp:560`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L560)
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.buffer-and-request-completion.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -15364,7 +15666,7 @@ flowchart TB
 
 The pipeline handler may call completeRequest() on completed requests in any order, but requests are returned to the application in submission order. If an earlier request has status Request::RequestPending, a later completed request is not returned yet. [`pipeline_handler.cpp:588`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L588) · [`pipeline_handler.cpp:594`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594)
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.submission-order-completion.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -15442,7 +15744,7 @@ flowchart TB
   v_waiting -->|"It pops the front request <br/>before passing it to <br/>doQueueRequest."| v_queue
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.preparation-depth-flow.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -15491,7 +15793,7 @@ flowchart TB
   v_register -->|"During completion <br/>processing, a completed <br/>queuedRequests#95; head is <br/>popped before the signal is <br/>emitted. · req-#62;status#40;#41; #61;#61; <br/>Request::RequestPending <br/>#91;false#93;"| v_notice
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.submission-order-flow.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -15543,7 +15845,7 @@ flowchart TB
   v_timeout -->|"It clears the remaining <br/>notifiers#95;, cancels the <br/>request, and emits <br/>preparation completion."| v_prepared
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.fence-timer-order-flow.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -15645,7 +15947,7 @@ flowchart TB
   v_cancel -->|"It completes the cancelled <br/>request."| v_complete
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.uvc-depth-flow.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -15706,7 +16008,7 @@ flowchart TB
   v_n7 -->|"If the return value is <br/>nonzero, doQueueRequest <br/>calls cancelRequest. · ret <br/>#91;true#93;"| v_n8
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.pre-qbuf-failure-flow.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -15807,7 +16109,7 @@ flowchart TB
   v_signal -->|"Queued delivery is <br/>asynchronous and the sender <br/>does not wait for <br/>completion. Auto uses <br/>Direct in the same thread <br/>and Queued in different <br/>threads."| v_queued
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.request-ownership.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -15857,7 +16159,7 @@ flowchart TB
   v_complete -->|"Return completed queue heads"| v_return
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.completion-notification-order.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -15915,7 +16217,7 @@ flowchart TB
   v_wait -->|"Exit the loop via break"| v_end
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.completed-but-not-returned.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -15965,7 +16267,7 @@ flowchart TB
   v_retrieve -->|"Retrieval is a necessary <br/>precondition"| v_reuse
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.lifecycle-timeout-fence-recovery.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -16000,7 +16302,7 @@ flowchart TB
   v_fences -->|"API should-not <br/>recommendation"| v_advice
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.lifecycle-reuse-buffer-fence-distinction.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -16051,7 +16353,7 @@ flowchart TB
   v_api -->|"Check integration caller <br/>lifetime"| v_buffer
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.completion-change-checks.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -16120,7 +16422,7 @@ flowchart TB
   v_notify_camera -->|"If the state check passes, <br/>requestComplete emits the <br/>requestCompleted signal. · <br/>#95;d#40;#41;-#62;isAccessAllowed#40;Private::<br/>CameraStopping, <br/>Private::CameraRunning, <br/>true#41; #91;false#93;"| v_notify_application
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.callback-order-flow.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -16197,7 +16499,7 @@ flowchart TB
   v_auto -->|"If the two threads differ, <br/>it selects <br/>ConnectionTypeQueued. · <br/>Thread::current#40;#41; #61;#61; <br/>object#95;-#62;thread#40;#41; #91;false#93;"| v_queued
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.callback-depth-flow.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -16233,7 +16535,7 @@ flowchart TB
   v_request -->|"The completed Request is <br/>passed to <br/>Camera::requestComplete. <br/>This notification alone <br/>does not guarantee that <br/>separate Queued receivers <br/>have finished their last <br/>use."| v_complete
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.queued-lifetime-flow.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -16279,7 +16581,7 @@ flowchart TB
   v_emit -->|"PipelineHandler::<br/>completeBuffer calls the <br/>internal completeBuffer <br/>after emit actually returns."| v_completebuffer
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.callback-boundaries-flow.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -16328,7 +16630,7 @@ flowchart TB
   v_stop_return -->|"The last use needs a <br/>separate check. The <br/>ordering of stop return and <br/>the last use is not <br/>guaranteed."| v_pointer_check
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.stop-lifetime-flow.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -16422,7 +16724,7 @@ flowchart TB
   v_cameraassert -->|"Following normal source path"| v_configured
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.stop-order.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -16467,7 +16769,7 @@ flowchart TB
   v_disconnect -->|"Distinguish unfinished TODO"| v_todo
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.stop-disconnect-contract.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -16511,7 +16813,7 @@ flowchart TB
 
 When the running camera passes the access check, the public API contract for Camera::stop() is to stop capture and request processing immediately and cancel and complete all pending requests synchronously in an error state. If !d-\>isRunning(), the function does nothing and returns 0. [`camera.cpp:1434`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1434)
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.camera-stop-branches.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -16560,7 +16862,7 @@ flowchart TB
   v_implementation-return -->|"Compare with the post-call <br/>position after an observed <br/>implementation return #40;a <br/>before-call log is not <br/>evidence of return#41;"| v_after
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.stop-device-observation-plan.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -16599,7 +16901,7 @@ flowchart TB
   v_call -->|"Duty once this function <br/>returns"| v_after
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.stopping-completion-contract.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -16635,7 +16937,7 @@ flowchart TB
   v_record -->|"Compare only retained <br/>records after notification, <br/>without reading request <br/>fields"| v_compare
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.request-completion-audit-plan.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -16736,7 +17038,7 @@ Confirm the camera ID, actual UVC pipeline, and libcamera build and revision. Be
 | Verify application handler entry for the same submission generation. If entry is absent, check the actual slot connection, receiver lifetime, direct or queued delivery, the relevant receiver thread's event loop, observation window, and trace loss. | Handler entry for the same submission generation confirmed | Record the ordering and delay of matched events calculated on the shared clock. [`request.cpp:385`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L385) · [`camera.cpp:1488`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1488) |
 | Verify application handler entry for the same submission generation. If entry is absent, check the actual slot connection, receiver lifetime, direct or queued delivery, the relevant receiver thread's event loop, observation window, and trace loss. | Handler entry not confirmed | Record the last confirmed point, first unobserved point, enabled probe, observation interval, and drop count. [`bound_method.cpp:40`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/base/bound_method.cpp#L40) · [`signal.h:38`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/base/signal.h#L38) · [`pipeline_handler.cpp:593`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593) · [`pipeline_handler.cpp:599`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599) · [`camera.cpp:716`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L716) · [`camera.cpp:1488`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1488) |
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.uvc-device-request-observation.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -16812,7 +17114,7 @@ Identify the same camera and submitted request. Record sequence, time, thread, s
 | isAccessAllowed reads the current state | Read value is in the allowed range | Stopping or Running: guard passes, then requestCompleted is emitted [`camera.cpp:717`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L717) · [`camera.h:53`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/internal/camera.h#L53) · [`camera.cpp:1488`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1488) · [`camera.cpp:1484`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1484) |
 | isAccessAllowed reads the current state | Read value is outside the allowed range | Available, Acquired, or Configured: -EACCES, Fatal. no basis for normal emission [`camera.cpp:717`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L717) · [`camera.h:53`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/internal/camera.h#L53) · [`camera.cpp:729`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L729) · [`camera.cpp:1486`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1486) |
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.disconnect-completion-state.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -16898,7 +17200,7 @@ Record a per-submission ID and buffer pointer, plus the same device's state and 
 | Check bufferCompleted observation and buffer status separately. Statuses include FrameSuccess, FrameError and FrameCancelled. | Same submission's bufferCompleted observed; app still waiting | Check whether the FIFO head is pending and whether the target requestCompleted was emitted and received. [`pipeline_handler.cpp:566`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L566) · [`pipeline_handler.cpp:594`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594) · [`camera.cpp:1488`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1488) · [`pipeline_handler.cpp:593`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593) · [`pipeline_handler.cpp:599`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599) |
 | Check bufferCompleted observation and buffer status separately. Statuses include FrameSuccess, FrameError and FrameCancelled. | bufferCompleted emission or app receipt not observed or inconclusive | Compare records and probe coverage for the same submission, device, and buffer. Depending on the missing step, check the streamOff return and map; bufferAvailable entry, DQBUF return, returned index and map match, and map removal; bufferReady emission and imageBufferReady entry; and completeBuffer entry, bufferCompleted emission, and receipt. [`pipeline_handler.cpp:566`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L566) · [`request.cpp:145`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L145) · [`v4l2_videodevice.cpp:2033`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L2033) · [`v4l2_videodevice.cpp:1816`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1816) · [`uvcvideo.cpp:535`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L535) · [`pipeline_handler.cpp:563`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L563) |
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.uvc-stop-missing-buffer.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -16964,7 +17266,7 @@ flowchart TB
   v_returned -->|"UVC calls releaseBuffers <br/>without checking the return <br/>value."| v_release
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.stop-depth-flow.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -17061,7 +17363,7 @@ flowchart TB
   v_cancelrequest -->|"It calls completeRequest <br/>after cancelling the <br/>request."| v_request
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.change-verification-flow.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -17112,7 +17414,7 @@ flowchart TB
   v_queued -->|"If the message is <br/>processed, observe the <br/>receiver invocation."| v_receiver
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.concurrent-stop-and-queued-lifetime-review.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -17167,7 +17469,7 @@ flowchart TB
   v_dequeue -->|"If dequeueBuffer returns <br/>nullptr, bufferAvailable <br/>returns. · #33;buffer #91;true#93;"| v_available_return
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.failure-investigation-flow.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -17272,7 +17574,7 @@ flowchart TB
   v_direct -->|"Observed in three runs of <br/>this probe"| v_between
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.observed-stop-callback-timing.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -17306,7 +17608,7 @@ flowchart TB
   v_marker -->|"Observation limit"| v_limit
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.near-return-marker-boundary.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -22248,8 +22550,8 @@ SHA-256: `f78e369710f01e2740a79e5b32a9035d66792ac52f51bdbea9050bb5ebafca8c`
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-19 18:15:19+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
-- **Enter product description**: Scope, conditions, and sources
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
+- **Enter product description**: [Scope, conditions, and sources](https://ttolsun.github.io/libcamera-sdd/product-context.json)
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -22263,7 +22565,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.md)
 
 <a id="doc-19"></a>
 
@@ -22341,7 +22643,7 @@ flowchart TB
   v_ret -->|"No: zero"| v_streams
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-diagnosis.configure-failures.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -22388,7 +22690,7 @@ flowchart TB
   v_valid -->|"After loop"| v_next
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-diagnosis.configuration-stream-link.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -22429,7 +22731,7 @@ flowchart TB
   v_range -->|"No: observe following code"| v_denied
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-diagnosis.configuration-access-branches.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -22468,7 +22770,7 @@ flowchart TB
   v_handler -->|"Record original call ret"| v_return
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-diagnosis.configuration-implementation-observation.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -22543,7 +22845,7 @@ flowchart TB
   v_access -->|"Not disconnected; state is <br/>not Running"| v_state-error
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-diagnosis.submission-checks.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -22657,7 +22959,7 @@ These are source-based investigation examples. Track each submission using the c
 | Check target status and queue front | Target requestComplete observed | Check emit and app slot [`pipeline_handler.cpp:599`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599) |
 | Check target status and queue front | Status or flow unknown | Withhold judgment [`pipeline_handler.cpp:593`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593) · [`pipeline_handler.cpp:594`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594) · [`pipeline_handler.cpp:584`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584) |
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-diagnosis.completion-notice-diagnosis.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -22708,7 +23010,7 @@ flowchart TB
   v_forward -->|"Recheck loop condition"| v_waiting
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-diagnosis.queue-gates.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -22756,7 +23058,7 @@ flowchart TB
   v_attach -->|"Move a valid supplied fence <br/>if present, then return"| v_success
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-diagnosis.diagnosis-add-buffer-rejections.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -22803,7 +23105,7 @@ flowchart TB
   v_ret -->|"No"| v_end
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-diagnosis.diagnosis-dispatch-cancel-or-device.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -22844,7 +23146,7 @@ flowchart TB
   v_true -->|"After an opportunity for <br/>any remaining required work"| v_explicit
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-diagnosis.diagnosis-buffer-and-request-completion.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -22887,7 +23189,7 @@ flowchart TB
   v_notify -->|"Inspect next front"| v_queue
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-diagnosis.diagnosis-submission-order-completion.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -23799,7 +24101,7 @@ int Request::addBuffer(const Stream *stream, FrameBuffer *buffer,
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-11 17:00:45+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -23813,7 +24115,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/request-diagnosis.md)
 
 <a id="doc-20"></a>
 
@@ -23846,7 +24148,7 @@ English translation · human review pending. Review states below refer to the Ko
 - **Human review**: Before human review
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-10-30 17:20:44+00:00`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -23860,7 +24162,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/scenarios/index.md)
 
 <a id="doc-21"></a>
 
@@ -23933,7 +24235,7 @@ flowchart TB
   v_check_status -->|"If the condition is false, <br/>it returns 0. · status #60; 0 <br/>#91;false#93;"| v_return_success
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/scenarios/manager_start.manager-start-wait-result.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -23994,7 +24296,7 @@ flowchart TB
   v_exec -->|"If exec#40;#41; returns normally, <br/>run calls cleanup#40;#41;."| v_success_cleanup
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/scenarios/manager_start.manager-run-notify-before-branch.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -24305,7 +24607,7 @@ Expand the section below to see calls excluded from the summary. This list is a 
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-04 07:00:44+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -24319,7 +24621,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/scenarios/manager_start.md)
 
 <a id="doc-22"></a>
 
@@ -24379,7 +24681,7 @@ flowchart TB
   v_range -->|"The disconnection and state <br/>checks pass."| v_allowed
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/scenarios/configure.configuration-prerequisite-map.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -24448,7 +24750,7 @@ flowchart TB
   v_pipeline_check -->|"If ret is false, continue <br/>to the next check. #91;false#93;"| v_next
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/scenarios/configure.configure-validation-before-pipeline.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -24508,7 +24810,7 @@ flowchart TB
   v_configured -->|"Camera::configure returns <br/>after setting the state."| v_camera_return
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/scenarios/configure.configure-stream-list-once.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -25174,7 +25476,7 @@ Expand the section below to see calls excluded from the summary. This list is a 
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-11 20:35:49+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -25188,7 +25490,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/scenarios/configure.md)
 
 <a id="doc-23"></a>
 
@@ -25248,7 +25550,7 @@ flowchart TB
   v_requests -->|"The application can queue <br/>requests until stop#40;#41; ends <br/>the session."| v_stop
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/scenarios/camera_start.item-session.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -25322,7 +25624,7 @@ flowchart TB
   v_result -->|"If the result is zero, it <br/>updates the state. #91;false#93;"| v_running
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/scenarios/camera_start.item-activation.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -25650,7 +25952,7 @@ Expand the section below to see calls excluded from the summary. This list is a 
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-04 05:03:21+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -25664,7 +25966,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/scenarios/camera_start.md)
 
 <a id="doc-24"></a>
 
@@ -25730,7 +26032,7 @@ flowchart TB
   v_result -->|"If it is not negative, the <br/>function proceeds to the <br/>next check. #91;false#93;"| v_camera
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/scenarios/queue_request.queue-access-helper.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -25799,7 +26101,7 @@ flowchart TB
   v_invoke -->|"When invokeMethod returns <br/>normally, return 0."| v_success
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/scenarios/queue_request.queue-acceptance-exact-guards.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -25884,7 +26186,7 @@ flowchart TB
   v_result -->|"The function ends if the <br/>return value is zero. <br/>#91;false#93;"| v_end
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/scenarios/queue_request.dispatch-device-errors.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -25933,7 +26235,7 @@ flowchart TB
   v_prepare -->|"The function ends when <br/>prepare returns normally."| v_end
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/scenarios/queue_request.queue-insert-prepare-only.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -25981,7 +26283,7 @@ flowchart TB
   v_queue -->|"When doQueueRequest returns <br/>normally, check the while <br/>condition again."| v_waiting
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/scenarios/queue_request.prepared-queue-dispatch-loop.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -26466,7 +26768,7 @@ Expand the section below to see calls excluded from the summary. This list is a 
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-11 22:00:08+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -26480,7 +26782,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/scenarios/queue_request.md)
 
 <a id="doc-25"></a>
 
@@ -26550,7 +26852,7 @@ flowchart TB
   v_private_complete -->|"This completion function <br/>uses ASSERT for both <br/>preconditions."| v_assert
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/scenarios/complete_request.normal-buffer-request-duties.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -26602,7 +26904,7 @@ flowchart TB
   v_cancel_return -->|"When cancel returns <br/>normally, cancelRequest <br/>calls completeRequest."| v_complete
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/scenarios/complete_request.pipeline-cancellation-boundary.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -26670,7 +26972,7 @@ flowchart TB
   v_notify -->|"Check the queue again only <br/>if requestComplete returns <br/>normally."| v_queue
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/scenarios/complete_request.ordered-completion-loop.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -26719,7 +27021,7 @@ flowchart TB
   v_check -->|"No. The check returns 0. <br/>#91;false#93;"| v_emit
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/scenarios/complete_request.camera-completion-notification-guard.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -27396,7 +27698,7 @@ Expand the section below to see calls excluded from the summary. This list is a 
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-11 20:47:59+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -27410,7 +27712,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/scenarios/complete_request.md)
 
 <a id="doc-26"></a>
 
@@ -27478,7 +27780,7 @@ flowchart TB
   v_configured -->|"After setting the state, <br/>return 0."| v_success
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/scenarios/camera_stop.stop-exact-negated-guard.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -27554,7 +27856,7 @@ flowchart TB
   v_cleanup -->|"Reset timer#95; if both clear <br/>calls return normally."| v_timer
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/scenarios/camera_stop.pending-buffer-cancellation.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -27616,7 +27918,7 @@ flowchart TB
 
 PipelineHandler::stop() sets the waiting queue requests aside, calls stopDevice(), and then cancels those requests, while completeRequest() returns requests to the application in submission order. The code contains two ASSERT checks for data-\>queuedRequests\_.empty() and data-\>waitingRequests\_.empty(), whose evaluation depends on the build, and then resets data-\>requestSequence\_ to 0. [`pipeline_handler.cpp:398`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L398) · [`pipeline_handler.cpp:594`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594)
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/scenarios/camera_stop.pipeline-stop-waiting-cancellation.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -28176,7 +28478,7 @@ Expand the section below to see calls excluded from the summary. This list is a 
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-11 20:46:04+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -28190,7 +28492,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/scenarios/camera_stop.md)
 
 <a id="doc-27"></a>
 
@@ -28339,7 +28641,7 @@ SHA-256: `c0494d982bf733894dac25a5c0221b855cddc703b1ba2094bdddac72c0329caa`
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-10-29 20:32:19+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -28353,7 +28655,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/ipa-module-validation.md)
 
 <a id="doc-28"></a>
 
@@ -28410,7 +28712,7 @@ flowchart TB
   v_stream -->|"If stream is not in the <br/>active configuration, <br/>-EINVAL is returned."| v_einval
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/framebuffer-allocator.item-allocation-preconditions.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -28465,7 +28767,7 @@ flowchart TB
   v_returned -->|"Destruction of the <br/>FrameBufferAllocator <br/>instance can end validity."| v_allocator
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/framebuffer-allocator.item-reference-lifetime.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -28527,7 +28829,7 @@ flowchart TB
   v_failure -->|"Otherwise, return ret <br/>without erasing the entry. <br/>#91;false#93;"| v_result
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/framebuffer-allocator.item-allocation-failure.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -28746,7 +29048,7 @@ int FrameBufferAllocator::free(Stream *stream)
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-11 21:04:22+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -28760,7 +29062,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/framebuffer-allocator.md)
 
 <a id="doc-29"></a>
 
@@ -28841,7 +29143,7 @@ flowchart TB
   v_trial -->|"Restored after the trial"| v_restored
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/official-cam-validation.observed-kernel-boundaries.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -28897,7 +29199,7 @@ flowchart TB
   v_export -->|"After successful allocation"| v_attach
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/official-cam-validation.virtual-dmabuf-attachment.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -28947,7 +29249,7 @@ flowchart TB
   v_n7 -->|"Keeps FrameSuccess #91;false#93;"| v_n8
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/official-cam-validation.virtual-frame-path.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -29009,7 +29311,7 @@ flowchart TB
   v_n6 -->|"Loop ends"| v_n8
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/official-cam-validation.request-completion-order.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -29092,7 +29394,7 @@ flowchart TB
   v_store_req -->|"Stored: recheck left"| v_more_requests
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/official-cam-validation.submission-gate.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -29172,7 +29474,7 @@ flowchart TB
   v_caller_check -->|"non-negative: next #91;false#93;"| v_remaining
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/official-cam-validation.initial-submission.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -29256,7 +29558,7 @@ flowchart TB
   v_n7 -->|"Unset or not reached #91;false#93;"| v_n9
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/official-cam-validation.completion-flow.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -29360,7 +29662,7 @@ flowchart TB
   v_run_cam -->|"Verify after 3 runs"| v_result_verify
 ```
 
-Mermaid source
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/official-cam-validation.reproduction-flow.mmd)
 
 <details open>
 <summary>Diagram evidence and verification scope</summary>
@@ -31570,8 +31872,8 @@ Next step: [Official cam reproduction procedure](https://github.com/TTolsun/came
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-04 05:26:14+00:00`
 - **Sentence generation model**: `cli/claude/claude-haiku-5-5`
-- **Contracts between documents**: Automated comparison report · Before human review
-- **Enter product description**: Scope, conditions, and sources
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
+- **Enter product description**: [Scope, conditions, and sources](https://ttolsun.github.io/libcamera-sdd/product-context.json)
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -31585,7 +31887,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/official-cam-validation.md)
 
 <a id="doc-30"></a>
 
@@ -33148,7 +33450,7 @@ Other terms can be found in [Glossary](#doc-2).
 - **Human review**: Before human review
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-11-11 17:43:11+00:00`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -33162,7 +33464,7 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/component-index.md)
 
 <a id="doc-31"></a>
 
@@ -33270,7 +33572,7 @@ Check declarations, inheritance, and comments at each class link.
 - **Human review**: Before human review
 - **Analysis baseline commit**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **Document generation time**: `2026-10-29 20:32:18+00:00`
-- **Contracts between documents**: Automated comparison report · Before human review
+- **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
@@ -33284,4 +33586,4 @@ This is a record saved in the manuscript as of that time. It may differ from the
 
 </details>
 
-Markdown source ↗ Mermaid source ↗
+[Markdown source ↗](https://ttolsun.github.io/libcamera-sdd/ipu3-lsc.md) [Mermaid source ↗](https://ttolsun.github.io/libcamera-sdd/en/ipu3-lsc.mmd)

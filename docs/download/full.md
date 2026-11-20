@@ -3,6 +3,7 @@
 31편
 
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
+- **원본 사이트**: [https://ttolsun.github.io/libcamera-sdd/](https://ttolsun.github.io/libcamera-sdd/)
 
 이 파일은 사이트의 모든 문서를 하나로 묶은 사본입니다. 만든 뒤에 바뀐 코드와 문서는 반영되지 않으므로 분석 기준 커밋을 함께 확인하세요. 인용 검사 같은 자동 검사 결과는 사람 검토 승인이 아닙니다. 문서별 검토 상태는 각 문서 끝의 문서 생성·검토 정보에 있습니다.
 
@@ -103,7 +104,7 @@ flowchart TB
   v_apps -->|"네이티브 C++ API 및 선택적 <br/>언어 바인딩 사용"| v_framework
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/index.camera-stack.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -234,7 +235,7 @@ For Developer는 신입·타팀 개발자를 위한 경로입니다. 클래스 �
 
 ## 문서 생성·검토 정보
 
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <a id="doc-2"></a>
 
@@ -321,7 +322,7 @@ For Developer는 신입·타팀 개발자를 위한 경로입니다. 클래스 �
 
 ## 문서 생성·검토 정보
 
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <a id="doc-3"></a>
 
@@ -392,7 +393,7 @@ flowchart TB
   v_apps -->|"네이티브 C++ API 및 선택적 <br/>언어 바인딩 사용"| v_framework
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/vendor-overview.camera-stack.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -460,7 +461,7 @@ flowchart TB
   v_media -->|"확보 성공 시 Camera 생성"| v_camera
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/vendor-overview.hardware-boundary.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -524,7 +525,7 @@ flowchart TB
   v_fwd -->|"반복 조건 재검사"| v_waiting
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/vendor-overview.vendor-waiting-queue-conditions.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -582,7 +583,7 @@ flowchart TB
   v_stop_track -->|"완료 신호 방식"| v_stop_signal
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/vendor-overview.vendor-buffer-and-request-completion.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -1202,9 +1203,9 @@ void PipelineHandler::doQueueRequests(Camera *camera)
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-05 02:19:45+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
-- **독자 범위**: 과업별 답변과 미검토 범위
-- **제품 설명 입력**: 적용 범위·조건·자료
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
+- **독자 범위**: [과업별 답변과 미검토 범위](https://ttolsun.github.io/libcamera-sdd/reader-scope.json)
+- **제품 설명 입력**: [적용 범위·조건·자료](https://ttolsun.github.io/libcamera-sdd/product-context.json)
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -1218,7 +1219,7 @@ void PipelineHandler::doQueueRequests(Camera *camera)
 
 </details>
 
-Markdown 원문 ↗ Mermaid 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/vendor-overview.md) [Mermaid 원문 ↗](https://ttolsun.github.io/libcamera-sdd/vendor-overview.mmd)
 
 <a id="doc-4"></a>
 
@@ -1228,13 +1229,16 @@ For Vendor
 
 사람 검토 전자동 검사 통과작성: 추출한 구조와 모델이 쓴 초안[상태 설명 ↓](#d4-page-evidence)
 
-**지원 조건과 구성 제약을 확인하고 제품 도입 전에 검증할 범위를 정하세요.**
+**WSL2 가상 캡처 기록을 읽고 고객 보드에 남은 첫 촬영 시험을 정하세요. 현재 분석한 커밋은 페이지 하단의 문서 생성·검토 정보에 있습니다.**
 
 <details open>
 <summary>설계 질문과 검증 범위</summary>
 
 질문별 답변과 근거 연결을 검사했습니다. 의미와 실행 결과는 사람 검토가 필요합니다.
 
+- 이 기록으로 고객 보드의 첫 촬영이 검증됐다고 보고할 수 있습니까?
+
+  [고객 보드의 첫 촬영을 검증했습니까?](#d4-고객-보드의-첫-촬영을-검증했습니까)
 - 지원 전제와 제약은 무엇이며 별도 검증할 항목은 무엇입니까?
 
   [지원 조건과 제약](#d4-지원-조건과-제약)
@@ -1247,19 +1251,89 @@ For Vendor
 </details>
 
 <details open>
-<summary>이 문서의 용어: Pipeline Handler, 디베이어, bayer</summary>
+<summary>이 문서의 용어: WSL2, Pipeline Handler, NV12, DMA 외 3개</summary>
 
+- **WSL2** (Windows Subsystem for Linux 2): Windows에서 Linux를 실행하는 환경입니다. 이 사이트는 libcamera를 WSL2에서 빌드하고 추출한 결과로 만듭니다.
 - **Pipeline Handler**: 특정 하드웨어 플랫폼(IPU3, RKISP1 등)의 미디어 장치를 찾아 카메라를 만들고, 요청을 장치에 넣고 완료를 돌려주는 libcamera 구성 요소입니다. 플랫폼마다 하나씩 있습니다.
+- **NV12** (NV12): 성분당 8비트를 쓰는 4:2:0 포맷입니다. 첫 번째 평면은 휘도(Y)이고, 두 번째 평면에는 Cb와 Cr 값이 한 개씩 번갈아 저장되는 교차 색차 데이터가 들어 있으며, 전체가 선형으로 연속된 메모리에 놓입니다.
+- **DMA** (Direct Memory Access): DMA(Direct Memory Access)는 I/O 장치가 시스템 메모리를 직접 읽거나 쓰는 방식을 뜻하는 용어입니다.
 - **디베이어**: bayer 원시 데이터에서 화소마다 빠진 색을 주변 화소로 보간해 RGB 영상을 만드는 처리입니다. 디모자이크라고도 합니다.
 - **bayer**: 센서의 화소마다 R·G·B 중 한 색만 기록하는 색 필터 배열입니다. 이 형식의 원시 데이터는 디베이어를 거쳐야 화소마다 RGB 값을 가집니다.
+- **ISP** (Image Signal Processor): 센서가 출력한 원시(bayer) 데이터를 화면에 쓸 수 있는 영상으로 바꾸는 처리 장치입니다. 블랙 레벨 보정, 렌즈 음영 보정, 화이트 밸런스, 디베이어 등을 수행합니다.
 
 다른 용어는 [용어집](#doc-2)에서 찾을 수 있습니다.
 
 </details>
 
+## <a id="d4-고객-보드의-첫-촬영을-검증했습니까"></a>고객 보드의 첫 촬영을 검증했습니까?
+
+이 기록으로 고객 보드의 첫 촬영을 검증했다고 보고할 수 없습니다. WSL2 시험 구성에서 물리 센서 대신 가상 카메라 Virtual2를 사용했으며, 고객 보드의 물리 센서로 촬영한 기록은 없습니다.
+
+### 가상 캡처 관측과 고객 보드 시험
+
+```mermaid
+flowchart TB
+%% sdd:translations {"WSL2 시험 커널의 Virtual2 <br/>400×300 NV12 스트림은 독립 <br/>실행 3회에서 매회 3프레임을 <br/>완료했습니다.": "On the WSL2 trial kernel, <br/>the Virtual2 400×300 NV12 <br/>stream completed three <br/>frames in each of three <br/>independent runs.", "고객 보드 시험 계획입니다.": "This is the customer-board <br/>test plan.", "고객 보드에서 물리 센서를 <br/>확인하고 적용된 스트림을 <br/>확인합니다.": "On the customer board, <br/>check the physical sensor <br/>and the applied stream.", "고객 보드의 첫 촬영은 아직 <br/>검증되지 않았습니다.": "The first capture on the <br/>customer board has not yet <br/>been verified.", "과거 관측 기록입니다.": "This is the past <br/>observation.", "센서 프레임을 저장하고 <br/>확인합니다.": "Save and inspect the sensor <br/>frames.", "시험 계획에서 다음으로 <br/>완료를 확인합니다.": "In the test plan, check <br/>completion next.", "시험 계획에서 다음으로 <br/>프레임을 저장하고 <br/>확인합니다.": "In the test plan, save and <br/>inspect the frames next.", "첫 Request와 FrameBuffer가 <br/>정상 완료되었는지 <br/>확인합니다.": "Check whether the first <br/>Request and FrameBuffer <br/>completed successfully."}
+  v_decision["고객 보드의 첫 촬영은 아직 <br/>검증되지 않았습니다."]
+  v_observed["WSL2 시험 커널의 Virtual2 <br/>400×300 NV12 스트림은 독립 <br/>실행 3회에서 매회 3프레임을 <br/>완료했습니다."]
+  v_configure["고객 보드에서 물리 센서를 <br/>확인하고 적용된 스트림을 <br/>확인합니다."]
+  v_complete["첫 Request와 FrameBuffer가 <br/>정상 완료되었는지 <br/>확인합니다."]
+  v_inspect["센서 프레임을 저장하고 <br/>확인합니다."]
+  v_decision -->|"과거 관측 기록입니다."| v_observed
+  v_decision -->|"고객 보드 시험 계획입니다."| v_configure
+  v_configure -->|"시험 계획에서 다음으로 <br/>완료를 확인합니다."| v_complete
+  v_complete -->|"시험 계획에서 다음으로 <br/>프레임을 저장하고 <br/>확인합니다."| v_inspect
+```
+
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/vendor-assurance.first-capture-boundary.mmd)
+
+<details open>
+<summary>그림 근거와 확인 범위</summary>
+
+WSL2에서 확인한 범위는 어디까지이며 고객 보드에서는 어떤 순서로 첫 촬영을 확인합니까?
+
+소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전
+
+LLM 그림 초안 · 사람 검토 전
+
+작성 모델: `cli/codex/gpt-6.1-terra`
+
+| 요소·전이 | 소스 근거 |
+| --- | --- |
+| 고객 보드의 첫 촬영은 아직 검증되지 않았습니다. | [product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1](#d4-source-3c4ba1aba4901083) |
+| WSL2 시험 커널의 Virtual2 400×300 NV12 스트림은 독립 실행 3회에서 매회 3프레임을 완료했습니다. | [product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1](#d4-source-3c4ba1aba4901083) |
+| 고객 보드에서 물리 센서를 확인하고 적용된 스트림을 확인합니다. | [product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1](#d4-source-3c4ba1aba4901083) · [README.rst:107](#d4-source-ce71f2f0de50caf3) · [include/libcamera/camera.h:126](#d4-source-aba605be681da98e) |
+| 첫 Request와 FrameBuffer가 정상 완료되었는지 확인합니다. | [include/libcamera/camera.h:126](#d4-source-aba605be681da98e) · [include/libcamera/request.h:34](#d4-source-cb2be6f3ec7f91fc) · [include/libcamera/framebuffer.h:25](#d4-source-094e6fd7ddda824a) |
+| 센서 프레임을 저장하고 확인합니다. | [include/libcamera/camera.h:126](#d4-source-aba605be681da98e) · [README.rst:107](#d4-source-ce71f2f0de50caf3) |
+| 과거 관측 기록입니다. | [product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1](#d4-source-3c4ba1aba4901083) |
+| 고객 보드 시험 계획입니다. | [product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1](#d4-source-3c4ba1aba4901083) · [README.rst:107](#d4-source-ce71f2f0de50caf3) |
+| 시험 계획에서 다음으로 완료를 확인합니다. | [include/libcamera/camera.h:126](#d4-source-aba605be681da98e) · [README.rst:107](#d4-source-ce71f2f0de50caf3) |
+| 시험 계획에서 다음으로 프레임을 저장하고 확인합니다. | [include/libcamera/camera.h:126](#d4-source-aba605be681da98e) · [README.rst:107](#d4-source-ce71f2f0de50caf3) |
+
+</details>
+
+libcamera 공식 프로젝트 문서에서 확인할 수 있는 범위에서, Virtual Pipeline Handler는 테스트용 가상 외부 카메라를 모사합니다. 예제 YAML은 Virtual2에 400×300 크기와 `lines` 테스트 패턴을 지정합니다.
+
+2026년 10월 31일의 가상 캡처 시험에서는 소스 커밋 293d751a814e0d4c34e85ad457ccd9d5eefd1a61과 내장 udmabuf를 갖춘 WSL2 시험 커널 6.18.33.2-microsoft-standard-WSL2-issue211을 사용했습니다. Virtual2에서 400×300 NV12로 별도 프로세스마다 실행한 3회 모두 각각 3프레임을 완료했습니다. 이 관측은 물리 카메라나 보드 DMA의 검증을 의미하지 않습니다.
+
+고객 보드의 첫 촬영 시험에서는 보드와 물리 센서, 커널·드라이버, libcamera 빌드 및 대상 애플리케이션을 기록하고 실제 센서를 열어 적용된 스트림 형식과 크기를 확인합니다. 첫 요청의 RequestComplete와 버퍼의 FrameSuccess를 확인하고 센서에서 들어온 프레임을 저장해 확인하며, 기본 시험 도구의 저장 기능 예시로 cam을 사용할 수 있습니다. 기존 기록은 WSL2 시험 커널의 udmabuf와 Virtual2를 사용한 시험 구성에 한정되며 물리 카메라, 물리 DMA 및 제품 애플리케이션은 검증되지 않았습니다.
+
+<details open>
+<summary>절 전체 근거 7개</summary>
+
+- `product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt`[`L1`](#d4-source-3c4ba1aba4901083)
+- `src/libcamera/pipeline/virtual/README.md`[`L3` 발췌](#d4-source-eb7d1ae4ac9df3f9) · [전체 소스 `L3`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/README.md#L3)
+- `src/libcamera/pipeline/virtual/data/virtual.yaml`[`L28` 발췌](#d4-source-fb6397b1c5827be7) · [전체 소스 `L28`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/data/virtual.yaml#L28)
+- `include/libcamera/request.h`[`L34` 발췌](#d4-source-cb2be6f3ec7f91fc) · [전체 소스 `L34`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/request.h#L34)
+- `include/libcamera/framebuffer.h`[`L25` 발췌](#d4-source-094e6fd7ddda824a) · [전체 소스 `L25`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/framebuffer.h#L25)
+- `README.rst`[`L107` 발췌](#d4-source-ce71f2f0de50caf3) · [전체 소스 `L107`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/README.rst#L107)
+- `include/libcamera/camera.h`[`L126` 발췌](#d4-source-aba605be681da98e) · [전체 소스 `L126`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/camera.h#L126)
+
+</details>
+
 ## <a id="d4-지원-조건과-제약"></a>지원 조건과 제약
 
-`CameraConfiguration::Invalid`는 구성이 유효하지 않고 조정할 수 없음을 뜻하며, 구성이 비어 있는 경우와 같은 극단적인 경우에만 발생할 수 있습니다. `CameraConfiguration::Adjusted`는 구성이 조정되었으며 조정 후 유효함을 나타냅니다. `CameraConfiguration::validate()`가 `CameraConfiguration::Adjusted`를 반환한 경우 어느 스트림의 파라미터든 바뀌었을 수 있고 일부 스트림만 바뀌었을 수도 있으며, 스트림 구성이 삭제되었을 수도 있습니다. `CameraConfiguration::Adjusted`일 때 호출자는 구성을 주의 깊게 확인해야 합니다.
+`CameraConfiguration::Invalid`는 구성이 유효하지 않고 조정할 수 없음을 뜻하며, 구성이 비어 있는 경우와 같은 극단적인 경우에만 발생할 수 있습니다. `CameraConfiguration::Adjusted`는 구성이 조정되었으며 조정 후 유효함을 나타냅니다. `CameraConfiguration::validate()`가 `Adjusted`를 반환하면 어느 스트림이든 파라미터가 바뀌었을 수 있고 일부 스트림만 바뀌었을 수도 있으며, 스트림 구성이 삭제되었을 수도 있습니다. `CameraConfiguration::Adjusted`일 때 호출자는 구성을 주의 깊게 확인해야 합니다.
 
 ### validate() 결과별 호출자의 책임
 
@@ -1275,7 +1349,7 @@ flowchart TB
   v_n0 -->|"검증 상태로 Valid를 반환할 <br/>수 있습니다."| v_n3
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/vendor-assurance.validation-results.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -1312,7 +1386,7 @@ flowchart TB
   v_request -->|"요청한 roles를 만족할 수 <br/>없으면 반환합니다."| v_null
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/vendor-assurance.configuration-contract-validity.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -1335,7 +1409,7 @@ LLM 그림 초안 · 사람 검토 전
 
 </details>
 
-`CameraConfiguration::validate()`가 `CameraConfiguration::Valid`를 반환하면 원래 구성이 이미 유효했고 조정되지 않았음을 뜻합니다. `PipelineHandler::generateConfiguration()`은 `roles`로 요청한 스트림 역할을 충족할 수 있으면 유효한 `CameraConfiguration`을 반환하고, 충족할 수 없으면 `null` 포인터를 반환합니다. `PipelineHandler::configure()`에 전달되는 설정은 `CameraConfiguration::validate()`로 검증되어 있음이 보장되므로, 파이프라인 핸들러 구현자는 추가 검증을 해서는 안 됩니다. `PipelineHandler::configure()` 구현자는 구성에 성공하면 `0`을, 실패하면 음수 오류 코드를 반환해야 합니다.
+`CameraConfiguration::validate()`가 `CameraConfiguration::Valid`를 반환하면 원래 구성이 이미 유효하며 조정되지 않은 상태입니다. `PipelineHandler::generateConfiguration()`은 스트림 역할 목록인 `roles`를 받아 요청한 역할을 충족할 수 있으면 유효한 `CameraConfiguration`을 반환하고, 그렇지 않으면 `null` 포인터를 반환합니다. `PipelineHandler::configure()`에 전달되는 설정은 `CameraConfiguration::validate()`로 검증되었음이 보장되며, 파이프라인 핸들러 구현자는 추가 검증을 해서는 안 됩니다. `PipelineHandler::configure()`의 구현자는 구성이 성공하면 `0`을 반환하고, 실패하면 음수 오류 코드를 반환해야 합니다.
 
 <details open>
 <summary>절 전체 근거 9개</summary>
@@ -1347,7 +1421,7 @@ LLM 그림 초안 · 사람 검토 전
 
 ## <a id="d4-성능-근거를-읽는-기준"></a>성능 근거를 읽는 기준
 
-`DebayerCpu`의 내장 벤치마크는 통계를 수집하고 디베이어링하는 처리에 걸린 시간만 측정합니다. 프레임 캡처와 출력에 걸린 시간은 측정하지 않습니다. 이 벤치마크는 `Software ISP`를 사용하는 파이프라인에서 `cam` 또는 `qcam`을 실행하여 사용할 수 있습니다.
+`DebayerCpu`의 내장 벤치마크는 통계를 수집하고 디베이어링하는 처리에 걸린 시간만 측정합니다. 프레임을 캡처하거나 출력하는 데 걸린 시간은 포함하지 않습니다. Software ISP를 사용하는 파이프라인에서 `cam` 또는 `qcam`을 실행하면 내장 벤치마크를 사용할 수 있습니다.
 
 <details open>
 <summary>절 전체 근거 1개</summary>
@@ -1379,12 +1453,239 @@ flowchart LR
   classDef context fill:#fafafa,stroke:#aaa,stroke-dasharray:4 3,color:#555
 ```
 
+<details open>
+<summary>가상 시험의 검증 범위</summary>
+
+**가상 시험 구성입니다. 실제 제품의 지원·성능 주장으로 사용하지 마세요.**
+
+- [고객 보드의 첫 촬영을 검증했습니까?](#d4-고객-보드의-첫-촬영을-검증했습니까)
+
+</details>
+
 ## 소스 근거
 
 <details open>
-<summary>소스 발췌 10개</summary>
+<summary>소스 발췌 17개</summary>
 
 같은 발췌는 한 번만 싣습니다. 필요한 원문을 펼쳐 설명과 대조하세요.
+
+<a id="d4-source-eb7d1ae4ac9df3f9"></a>
+
+<details open>
+<summary>소스 근거: src/libcamera/pipeline/virtual/README.md:3</summary>
+
+발췌 범위: [`src/libcamera/pipeline/virtual/README.md:3`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/README.md#L3) \~ `5`
+
+SHA-256: `493f7417e35aff44c5d8402be054cedfa0cf3d5cfa6007789c2a3bbc1d359491`
+
+```
+# Virtual Pipeline Handler
+
+Virtual pipeline handler emulates fake external camera(s) for testing.
+```
+
+</details>
+
+<a id="d4-source-fb6397b1c5827be7"></a>
+
+<details open>
+<summary>소스 근거: src/libcamera/pipeline/virtual/data/virtual.yaml:28</summary>
+
+발췌 범위: [`src/libcamera/pipeline/virtual/data/virtual.yaml:28`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/virtual/data/virtual.yaml#L28) \~ `34`
+
+SHA-256: `4b1c7d6a7ad0a5de6e033d508a6a85e6e166dcabdca7866b1b61b23657d91c8d`
+
+```
+"Virtual2":
+  supported_formats:
+  - width: 400
+    height: 300
+  test_pattern: "lines"
+  location: "Front"
+  model: "Virtual Video Device2"
+```
+
+</details>
+
+<a id="d4-source-aba605be681da98e"></a>
+
+<details open>
+<summary>소스 근거: include/libcamera/camera.h:126</summary>
+
+발췌 범위: [`include/libcamera/camera.h:126`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/camera.h#L126) \~ `153`
+
+SHA-256: `5c3c69878cf992146820a6ecf3d639f1b4d9cf15b6626a6adf39fbaa15fa8a87`
+
+```
+Signal<Request *, FrameBuffer *> bufferCompleted;
+    Signal<Request *> requestCompleted;
+    Signal<> disconnected;
+
+    int acquire();
+    int release();
+
+    const ControlInfoMap &controls() const;
+    const ControlList &properties() const;
+
+    const std::set<Stream *> &streams() const;
+
+    std::unique_ptr<CameraConfiguration>
+    generateConfiguration(std::span<const StreamRole> roles = {});
+
+    std::unique_ptr<CameraConfiguration>
+    generateConfiguration(std::initializer_list<StreamRole> roles)
+    {
+        return generateConfiguration(std::span(roles.begin(), roles.end()));
+    }
+
+    int configure(CameraConfiguration *config);
+
+    std::unique_ptr<Request> createRequest(uint64_t cookie = 0);
+    int queueRequest(Request *request);
+
+    int start(const ControlList *controls = nullptr);
+    int stop();
+```
+
+</details>
+
+<a id="d4-source-cb2be6f3ec7f91fc"></a>
+
+<details open>
+<summary>소스 근거: include/libcamera/request.h:34</summary>
+
+발췌 범위: [`include/libcamera/request.h:34`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/request.h#L34) \~ `37`
+
+SHA-256: `eaa5d321971fa026c205d6687465279a50cccbeec286ccbaecd1a8ff149652f0`
+
+```
+enum Status {
+        RequestPending,
+        RequestComplete,
+        RequestCancelled,
+```
+
+</details>
+
+<a id="d4-source-094e6fd7ddda824a"></a>
+
+<details open>
+<summary>소스 근거: include/libcamera/framebuffer.h:25</summary>
+
+발췌 범위: [`include/libcamera/framebuffer.h:25`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/framebuffer.h#L25) \~ `28`
+
+SHA-256: `dc2d776d3644c8251b2b5c814b24afbe1669453df099ff38f2948283af83b987`
+
+```
+enum Status {
+        FrameSuccess,
+        FrameError,
+        FrameCancelled,
+```
+
+</details>
+
+<a id="d4-source-ce71f2f0de50caf3"></a>
+
+<details open>
+<summary>소스 근거: README.rst:107</summary>
+
+발췌 범위: [`README.rst:107`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/README.rst#L107) \~ `110`
+
+SHA-256: `ef4dcb6f295c819bccc9abda78c8416492644df33013d7602ab5f5bb170c4b05`
+
+```
+The ``cam`` utility can be used for basic testing. You can list the cameras
+detected on the system with ``cam -l``, and capture ten frames from the first
+camera and save them to disk with ``cam -c 1 --capture=10 --file``. See
+``cam -h`` for more information about the ``cam`` tool.
+```
+
+</details>
+
+<a id="d4-source-3c4ba1aba4901083"></a>
+
+<details open>
+<summary>제품 자료: product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1</summary>
+
+소스와 별도로 제공된 자료입니다. 제공자·버전·적용 범위를 아래 기록에서 확인하세요. 자동 검사는 사람 승인이 아닙니다.
+
+발췌 범위: `product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1` \~ `49`
+
+SHA-256: `2284397098a8a2871f76f695264af00a36c57a8fc324630367a26e598ee165e8`
+
+```
+{
+  "archive": "https://github.com/TTolsun/camera-hal-sdd-generator/tree/6adb29515c6a250d05e06ad0cf3b047205380be9/examples/libcamera/validation/issue211/runs/20261031-wsl-cam-3",
+  "date": "2026-10-31",
+  "source_commit": "293d751a814e0d4c34e85ad457ccd9d5eefd1a61",
+  "source_tracked_clean": true,
+  "kernel": "6.18.33.2-microsoft-standard-WSL2-issue211",
+  "allocator": "udmabuf (built into the WSL2 trial kernel, CONFIG_UDMABUF=y)",
+  "camera": "Virtual2",
+  "requested_stream": "role=video,width=400,height=300,pixelformat=NV12",
+  "runs": [
+    {
+      "pid": 434,
+      "completed_frames": 3,
+      "successful_buffer_sequences": [
+        0,
+        1,
+        2
+      ],
+      "exit_code": 0
+    },
+    {
+      "pid": 449,
+      "completed_frames": 3,
+      "successful_buffer_sequences": [
+        0,
+        1,
+        2
+      ],
+      "exit_code": 0
+    },
+    {
+      "pid": 464,
+      "completed_frames": 3,
+      "successful_buffer_sequences": [
+        0,
+        1,
+        2
+      ],
+      "exit_code": 0
+    }
+  ],
+  "physical_camera": "not-run",
+  "physical_dma": "not-validated",
+  "production_application": "not-run",
+  "internal_hal": "not-run",
+  "applied_stream": "(0) 400x300-NV12/SMPTE170M",
+  "kernel_evidence": "https://github.com/TTolsun/camera-hal-sdd-generator/blob/6adb29515c6a250d05e06ad0cf3b047205380be9/examples/libcamera/validation/issue211/runs/20261031-after-kernel-inventory/stdout"
+}
+```
+
+```
+{
+  "type": "measurement",
+  "supplier": "Public official cam trial archive, selected run fields",
+  "version": "2026-10-31",
+  "date": "2026-10-31",
+  "valid_until": "2026-10-31",
+  "product": "libcamera-first-capture-trial",
+  "release": "293d751a814e0d4c34e85ad457ccd9d5eefd1a61",
+  "configuration": "wsl2-virtual2-official-cam-udmabuf",
+  "feature": "virtual-first-capture",
+  "conditions": [
+    "WSL2 trial kernel with built-in udmabuf",
+    "Unmodified official cam at the recorded source commit",
+    "Virtual2, 400x300 NV12"
+  ],
+  "sha256": "2284397098a8a2871f76f695264af00a36c57a8fc324630367a26e598ee165e8"
+}
+```
+
+</details>
 
 <a id="d4-source-60ab47044c6107c5"></a>
 
@@ -1603,23 +1904,24 @@ or "qcam" with a pipeline using the Software ISP.
 - **자동 검사**: 통과 (`ok`). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.
 - **사람 검토**: 사람 검토 전
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
-- **문서 생성 시각**: `2026-11-04 20:05:26+00:00`
+- **문서 생성 시각**: `2026-11-20 15:53:14+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
+- **제품 설명 입력**: [적용 범위·조건·자료](https://ttolsun.github.io/libcamera-sdd/product-context.json)
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
 
 원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.
 
-- 근거 파일: `Documentation/software-isp-benchmarking.rst`, `include/libcamera/camera.h`, `include/libcamera/internal/ipa_manager.h`, `include/libcamera/internal/pipeline_handler.h`, `src/libcamera/camera.cpp`, `src/libcamera/ipa_manager.cpp`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/pipeline_handler.cpp`
-- 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `293d751a81`)
+- 근거 파일: `Documentation/software-isp-benchmarking.rst`, `README.rst`, `include/libcamera/camera.h`, `include/libcamera/framebuffer.h`, `include/libcamera/internal/ipa_manager.h`, `include/libcamera/internal/pipeline_handler.h`, `include/libcamera/request.h`, `product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt`, `src/libcamera/camera.cpp`, `src/libcamera/ipa_manager.cpp`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/pipeline/virtual/README.md`, `src/libcamera/pipeline/virtual/data/virtual.yaml`, `src/libcamera/pipeline_handler.cpp`
+- 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `da6a6ed33e`)
 - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-- 검토 상태 기록일: 2026-11-05 · 사람 검토 전
+- 검토 상태 기록일: 2026-11-21 · 사람 검토 전
 
 </details>
 
-Markdown 원문 ↗ Mermaid 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/vendor-assurance.md) [Mermaid 원문 ↗](https://ttolsun.github.io/libcamera-sdd/vendor-assurance.mmd)
 
 <a id="doc-5"></a>
 
@@ -1694,7 +1996,7 @@ flowchart TB
   v_stop -->|"해제 전에는 재시작 가능"| v_start
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/vendor-integration.integration-stages.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -1747,7 +2049,7 @@ flowchart TB
   v_register -->|"true를 반환했습니다."| v_repeat
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/vendor-integration.item-boundary.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -1801,7 +2103,7 @@ flowchart TB
   v_configure -->|"configure는 성공 또는 오류 <br/>결과를 반환합니다."| v_return
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/vendor-integration.handler-configuration-contracts.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -1864,7 +2166,7 @@ flowchart TB
   v_last -->|"요청 완료는 명시 호출"| v_request
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/vendor-integration.device-queue-and-completion.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -1928,7 +2230,7 @@ flowchart TB
   v_valid -->|"프록시가 유효합니다."| v_return
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/vendor-integration.item-algorithm.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -1994,7 +2296,7 @@ flowchart TB
   v_waiting -->|"지역 큐가 비었습니다."| v_reset
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/vendor-integration.shutdown-device-and-waiting-requests.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -2905,7 +3207,7 @@ SHA-256: `57320fd2a94f3a559970ad0de0160f8f6bd1373d83f964ff7ecd5c6a51485d7c`
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-11 19:43:47+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -2919,7 +3221,7 @@ SHA-256: `57320fd2a94f3a559970ad0de0160f8f6bd1373d83f964ff7ecd5c6a51485d7c`
 
 </details>
 
-Markdown 원문 ↗ Mermaid 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/vendor-integration.md) [Mermaid 원문 ↗](https://ttolsun.github.io/libcamera-sdd/vendor-integration.mmd)
 
 <a id="doc-6"></a>
 
@@ -3002,7 +3304,7 @@ flowchart TB
   v_devices -->|"핸들러가 소멸하면 <br/>mediaDevices#95;의 각 장치를 <br/>해제합니다."| v_release
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/pipeline-handler.handler-device-ownership.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -3058,7 +3360,7 @@ flowchart TB
   v_release_count -->|"조건이 거짓이어도 횟수를 <br/>감소시킵니다. · useCount#95; <br/>#61;#61; 1 #91;false#93;"| v_decrement
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/pipeline-handler.acquire-release-locks.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -3126,7 +3428,7 @@ flowchart TB
   v_configure -->|"카메라를 구성할 때 <br/>파이프라인 핸들러는 <br/>StreamConfiguration::<br/>setStream으로 <br/>CameraConfiguration의 각 <br/>StreamConfiguration 항목에 <br/>Stream을 연결해야 합니다."| v_setstream
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/pipeline-handler.configuration-contracts.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -3183,7 +3485,7 @@ flowchart TB
   v_stop -->|"stop은 stopDevice 반환 뒤 <br/>순서를 지키기 위해 분리한 <br/>요청을 하나씩 꺼내 취소를 <br/>표시하고 doQueueRequest를 <br/>호출합니다. 그러면 순번이 <br/>부여되고 queuedRequests#95;에 <br/>임시로 추가되어 <br/>completeRequest에서 <br/>올바르게 완료할 수 있습니다."| v_queue
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/pipeline-handler.normal-dispatch-and-stop.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -3244,7 +3546,7 @@ flowchart TB
   v_input_height -->|"iif.height에서 <br/>ImgUDevice::<br/>kIFMaxCropHeight를 빼서 <br/>minIFHeight를 계산합니다."| v_minimum_height
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/pipeline-handler.input-search-loops.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -3939,7 +4241,7 @@ unsigned int minIFHeight = iif.height - ImgUDevice::kIFMaxCropHeight;
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-11 17:43:01+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -3953,7 +4255,7 @@ unsigned int minIFHeight = iif.height - ImgUDevice::kIFMaxCropHeight;
 
 </details>
 
-Markdown 원문 ↗ Mermaid 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/pipeline-handler.md) [Mermaid 원문 ↗](https://ttolsun.github.io/libcamera-sdd/pipeline-handler.mmd)
 
 <a id="doc-7"></a>
 
@@ -4018,7 +4320,7 @@ flowchart TB
   v_ready -->|"준비 중 취소된 요청은 장치 <br/>제출 생략"| v_cancel
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/pipeline-requests.queue-gates.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -4089,7 +4391,7 @@ flowchart TB
   v_dispatch -->|"completeRequest#40;#41;가 <br/>반환하면 적용합니다."| v_access-ends
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/pipeline-requests.buffer-request-completion.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -5149,7 +5451,7 @@ SHA-256: `bebb0d8c2cd1119a344011aa4263c60740456a685b32ed3f02cd6f49c1d6101e`
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-11 23:07:27+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -5163,7 +5465,7 @@ SHA-256: `bebb0d8c2cd1119a344011aa4263c60740456a685b32ed3f02cd6f49c1d6101e`
 
 </details>
 
-Markdown 원문 ↗ Mermaid 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/pipeline-requests.md) [Mermaid 원문 ↗](https://ttolsun.github.io/libcamera-sdd/pipeline-requests.mmd)
 
 <a id="doc-8"></a>
 
@@ -5256,7 +5558,7 @@ flowchart TB
   v_valid -->|"예"| v_success
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/ipa.proxy-selection.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -5328,7 +5630,7 @@ flowchart TB
   v_invoke -->|"invokeMethod가 정상 <br/>복귀하면 그 결과를 <br/>반환합니다."| v_start_return
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/ipa.threaded-init-start.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -5381,7 +5683,7 @@ flowchart TB
   v_events -->|"이벤트 연결을 마치면 <br/>valid#95;에 true를 저장합니다."| v_valid
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/ipa.interface-creation-outcomes.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -5438,7 +5740,7 @@ flowchart TB
   v_transfer -->|"소유권을 옮긴 뒤 valid#95;를 <br/>설정합니다."| v_valid
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/ipa.isolated-constructor-connection.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -5541,7 +5843,7 @@ flowchart TB
   v_dispatch -->|"메시지 처리가 정상 반환하면 <br/>상태를 갱신합니다."| v_stopped
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/ipa.threaded-stop-order.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -5588,7 +5890,7 @@ flowchart TB
   v_check -->|"조건이 거짓이면 if 본문을 <br/>건너뜁니다. · ipc#95; #91;false#93;"| v_end
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/ipa.isolated-destructor-guard.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -5650,7 +5952,7 @@ flowchart TB
   v_lookup -->|"거짓이면 팩터리를 <br/>설정합니다. #91;false#93;"| v_success
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/ipa.module-load-error-branches.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -5714,7 +6016,7 @@ flowchart TB
   v_events -->|"이벤트를 처리한 뒤 done을 <br/>다시 확인합니다."| v_done
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/ipa.synchronous-ipc-outcomes.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -6973,7 +7275,7 @@ IPAInterface *IPAModule::createInterface()
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-11 21:03:20+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -6987,7 +7289,7 @@ IPAInterface *IPAModule::createInterface()
 
 </details>
 
-Markdown 원문 ↗ Mermaid 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/ipa.md) [Mermaid 원문 ↗](https://ttolsun.github.io/libcamera-sdd/ipa.mmd)
 
 <a id="doc-9"></a>
 
@@ -7059,7 +7361,7 @@ flowchart TB
   v_fallback -->|"아니요"| v_alternative
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/ipa-algorithms.ipa-tuning-file-fallback.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -7122,7 +7424,7 @@ flowchart TB
   v_output -->|"아니요"| v_success
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/ipa-algorithms.softisp-dmabuf-import-paths.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -7183,7 +7485,7 @@ flowchart TB
   v_awb -->|"AWB 적용 후"| v_color
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/ipa-algorithms.softisp-lsc-shader-order.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -7683,7 +7985,7 @@ interface IPASoftIspEventInterface {
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-11 17:51:40+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -7697,7 +7999,7 @@ interface IPASoftIspEventInterface {
 
 </details>
 
-Markdown 원문 ↗ Mermaid 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/ipa-algorithms.md) [Mermaid 원문 ↗](https://ttolsun.github.io/libcamera-sdd/ipa-algorithms.mmd)
 
 <a id="doc-10"></a>
 
@@ -7777,7 +8079,7 @@ flowchart TB
   v_frame -->|"Lsc::queueRequest는 <br/>frameContext.lsc를 <br/>lscAlgo#95;에 전달합니다."| v_queue
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/ipu3-lsc-flow.lsc-build-state-integration.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -7850,7 +8152,7 @@ flowchart TB
   v_y -->|"두 위치 벡터와 analogCrop을 <br/>전달합니다."| v_configure
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/ipu3-lsc-flow.item-setup.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -7914,7 +8216,7 @@ flowchart TB
   v_default -->|"기본값 적용 후 전달"| v_common
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/ipu3-lsc-flow.lsc-request-input.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -8389,7 +8691,7 @@ REGISTER_IPA_ALGORITHM(Lsc, "Lsc")
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-11 20:17:55+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -8403,7 +8705,7 @@ REGISTER_IPA_ALGORITHM(Lsc, "Lsc")
 
 </details>
 
-Markdown 원문 ↗ Mermaid 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/ipu3-lsc-flow.md) [Mermaid 원문 ↗](https://ttolsun.github.io/libcamera-sdd/ipu3-lsc-flow.mmd)
 
 <a id="doc-11"></a>
 
@@ -8467,7 +8769,7 @@ flowchart TB
   v_notify -->|"활성 상태일 때만"| v_lut
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/ipu3-lsc-prepare.lsc-update-gates.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -8873,7 +9175,7 @@ if (polynomial_) {
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-10-29 22:45:35+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -8887,7 +9189,7 @@ if (polynomial_) {
 
 </details>
 
-Markdown 원문 ↗ Mermaid 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/ipu3-lsc-prepare.md) [Mermaid 원문 ↗](https://ttolsun.github.io/libcamera-sdd/ipu3-lsc-prepare.mmd)
 
 <a id="doc-12"></a>
 
@@ -8954,7 +9256,7 @@ flowchart TB
   v_optional -->|"별도 configure#40;#41;가 메인 <br/>경로에 도달하고 <br/>usesDewarper#95;가 true이면 <br/>비어 있을 수도 있는 객체를 <br/>전달합니다."| v_converter
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/rkisp1-dewarp.per-camera-parameters.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -9032,7 +9334,7 @@ flowchart TB
   v_save-new -->|"제공한 행렬이 준비됐습니다."| v_store
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/rkisp1-dewarp.item-parameters.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -9118,7 +9420,7 @@ flowchart TB
   v_update -->|"다음 출력이 있는지 <br/>확인합니다."| v_loop
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/rkisp1-dewarp.per-output-vertex-map.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -9186,7 +9488,7 @@ flowchart TB
   v_warning -->|"로그 호출이 정상 복귀하면 <br/>함수를 끝냅니다."| v_end
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/rkisp1-dewarp.control-info-and-request-support.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -9253,7 +9555,7 @@ flowchart TB
   v_log -->|"오류 기록이 정상 복귀하면 <br/>함수가 끝납니다."| v_finish
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/rkisp1-dewarp.stream-control-update.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -9316,7 +9618,7 @@ flowchart TB
   v_dewarp -->|"기록 호출이 정상 복귀하면 <br/>함수를 마칩니다."| v_end
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/rkisp1-dewarp.configured-stream-metadata.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -9380,7 +9682,7 @@ flowchart TB
   v_crop -->|"setControls 호출 뒤 메인 <br/>경로를 구성합니다."| v_main_configure
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/rkisp1-dewarp.main-path-dewarp-handoff.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -10582,7 +10884,7 @@ void ConverterDW100Module::populateMetadata(const Stream *stream, ControlList &m
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-11 19:12:32+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -10596,7 +10898,7 @@ void ConverterDW100Module::populateMetadata(const Stream *stream, ControlList &m
 
 </details>
 
-Markdown 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/rkisp1-dewarp.md)
 
 <a id="doc-13"></a>
 
@@ -10661,7 +10963,7 @@ flowchart TB
   v_framework -->|"V4L2 계열 API로 제어"| v_kernel
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/team-overview.camera-stack.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -10717,7 +11019,7 @@ flowchart TB
   v_userspace -->|"Pipeline Handler는 커널이 <br/>Media Controller와 V4L2로 <br/>노출한 파이프라인을 <br/>관리합니다."| v_handlers
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/team-overview.item-inputs.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -10775,7 +11077,7 @@ flowchart TB
   v_adaptation -->|"연결 구성 요소 예"| v_examples
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/team-overview.interfaces-to-upper-layers.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -10834,7 +11136,7 @@ flowchart TB
   v_modules -->|"IPA Modules는 Pipeline <br/>Handler API로만 libcamera와 <br/>상호작용하며 kernel camera <br/>devices에 직접 접근할 수 <br/>없습니다."| v_pipeline
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/team-overview.item-boundaries.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -11213,8 +11515,8 @@ IPA Modules built with libcamera are run in the same process space as the
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-11 20:35:47+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
-- **독자 범위**: 과업별 답변과 미검토 범위
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
+- **독자 범위**: [과업별 답변과 미검토 범위](https://ttolsun.github.io/libcamera-sdd/reader-scope.json)
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -11228,7 +11530,7 @@ IPA Modules built with libcamera are run in the same process space as the
 
 </details>
 
-Markdown 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/team-overview.md)
 
 <a id="doc-14"></a>
 
@@ -11321,7 +11623,7 @@ flowchart TB
   v_running -->|"ID로 Camera를 찾습니다."| v_get
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/overview.discovery-map.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -11403,7 +11705,7 @@ flowchart TB
   v_map -->|"버퍼 처리를 마친 뒤 <br/>초기화합니다."| v_reset
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/overview.item-creation.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -11467,7 +11769,7 @@ flowchart TB
   v_running -->|"createRequest#40;#41; 또는 <br/>queueRequest#40;#41; 후에도 <br/>Running 상태입니다."| v_running
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/overview.item-lifecycle.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -11526,7 +11828,7 @@ flowchart TB
   v_complete-buffer -->|"마지막 버퍼가 완료되어도 <br/>요청은 자동으로 완료되지 <br/>않으므로 핸들러가 별도로 <br/>완료해야 함"| v_complete-request
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/overview.submission-completion.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -11581,7 +11883,7 @@ flowchart TB
   v_all_complete -->|"마지막 버퍼가 끝나도 요청을 <br/>별도로 완료해야 합니다."| v_request_completion
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/overview.item-completion.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -11656,7 +11958,7 @@ flowchart TB
   v_result_check -->|"거짓이면 상태를 설정하고 <br/>0을 반환합니다. · ret <br/>#91;false#93;"| v_running
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/overview.item-verification.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -12305,8 +12607,8 @@ int Camera::start(const ControlList *controls)
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-11 20:46:11+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
-- **독자 범위**: 과업별 답변과 미검토 범위
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
+- **독자 범위**: [과업별 답변과 미검토 범위](https://ttolsun.github.io/libcamera-sdd/reader-scope.json)
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -12320,7 +12622,7 @@ int Camera::start(const ControlList *controls)
 
 </details>
 
-Markdown 원문 ↗ Mermaid 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/overview.md) [Mermaid 원문 ↗](https://ttolsun.github.io/libcamera-sdd/overview.mmd)
 
 <a id="doc-15"></a>
 
@@ -12388,7 +12690,7 @@ flowchart TB
   v_explicit -->|"핸들러가 요청 완료를 알리면 <br/>카메라는 완료 신호로 앱에 <br/>알립니다."| v_notification
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/onboarding.request-completion-contract.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -12531,7 +12833,7 @@ The pipeline handler shall call this function to notify the \a camera that
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-04 05:02:45+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -12545,7 +12847,7 @@ The pipeline handler shall call this function to notify the \a camera that
 
 </details>
 
-Markdown 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/onboarding.md)
 
 <a id="doc-16"></a>
 
@@ -12628,7 +12930,7 @@ flowchart TB
   v_application -->|"application은 Camera에 대한 <br/>참조를 보유할 수 있습니다."| v_camera
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/camera-model.item-responsibility.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -12696,7 +12998,7 @@ flowchart TB
   v_running -->|"createRequest#40;#41;, <br/>queueRequest#40;#41;"| v_running
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/camera-model.camera-states.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -12771,7 +13073,7 @@ flowchart TB
   v_configured -->|"상태를 바꾼 뒤 반환합니다."| v_success
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/camera-model.stop-running-and-noop.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -12840,7 +13142,7 @@ flowchart TB
   v_patch -->|"전처리한 뒤 queued 호출을 <br/>하고 0을 반환합니다."| v_queued
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/camera-model.queue-validation-order.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -12925,7 +13227,7 @@ flowchart TB
   v_cancel -->|"PipelineHandler::<br/>cancelRequest#40;#41;에는 <br/>completeRequest#40;#41;와 같은 <br/>규칙이 적용됩니다."| v_complete
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/camera-model.item-concurrency.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -12990,7 +13292,7 @@ flowchart TB
   v_flag -->|"Private::disconnect가 <br/>반환된 뒤 신호를 보냅니다."| v_signal
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/camera-model.disconnection-state-notification.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -13044,7 +13346,7 @@ flowchart TB
   v_range_assert -->|"유효한 low와 high가 <br/>ASSERT를 통과하면 오류를 <br/>반환합니다."| v_range_error
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/camera-model.disconnection-access-results.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -13933,7 +14235,7 @@ int Camera::Private::isAccessAllowed(State low, State high,
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-11 22:15:40+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -13947,7 +14249,7 @@ int Camera::Private::isAccessAllowed(State low, State high,
 
 </details>
 
-Markdown 원문 ↗ Mermaid 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/camera-model.md) [Mermaid 원문 ↗](https://ttolsun.github.io/libcamera-sdd/camera-model.mmd)
 
 <a id="doc-17"></a>
 
@@ -14011,7 +14313,7 @@ flowchart TB
   v_attach -->|"유효한 fence가 있으면 <br/>이동한 뒤 반환"| v_success
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/camera-requests.add-buffer-rejections.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -14053,7 +14355,7 @@ flowchart TB
   v_queued -->|"API의 완료 알림 계약"| v_complete
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/camera-requests.queue-return-completion.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -14098,7 +14400,7 @@ flowchart TB
   v_streams -->|"모든 스트림이 활성 목록에 <br/>있습니다."| v_submit
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/camera-requests.queued-request-data-checks.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -14170,7 +14472,7 @@ flowchart TB
 
 createRequest()로 만든 요청은 앱이 소유합니다. addBuffer()가 저장하는 버퍼 참조와 queueRequest()가 전달하는 raw 포인터는 객체 수명을 연장하지 않습니다. 앱은 버퍼를 요청 완료 콜백까지, 큐에 넘긴 요청은 적어도 메서드가 호출될 때까지 유효하게 유지해야 합니다. [`camera.cpp:1254`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1254) · [`request.cpp:447`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L447) · [`camera.cpp:1377`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1377) · [`object.cpp:269`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/base/object.cpp#L269)
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/camera-requests.request-ownership.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -14209,7 +14511,7 @@ flowchart TB
 
 버퍼의 상태가 FrameSuccess일 때만 프레임 데이터를 사용하세요. [`framebuffer.cpp:42`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/framebuffer.cpp#L42)
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/camera-requests.timeout-fence-recovery.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -14244,7 +14546,7 @@ flowchart TB
 
 기본 reuse()는 버퍼 연결을 비우므로 다시 제출하기 전에 addBuffer()로 버퍼를 다시 붙이세요. [`request.cpp:397`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L397)
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/camera-requests.reuse-buffer-relink.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -14279,7 +14581,7 @@ flowchart TB
 
 같은 요청을 ReuseBuffers로 재사용해도 버퍼에 타임아웃 펜스가 남아 있으면 다시 제출하기 전에 releaseFence()로 회수하세요. [`request.cpp:391`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L391) · [`request.cpp:464`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L464)
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/camera-requests.reuse-buffer-fence-distinction.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -14318,7 +14620,7 @@ flowchart TB
   v_valid -->|"유효한 펜스가 없습니다."| v_none
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/camera-requests.add-buffer-fence-transfer.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -14962,7 +15264,7 @@ This flag should not be used if fences are used.
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-11 17:00:37+00:00`
 - **문장 생성 모델**: `cli/claude/claude-haiku-5-5`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -14976,7 +15278,7 @@ This flag should not be used if fences are used.
 
 </details>
 
-Markdown 원문 ↗ Mermaid 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/camera-requests.md) [Mermaid 원문 ↗](https://ttolsun.github.io/libcamera-sdd/camera-requests.mmd)
 
 <a id="doc-18"></a>
 
@@ -15105,7 +15407,7 @@ flowchart TB
   v_buffer -->|"false"| v_pending
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.request-stages.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -15151,7 +15453,7 @@ flowchart TB
   v_queued -->|"큐에 넣은 뒤의 API 완료 <br/>알림 계약"| v_signal
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.lifecycle-queue-return-completion.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -15196,7 +15498,7 @@ flowchart TB
 
 PipelineHandler::queueRequest()는 요청 준비의 타임아웃 인자로 300 ms를 전달합니다. 전달이 멈추면 queuedRequests\_.size()가 maxQueuedRequestsDevice\_와 같은지와 waitingRequests\_의 맨 앞 요청이 준비되었는지를 각각 확인하세요. [`pipeline_handler.cpp:477`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L477) · [`pipeline_handler.cpp:513`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L513) · [`pipeline_handler.cpp:517`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L517)
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.waiting-queue-conditions.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -15240,7 +15542,7 @@ flowchart TB
   v_ret -->|"아니요"| v_end
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.dispatch-cancel-or-device.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -15283,7 +15585,7 @@ flowchart TB
 
 completeBuffer()가 true를 반환하면 요청에 포함된 모든 버퍼가 완료된 것입니다. 마지막 버퍼가 완료되어도 요청은 자동으로 완료되지 않으므로, 요청이 완료되지 않았다면 파이프라인 핸들러가 completeRequest()를 명시적으로 호출하는지 확인하세요. [`pipeline_handler.cpp:556`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L556) · [`pipeline_handler.cpp:560`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L560)
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.buffer-and-request-completion.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -15328,7 +15630,7 @@ flowchart TB
 
 파이프라인 핸들러는 완료된 요청에 대해 순서 제약 없이 completeRequest()를 호출할 수 있지만, 요청은 제출 순서대로 애플리케이션에 반환됩니다. 앞선 요청의 상태가 Request::RequestPending이면 뒤에 있는 완료된 요청도 반환되지 않습니다. [`pipeline_handler.cpp:588`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L588) · [`pipeline_handler.cpp:594`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594)
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.submission-order-completion.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -15406,7 +15708,7 @@ flowchart TB
   v_waiting -->|"선두 요청을 pop한 뒤 <br/>doQueueRequest에 전달합니다."| v_queue
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.preparation-depth-flow.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -15455,7 +15757,7 @@ flowchart TB
   v_register -->|"완료 처리에서 <br/>queuedRequests#95;의 선두가 <br/>완료된 상태이면 이를 꺼낸 <br/>뒤 신호를 발생합니다. · <br/>req-#62;status#40;#41; #61;#61; <br/>Request::RequestPending <br/>#91;false#93;"| v_notice
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.submission-order-flow.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -15507,7 +15809,7 @@ flowchart TB
   v_timeout -->|"남은 notifiers#95;를 지우고 <br/>요청을 취소한 뒤 준비 <br/>완료를 발행합니다."| v_prepared
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.fence-timer-order-flow.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -15609,7 +15911,7 @@ flowchart TB
   v_cancel -->|"취소한 요청을 완료합니다."| v_complete
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.uvc-depth-flow.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -15670,7 +15972,7 @@ flowchart TB
   v_n7 -->|"반환값이 0이 아니면 <br/>cancelRequest를 호출합니다. <br/>· ret #91;true#93;"| v_n8
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.pre-qbuf-failure-flow.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -15771,7 +16073,7 @@ flowchart TB
   v_signal -->|"Queued 수신은 비동기이며 <br/>발신자는 완료를 기다리지 <br/>않습니다. Auto는 같은 <br/>스레드에서 Direct, 다른 <br/>스레드에서 Queued를 <br/>사용합니다."| v_queued
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.request-ownership.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -15821,7 +16123,7 @@ flowchart TB
   v_complete -->|"완료된 선두부터 반환"| v_return
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.completion-notification-order.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -15879,7 +16181,7 @@ flowchart TB
   v_wait -->|"break로 루프 종료"| v_end
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.completed-but-not-returned.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -15929,7 +16231,7 @@ flowchart TB
   v_retrieve -->|"회수는 필요한 선행 조건"| v_reuse
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.lifecycle-timeout-fence-recovery.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -15964,7 +16266,7 @@ flowchart TB
   v_fences -->|"API의 should not 권고"| v_advice
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.lifecycle-reuse-buffer-fence-distinction.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -16015,7 +16317,7 @@ flowchart TB
   v_api -->|"연동 호출자 수명 확인"| v_buffer
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.completion-change-checks.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -16084,7 +16386,7 @@ flowchart TB
   v_notify_camera -->|"상태 검사를 통과하면 <br/>requestComplete가 <br/>requestCompleted 신호를 <br/>발생시킵니다. · <br/>#95;d#40;#41;-#62;isAccessAllowed#40;Private::<br/>CameraStopping, <br/>Private::CameraRunning, <br/>true#41; #91;false#93;"| v_notify_application
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.callback-order-flow.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -16161,7 +16463,7 @@ flowchart TB
   v_auto -->|"두 스레드가 다르면 <br/>ConnectionTypeQueued를 <br/>선택합니다. · <br/>Thread::current#40;#41; #61;#61; <br/>object#95;-#62;thread#40;#41; #91;false#93;"| v_queued
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.callback-depth-flow.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -16197,7 +16499,7 @@ flowchart TB
   v_request -->|"완료된 Request가 <br/>Camera::requestComplete에 <br/>전달됩니다. 이 알림만으로 <br/>별도 Queued 수신자의 마지막 <br/>사용이 끝났다고 보장되지는 <br/>않습니다."| v_complete
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.queued-lifetime-flow.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -16243,7 +16545,7 @@ flowchart TB
   v_emit -->|"PipelineHandler::<br/>completeBuffer는 emit이 <br/>실제로 반환한 뒤 내부 <br/>completeBuffer를 호출합니다."| v_completebuffer
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.callback-boundaries-flow.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -16292,7 +16594,7 @@ flowchart TB
   v_stop_return -->|"마지막 사용은 별도 확인이 <br/>필요합니다. stop 반환과 <br/>마지막 사용의 선후는 <br/>보장되지 않습니다."| v_pointer_check
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.stop-lifetime-flow.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -16386,7 +16688,7 @@ flowchart TB
   v_cameraassert -->|"이어지는 정상 소스 경로"| v_configured
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.stop-order.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -16431,7 +16733,7 @@ flowchart TB
   v_disconnect -->|"미완료 TODO를 구분"| v_todo
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.stop-disconnect-contract.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -16475,7 +16777,7 @@ flowchart TB
 
 실행 중인 카메라가 접근 검사를 통과하면 Camera::stop()은 촬영과 요청 처리를 즉시 중단하며, 모든 미완료 요청을 취소하고 오류 상태로 동기적으로 완료하는 것이 공개 API 계약입니다. !d-\>isRunning()이면 이 함수는 아무 작업도 하지 않고 0을 반환합니다. [`camera.cpp:1434`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1434)
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.camera-stop-branches.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -16524,7 +16826,7 @@ flowchart TB
   v_implementation-return -->|"구현 복귀를 관찰한 뒤 호출 <br/>뒤 위치와 비교 #40;호출 직전 <br/>로그는 복귀의 증거가 아님#41;"| v_after
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.stop-device-observation-plan.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -16563,7 +16865,7 @@ flowchart TB
   v_call -->|"이 함수가 반환한 뒤의 의무"| v_after
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.stopping-completion-contract.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -16599,7 +16901,7 @@ flowchart TB
   v_record -->|"통지 뒤 요청 필드 대신 보관 <br/>기록만 비교"| v_compare
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.request-completion-audit-plan.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -16700,7 +17002,7 @@ flowchart TB
 | 같은 제출 세대의 애플리케이션 핸들러 진입을 확인한다. 진입이 없으면 실제 슬롯 연결, 수신기 수명, 직접 또는 큐 전달 방식, 해당 수신기 스레드의 이벤트 루프, 관찰 구간과 추적 손실을 확인한다. | 같은 제출 세대의 핸들러 진입 확인 | 대응된 이벤트의 순서와 지연을 공통 시계에서 계산해 기록한다. [`request.cpp:385`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L385) · [`camera.cpp:1488`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1488) |
 | 같은 제출 세대의 애플리케이션 핸들러 진입을 확인한다. 진입이 없으면 실제 슬롯 연결, 수신기 수명, 직접 또는 큐 전달 방식, 해당 수신기 스레드의 이벤트 루프, 관찰 구간과 추적 손실을 확인한다. | 핸들러 진입을 확인하지 못함 | 마지막 확인 지점, 처음 관찰되지 않은 지점, 활성화한 관찰 수단, 관찰 구간과 손실 건수를 기록한다. [`bound_method.cpp:40`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/base/bound_method.cpp#L40) · [`signal.h:38`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/base/signal.h#L38) · [`pipeline_handler.cpp:593`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593) · [`pipeline_handler.cpp:599`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599) · [`camera.cpp:716`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L716) · [`camera.cpp:1488`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1488) |
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.uvc-device-request-observation.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -16776,7 +17078,7 @@ flowchart TB
 | isAccessAllowed가 현재 상태를 읽음 | 읽은 값이 허용 범위 | Stopping 또는 Running: 가드 통과 후 requestCompleted 발행 [`camera.cpp:717`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L717) · [`camera.h:53`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/internal/camera.h#L53) · [`camera.cpp:1488`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1488) · [`camera.cpp:1484`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1484) |
 | isAccessAllowed가 현재 상태를 읽음 | 읽은 값이 허용 범위 밖 | Available·Acquired·Configured: -EACCES, Fatal. 정상 발행 근거 없음 [`camera.cpp:717`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L717) · [`camera.h:53`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/internal/camera.h#L53) · [`camera.cpp:729`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L729) · [`camera.cpp:1486`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1486) |
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.disconnect-completion-state.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -16862,7 +17164,7 @@ flowchart TB
 | bufferCompleted 관찰 여부와 버퍼 상태를 각각 확인하세요. 상태에는 FrameSuccess, FrameError, FrameCancelled 등이 있습니다. | 같은 제출의 bufferCompleted를 관찰했지만 앱이 여전히 대기 | 선두 요청이 대기 중인지, 대상 requestCompleted가 발생·수신됐는지 확인하세요. [`pipeline_handler.cpp:566`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L566) · [`pipeline_handler.cpp:594`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594) · [`camera.cpp:1488`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1488) · [`pipeline_handler.cpp:593`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593) · [`pipeline_handler.cpp:599`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599) |
 | bufferCompleted 관찰 여부와 버퍼 상태를 각각 확인하세요. 상태에는 FrameSuccess, FrameError, FrameCancelled 등이 있습니다. | bufferCompleted 발생 또는 앱 수신이 미관찰·불명확 | 같은 제출·장치·버퍼의 기록과 계측 범위를 대조하세요. 누락된 단계에 맞춰 streamOff 반환과 맵, bufferAvailable 진입·DQBUF 반환·인덱스·맵 제거, bufferReady 발생·imageBufferReady 진입, completeBuffer 진입·bufferCompleted 발생과 수신을 확인하세요. [`pipeline_handler.cpp:566`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L566) · [`request.cpp:145`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L145) · [`v4l2_videodevice.cpp:2033`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L2033) · [`v4l2_videodevice.cpp:1816`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1816) · [`uvcvideo.cpp:535`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L535) · [`pipeline_handler.cpp:563`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L563) |
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.uvc-stop-missing-buffer.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -16928,7 +17230,7 @@ flowchart TB
   v_returned -->|"UVC는 반환값을 검사하지 <br/>않고 releaseBuffers를 <br/>호출합니다."| v_release
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.stop-depth-flow.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -17025,7 +17327,7 @@ flowchart TB
   v_cancelrequest -->|"요청을 취소한 뒤 <br/>completeRequest를 <br/>호출합니다."| v_request
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.change-verification-flow.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -17076,7 +17378,7 @@ flowchart TB
   v_queued -->|"메시지가 실제 처리되면 수신 <br/>실행을 관찰합니다."| v_receiver
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.concurrent-stop-and-queued-lifetime-review.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -17131,7 +17433,7 @@ flowchart TB
   v_dequeue -->|"dequeueBuffer가 nullptr를 <br/>반환하면 bufferAvailable이 <br/>반환합니다. · #33;buffer #91;true#93;"| v_available_return
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.failure-investigation-flow.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -17236,7 +17538,7 @@ flowchart TB
   v_direct -->|"이 프로브의 세 실행에서 관측"| v_between
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.observed-stop-callback-timing.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -17270,7 +17572,7 @@ flowchart TB
   v_marker -->|"관측의 한계"| v_limit
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.near-return-marker-boundary.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -22212,8 +22514,8 @@ SHA-256: `f78e369710f01e2740a79e5b32a9035d66792ac52f51bdbea9050bb5ebafca8c`
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-19 18:15:19+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
-- **제품 설명 입력**: 적용 범위·조건·자료
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
+- **제품 설명 입력**: [적용 범위·조건·자료](https://ttolsun.github.io/libcamera-sdd/product-context.json)
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -22227,7 +22529,7 @@ SHA-256: `f78e369710f01e2740a79e5b32a9035d66792ac52f51bdbea9050bb5ebafca8c`
 
 </details>
 
-Markdown 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.md)
 
 <a id="doc-19"></a>
 
@@ -22303,7 +22605,7 @@ flowchart TB
   v_ret -->|"아니요: 0"| v_streams
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-diagnosis.configure-failures.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -22350,7 +22652,7 @@ flowchart TB
   v_valid -->|"반복 후"| v_next
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-diagnosis.configuration-stream-link.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -22391,7 +22693,7 @@ flowchart TB
   v_range -->|"아니요: 후속 코드 관찰"| v_denied
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-diagnosis.configuration-access-branches.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -22430,7 +22732,7 @@ flowchart TB
   v_handler -->|"원래 호출의 ret 기록"| v_return
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-diagnosis.configuration-implementation-observation.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -22505,7 +22807,7 @@ flowchart TB
   v_access -->|"연결 해제 아님·Running <br/>불일치"| v_state-error
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-diagnosis.submission-checks.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -22619,7 +22921,7 @@ flowchart TB
 | 대상 상태와 큐 앞 확인 | 대상의 requestComplete 관측 | emit과 앱 슬롯 확인 [`pipeline_handler.cpp:599`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599) |
 | 대상 상태와 큐 앞 확인 | 상태·흐름 미확인 | 판단 보류 [`pipeline_handler.cpp:593`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593) · [`pipeline_handler.cpp:594`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594) · [`pipeline_handler.cpp:584`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584) |
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-diagnosis.completion-notice-diagnosis.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -22670,7 +22972,7 @@ flowchart TB
   v_forward -->|"반복 조건 재검사"| v_waiting
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-diagnosis.queue-gates.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -22718,7 +23020,7 @@ flowchart TB
   v_attach -->|"유효한 fence가 있으면 <br/>이동한 뒤 반환"| v_success
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-diagnosis.diagnosis-add-buffer-rejections.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -22765,7 +23067,7 @@ flowchart TB
   v_ret -->|"아니요"| v_end
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-diagnosis.diagnosis-dispatch-cancel-or-device.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -22806,7 +23108,7 @@ flowchart TB
   v_true -->|"필요한 작업이 있다면 그 <br/>작업 기회 후"| v_explicit
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-diagnosis.diagnosis-buffer-and-request-completion.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -22849,7 +23151,7 @@ flowchart TB
   v_notify -->|"다음 선두 검사"| v_queue
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-diagnosis.diagnosis-submission-order-completion.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -23761,7 +24063,7 @@ int Request::addBuffer(const Stream *stream, FrameBuffer *buffer,
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-11 17:00:45+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -23775,7 +24077,7 @@ int Request::addBuffer(const Stream *stream, FrameBuffer *buffer,
 
 </details>
 
-Markdown 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/request-diagnosis.md)
 
 <a id="doc-20"></a>
 
@@ -23806,7 +24108,7 @@ For Developer
 - **사람 검토**: 사람 검토 전
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-10-30 17:20:44+00:00`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -23820,7 +24122,7 @@ For Developer
 
 </details>
 
-Markdown 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/scenarios/index.md)
 
 <a id="doc-21"></a>
 
@@ -23891,7 +24193,7 @@ flowchart TB
   v_check_status -->|"조건이 거짓이면 0을 <br/>반환합니다. · status #60; 0 <br/>#91;false#93;"| v_return_success
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/scenarios/manager_start.manager-start-wait-result.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -23952,7 +24254,7 @@ flowchart TB
   v_exec -->|"exec#40;#41;가 정상 복귀하면 <br/>cleanup#40;#41;을 호출합니다."| v_success_cleanup
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/scenarios/manager_start.manager-run-notify-before-branch.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -24263,7 +24565,7 @@ flowchart LR
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-04 07:00:44+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -24277,7 +24579,7 @@ flowchart LR
 
 </details>
 
-Markdown 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/scenarios/manager_start.md)
 
 <a id="doc-22"></a>
 
@@ -24335,7 +24637,7 @@ flowchart TB
   v_range -->|"연결과 상태 조건을 <br/>통과했습니다."| v_allowed
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/scenarios/configure.configuration-prerequisite-map.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -24404,7 +24706,7 @@ flowchart TB
   v_pipeline_check -->|"ret이 거짓이면 다음 검사로 <br/>진행합니다. #91;false#93;"| v_next
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/scenarios/configure.configure-validation-before-pipeline.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -24464,7 +24766,7 @@ flowchart TB
   v_configured -->|"상태를 설정한 뒤 <br/>Camera::configure가 <br/>반환합니다."| v_camera_return
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/scenarios/configure.configure-stream-list-once.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -25130,7 +25432,7 @@ flowchart LR
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-11 20:35:49+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -25144,7 +25446,7 @@ flowchart LR
 
 </details>
 
-Markdown 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/scenarios/configure.md)
 
 <a id="doc-23"></a>
 
@@ -25202,7 +25504,7 @@ flowchart TB
   v_requests -->|"애플리케이션은 stop#40;#41;으로 <br/>세션이 종료될 때까지 요청을 <br/>큐로 제출할 수 있습니다."| v_stop
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/scenarios/camera_start.item-session.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -25276,7 +25578,7 @@ flowchart TB
   v_result -->|"결과가 0이면 상태를 <br/>갱신합니다. #91;false#93;"| v_running
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/scenarios/camera_start.item-activation.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -25604,7 +25906,7 @@ flowchart LR
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-04 05:03:21+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -25618,7 +25920,7 @@ flowchart LR
 
 </details>
 
-Markdown 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/scenarios/camera_start.md)
 
 <a id="doc-24"></a>
 
@@ -25682,7 +25984,7 @@ flowchart TB
   v_result -->|"음수가 아니면 다음 검사로 <br/>진행합니다. #91;false#93;"| v_camera
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/scenarios/queue_request.queue-access-helper.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -25751,7 +26053,7 @@ flowchart TB
   v_invoke -->|"invokeMethod가 정상 <br/>복귀하면 0을 반환합니다."| v_success
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/scenarios/queue_request.queue-acceptance-exact-guards.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -25836,7 +26138,7 @@ flowchart TB
   v_result -->|"반환값이 0이면 함수가 <br/>끝납니다. #91;false#93;"| v_end
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/scenarios/queue_request.dispatch-device-errors.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -25885,7 +26187,7 @@ flowchart TB
   v_prepare -->|"prepare가 정상 복귀하면 <br/>함수가 끝납니다."| v_end
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/scenarios/queue_request.queue-insert-prepare-only.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -25933,7 +26235,7 @@ flowchart TB
   v_queue -->|"doQueueRequest가 정상 <br/>복귀하면 while 조건을 다시 <br/>확인합니다."| v_waiting
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/scenarios/queue_request.prepared-queue-dispatch-loop.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -26418,7 +26720,7 @@ flowchart LR
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-11 22:00:08+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -26432,7 +26734,7 @@ flowchart LR
 
 </details>
 
-Markdown 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/scenarios/queue_request.md)
 
 <a id="doc-25"></a>
 
@@ -26500,7 +26802,7 @@ flowchart TB
   v_private_complete -->|"이 완료 함수는 두 전제에 <br/>ASSERT를 사용합니다."| v_assert
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/scenarios/complete_request.normal-buffer-request-duties.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -26552,7 +26854,7 @@ flowchart TB
   v_cancel_return -->|"cancel이 정상 반환하면 <br/>cancelRequest가 <br/>completeRequest를 <br/>호출합니다."| v_complete
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/scenarios/complete_request.pipeline-cancellation-boundary.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -26620,7 +26922,7 @@ flowchart TB
   v_notify -->|"requestComplete가 정상 <br/>복귀할 때만 큐를 다시 <br/>확인합니다."| v_queue
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/scenarios/complete_request.ordered-completion-loop.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -26669,7 +26971,7 @@ flowchart TB
   v_check -->|"아니요. 검사가 0을 <br/>반환합니다. #91;false#93;"| v_emit
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/scenarios/complete_request.camera-completion-notification-guard.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -27346,7 +27648,7 @@ flowchart LR
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-11 20:47:59+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -27360,7 +27662,7 @@ flowchart LR
 
 </details>
 
-Markdown 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/scenarios/complete_request.md)
 
 <a id="doc-26"></a>
 
@@ -27426,7 +27728,7 @@ flowchart TB
   v_configured -->|"상태를 설정한 뒤 0을 <br/>반환합니다."| v_success
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/scenarios/camera_stop.stop-exact-negated-guard.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -27502,7 +27804,7 @@ flowchart TB
   v_cleanup -->|"두 clear가 정상 반환하면 <br/>timer#95;를 reset합니다."| v_timer
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/scenarios/camera_stop.pending-buffer-cancellation.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -27564,7 +27866,7 @@ flowchart TB
 
 PipelineHandler::stop()은 대기열의 요청을 따로 보관하고 stopDevice()를 호출한 뒤 그 요청을 취소하며, completeRequest()는 요청을 제출 순서대로 애플리케이션에 반환합니다. 코드에는 data-\>queuedRequests\_.empty()와 data-\>waitingRequests\_.empty()를 확인하는 두 ASSERT가 있으며 평가 여부는 빌드에 따라 달라지고, 그다음 data-\>requestSequence\_를 0으로 초기화합니다. [`pipeline_handler.cpp:398`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L398) · [`pipeline_handler.cpp:594`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594)
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/scenarios/camera_stop.pipeline-stop-waiting-cancellation.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -28124,7 +28426,7 @@ flowchart LR
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-11 20:46:04+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -28138,7 +28440,7 @@ flowchart LR
 
 </details>
 
-Markdown 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/scenarios/camera_stop.md)
 
 <a id="doc-27"></a>
 
@@ -28285,7 +28587,7 @@ SHA-256: `c0494d982bf733894dac25a5c0221b855cddc703b1ba2094bdddac72c0329caa`
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-10-29 20:32:19+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -28299,7 +28601,7 @@ SHA-256: `c0494d982bf733894dac25a5c0221b855cddc703b1ba2094bdddac72c0329caa`
 
 </details>
 
-Markdown 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/ipa-module-validation.md)
 
 <a id="doc-28"></a>
 
@@ -28354,7 +28656,7 @@ flowchart TB
   v_stream -->|"stream이 활성 카메라 설정의 <br/>일부가 아니면 -EINVAL이 <br/>반환됩니다."| v_einval
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/framebuffer-allocator.item-allocation-preconditions.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -28409,7 +28711,7 @@ flowchart TB
   v_returned -->|"FrameBufferAllocator <br/>인스턴스의 파괴가 <br/>유효기간을 끝낼 수 있습니다."| v_allocator
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/framebuffer-allocator.item-reference-lifetime.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -28471,7 +28773,7 @@ flowchart TB
   v_failure -->|"실패하지 않으면 항목을 <br/>지우지 않고 ret을 <br/>반환합니다. #91;false#93;"| v_result
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/framebuffer-allocator.item-allocation-failure.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -28690,7 +28992,7 @@ int FrameBufferAllocator::free(Stream *stream)
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-11 21:04:22+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -28704,7 +29006,7 @@ int FrameBufferAllocator::free(Stream *stream)
 
 </details>
 
-Markdown 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/framebuffer-allocator.md)
 
 <a id="doc-29"></a>
 
@@ -28783,7 +29085,7 @@ flowchart TB
   v_trial -->|"시험 후 복구"| v_restored
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/official-cam-validation.observed-kernel-boundaries.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -28839,7 +29141,7 @@ flowchart TB
   v_export -->|"할당 성공 후"| v_attach
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/official-cam-validation.virtual-dmabuf-attachment.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -28889,7 +29191,7 @@ flowchart TB
   v_n7 -->|"정상: FrameSuccess 유지 <br/>#91;false#93;"| v_n8
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/official-cam-validation.virtual-frame-path.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -28951,7 +29253,7 @@ flowchart TB
   v_n6 -->|"반복 종료"| v_n8
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/official-cam-validation.request-completion-order.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -29034,7 +29336,7 @@ flowchart TB
   v_store_req -->|"저장 뒤 남은 요청 다시 확인"| v_more_requests
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/official-cam-validation.submission-gate.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -29114,7 +29416,7 @@ flowchart TB
   v_caller_check -->|"음수 아니면 다음 요청 <br/>#91;false#93;"| v_remaining
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/official-cam-validation.initial-submission.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -29198,7 +29500,7 @@ flowchart TB
   v_n7 -->|"미설정 또는 미도달 #91;false#93;"| v_n9
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/official-cam-validation.completion-flow.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -29302,7 +29604,7 @@ flowchart TB
   v_run_cam -->|"세 실행 후 검증"| v_result_verify
 ```
 
-Mermaid 원문
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/official-cam-validation.reproduction-flow.mmd)
 
 <details open>
 <summary>그림 근거와 확인 범위</summary>
@@ -31512,8 +31814,8 @@ request->reuse(Request::ReuseBuffers);
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-04 05:26:14+00:00`
 - **문장 생성 모델**: `cli/claude/claude-haiku-5-5`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
-- **제품 설명 입력**: 적용 범위·조건·자료
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
+- **제품 설명 입력**: [적용 범위·조건·자료](https://ttolsun.github.io/libcamera-sdd/product-context.json)
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -31527,7 +31829,7 @@ request->reuse(Request::ReuseBuffers);
 
 </details>
 
-Markdown 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/official-cam-validation.md)
 
 <a id="doc-30"></a>
 
@@ -33088,7 +33390,7 @@ For Developer
 - **사람 검토**: 사람 검토 전
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-11-11 17:43:11+00:00`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -33102,7 +33404,7 @@ For Developer
 
 </details>
 
-Markdown 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/component-index.md)
 
 <a id="doc-31"></a>
 
@@ -33208,7 +33510,7 @@ flowchart LR
 - **사람 검토**: 사람 검토 전
 - **분석 기준 커밋**: `da6a6ed33ed0ab305f10b6f8b44736150d39cef4`
 - **문서 생성 시각**: `2026-10-29 20:32:18+00:00`
-- **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
+- **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
@@ -33222,4 +33524,4 @@ flowchart LR
 
 </details>
 
-Markdown 원문 ↗ Mermaid 원문 ↗
+[Markdown 원문 ↗](https://ttolsun.github.io/libcamera-sdd/ipu3-lsc.md) [Mermaid 원문 ↗](https://ttolsun.github.io/libcamera-sdd/ipu3-lsc.mmd)
