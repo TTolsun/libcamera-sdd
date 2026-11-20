@@ -20,6 +20,7 @@
 </ul>
 </li>
 <li><a href="#실패-위치별-확인-순서">Check order by failure location</a><ul>
+<li><a href="#마지막-버퍼가-끝났는데-요청-완료-통지가-오지-않을-때">When the last buffer has completed but no request completion notification arrives</a></li>
 <li><a href="#선두-요청을-전달하거나-반복을-멈추는-조건">Conditions for forwarding the front request or stopping the loop</a></li>
 <li><a href="#버퍼-연결-실패를-구분하는-순서">Sequence for distinguishing buffer connection failures</a></li>
 <li><a href="#void-전달-함수의-두-취소-경로">The two cancellation paths in the void-returning delivery function.</a></li>
@@ -524,6 +525,180 @@
 <aside class="reading-checkpoint" aria-label="Investigation notes from before the interruption and after resumption"><p><strong>Leave a note before the interruption.</strong></p><p>Copy the template below, fill in the blanks, and compare it with the original notes when you resume.</p><ul><li>Enter the reported symptoms and conditions: ____.</li><li>Enter the directly observed values and where they were checked: ____.</li><li>Enter your interpretation of the document and any provisional assumptions: ____.</li><li>Write down what you have not yet verified: ____.</li><li>Enter the next check and the branches based on its result: ____.</li><li>Enter the URL and section location of the supporting document: ____.</li></ul><p>Leave unobserved values as unconfirmed, and do not call state-changing functions again to observe them.</p><p>When you resume, compare the reports, observations, and interpretations with the original notes to check that they have not been mixed together.</p></aside>
 
 <p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1308&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1308\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1308&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1308&quot;: [&quot;#source-28d007de6ad1a8a5&quot;]}">The first investigation item records the return value and calling file of the original <code>queueRequest</code> call, distinguishing a return value of 0 as normal acceptance from a negative value as a submission error. Normal acceptance is recorded separately from capture completion.</p>
+<!-- sdd:visual:completion-notice-diagnosis -->
+<h3 id="마지막-버퍼가-끝났는데-요청-완료-통지가-오지-않을-때">When the last buffer has completed but no request completion notification arrives</h3>
+<pre class="mermaid">flowchart TB
+
+  v_check{"Track same submission"}
+  v_last{"completeBuffer return"}
+  v_entry{"completeRequest entry"}
+  v_caller["Check handler path"]
+  v_head{"Check target status and &lt;br/&gt;queue front"}
+  v_held["Earlier request pending"]
+  v_emit["Check emit and app slot"]
+  v_unknown["Withhold judgment"]
+  v_check --&gt;|"Identity confirmed"| v_last
+  v_check --&gt;|"Submission identity &lt;br/&gt;unmatched or unconfirmed"| v_unknown
+  v_last --&gt;|"Returned true"| v_entry
+  v_last --&gt;|"Returned false or return &lt;br/&gt;unknown"| v_unknown
+  v_entry --&gt;|"No entry during complete &lt;br/&gt;path observation"| v_caller
+  v_entry --&gt;|"Entry observed"| v_head
+  v_entry --&gt;|"Coverage incomplete"| v_unknown
+  v_head --&gt;|"Target RequestComplete, &lt;br/&gt;earlier front &lt;br/&gt;RequestPending, break &lt;br/&gt;observed this pass"| v_held
+  v_head --&gt;|"Target requestComplete &lt;br/&gt;observed"| v_emit
+  v_head --&gt;|"Status or flow unknown"| v_unknown</pre>
+<p><span data-sdd-label-en="These are source-based investigation examples. Track each submission using the camera, a run separated by stop/start, a new per-submission generation, and Request*. Also record Request::sequence() after doQueueRequest assigns sequence_. The sequence resets between runs and wraps on overflow. Request::reuse() can resubmit the same object, so neither cookie nor address alone identifies a submission. Example A: the last completeBuffer for target submission 42 returned true. If continuous observation covered the handler&#x27;s intended completion path, including delayed branches, with no dropped records, yet no completeRequest entry was observed, inspect the callback branches and conditions for any deferred metadata or completion work. Do not assume a particular handler requires such work. Do not infer the completeBuffer return value from bufferCompleted.emit alone. Example B: target submission 42 entered completeRequest and became RequestComplete after complete(), but earlier submission 41 at queuedRequests_.front() is RequestPending. The observed break keeps the target queued in this pass; it does not mean the target stays queued forever. Trace submission 41&#x27;s pending buffers and completion path, recheck subsequent queue heads, and observe the target&#x27;s Camera::requestComplete call. Then separately confirm the actual requestCompleted.emit and entry into the application slot. If the target is already at the front, check its status and the queue-processing flow. Distinguish RequestCancelled separately. Withhold judgment if submission identity or the required observation coverage is incomplete. Do not re-invoke state-mutating functions to observe them.">These are source-based investigation examples. Track each submission using the camera, a run separated by stop/start, a new per-submission generation, and Request*. Also record Request::sequence() after doQueueRequest assigns sequence_. The sequence resets between runs and wraps on overflow. Request::reuse() can resubmit the same object, so neither cookie nor address alone identifies a submission. Example A: the last completeBuffer for target submission 42 returned true. If continuous observation covered the handler's intended completion path, including delayed branches, with no dropped records, yet no completeRequest entry was observed, inspect the callback branches and conditions for any deferred metadata or completion work. Do not assume a particular handler requires such work. Do not infer the completeBuffer return value from bufferCompleted.emit alone. Example B: target submission 42 entered completeRequest and became RequestComplete after complete(), but earlier submission 41 at queuedRequests_.front() is RequestPending. The observed break keeps the target queued in this pass; it does not mean the target stays queued forever. Trace submission 41's pending buffers and completion path, recheck subsequent queue heads, and observe the target's Camera::requestComplete call. Then separately confirm the actual requestCompleted.emit and entry into the application slot. If the target is already at the front, check its status and the queue-processing flow. Distinguish RequestCancelled separately. Withhold judgment if submission identity or the required observation coverage is incomplete. Do not re-invoke state-mutating functions to observe them.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L491"><code>pipeline_handler.cpp:491</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L401"><code>pipeline_handler.cpp:401</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L385"><code>request.cpp:385</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L567"><code>pipeline_handler.cpp:567</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L566"><code>pipeline_handler.cpp:566</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584"><code>pipeline_handler.cpp:584</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L556"><code>pipeline_handler.cpp:556</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L588"><code>pipeline_handler.cpp:588</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L132"><code>request.cpp:132</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594"><code>pipeline_handler.cpp:594</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/base/bound_method.cpp#L40"><code>bound_method.cpp:40</code></a></p>
+<div class="table-scroll stack" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th><span data-sdd-label-en="Current check">Current check</span></th>
+<th><span data-sdd-label-en="Observation">Observation</span></th>
+<th><span data-sdd-label-en="Next check">Next check</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td data-label="Current checkpoint"><span data-sdd-label-en="Track same submission">Track same submission</span></td>
+<td data-label="Observation results"><span data-sdd-label-en="Identity confirmed">Identity confirmed</span></td>
+<td data-label="Next checkpoint"><span data-sdd-label-en="completeBuffer return">completeBuffer return</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L491"><code>pipeline_handler.cpp:491</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L567"><code>pipeline_handler.cpp:567</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L566"><code>pipeline_handler.cpp:566</code></a></td>
+</tr>
+<tr>
+<td data-label="Current checkpoint"><span data-sdd-label-en="Track same submission">Track same submission</span></td>
+<td data-label="Observation results"><span data-sdd-label-en="Submission identity unmatched or unconfirmed">Submission identity unmatched or unconfirmed</span></td>
+<td data-label="Next checkpoint"><span data-sdd-label-en="Withhold judgment">Withhold judgment</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L491"><code>pipeline_handler.cpp:491</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584"><code>pipeline_handler.cpp:584</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a></td>
+</tr>
+<tr>
+<td data-label="Current checkpoint"><span data-sdd-label-en="completeBuffer return">completeBuffer return</span></td>
+<td data-label="Observation results"><span data-sdd-label-en="Returned true">Returned true</span></td>
+<td data-label="Next checkpoint"><span data-sdd-label-en="completeRequest entry">completeRequest entry</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L567"><code>pipeline_handler.cpp:567</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L556"><code>pipeline_handler.cpp:556</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584"><code>pipeline_handler.cpp:584</code></a></td>
+</tr>
+<tr>
+<td data-label="Current checkpoint"><span data-sdd-label-en="completeBuffer return">completeBuffer return</span></td>
+<td data-label="Observation results"><span data-sdd-label-en="Returned false or return unknown">Returned false or return unknown</span></td>
+<td data-label="Next checkpoint"><span data-sdd-label-en="Withhold judgment">Withhold judgment</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L567"><code>pipeline_handler.cpp:567</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584"><code>pipeline_handler.cpp:584</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a></td>
+</tr>
+<tr>
+<td data-label="Current checkpoint"><span data-sdd-label-en="completeRequest entry">completeRequest entry</span></td>
+<td data-label="Observation results"><span data-sdd-label-en="No entry during complete path observation">No entry during complete path observation</span></td>
+<td data-label="Next checkpoint"><span data-sdd-label-en="Check handler path">Check handler path</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584"><code>pipeline_handler.cpp:584</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L556"><code>pipeline_handler.cpp:556</code></a></td>
+</tr>
+<tr>
+<td data-label="Current checkpoint"><span data-sdd-label-en="completeRequest entry">completeRequest entry</span></td>
+<td data-label="Observation results"><span data-sdd-label-en="Entry observed">Entry observed</span></td>
+<td data-label="Next checkpoint"><span data-sdd-label-en="Check target status and queue front">Check target status and queue front</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584"><code>pipeline_handler.cpp:584</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L588"><code>pipeline_handler.cpp:588</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a></td>
+</tr>
+<tr>
+<td data-label="Current checkpoint"><span data-sdd-label-en="completeRequest entry">completeRequest entry</span></td>
+<td data-label="Observation results"><span data-sdd-label-en="Coverage incomplete">Coverage incomplete</span></td>
+<td data-label="Next checkpoint"><span data-sdd-label-en="Withhold judgment">Withhold judgment</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584"><code>pipeline_handler.cpp:584</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a></td>
+</tr>
+<tr>
+<td data-label="Current checkpoint"><span data-sdd-label-en="Check target status and queue front">Check target status and queue front</span></td>
+<td data-label="Observation results"><span data-sdd-label-en="Target RequestComplete, earlier front RequestPending, break observed this pass">Target RequestComplete, earlier front RequestPending, break observed this pass</span></td>
+<td data-label="Next checkpoint"><span data-sdd-label-en="Earlier request pending">Earlier request pending</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594"><code>pipeline_handler.cpp:594</code></a></td>
+</tr>
+<tr>
+<td data-label="Current checkpoint"><span data-sdd-label-en="Check target status and queue front">Check target status and queue front</span></td>
+<td data-label="Observation results"><span data-sdd-label-en="Target requestComplete observed">Target requestComplete observed</span></td>
+<td data-label="Next checkpoint"><span data-sdd-label-en="Check emit and app slot">Check emit and app slot</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a></td>
+</tr>
+<tr>
+<td data-label="Current checkpoint"><span data-sdd-label-en="Check target status and queue front">Check target status and queue front</span></td>
+<td data-label="Observation results"><span data-sdd-label-en="Status or flow unknown">Status or flow unknown</span></td>
+<td data-label="Next checkpoint"><span data-sdd-label-en="Withhold judgment">Withhold judgment</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594"><code>pipeline_handler.cpp:594</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584"><code>pipeline_handler.cpp:584</code></a></td>
+</tr>
+</tbody>
+</table></div>
+<p><a href="request-diagnosis.completion-notice-diagnosis.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>Where did it stop after the last buffer completed?</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Track same submission">Track same submission</span></td>
+<td><a href="#source-789eafedfaa7f3c5">src/libcamera/pipeline_handler.cpp:428</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="completeBuffer return">completeBuffer return</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="completeRequest entry">completeRequest entry</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check handler path">Check handler path</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check target status and queue front">Check target status and queue front</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Earlier request pending">Earlier request pending</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check emit and app slot">Check emit and app slot</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Withhold judgment">Withhold judgment</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Identity confirmed">Identity confirmed</span></td>
+<td><a href="#source-789eafedfaa7f3c5">src/libcamera/pipeline_handler.cpp:428</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Submission identity unmatched or unconfirmed">Submission identity unmatched or unconfirmed</span></td>
+<td><a href="#source-789eafedfaa7f3c5">src/libcamera/pipeline_handler.cpp:428</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Returned true">Returned true</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Returned false or return unknown">Returned false or return unknown</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No entry during complete path observation">No entry during complete path observation</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Entry observed">Entry observed</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Coverage incomplete">Coverage incomplete</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Target RequestComplete, earlier front RequestPending, break observed this pass">Target RequestComplete, earlier front RequestPending, break observed this pass</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Target requestComplete observed">Target requestComplete observed</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Status or flow unknown">Status or flow unknown</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:completion-notice-diagnosis -->
+
 <!-- sdd:visual:queue-gates -->
 <h3 id="선두-요청을-전달하거나-반복을-멈추는-조건">Conditions for forwarding the front request or stopping the loop</h3>
 <pre class="mermaid">flowchart TB
@@ -1677,6 +1852,7 @@ void PipelineHandler::cancelRequest(Request *request)
 </ul>
 </li>
 <li><a href="#실패-위치별-확인-순서">Check order by failure location</a><ul>
+<li><a href="#마지막-버퍼가-끝났는데-요청-완료-통지가-오지-않을-때">When the last buffer has completed but no request completion notification arrives</a></li>
 <li><a href="#선두-요청을-전달하거나-반복을-멈추는-조건">Conditions for forwarding the front request or stopping the loop</a></li>
 <li><a href="#버퍼-연결-실패를-구분하는-순서">Sequence for distinguishing buffer connection failures</a></li>
 <li><a href="#void-전달-함수의-두-취소-경로">The two cancellation paths in the void-returning delivery function.</a></li>
