@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Checking the first libcamera frame · Whole document</title><link rel="stylesheet" href="../../assets/reading.css?v=dd3415510a"><style>.full-document-bar{position:sticky;top:0;z-index:10;display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px;padding:10px max(16px,calc((100vw - 900px)/2));background:#fff;border-bottom:1px solid var(--line);font-size:14px}.full-document-bar p{margin:0;color:var(--muted)}.full-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin-left:auto}.full-document-bar .full-hint{flex:1 1 100%;font-size:12px}#print-document{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}#print-document:disabled{background:var(--soft);border-color:var(--line);color:var(--muted);cursor:progress}.full-document main{max-width:900px;margin:0 auto;padding:32px 16px 64px}.full-cover dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 16px;font-size:14px}.full-cover dd{margin:0}.full-notice{border-left:3px solid #8ba99e;padding:4px 0 4px 14px;color:var(--muted);font-size:14px}.full-contents ol ol{padding-left:20px}.full-page{border-top:2px solid var(--line);margin-top:56px;padding-top:8px}.full-page>.breadcrumb{margin-bottom:0}@media print{.full-document-bar{display:none}.full-document main{padding:0;max-width:none}.full-cover{break-after:page}.full-page{break-before:page;border:0;margin:0;padding:0}pre{white-space:pre-wrap;overflow:visible}pre code{overflow-wrap:anywhere}.mermaid{overflow:visible;break-inside:avoid}.mermaid svg{max-width:100%!important;height:auto!important}.full-page details>summary{list-style:none}.full-page details>summary::-webkit-details-marker{display:none}}</style></head>
+<body class="full-document"><div class="full-document-bar"><a href="../index.html">← Back to the site</a><p id="print-status" role="status">Drawing diagrams.</p>
+<div class="full-actions"><button id="print-document" type="button" disabled>Save as PDF</button><a href="full.md" download="Checking-the-first-libcamera-frame.en.md">Download Markdown</a></div><p class="full-hint">In the print dialog, choose Save as PDF as the destination.</p></div>
+<main id="main"><section class="full-cover"><h1>Checking the first libcamera frame · Whole document</h1><p>1 pages</p><dl><dt>Analyzed source commit</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>Source site</dt><dd><a href="https://ttolsun.github.io/libcamera-sdd/validation/first-capture/en/">https://ttolsun.github.io/libcamera-sdd/validation/first-capture/en/</a></dd></dl><p class="full-notice">This file combines every page of the site into one copy. Code and documents changed after it was made are not included, so check the analyzed source commit. Automated checks such as citation checks are not human review approval. Each page ends with its generation and review record.</p><nav class="full-contents" aria-labelledby="full-contents-title"><h2 id="full-contents-title">Contents</h2><ol><li>For Vendor<ol><li><a href="#doc-1">Checking the virtual camera's first frame</a></li></ol></li></ol></nav></section><section class="full-page" id="doc-1"><p class="breadcrumb">For Vendor</p><h1>Checking the virtual camera's first frame</h1><div class="page-state"><span class="review-state">Before human review</span><span>Citation check not recorded</span><span class="generation-method">Authorship: Method not recorded</span><a class="state-help" href="#d1-page-evidence">Status description ↓</a></div>
+<p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p>Capture the first frame from <code>Virtual2</code> in a Linux shell. If it stops, find the last step that passed and where to check next in <code>$OUT/serial.log</code>. This test covers the libcamera virtual pipeline and does not validate a physical camera or the in-house Camera HAL.</p>
+<p><a id="d1-prepare-environment"></a></p>
+<h2 id="d1-환경-준비">Environment setup</h2>
+<p>The record is current as of 2026-11-21 KST. The observed host was Ubuntu 26.04 LTS x86_64 on WSL2 on Windows 11 Home build 26300. The tests used QEMU 10.2.1 TCG and GDB, publicly available tools extracted separately. The full process of installing from scratch using the public packages below was not verified.</p>
+<ol>
+<li>Use the Ubuntu system Python that matches the distribution's GDB and install the standard packages.</li>
+</ol>
+<div class="highlight"><pre><span></span><code>sudo<span class="w"> </span>apt<span class="w"> </span>update
+sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>build-essential<span class="w"> </span>git<span class="w"> </span>meson<span class="w"> </span>ninja-build<span class="w"> </span>pkg-config<span class="w"> </span>python3<span class="w"> </span>python3-yaml<span class="w"> </span>python3-jinja2<span class="w"> </span>python3-ply<span class="w"> </span>libyaml-dev<span class="w"> </span>libgnutls28-dev<span class="w"> </span>libudev-dev<span class="w"> </span>libevent-dev<span class="w"> </span>libdrm-dev<span class="w"> </span>libyuv-dev<span class="w"> </span>openssl<span class="w"> </span>qemu-system-x86<span class="w"> </span>seabios<span class="w"> </span>busybox-static<span class="w"> </span>cpio<span class="w"> </span>gdb<span class="w"> </span>bc<span class="w"> </span>bison<span class="w"> </span>flex<span class="w"> </span>libelf-dev<span class="w"> </span>libssl-dev<span class="w"> </span>dwarves
+</code></pre></div>
+<ol>
+<li>Specify absolute paths without spaces. <code>$GENERATOR</code> is this repository, which has already been cloned, and the rest are paths that do not yet exist. The runner creates <code>$OUT</code> itself.</li>
+</ol>
+<div class="highlight"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">GENERATOR</span><span class="o">=</span>/absolute/path/to/camera-hal-sdd-generator
+<span class="nb">export</span><span class="w"> </span><span class="nv">LIBCAMERA</span><span class="o">=</span>/absolute/path/to/new-libcamera
+<span class="nb">export</span><span class="w"> </span><span class="nv">KERNEL</span><span class="o">=</span>/absolute/path/to/new-kernel
+<span class="nb">export</span><span class="w"> </span><span class="nv">BUILD</span><span class="o">=</span>/absolute/path/to/new-build
+<span class="nb">export</span><span class="w"> </span><span class="nv">OUT</span><span class="o">=</span>/absolute/path/to/new-output
+</code></pre></div>
+<ol>
+<li>Pin the official libcamera source and create a debug build.</li>
+</ol>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://gitlab.freedesktop.org/camera/libcamera.git<span class="w"> </span><span class="s2">"</span><span class="nv">$LIBCAMERA</span><span class="s2">"</span>
+git<span class="w"> </span>-C<span class="w"> </span><span class="s2">"</span><span class="nv">$LIBCAMERA</span><span class="s2">"</span><span class="w"> </span>checkout<span class="w"> </span>--detach<span class="w"> </span>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252
+meson<span class="w"> </span>setup<span class="w"> </span><span class="s2">"</span><span class="nv">$BUILD</span><span class="s2">"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$LIBCAMERA</span><span class="s2">"</span><span class="w"> </span>--buildtype<span class="o">=</span>debug<span class="w"> </span>-Dpipelines<span class="o">=</span>virtual<span class="w"> </span><span class="s1">'-Dipas=[]'</span><span class="w"> </span>-Dcam<span class="o">=</span>enabled<span class="w"> </span>-Dqcam<span class="o">=</span>disabled<span class="w"> </span>-Dtest<span class="o">=</span><span class="nb">false</span><span class="w"> </span>-Ddocumentation<span class="o">=</span>disabled<span class="w"> </span>-Dgstreamer<span class="o">=</span>disabled<span class="w"> </span>-Dpycamera<span class="o">=</span>disabled<span class="w"> </span>-Dv4l2<span class="o">=</span>disabled<span class="w"> </span>-Dlc-compliance<span class="o">=</span>disabled
+ninja<span class="w"> </span>-C<span class="w"> </span><span class="s2">"</span><span class="nv">$BUILD</span><span class="s2">"</span><span class="w"> </span>-j6
+</code></pre></div>
+<ol>
+<li>Pin the kernel and build with <a href="https://github.com/TTolsun/camera-hal-sdd-generator/blob/main/examples/libcamera/validation/issue211/runs/20261031-kernel-config/test.config">Archived test.config</a>.</li>
+</ol>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/microsoft/WSL2-Linux-Kernel<span class="w"> </span><span class="s2">"</span><span class="nv">$KERNEL</span><span class="s2">"</span>
+git<span class="w"> </span>-C<span class="w"> </span><span class="s2">"</span><span class="nv">$KERNEL</span><span class="s2">"</span><span class="w"> </span>checkout<span class="w"> </span>--detach<span class="w"> </span>linux-msft-wsl-6.18.33.2
+<span class="nb">test</span><span class="w"> </span><span class="s2">"</span><span class="k">$(</span>git<span class="w"> </span>-C<span class="w"> </span><span class="s2">"</span><span class="nv">$KERNEL</span><span class="s2">"</span><span class="w"> </span>rev-parse<span class="w"> </span>HEAD<span class="k">)</span><span class="s2">"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>c21a03b2943d147c280bdf32530d4fe6badfd6bd
+cp<span class="w"> </span><span class="s2">"</span><span class="nv">$GENERATOR</span><span class="s2">/examples/libcamera/validation/issue211/runs/20261031-kernel-config/test.config"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$KERNEL</span><span class="s2">/.config"</span>
+make<span class="w"> </span>-C<span class="w"> </span><span class="s2">"</span><span class="nv">$KERNEL</span><span class="s2">"</span><span class="w"> </span>olddefconfig
+make<span class="w"> </span>-C<span class="w"> </span><span class="s2">"</span><span class="nv">$KERNEL</span><span class="s2">"</span><span class="w"> </span>-j6<span class="w"> </span>bzImage
+</code></pre></div>
+<p><a id="d1-first-frame"></a></p>
+<h2 id="d1-첫-프레임-실행">Run the first frame</h2>
+<ol>
+<li>Run <a href="https://github.com/TTolsun/camera-hal-sdd-generator/blob/main/examples/libcamera/runtime/run_first_capture_vm.sh">Runner</a> as a regular user.</li>
+</ol>
+<div class="highlight"><pre><span></span><code>bash<span class="w"> </span><span class="s2">"</span><span class="nv">$GENERATOR</span><span class="s2">/examples/libcamera/runtime/run_first_capture_vm.sh"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$KERNEL</span><span class="s2">/arch/x86/boot/bzImage"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$LIBCAMERA</span><span class="s2">"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$BUILD</span><span class="s2">"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$OUT</span><span class="s2">"</span>
+</code></pre></div>
+<ol>
+<li>Read <code>$OUT/serial.log</code>. The runner first saves frames to a file without instrumentation, then observes request return values and callbacks with GDB during a separate second capture. Check the file and exit code from the first run, and the callbacks and buffer status from the second run.</li>
+</ol>
+<p>The guest is isolated, and root privileges are used only inside the guest. There is no NIC or hardware passthrough, and the host WSL settings are not changed. At the end, the runner hides only the guest's <code>/dev/udmabuf</code> to test for a missing allocator. In this case, camera configuration must succeed, but buffer allocation must fail.</p>
+<p><a id="d1-find-first-failure"></a></p>
+<h2 id="d1-첫-실패-찾기">Find the first failure</h2>
+<p>Check in order and stop at the first failed row. Compare the observed value with that row, then move to the next check.</p>
+<div class="table-scroll stack" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Verification steps</th>
+<th>Observed success</th>
+<th>Where to check if it fails</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td data-label="Verification steps">Device enumeration</td>
+<td data-label="Observed success"><code>Virtual2</code> appears in <code>Available cameras:</code>.</td>
+<td data-label="Where to check if it fails">Check <code>cam --list</code>, the virtual pipeline, and provider errors.</td>
+</tr>
+<tr>
+<td data-label="Verification steps">Settings</td>
+<td data-label="Observed success"><code>configuring streams: (0) 400x300-NV12/SMPTE170M</code> is displayed.</td>
+<td data-label="Where to check if it fails">Checks the request format, <a href="https://ttolsun.github.io/libcamera-sdd/request-diagnosis.html#구성-실패를-좁히는-순서">Configuration diagnostics</a>, and <a href="https://gitlab.freedesktop.org/camera/libcamera/-/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L365">Capture start code</a>.</td>
+</tr>
+<tr>
+<td data-label="Verification steps">Allocation</td>
+<td data-label="Observed success">Reaching the submission breakpoint for the first request means that buffer allocation, which runs before it, succeeded.</td>
+<td data-label="Where to check if it fails">Check <code>Could not open any dma-buf provider</code>, <code>Can't allocate buffers</code>, the guest's access permissions for <code>/dev/udmabuf</code>, and the kernel configuration. If the configuration uses a DMA-BUF heap, also check <code>/dev/dma_heap</code>. Check <a href="https://gitlab.freedesktop.org/camera/libcamera/-/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/dma_buf_allocator.cpp#L119">Allocator code</a>.</td>
+</tr>
+<tr>
+<td data-label="Verification steps">Submit request</td>
+<td data-label="Observed success">The first call observed by GDB returns <code>0</code>.</td>
+<td data-label="Where to check if it fails">The return value of <a href="https://gitlab.freedesktop.org/camera/libcamera/-/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L453">queueRequest</a> and the capture limit branch are checked.</td>
+</tr>
+<tr>
+<td data-label="Verification steps">Callback</td>
+<td data-label="Observed success"><code>RequestComplete</code> appears in <code>CALLBACK</code>.</td>
+<td data-label="Where to check if it fails">Check the delivery and completion of the same request in <a href="https://gitlab.freedesktop.org/camera/libcamera/-/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L467">requestComplete</a> and <a href="https://ttolsun.github.io/libcamera-sdd/request-diagnosis.html#실패-위치별-확인-순서">Completion notification diagnostics</a>.</td>
+</tr>
+<tr>
+<td data-label="Verification steps">Valid frame</td>
+<td data-label="Observed success">The <code>FRAME</code> for the same request pointer shows sequence <code>0</code> and <code>FrameSuccess</code>. In the frame output from the same run, the two planes are <code>120000/60000</code> bytes.</td>
+<td data-label="Where to check if it fails">Check the buffer status and the bytes used in each plane in <a href="https://gitlab.freedesktop.org/camera/libcamera/-/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L479">Completion handling</a>.</td>
+</tr>
+</tbody>
+</table></div>
+<p>In the second capture of <a href="https://github.com/TTolsun/camera-hal-sdd-generator/blob/main/examples/libcamera/runtime/issue337-vm.log">Measured VM logs</a>, the request pointers at the <code>queueRequest</code> breakpoint and in <code>CALLBACK</code> and <code>FRAME</code> match. The submission return value, completion notification, and buffer status are checked separately.</p>
+<div class="highlight"><pre><span></span><code>Value returned is $1 = 0
+CALLBACK request=0x5555556790d0 status=libcamera::Request::RequestComplete
+FRAME request=0x5555556790d0 sequence=0 status=libcamera::FrameMetadata::FrameSuccess
+cam0-stream0 seq: 000000 bytesused: 120000/60000
+</code></pre></div>
+<p>The first capture's exit code was <code>0</code>, and <code>/tmp/frame.bin</code> was 180,000 bytes. In the missing-allocator test, allocator warnings appeared during enumeration, but <code>Virtual2</code> appeared in the list and execution proceeded through stream configuration. The first failure was buffer allocation.</p>
+<div class="highlight"><pre><span></span><code>Can't allocate buffers
+Failed to start camera session
+negative_capture_exit=1
+TRIAL_FINISHED
+</code></pre></div>
+<p><a id="d1-run-evidence"></a></p>
+<h2 id="d1-실행-근거">Execution evidence</h2>
+<p><a href="https://github.com/TTolsun/camera-hal-sdd-generator/blob/main/examples/libcamera/runtime/issue337-wsl-baseline.log">Current default WSL execution log</a> shows that <code>CONFIG_UDMABUF</code> and <code>CONFIG_DMABUF_HEAPS</code> are disabled in the default kernel and that both provider paths are absent. The test kernel required by the linked earlier run instructions in the published #211 was also absent from the host running at the time. Separately from those missing prerequisites, a time-limited WSL diagnostic command was run, and device discovery and stream configuration succeeded. The first failure was buffer allocation, and the capture exit code was <code>1</code>. This log records a run using a different libcamera commit, <code>293d751a814e0d4c34e85ad457ccd9d5eefd1a61</code>.</p>
+<p>The #211 record from 2026-10-31 is a past observation of a successful 3×3 test with a modified WSL boot. After checking three runs of three frames each on the test kernel, the default kernel was restored.</p>
+<p><a href="https://github.com/TTolsun/camera-hal-sdd-generator/blob/main/examples/libcamera/runtime/issue337-vm.log">VM measurement log</a> records the SHA-256 of the kernel image used. It does not guarantee that a rebuilt image will be bit-for-bit identical. Next, check <a href="https://github.com/TTolsun/camera-hal-sdd-generator/blob/main/examples/libcamera/runtime/OFFICIAL_CAM.md">OFFICIAL_CAM.md</a>.</p></article><section class="evidence"><h2 id="d1-page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Generation method not recorded</dd><dt>Verification scope</dt><dd>The existing manuscript did not record how it was generated. It will be displayed when regenerated.</dd><dt>Citation check</dt><dd>Not recorded (<code>unrecorded</code>). Only the presence of the cited code locations in the analysis results was checked. A person checks whether the description is correct.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Commit used for analysis</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd></dl><a href="../../index.md">Original Markdown ↗</a></section></section></main>
+<script id="site-config" type="application/json">{"root": "../", "mermaid": "https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.esm.min.mjs", "language": "en"}</script><script>(() => {
+  'use strict';
+  const config = JSON.parse(document.querySelector('#site-config').textContent);
+  const english = config.language === 'en';
+  const t = (ko, en) => english ? en : ko;
+  const root = new URL(config.root, location.href);
+  const button = document.querySelector('#print-document');
+  const status = document.querySelector('#print-status');
+  const diagrams = [...document.querySelectorAll('.mermaid')];
+  button.addEventListener('click', () => window.print());
+  function finish(failed) {
+    button.disabled = false;
+    status.textContent = failed
+      ? t(`그림 ${failed}개를 그리지 못해 Mermaid 원문으로 표시합니다. 원문도 PDF에 포함됩니다.`,
+          `${failed} diagram(s) could not be drawn and are shown as Mermaid source, which the PDF includes.`)
+      : t(`인쇄 준비가 끝났습니다. 그림 ${diagrams.length}개를 모두 그렸습니다.`,
+          `Ready to print. All ${diagrams.length} diagram(s) are drawn.`);
+    if (new URLSearchParams(location.search).has('print')) window.print();
+  }
+  if (!diagrams.length) { finish(0); return; }
+  import(new URL(config.mermaid, root).href).then(async ({default: mermaid}) => {
+    mermaid.initialize({startOnLoad: false, securityLevel: 'strict', theme: 'base',
+      themeVariables: {background: '#ffffff', primaryColor: '#edf5f1', primaryTextColor: '#17201e',
+        primaryBorderColor: '#8ba99e', lineColor: '#66766f', secondaryColor: '#f6f7f8',
+        tertiaryColor: '#ffffff', edgeLabelBackground: '#ffffff',
+        fontFamily: 'Geist, Malgun Gothic, system-ui, sans-serif', fontSize: '14px'},
+      flowchart: {htmlLabels: false, curve: 'basis', nodeSpacing: 38, rankSpacing: 65, padding: 16}});
+    let failed = 0;
+    // Hide the long body while drawing: otherwise every render re-lays out the whole document
+    // (31 pages took over six minutes for 164 diagrams; hidden, about five seconds).
+    // Mermaid measures text in its own container under body, so sizes are unaffected.
+    const body = document.querySelector('main');
+    body.style.display = 'none';
+    try {
+    for (const [i, diagram] of diagrams.entries()) {
+      status.textContent = t(`그림을 그리는 중입니다 (${i + 1}/${diagrams.length}). 다 그리면 본문을 표시합니다.`,
+                             `Drawing diagrams (${i + 1}/${diagrams.length}). The document appears when they are done.`);
+      const source = diagram.textContent;
+      try {
+        const {svg} = await mermaid.render(`sdd-print-${i}`, source);
+        diagram.innerHTML = svg;
+        diagram.dataset.ready = 'true';
+      } catch (_) {
+        failed += 1;
+        diagram.textContent = source;
+        diagram.classList.add('diagram-error');
+      }
+    }
+    } finally {
+      body.style.display = '';
+    }
+    finish(failed);
+  }).catch(() => finish(diagrams.length));
+})();</script></body></html>

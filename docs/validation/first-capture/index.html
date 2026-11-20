@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>가상 카메라의 첫 프레임 확인 · libcamera 첫 프레임 확인</title><link rel="stylesheet" href="./assets/reading.css?v=dd3415510a"><link rel="alternate" hreflang="ko" href="index.html"><link rel="alternate" hreflang="en" href="en/index.html"></head>
+<body><a class="skip" href="#main">본문으로 이동</a>
+<header class="site-header"><a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera 첫 프레임 확인</a>
+<div class="header-actions"><details class="language-selector"><summary aria-label="언어 선택">한국어 ▾</summary><nav><a lang="ko" hreflang="ko" href="index.html" aria-current="true">한국어</a><a lang="en" hreflang="en" href="en/index.html">English</a></nav></details><nav class="download-nav" aria-label="Download the whole document" style="display:flex"><details class="language-selector download-menu"><summary title="Download" aria-label="Download the whole document">⤓ ▾</summary><nav><a href="download/full.html?print">PDF</a><a href="download/full.md" download="libcamera-첫-프레임-확인.md">Markdown</a></nav></details></nav><button id="search-open" hidden>문서 찾기 <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>메뉴</button></div></header>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="문서 메뉴"><details class="nav-group" data-nav-id="group-d671e203b93701cc4b6e3099" open><summary>For Vendor</summary><a href="index.html" aria-current="page">가상 카메라의 첫 프레임 확인</a></details></nav><p class="sidebar-note">코드에서 구조를 추출하고<br>근거와 함께 검토합니다.</p></aside>
+<main id="main"><p class="breadcrumb">For Vendor <span>/</span> 가상 카메라의 첫 프레임 확인</p><h1>가상 카메라의 첫 프레임 확인</h1><div class="page-state"><span class="review-state">사람 검토 전</span><span>인용 검사 미기록</span><span class="generation-method">작성: 작성 방식 미기록</span><a class="state-help" href="#page-evidence">상태 설명 ↓</a></div>
+<details class="mobile-toc"><summary>이 페이지의 목차</summary><div class="toc">
+<ul>
+<li><a href="#환경-준비">환경 준비</a></li>
+<li><a href="#첫-프레임-실행">첫 프레임 실행</a></li>
+<li><a href="#첫-실패-찾기">첫 실패 찾기</a></li>
+<li><a href="#실행-근거">실행 근거</a></li>
+</ul>
+</div>
+</details><article><p>Linux 셸에서 <code>Virtual2</code> 첫 프레임을 캡처하세요. 멈추면 <code>$OUT/serial.log</code>에서 마지막으로 통과한 단계와 다음 확인 위치를 찾으세요. 이 시험은 libcamera 가상 파이프라인을 다루며, 실제 카메라나 사내 Camera HAL을 검증하지 않습니다.</p>
+<p><a id="prepare-environment"></a></p>
+<h2 id="환경-준비">환경 준비</h2>
+<p>기록 기준일은 2026-11-21 KST입니다. 관측한 호스트는 Windows 11 Home build 26300의 Ubuntu 26.04 LTS x86_64 WSL2입니다. 시험에는 별도로 추출한 공개 도구인 QEMU 10.2.1 TCG와 GDB를 사용했습니다. 아래 공개 패키지로 처음부터 설치한 전체 과정은 검증하지 않았습니다.</p>
+<ol>
+<li>배포판 GDB와 일치하는 Ubuntu 시스템 Python을 사용하고 표준 패키지를 설치합니다.</li>
+</ol>
+<div class="highlight"><pre><span></span><code>sudo<span class="w"> </span>apt<span class="w"> </span>update
+sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>build-essential<span class="w"> </span>git<span class="w"> </span>meson<span class="w"> </span>ninja-build<span class="w"> </span>pkg-config<span class="w"> </span>python3<span class="w"> </span>python3-yaml<span class="w"> </span>python3-jinja2<span class="w"> </span>python3-ply<span class="w"> </span>libyaml-dev<span class="w"> </span>libgnutls28-dev<span class="w"> </span>libudev-dev<span class="w"> </span>libevent-dev<span class="w"> </span>libdrm-dev<span class="w"> </span>libyuv-dev<span class="w"> </span>openssl<span class="w"> </span>qemu-system-x86<span class="w"> </span>seabios<span class="w"> </span>busybox-static<span class="w"> </span>cpio<span class="w"> </span>gdb<span class="w"> </span>bc<span class="w"> </span>bison<span class="w"> </span>flex<span class="w"> </span>libelf-dev<span class="w"> </span>libssl-dev<span class="w"> </span>dwarves
+</code></pre></div>
+<ol>
+<li>공백이 없는 절대 경로를 지정합니다. <code>$GENERATOR</code>는 이미 클론한 이 저장소이고, 나머지는 아직 존재하지 않는 경로입니다. 실행기는 <code>$OUT</code>을 직접 만듭니다.</li>
+</ol>
+<div class="highlight"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">GENERATOR</span><span class="o">=</span>/absolute/path/to/camera-hal-sdd-generator
+<span class="nb">export</span><span class="w"> </span><span class="nv">LIBCAMERA</span><span class="o">=</span>/absolute/path/to/new-libcamera
+<span class="nb">export</span><span class="w"> </span><span class="nv">KERNEL</span><span class="o">=</span>/absolute/path/to/new-kernel
+<span class="nb">export</span><span class="w"> </span><span class="nv">BUILD</span><span class="o">=</span>/absolute/path/to/new-build
+<span class="nb">export</span><span class="w"> </span><span class="nv">OUT</span><span class="o">=</span>/absolute/path/to/new-output
+</code></pre></div>
+<ol>
+<li>공식 libcamera 소스를 고정하고 디버그 빌드를 만듭니다.</li>
+</ol>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://gitlab.freedesktop.org/camera/libcamera.git<span class="w"> </span><span class="s2">"</span><span class="nv">$LIBCAMERA</span><span class="s2">"</span>
+git<span class="w"> </span>-C<span class="w"> </span><span class="s2">"</span><span class="nv">$LIBCAMERA</span><span class="s2">"</span><span class="w"> </span>checkout<span class="w"> </span>--detach<span class="w"> </span>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252
+meson<span class="w"> </span>setup<span class="w"> </span><span class="s2">"</span><span class="nv">$BUILD</span><span class="s2">"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$LIBCAMERA</span><span class="s2">"</span><span class="w"> </span>--buildtype<span class="o">=</span>debug<span class="w"> </span>-Dpipelines<span class="o">=</span>virtual<span class="w"> </span><span class="s1">'-Dipas=[]'</span><span class="w"> </span>-Dcam<span class="o">=</span>enabled<span class="w"> </span>-Dqcam<span class="o">=</span>disabled<span class="w"> </span>-Dtest<span class="o">=</span><span class="nb">false</span><span class="w"> </span>-Ddocumentation<span class="o">=</span>disabled<span class="w"> </span>-Dgstreamer<span class="o">=</span>disabled<span class="w"> </span>-Dpycamera<span class="o">=</span>disabled<span class="w"> </span>-Dv4l2<span class="o">=</span>disabled<span class="w"> </span>-Dlc-compliance<span class="o">=</span>disabled
+ninja<span class="w"> </span>-C<span class="w"> </span><span class="s2">"</span><span class="nv">$BUILD</span><span class="s2">"</span><span class="w"> </span>-j6
+</code></pre></div>
+<ol>
+<li>커널을 고정하고 <a href="https://github.com/TTolsun/camera-hal-sdd-generator/blob/main/examples/libcamera/validation/issue211/runs/20261031-kernel-config/test.config">보관된 test.config</a>로 빌드합니다.</li>
+</ol>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/microsoft/WSL2-Linux-Kernel<span class="w"> </span><span class="s2">"</span><span class="nv">$KERNEL</span><span class="s2">"</span>
+git<span class="w"> </span>-C<span class="w"> </span><span class="s2">"</span><span class="nv">$KERNEL</span><span class="s2">"</span><span class="w"> </span>checkout<span class="w"> </span>--detach<span class="w"> </span>linux-msft-wsl-6.18.33.2
+<span class="nb">test</span><span class="w"> </span><span class="s2">"</span><span class="k">$(</span>git<span class="w"> </span>-C<span class="w"> </span><span class="s2">"</span><span class="nv">$KERNEL</span><span class="s2">"</span><span class="w"> </span>rev-parse<span class="w"> </span>HEAD<span class="k">)</span><span class="s2">"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>c21a03b2943d147c280bdf32530d4fe6badfd6bd
+cp<span class="w"> </span><span class="s2">"</span><span class="nv">$GENERATOR</span><span class="s2">/examples/libcamera/validation/issue211/runs/20261031-kernel-config/test.config"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$KERNEL</span><span class="s2">/.config"</span>
+make<span class="w"> </span>-C<span class="w"> </span><span class="s2">"</span><span class="nv">$KERNEL</span><span class="s2">"</span><span class="w"> </span>olddefconfig
+make<span class="w"> </span>-C<span class="w"> </span><span class="s2">"</span><span class="nv">$KERNEL</span><span class="s2">"</span><span class="w"> </span>-j6<span class="w"> </span>bzImage
+</code></pre></div>
+<p><a id="first-frame"></a></p>
+<h2 id="첫-프레임-실행">첫 프레임 실행</h2>
+<ol>
+<li>일반 사용자로 <a href="https://github.com/TTolsun/camera-hal-sdd-generator/blob/main/examples/libcamera/runtime/run_first_capture_vm.sh">실행기</a>를 실행합니다.</li>
+</ol>
+<div class="highlight"><pre><span></span><code>bash<span class="w"> </span><span class="s2">"</span><span class="nv">$GENERATOR</span><span class="s2">/examples/libcamera/runtime/run_first_capture_vm.sh"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$KERNEL</span><span class="s2">/arch/x86/boot/bzImage"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$LIBCAMERA</span><span class="s2">"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$BUILD</span><span class="s2">"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$OUT</span><span class="s2">"</span>
+</code></pre></div>
+<ol>
+<li><code>$OUT/serial.log</code>를 읽습니다. 실행기는 먼저 계측 없이 프레임을 파일로 저장하고, 별도의 두 번째 캡처에서 GDB로 요청 반환값과 콜백을 관찰합니다. 파일과 종료 코드는 첫 실행에서, 콜백과 버퍼 상태는 두 번째 실행에서 확인합니다.</li>
+</ol>
+<p>게스트는 격리되어 있고 root 권한은 게스트 안에서만 사용합니다. NIC와 하드웨어 패스스루는 없으며 호스트 WSL 설정은 바꾸지 않습니다. 실행기는 마지막에 게스트의 <code>/dev/udmabuf</code>만 숨겨 할당기 누락 시험을 합니다. 이때 카메라 설정은 성공하지만 버퍼 할당은 실패해야 합니다.</p>
+<p><a id="find-first-failure"></a></p>
+<h2 id="첫-실패-찾기">첫 실패 찾기</h2>
+<p>순서대로 확인하고 처음 실패한 행에서 멈추세요. 관측값을 해당 행과 대조한 뒤 다음 확인 위치로 이동하세요.</p>
+<div class="table-scroll stack" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>확인 단계</th>
+<th>관측된 성공</th>
+<th>실패 시 확인할 곳</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td data-label="확인 단계">장치 탐색</td>
+<td data-label="관측된 성공"><code>Available cameras:</code>에 <code>Virtual2</code>가 표시됩니다.</td>
+<td data-label="실패 시 확인할 곳"><code>cam --list</code>, 가상 파이프라인과 provider 오류를 확인합니다.</td>
+</tr>
+<tr>
+<td data-label="확인 단계">설정</td>
+<td data-label="관측된 성공"><code>configuring streams: (0) 400x300-NV12/SMPTE170M</code>이 표시됩니다.</td>
+<td data-label="실패 시 확인할 곳">요청 형식과 <a href="https://ttolsun.github.io/libcamera-sdd/request-diagnosis.html#구성-실패를-좁히는-순서">구성 진단</a>, <a href="https://gitlab.freedesktop.org/camera/libcamera/-/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L365">캡처 시작 코드</a>를 확인합니다.</td>
+</tr>
+<tr>
+<td data-label="확인 단계">할당</td>
+<td data-label="관측된 성공">첫 요청의 제출 중단점에 도달하면 그 전에 실행되는 버퍼 할당을 통과한 것입니다.</td>
+<td data-label="실패 시 확인할 곳"><code>Could not open any dma-buf provider</code>, <code>Can't allocate buffers</code>, 게스트의 <code>/dev/udmabuf</code> 접근 권한과 커널 설정을 확인합니다. DMA-BUF heap을 쓰는 구성이라면 <code>/dev/dma_heap</code>도 확인합니다. <a href="https://gitlab.freedesktop.org/camera/libcamera/-/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/dma_buf_allocator.cpp#L119">할당기 코드</a>를 확인합니다.</td>
+</tr>
+<tr>
+<td data-label="확인 단계">요청 제출</td>
+<td data-label="관측된 성공">GDB가 관찰한 첫 호출이 <code>0</code>을 반환합니다.</td>
+<td data-label="실패 시 확인할 곳"><a href="https://gitlab.freedesktop.org/camera/libcamera/-/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L453">queueRequest</a>의 반환값과 캡처 한도 분기를 확인합니다.</td>
+</tr>
+<tr>
+<td data-label="확인 단계">콜백</td>
+<td data-label="관측된 성공"><code>CALLBACK</code>에 <code>RequestComplete</code>가 표시됩니다.</td>
+<td data-label="실패 시 확인할 곳"><a href="https://gitlab.freedesktop.org/camera/libcamera/-/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L467">requestComplete</a>와 <a href="https://ttolsun.github.io/libcamera-sdd/request-diagnosis.html#실패-위치별-확인-순서">완료 통지 진단</a>에서 같은 요청의 전달과 완료를 확인합니다.</td>
+</tr>
+<tr>
+<td data-label="확인 단계">정상 프레임</td>
+<td data-label="관측된 성공">같은 요청 포인터의 <code>FRAME</code>에 시퀀스 <code>0</code>과 <code>FrameSuccess</code>가 표시됩니다. 같은 실행의 프레임 출력에서 두 평면은 <code>120000/60000</code>바이트입니다.</td>
+<td data-label="실패 시 확인할 곳"><a href="https://gitlab.freedesktop.org/camera/libcamera/-/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/apps/cam/camera_session.cpp#L479">완료 처리</a>에서 버퍼 상태와 각 평면의 사용 바이트를 확인합니다.</td>
+</tr>
+</tbody>
+</table></div>
+<p><a href="https://github.com/TTolsun/camera-hal-sdd-generator/blob/main/examples/libcamera/runtime/issue337-vm.log">측정된 VM 로그</a>의 두 번째 캡처에서 <code>queueRequest</code> 중단점과 <code>CALLBACK</code>, <code>FRAME</code>의 요청 포인터가 일치합니다. 제출 반환값, 완료 알림, 버퍼 상태를 각각 확인합니다.</p>
+<div class="highlight"><pre><span></span><code>Value returned is $1 = 0
+CALLBACK request=0x5555556790d0 status=libcamera::Request::RequestComplete
+FRAME request=0x5555556790d0 sequence=0 status=libcamera::FrameMetadata::FrameSuccess
+cam0-stream0 seq: 000000 bytesused: 120000/60000
+</code></pre></div>
+<p>첫 번째 캡처의 종료 코드는 <code>0</code>이었고, <code>/tmp/frame.bin</code>은 180,000바이트였습니다. 할당기 누락 시험에서는 탐색 중에도 할당기 경고가 나왔지만 <code>Virtual2</code>가 목록에 표시됐고 스트림 구성까지 진행했습니다. 첫 실패는 버퍼 할당입니다.</p>
+<div class="highlight"><pre><span></span><code>Can't allocate buffers
+Failed to start camera session
+negative_capture_exit=1
+TRIAL_FINISHED
+</code></pre></div>
+<p><a id="run-evidence"></a></p>
+<h2 id="실행-근거">실행 근거</h2>
+<p><a href="https://github.com/TTolsun/camera-hal-sdd-generator/blob/main/examples/libcamera/runtime/issue337-wsl-baseline.log">이번 기본 WSL 실행 로그</a>는 기본 커널에서 <code>CONFIG_UDMABUF</code>와 <code>CONFIG_DMABUF_HEAPS</code>가 꺼져 있고 두 provider 경로가 없음을 보여 줍니다. 배포된 #211의 연결된 이전 실행 안내에서 요구한 테스트 커널도 당시 실행 중인 호스트에 없었습니다. 그 사전 조건 부족과 별도로 제한 시간을 둔 WSL 진단 명령을 실행했으며, 장치 탐색과 스트림 구성까지 성공했습니다. 첫 실패는 버퍼 할당이었고, 캡처 종료 코드는 <code>1</code>이었습니다. 이 로그는 다른 libcamera 커밋 <code>293d751a814e0d4c34e85ad457ccd9d5eefd1a61</code>의 기록입니다.</p>
+<p>2026-10-31의 #211 기록은 수정된 WSL 부팅에서 3×3 시험이 성공한 과거 관측입니다. 시험 커널에서 각각 3프레임씩 3회 확인한 뒤 기본 커널을 복원했습니다.</p>
+<p><a href="https://github.com/TTolsun/camera-hal-sdd-generator/blob/main/examples/libcamera/runtime/issue337-vm.log">VM 측정 로그</a>에는 사용한 커널 이미지의 SHA-256이 기록되어 있습니다. 다시 빌드한 이미지가 비트 단위로 같다고 보장하지 않습니다. 다음으로 <a href="https://github.com/TTolsun/camera-hal-sdd-generator/blob/main/examples/libcamera/runtime/OFFICIAL_CAM.md">OFFICIAL_CAM.md</a>를 확인하세요.</p></article><section class="evidence"><h2 id="page-evidence">문서 생성·검토 정보</h2><dl><dt>생성 방식</dt><dd>생성 방식 미기록</dd><dt>검증 범위</dt><dd>기존 원고에 생성 방식이 기록되지 않았습니다. 다시 생성하면 표시됩니다.</dd><dt>인용 검사</dt><dd>미기록 (<code>unrecorded</code>). 인용한 코드 위치가 분석 결과에 있는지만 확인했습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>사람 검토</dt><dd>사람 검토 전</dd><dt>분석 기준 커밋</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd></dl><a href="index.md">Markdown 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"></nav>
+<footer>Generated by camera-hal-sdd-generator · 인용 검사와 사람의 내용 검토는 별도입니다.</footer></main>
+<aside class="page-toc"><nav aria-label="현재 페이지 목차"><p>이 페이지에서</p><div class="toc">
+<ul>
+<li><a href="#환경-준비">환경 준비</a></li>
+<li><a href="#첫-프레임-실행">첫 프레임 실행</a></li>
+<li><a href="#첫-실패-찾기">첫 실패 찾기</a></li>
+<li><a href="#실행-근거">실행 근거</a></li>
+</ul>
+</div>
+</nav></aside></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">문서 찾기</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><label for="search-input">문서·절·용어·코드 요소 검색</label><input id="search-input" type="search" autocomplete="off" placeholder="예: Pipeline, IPA, 클래스 관계"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">클래스 관계</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">요소 찾기</label><input id="node-search" type="search" placeholder="그림 요소·함수 이름"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="축소">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="확대">+</button><button id="zoom-fit">화면에 맞춤</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">마우스로 끌거나 터치로 밀어서 그림을 이동합니다. '화면에 맞춤'은 그림 전체를 보는 개요 보기입니다.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="확대된 다이어그램"><div id="diagram-canvas"></div></div></dialog>
+<script id="site-config" type="application/json">{"root": "./", "mermaid": "https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.esm.min.mjs"}</script><script defer src="./assets/site.js?v=dd3415510a"></script><script defer src="./assets/reader-tools.js?v=dd3415510a"></script></body></html>
