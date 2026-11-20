@@ -1844,7 +1844,7 @@ LLM 그림 초안 · 사람 검토 전
 
 ## <a id="d5-요청을-장치에-전달하고-반환하기"></a>요청을 장치에 전달하고 반환하기
 
-함께 확인: [completeRequest 호출 스레드와 함수 반환 후 요청 접근 금지](#d5-%EA%B5%AC%ED%98%84-%EB%92%A4-%ED%99%95%EC%9D%B8%ED%95%A0-%EA%B3%84%EC%95%BD%EA%B3%BC-%EC%8B%A4%ED%96%89-%ED%95%9C%EA%B3%84)
+함께 확인: [마지막 버퍼가 끝났는데 요청 완료 통지가 오지 않을 때](#d19-%EC%8B%A4%ED%8C%A8-%EC%9C%84%EC%B9%98%EB%B3%84-%ED%99%95%EC%9D%B8-%EC%88%9C%EC%84%9C) · [completeRequest 호출 스레드와 함수 반환 후 요청 접근 금지](#d5-%EA%B5%AC%ED%98%84-%EB%92%A4-%ED%99%95%EC%9D%B8%ED%95%A0-%EA%B3%84%EC%95%BD%EA%B3%BC-%EC%8B%A4%ED%96%89-%ED%95%9C%EA%B3%84)
 
 요청에는 버퍼 집합이 들어 있으며, 이 버퍼들은 스트림에 연결됩니다. 요청에는 파라미터 집합도 들어 있습니다. `queueRequestDevice` 구현자는 요청에서 제공한 버퍼에 캡처되는 프레임에 해당 파라미터가 적용되도록 장치를 프로그래밍해야 합니다. `queueRequestDevice` 구현자는 성공하면 `0`을, 실패하면 음수 오류 코드를 반환해야 합니다.
 
@@ -4060,6 +4060,8 @@ doQueueRequest는 요청이 이미 취소되지 않은 경우에만 queueRequest
 </details>
 
 ## <a id="d7-버퍼-완료와-요청-반환"></a>버퍼 완료와 요청 반환
+
+함께 확인: [마지막 버퍼가 끝났는데 요청 완료 통지가 오지 않을 때](#d19-%EC%8B%A4%ED%8C%A8-%EC%9C%84%EC%B9%98%EB%B3%84-%ED%99%95%EC%9D%B8-%EC%88%9C%EC%84%9C)
 
 일반 버퍼 완료 경로에서 파이프라인 핸들러는 요청의 버퍼 부분이 완료되었음을 알리기 위해 completeBuffer를 호출해야 합니다. 이 함수는 애플리케이션에 버퍼 완료를 알리고 요청의 내부 버퍼 추적을 갱신합니다. 일반 완료 처리에서 마지막 버퍼에 completeBuffer를 호출해도 요청은 자동으로 완료되지 않습니다. 파이프라인 핸들러는 completeRequest()를 별도로 호출해 요청을 명시적으로 완료해야 합니다.
 
@@ -22576,6 +22578,78 @@ Mermaid 원문
 재개할 때 제보·관측·해석이 서로 섞이지 않았는지 원래 메모와 대조하세요.
 
 첫 조사 항목으로 원래 `queueRequest` 호출의 반환값과 호출 파일을 기록해, 반환값이 0이면 정상 접수로, 음수이면 제출 오류로 구분하도록 합니다. 정상 접수는 촬영 완료와 구분해 기록하도록 합니다.
+
+### 마지막 버퍼가 끝났는데 요청 완료 통지가 오지 않을 때
+
+```mermaid
+flowchart TB
+%% sdd:translations {"completeBuffer 반환": "completeBuffer return", "completeRequest 진입": "completeRequest entry", "emit과 앱 슬롯 확인": "Check emit and app slot", "false 반환·반환값 미확인": "Returned false or return <br/>unknown", "true 반환": "Returned true", "같은 제출 추적": "Track same submission", "관찰 범위 부족": "Coverage incomplete", "대상 RequestComplete, 앞선 <br/>front RequestPending, 이번 <br/>처리에서 break 관측": "Target RequestComplete, <br/>earlier front <br/>RequestPending, break <br/>observed this pass", "대상 상태와 큐 앞 확인": "Check target status and <br/>queue front", "대상의 requestComplete 관측": "Target requestComplete <br/>observed", "상태·흐름 미확인": "Status or flow unknown", "식별 완료": "Identity confirmed", "앞선 요청 대기": "Earlier request pending", "완료 경로 전체 관찰 중 진입 <br/>없음": "No entry during complete <br/>path observation", "제출 식별 불일치·미확인": "Submission identity <br/>unmatched or unconfirmed", "진입 확인": "Entry observed", "판단 보류": "Withhold judgment", "핸들러 경로 확인": "Check handler path"}
+  v_check{"같은 제출 추적"}
+  v_last{"completeBuffer 반환"}
+  v_entry{"completeRequest 진입"}
+  v_caller["핸들러 경로 확인"]
+  v_head{"대상 상태와 큐 앞 확인"}
+  v_held["앞선 요청 대기"]
+  v_emit["emit과 앱 슬롯 확인"]
+  v_unknown["판단 보류"]
+  v_check -->|"식별 완료"| v_last
+  v_check -->|"제출 식별 불일치·미확인"| v_unknown
+  v_last -->|"true 반환"| v_entry
+  v_last -->|"false 반환·반환값 미확인"| v_unknown
+  v_entry -->|"완료 경로 전체 관찰 중 진입 <br/>없음"| v_caller
+  v_entry -->|"진입 확인"| v_head
+  v_entry -->|"관찰 범위 부족"| v_unknown
+  v_head -->|"대상 RequestComplete, 앞선 <br/>front RequestPending, 이번 <br/>처리에서 break 관측"| v_held
+  v_head -->|"대상의 requestComplete 관측"| v_emit
+  v_head -->|"상태·흐름 미확인"| v_unknown
+```
+
+다음은 소스 기반 조사 예시입니다. 각 제출을 camera, stop/start로 구분한 run, 제출마다 새로 부여한 generation, Request\*로 추적하세요. doQueueRequest에서 sequence\_를 할당한 뒤에는 Request::sequence()도 기록하세요. sequence는 run 사이에 초기화되고 오버플로로 순환합니다. Request::reuse()로 같은 객체를 다시 제출할 수 있으므로 cookie나 주소만으로 제출을 구분하지 마세요. 예시 A: 대상 제출 42의 마지막 completeBuffer가 true를 반환했습니다. 핸들러가 의도한 완료 경로를 지연된 분기까지 빠진 기록 없이 계속 관찰했는데도 completeRequest 진입이 없었다면, 콜백 분기와 조건을 살펴보고 메타데이터 처리나 완료 작업을 미루는 경로가 있는지 확인하세요. 특정 핸들러에 그런 경로가 반드시 있다고 가정하지 마세요. bufferCompleted.emit만으로 completeBuffer의 반환값을 판단하지 마세요. 예시 B: 대상 제출 42가 completeRequest에 진입하고 complete() 후 RequestComplete가 되었지만, queuedRequests\_.front()의 앞선 제출 41은 RequestPending입니다. 관측된 break는 이번 큐 처리에서 대상이 큐에 남게 할 뿐, 영원히 남는다는 뜻은 아닙니다. 제출 41의 남은 버퍼와 완료 경로를 추적하고, 이후 큐 앞을 다시 확인하면서 대상의 Camera::requestComplete 호출을 관찰하세요. 이어 실제 requestCompleted.emit 발생과 앱 슬롯 진입을 각각 확인하세요. 대상이 이미 큐 앞에 있다면 대상의 상태와 큐 처리 흐름을 확인하세요. RequestCancelled는 별도로 구분하세요. 제출의 식별이나 필요한 관찰 범위가 불완전하면 판단을 보류하세요. 관찰을 위해 상태를 바꾸는 함수를 다시 호출하지 마세요. [`pipeline_handler.cpp:491`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L491) · [`pipeline_handler.cpp:401`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L401) · [`request.cpp:385`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L385) · [`pipeline_handler.cpp:567`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L567) · [`pipeline_handler.cpp:566`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L566) · [`pipeline_handler.cpp:584`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584) · [`pipeline_handler.cpp:556`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L556) · [`pipeline_handler.cpp:588`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L588) · [`request.cpp:132`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L132) · [`pipeline_handler.cpp:593`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593) · [`pipeline_handler.cpp:594`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594) · [`pipeline_handler.cpp:599`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599) · [`camera.cpp:1488`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1488) · [`bound_method.cpp:40`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/base/bound_method.cpp#L40)
+
+| 현재 확인 지점 | 관찰 결과 | 다음 확인 지점 |
+| --- | --- | --- |
+| 같은 제출 추적 | 식별 완료 | completeBuffer 반환 [`pipeline_handler.cpp:491`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L491) · [`pipeline_handler.cpp:567`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L567) · [`pipeline_handler.cpp:566`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L566) |
+| 같은 제출 추적 | 제출 식별 불일치·미확인 | 판단 보류 [`pipeline_handler.cpp:491`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L491) · [`pipeline_handler.cpp:584`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584) · [`pipeline_handler.cpp:593`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593) |
+| completeBuffer 반환 | true 반환 | completeRequest 진입 [`pipeline_handler.cpp:567`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L567) · [`pipeline_handler.cpp:556`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L556) · [`pipeline_handler.cpp:584`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584) |
+| completeBuffer 반환 | false 반환·반환값 미확인 | 판단 보류 [`pipeline_handler.cpp:567`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L567) · [`pipeline_handler.cpp:584`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584) · [`pipeline_handler.cpp:593`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593) |
+| completeRequest 진입 | 완료 경로 전체 관찰 중 진입 없음 | 핸들러 경로 확인 [`pipeline_handler.cpp:584`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584) · [`pipeline_handler.cpp:556`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L556) |
+| completeRequest 진입 | 진입 확인 | 대상 상태와 큐 앞 확인 [`pipeline_handler.cpp:584`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584) · [`pipeline_handler.cpp:588`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L588) · [`pipeline_handler.cpp:593`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593) |
+| completeRequest 진입 | 관찰 범위 부족 | 판단 보류 [`pipeline_handler.cpp:584`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584) · [`pipeline_handler.cpp:593`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593) |
+| 대상 상태와 큐 앞 확인 | 대상 RequestComplete, 앞선 front RequestPending, 이번 처리에서 break 관측 | 앞선 요청 대기 [`pipeline_handler.cpp:593`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593) · [`pipeline_handler.cpp:594`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594) |
+| 대상 상태와 큐 앞 확인 | 대상의 requestComplete 관측 | emit과 앱 슬롯 확인 [`pipeline_handler.cpp:599`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599) |
+| 대상 상태와 큐 앞 확인 | 상태·흐름 미확인 | 판단 보류 [`pipeline_handler.cpp:593`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593) · [`pipeline_handler.cpp:594`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594) · [`pipeline_handler.cpp:584`](https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584) |
+
+Mermaid 원문
+
+<details open>
+<summary>그림 근거와 확인 범위</summary>
+
+마지막 버퍼 완료 후 어디에서 멈췄나요?
+
+소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전
+
+| 요소·전이 | 소스 근거 |
+| --- | --- |
+| 같은 제출 추적 | [src/libcamera/pipeline_handler.cpp:428](#d19-source-789eafedfaa7f3c5) |
+| completeBuffer 반환 | [src/libcamera/pipeline_handler.cpp:547](#d19-source-01ad7c6605c3296a) |
+| completeRequest 진입 | [src/libcamera/pipeline_handler.cpp:547](#d19-source-01ad7c6605c3296a) |
+| 핸들러 경로 확인 | [src/libcamera/pipeline_handler.cpp:547](#d19-source-01ad7c6605c3296a) |
+| 대상 상태와 큐 앞 확인 | [src/libcamera/pipeline_handler.cpp:547](#d19-source-01ad7c6605c3296a) |
+| 앞선 요청 대기 | [src/libcamera/pipeline_handler.cpp:547](#d19-source-01ad7c6605c3296a) |
+| emit과 앱 슬롯 확인 | [src/libcamera/pipeline_handler.cpp:547](#d19-source-01ad7c6605c3296a) |
+| 판단 보류 | [src/libcamera/pipeline_handler.cpp:547](#d19-source-01ad7c6605c3296a) |
+| 식별 완료 | [src/libcamera/pipeline_handler.cpp:428](#d19-source-789eafedfaa7f3c5) |
+| 제출 식별 불일치·미확인 | [src/libcamera/pipeline_handler.cpp:428](#d19-source-789eafedfaa7f3c5) |
+| true 반환 | [src/libcamera/pipeline_handler.cpp:547](#d19-source-01ad7c6605c3296a) |
+| false 반환·반환값 미확인 | [src/libcamera/pipeline_handler.cpp:547](#d19-source-01ad7c6605c3296a) |
+| 완료 경로 전체 관찰 중 진입 없음 | [src/libcamera/pipeline_handler.cpp:547](#d19-source-01ad7c6605c3296a) |
+| 진입 확인 | [src/libcamera/pipeline_handler.cpp:547](#d19-source-01ad7c6605c3296a) |
+| 관찰 범위 부족 | [src/libcamera/pipeline_handler.cpp:547](#d19-source-01ad7c6605c3296a) |
+| 대상 RequestComplete, 앞선 front RequestPending, 이번 처리에서 break 관측 | [src/libcamera/pipeline_handler.cpp:547](#d19-source-01ad7c6605c3296a) |
+| 대상의 requestComplete 관측 | [src/libcamera/pipeline_handler.cpp:547](#d19-source-01ad7c6605c3296a) |
+| 상태·흐름 미확인 | [src/libcamera/pipeline_handler.cpp:547](#d19-source-01ad7c6605c3296a) |
+
+</details>
 
 ### <a id="d19-선두-요청을-전달하거나-반복을-멈추는-조건"></a>선두 요청을 전달하거나 반복을 멈추는 조건
 

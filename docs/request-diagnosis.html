@@ -20,6 +20,7 @@
 </ul>
 </li>
 <li><a href="#실패-위치별-확인-순서">실패 위치별 확인 순서</a><ul>
+<li><a href="#마지막-버퍼가-끝났는데-요청-완료-통지가-오지-않을-때">마지막 버퍼가 끝났는데 요청 완료 통지가 오지 않을 때</a></li>
 <li><a href="#선두-요청을-전달하거나-반복을-멈추는-조건">선두 요청을 전달하거나 반복을 멈추는 조건</a></li>
 <li><a href="#버퍼-연결-실패를-구분하는-순서">버퍼 연결 실패를 구분하는 순서</a></li>
 <li><a href="#void-전달-함수의-두-취소-경로">void 전달 함수의 두 취소 경로</a></li>
@@ -524,6 +525,180 @@
 <aside class="reading-checkpoint" aria-label="중단 전과 재개 후의 조사 메모"><p><strong>중단 전에 메모를 남기세요.</strong></p><p>아래 틀을 복사해 빈칸을 채우고, 재개할 때 원래 메모와 대조하세요.</p><ul><li>제보된 증상과 조건을 적으세요: ____.</li><li>직접 관측한 값과 확인 위치를 적으세요: ____.</li><li>문서로 해석한 내용과 임시 가정을 적으세요: ____.</li><li>아직 확인하지 못한 점을 적으세요: ____.</li><li>다음 확인과 결과에 따른 분기를 적으세요: ____.</li><li>근거 문서의 URL과 절 위치를 적으세요: ____.</li></ul><p>관측하지 않은 값은 미확인으로 남기고, 관측하려고 상태 변경 함수를 다시 호출하지 마세요.</p><p>재개할 때 제보·관측·해석이 서로 섞이지 않았는지 원래 메모와 대조하세요.</p></aside>
 
 <p data-sdd-evidence="[[&quot;src/libcamera/camera.cpp:1308&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1308\&quot;&gt;&lt;code&gt;src/libcamera/camera.cpp:1308&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/camera.cpp:1308&quot;: [&quot;#source-28d007de6ad1a8a5&quot;]}">첫 조사 항목으로 원래 <code>queueRequest</code> 호출의 반환값과 호출 파일을 기록해, 반환값이 0이면 정상 접수로, 음수이면 제출 오류로 구분하도록 합니다. 정상 접수는 촬영 완료와 구분해 기록하도록 합니다.</p>
+<!-- sdd:visual:completion-notice-diagnosis -->
+<h3 id="마지막-버퍼가-끝났는데-요청-완료-통지가-오지-않을-때">마지막 버퍼가 끝났는데 요청 완료 통지가 오지 않을 때</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {&quot;completeBuffer 반환&quot;: &quot;completeBuffer return&quot;, &quot;completeRequest 진입&quot;: &quot;completeRequest entry&quot;, &quot;emit과 앱 슬롯 확인&quot;: &quot;Check emit and app slot&quot;, &quot;false 반환·반환값 미확인&quot;: &quot;Returned false or return &lt;br/&gt;unknown&quot;, &quot;true 반환&quot;: &quot;Returned true&quot;, &quot;같은 제출 추적&quot;: &quot;Track same submission&quot;, &quot;관찰 범위 부족&quot;: &quot;Coverage incomplete&quot;, &quot;대상 RequestComplete, 앞선 &lt;br/&gt;front RequestPending, 이번 &lt;br/&gt;처리에서 break 관측&quot;: &quot;Target RequestComplete, &lt;br/&gt;earlier front &lt;br/&gt;RequestPending, break &lt;br/&gt;observed this pass&quot;, &quot;대상 상태와 큐 앞 확인&quot;: &quot;Check target status and &lt;br/&gt;queue front&quot;, &quot;대상의 requestComplete 관측&quot;: &quot;Target requestComplete &lt;br/&gt;observed&quot;, &quot;상태·흐름 미확인&quot;: &quot;Status or flow unknown&quot;, &quot;식별 완료&quot;: &quot;Identity confirmed&quot;, &quot;앞선 요청 대기&quot;: &quot;Earlier request pending&quot;, &quot;완료 경로 전체 관찰 중 진입 &lt;br/&gt;없음&quot;: &quot;No entry during complete &lt;br/&gt;path observation&quot;, &quot;제출 식별 불일치·미확인&quot;: &quot;Submission identity &lt;br/&gt;unmatched or unconfirmed&quot;, &quot;진입 확인&quot;: &quot;Entry observed&quot;, &quot;판단 보류&quot;: &quot;Withhold judgment&quot;, &quot;핸들러 경로 확인&quot;: &quot;Check handler path&quot;}
+  v_check{&quot;같은 제출 추적&quot;}
+  v_last{&quot;completeBuffer 반환&quot;}
+  v_entry{&quot;completeRequest 진입&quot;}
+  v_caller[&quot;핸들러 경로 확인&quot;]
+  v_head{&quot;대상 상태와 큐 앞 확인&quot;}
+  v_held[&quot;앞선 요청 대기&quot;]
+  v_emit[&quot;emit과 앱 슬롯 확인&quot;]
+  v_unknown[&quot;판단 보류&quot;]
+  v_check --&gt;|&quot;식별 완료&quot;| v_last
+  v_check --&gt;|&quot;제출 식별 불일치·미확인&quot;| v_unknown
+  v_last --&gt;|&quot;true 반환&quot;| v_entry
+  v_last --&gt;|&quot;false 반환·반환값 미확인&quot;| v_unknown
+  v_entry --&gt;|&quot;완료 경로 전체 관찰 중 진입 &lt;br/&gt;없음&quot;| v_caller
+  v_entry --&gt;|&quot;진입 확인&quot;| v_head
+  v_entry --&gt;|&quot;관찰 범위 부족&quot;| v_unknown
+  v_head --&gt;|&quot;대상 RequestComplete, 앞선 &lt;br/&gt;front RequestPending, 이번 &lt;br/&gt;처리에서 break 관측&quot;| v_held
+  v_head --&gt;|&quot;대상의 requestComplete 관측&quot;| v_emit
+  v_head --&gt;|&quot;상태·흐름 미확인&quot;| v_unknown</pre>
+<p><span data-sdd-label-en="These are source-based investigation examples. Track each submission using the camera, a run separated by stop/start, a new per-submission generation, and Request*. Also record Request::sequence() after doQueueRequest assigns sequence_. The sequence resets between runs and wraps on overflow. Request::reuse() can resubmit the same object, so neither cookie nor address alone identifies a submission. Example A: the last completeBuffer for target submission 42 returned true. If continuous observation covered the handler&#x27;s intended completion path, including delayed branches, with no dropped records, yet no completeRequest entry was observed, inspect the callback branches and conditions for any deferred metadata or completion work. Do not assume a particular handler requires such work. Do not infer the completeBuffer return value from bufferCompleted.emit alone. Example B: target submission 42 entered completeRequest and became RequestComplete after complete(), but earlier submission 41 at queuedRequests_.front() is RequestPending. The observed break keeps the target queued in this pass; it does not mean the target stays queued forever. Trace submission 41&#x27;s pending buffers and completion path, recheck subsequent queue heads, and observe the target&#x27;s Camera::requestComplete call. Then separately confirm the actual requestCompleted.emit and entry into the application slot. If the target is already at the front, check its status and the queue-processing flow. Distinguish RequestCancelled separately. Withhold judgment if submission identity or the required observation coverage is incomplete. Do not re-invoke state-mutating functions to observe them.">다음은 소스 기반 조사 예시입니다. 각 제출을 camera, stop/start로 구분한 run, 제출마다 새로 부여한 generation, Request*로 추적하세요. doQueueRequest에서 sequence_를 할당한 뒤에는 Request::sequence()도 기록하세요. sequence는 run 사이에 초기화되고 오버플로로 순환합니다. Request::reuse()로 같은 객체를 다시 제출할 수 있으므로 cookie나 주소만으로 제출을 구분하지 마세요. 예시 A: 대상 제출 42의 마지막 completeBuffer가 true를 반환했습니다. 핸들러가 의도한 완료 경로를 지연된 분기까지 빠진 기록 없이 계속 관찰했는데도 completeRequest 진입이 없었다면, 콜백 분기와 조건을 살펴보고 메타데이터 처리나 완료 작업을 미루는 경로가 있는지 확인하세요. 특정 핸들러에 그런 경로가 반드시 있다고 가정하지 마세요. bufferCompleted.emit만으로 completeBuffer의 반환값을 판단하지 마세요. 예시 B: 대상 제출 42가 completeRequest에 진입하고 complete() 후 RequestComplete가 되었지만, queuedRequests_.front()의 앞선 제출 41은 RequestPending입니다. 관측된 break는 이번 큐 처리에서 대상이 큐에 남게 할 뿐, 영원히 남는다는 뜻은 아닙니다. 제출 41의 남은 버퍼와 완료 경로를 추적하고, 이후 큐 앞을 다시 확인하면서 대상의 Camera::requestComplete 호출을 관찰하세요. 이어 실제 requestCompleted.emit 발생과 앱 슬롯 진입을 각각 확인하세요. 대상이 이미 큐 앞에 있다면 대상의 상태와 큐 처리 흐름을 확인하세요. RequestCancelled는 별도로 구분하세요. 제출의 식별이나 필요한 관찰 범위가 불완전하면 판단을 보류하세요. 관찰을 위해 상태를 바꾸는 함수를 다시 호출하지 마세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L491"><code>pipeline_handler.cpp:491</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L401"><code>pipeline_handler.cpp:401</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L385"><code>request.cpp:385</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L567"><code>pipeline_handler.cpp:567</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L566"><code>pipeline_handler.cpp:566</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584"><code>pipeline_handler.cpp:584</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L556"><code>pipeline_handler.cpp:556</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L588"><code>pipeline_handler.cpp:588</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L132"><code>request.cpp:132</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594"><code>pipeline_handler.cpp:594</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/base/bound_method.cpp#L40"><code>bound_method.cpp:40</code></a></p>
+<div class="table-scroll stack" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th><span data-sdd-label-en="Current check">현재 확인 지점</span></th>
+<th><span data-sdd-label-en="Observation">관찰 결과</span></th>
+<th><span data-sdd-label-en="Next check">다음 확인 지점</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td data-label="현재 확인 지점"><span data-sdd-label-en="Track same submission">같은 제출 추적</span></td>
+<td data-label="관찰 결과"><span data-sdd-label-en="Identity confirmed">식별 완료</span></td>
+<td data-label="다음 확인 지점"><span data-sdd-label-en="completeBuffer return">completeBuffer 반환</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L491"><code>pipeline_handler.cpp:491</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L567"><code>pipeline_handler.cpp:567</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L566"><code>pipeline_handler.cpp:566</code></a></td>
+</tr>
+<tr>
+<td data-label="현재 확인 지점"><span data-sdd-label-en="Track same submission">같은 제출 추적</span></td>
+<td data-label="관찰 결과"><span data-sdd-label-en="Submission identity unmatched or unconfirmed">제출 식별 불일치·미확인</span></td>
+<td data-label="다음 확인 지점"><span data-sdd-label-en="Withhold judgment">판단 보류</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L491"><code>pipeline_handler.cpp:491</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584"><code>pipeline_handler.cpp:584</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a></td>
+</tr>
+<tr>
+<td data-label="현재 확인 지점"><span data-sdd-label-en="completeBuffer return">completeBuffer 반환</span></td>
+<td data-label="관찰 결과"><span data-sdd-label-en="Returned true">true 반환</span></td>
+<td data-label="다음 확인 지점"><span data-sdd-label-en="completeRequest entry">completeRequest 진입</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L567"><code>pipeline_handler.cpp:567</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L556"><code>pipeline_handler.cpp:556</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584"><code>pipeline_handler.cpp:584</code></a></td>
+</tr>
+<tr>
+<td data-label="현재 확인 지점"><span data-sdd-label-en="completeBuffer return">completeBuffer 반환</span></td>
+<td data-label="관찰 결과"><span data-sdd-label-en="Returned false or return unknown">false 반환·반환값 미확인</span></td>
+<td data-label="다음 확인 지점"><span data-sdd-label-en="Withhold judgment">판단 보류</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L567"><code>pipeline_handler.cpp:567</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584"><code>pipeline_handler.cpp:584</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a></td>
+</tr>
+<tr>
+<td data-label="현재 확인 지점"><span data-sdd-label-en="completeRequest entry">completeRequest 진입</span></td>
+<td data-label="관찰 결과"><span data-sdd-label-en="No entry during complete path observation">완료 경로 전체 관찰 중 진입 없음</span></td>
+<td data-label="다음 확인 지점"><span data-sdd-label-en="Check handler path">핸들러 경로 확인</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584"><code>pipeline_handler.cpp:584</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L556"><code>pipeline_handler.cpp:556</code></a></td>
+</tr>
+<tr>
+<td data-label="현재 확인 지점"><span data-sdd-label-en="completeRequest entry">completeRequest 진입</span></td>
+<td data-label="관찰 결과"><span data-sdd-label-en="Entry observed">진입 확인</span></td>
+<td data-label="다음 확인 지점"><span data-sdd-label-en="Check target status and queue front">대상 상태와 큐 앞 확인</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584"><code>pipeline_handler.cpp:584</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L588"><code>pipeline_handler.cpp:588</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a></td>
+</tr>
+<tr>
+<td data-label="현재 확인 지점"><span data-sdd-label-en="completeRequest entry">completeRequest 진입</span></td>
+<td data-label="관찰 결과"><span data-sdd-label-en="Coverage incomplete">관찰 범위 부족</span></td>
+<td data-label="다음 확인 지점"><span data-sdd-label-en="Withhold judgment">판단 보류</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584"><code>pipeline_handler.cpp:584</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a></td>
+</tr>
+<tr>
+<td data-label="현재 확인 지점"><span data-sdd-label-en="Check target status and queue front">대상 상태와 큐 앞 확인</span></td>
+<td data-label="관찰 결과"><span data-sdd-label-en="Target RequestComplete, earlier front RequestPending, break observed this pass">대상 RequestComplete, 앞선 front RequestPending, 이번 처리에서 break 관측</span></td>
+<td data-label="다음 확인 지점"><span data-sdd-label-en="Earlier request pending">앞선 요청 대기</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594"><code>pipeline_handler.cpp:594</code></a></td>
+</tr>
+<tr>
+<td data-label="현재 확인 지점"><span data-sdd-label-en="Check target status and queue front">대상 상태와 큐 앞 확인</span></td>
+<td data-label="관찰 결과"><span data-sdd-label-en="Target requestComplete observed">대상의 requestComplete 관측</span></td>
+<td data-label="다음 확인 지점"><span data-sdd-label-en="Check emit and app slot">emit과 앱 슬롯 확인</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a></td>
+</tr>
+<tr>
+<td data-label="현재 확인 지점"><span data-sdd-label-en="Check target status and queue front">대상 상태와 큐 앞 확인</span></td>
+<td data-label="관찰 결과"><span data-sdd-label-en="Status or flow unknown">상태·흐름 미확인</span></td>
+<td data-label="다음 확인 지점"><span data-sdd-label-en="Withhold judgment">판단 보류</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594"><code>pipeline_handler.cpp:594</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L584"><code>pipeline_handler.cpp:584</code></a></td>
+</tr>
+</tbody>
+</table></div>
+<p><a href="request-diagnosis.completion-notice-diagnosis.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>마지막 버퍼 완료 후 어디에서 멈췄나요?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Track same submission">같은 제출 추적</span></td>
+<td><a href="#source-789eafedfaa7f3c5">src/libcamera/pipeline_handler.cpp:428</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="completeBuffer return">completeBuffer 반환</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="completeRequest entry">completeRequest 진입</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check handler path">핸들러 경로 확인</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check target status and queue front">대상 상태와 큐 앞 확인</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Earlier request pending">앞선 요청 대기</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check emit and app slot">emit과 앱 슬롯 확인</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Withhold judgment">판단 보류</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Identity confirmed">식별 완료</span></td>
+<td><a href="#source-789eafedfaa7f3c5">src/libcamera/pipeline_handler.cpp:428</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Submission identity unmatched or unconfirmed">제출 식별 불일치·미확인</span></td>
+<td><a href="#source-789eafedfaa7f3c5">src/libcamera/pipeline_handler.cpp:428</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Returned true">true 반환</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Returned false or return unknown">false 반환·반환값 미확인</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No entry during complete path observation">완료 경로 전체 관찰 중 진입 없음</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Entry observed">진입 확인</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Coverage incomplete">관찰 범위 부족</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Target RequestComplete, earlier front RequestPending, break observed this pass">대상 RequestComplete, 앞선 front RequestPending, 이번 처리에서 break 관측</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Target requestComplete observed">대상의 requestComplete 관측</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Status or flow unknown">상태·흐름 미확인</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:completion-notice-diagnosis -->
+
 <!-- sdd:visual:queue-gates -->
 <h3 id="선두-요청을-전달하거나-반복을-멈추는-조건">선두 요청을 전달하거나 반복을 멈추는 조건</h3>
 <pre class="mermaid">flowchart TB
@@ -1677,6 +1852,7 @@ void PipelineHandler::cancelRequest(Request *request)
 </ul>
 </li>
 <li><a href="#실패-위치별-확인-순서">실패 위치별 확인 순서</a><ul>
+<li><a href="#마지막-버퍼가-끝났는데-요청-완료-통지가-오지-않을-때">마지막 버퍼가 끝났는데 요청 완료 통지가 오지 않을 때</a></li>
 <li><a href="#선두-요청을-전달하거나-반복을-멈추는-조건">선두 요청을 전달하거나 반복을 멈추는 조건</a></li>
 <li><a href="#버퍼-연결-실패를-구분하는-순서">버퍼 연결 실패를 구분하는 순서</a></li>
 <li><a href="#void-전달-함수의-두-취소-경로">void 전달 함수의 두 취소 경로</a></li>
