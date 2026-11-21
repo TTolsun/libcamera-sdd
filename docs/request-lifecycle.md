@@ -1,15 +1,15 @@
 ---
-generated_at: 2026-11-19 18:15:19+00:00
+generated_at: 2026-11-21 13:28:40+00:00
 source_commit: adfa719f8ed67d18fd8a0739fc088a1f8b9e7252
 status: ok
 section: request-lifecycle
 generation_method: facts-and-llm
-evidence_fingerprint: 628632ff0e3bb7aa6b3a4125ec47bb88ba07d2a7a47084bb1604483ed9c457a9
+evidence_fingerprint: 954f0f1865eb6f1af5a84549672e83949fe7fc5e0b97e9fdaba5036a5ab0b85a
 semantic_review: human-review-required
 agent: cli/codex/gpt-6.1-terra
 generated_design:
   schema: 1
-  input_fingerprint: 628632ff0e3bb7aa6b3a4125ec47bb88ba07d2a7a47084bb1604483ed9c457a9
+  input_fingerprint: 954f0f1865eb6f1af5a84549672e83949fe7fc5e0b97e9fdaba5036a5ab0b85a
   answers:
     journey:
     - text: 파이프라인 대상 호출을 비동기로 예약한 성공을 뜻하는 queueRequest의 0 반환은 요청 완료와 구분됩니다. 파이프라인
@@ -1620,6 +1620,31 @@ generated_design:
         ASSERT(data_.get() == ThreadData::current());"
       part_id: explicit-dispatch
     stopping:
+    - text: UVC의 정상 버퍼 반환과 STREAMOFF 성공 시 남은 버퍼 취소는 `imageBufferReady`에서 `completeBuffer`와
+        `completeRequest`를 거쳐 같은 `requestCompleted` 알림으로 이어질 수 있습니다. Developer는 이
+        슬롯에서 `RequestComplete`와 `RequestCancelled`를 구별하고 버퍼별 `FrameSuccess`로 영상 사용
+        여부를 판단해야 하며, `RequestComplete`에도 `FrameError`가 있을 수 있고 취소된 버퍼는 `FrameCancelled`입니다.
+        Vendor의 장치 검증 계획은 첫 실행에서 정상 촬영하고 둘째 실행에서 미완료 요청을 남긴 채 `stop()`을 호출하며, 수신 루프를
+        처리해 제출별 알림 횟수와 미수신 여부, 요청과 버퍼 상태를 기록하는 것입니다. 다른 스레드에 큐잉된 슬롯은 `stop()` 반환 뒤에도
+        실행될 수 있습니다.
+      evidence:
+      - uvc-ready
+      - uvc-signal
+      - dequeue-notice
+      - streamoff-implementation
+      - frame-cancel
+      - completion
+      - app-notice
+      - request-result
+      - frame-result
+      - stop
+      - queued-connection
+      covers:
+      - stopping
+      kind: behavior
+      quote: "pipe()->completeBuffer(request, buffer);\n\tpipe()->completeRequest(request);\n\
+        }"
+      part_id: stop-notification
     - text: '`PipelineHandler::stop`의 문서 계약은 정지 시 모든 미완료 요청을 취소하고 즉시 오류 상태로 완료하도록
         요구합니다.'
       evidence:
@@ -3307,12 +3332,12 @@ generated_design:
   - resources
   - callback-order
   - callback-depth
-  - stopping
+  - stop-depth
   - review
   - observed-callbacks
   replayed_units: []
   generated_topics:
-  - stop-depth
+  - stopping
   topic_agents:
     journey: cli/codex/gpt-6.1-terra
     preparation-depth: cli/codex/gpt-6.1-terra
@@ -3331,192 +3356,219 @@ generated_design:
     semantic: 571896e4854c21322a1ce4580107c235cae5a9f94e71adc8c97a7e2897405968
     duplicates: 93f0e8b5bdc1b40bf4ab38168e92c2772aa36747bec6add25921fbb90b909e38
     design_contracts: 9f54ecddce57c7a9caa6c02af77904b57eff2471f2a052951c1cffd18256a4f0
-    validate: 78d29ffd1bf6235067edf5a0c7d9b1290f1f11e90599605a0e192e90be5f3372
+    validate: 434377186c836fa9d0ea02f9e7b91f624da454b0602ec710fa2993ed69fe1e38
     reader_profiles: ad9005d08295212371f59e8934ace86786c0683f7a4c416301ee0e0cadc8b797
-    contract_schema: d0f7ab4c48fcf52409935931eb9b93aacd48af4b19e9bb816fa496f1214fdb2f
+    contract_schema: c6f80826ee5f2570b2928f47d7e5244913e552f139dfb3d5592402092884d46e
     answer_contracts: a39c9a8818afc47e059141d486337c0f12a7fd34319e2b6f7674fc428bc83e2b
     reader_scope: 1b9c26b10b74ae8cf034f5863cbac2114e1d844e5d8332eb1f10562a18371782
     product_context: 050c20aa2fdcceae10c6275fbb5f850f616ab5051bb67ccbcb4a204877a238d9
     explanation: 69bcaa207ef39d20f6a47ac201c3edf119f59b333e85131dea1bce85eef4006b
     design_response: a7c199bc52bcc0e749ef01186e50bca98107473d5c82e2248712f465d02e1e69
     design_validation: a4edf8364d73d169c3f10ecbadf487a8a4dc10328622d07578b281eae810c3aa
-  validation_model: db6c5bf57ead3ade75be2621f553363aac6222c51b55401a5bcb2b7116c69a06
+  validation_model: ea8e8ebec2906ea5de47f3a9e67f91041ba4108062c0fcf14100de9b9d892487
   style_policy:
     fluent-korean.md: ce5aa71e58371e3fc02ff8cb165e07c9234f5166f6541423a91cc4cb40878975
     i-have-adhd.md: 3170b16ace00aecb0dd7feb54c0b5aa642e7502acda06ecd24fd89a11c7127e9
     README.md: b87a84b1bc31079837dc4dc4527ce02c9dc2cbc3a26ff7e99e0872941d213995
   partial_revision:
     changed_units:
-    - topic: stop-depth
-      part: disconnect-stop
+    - topic: stopping
+      part: stop-notification
       native_record: null
-      action: validated-new-cli
-      verified_checkpoint: C:\Users\baboe\.codex\worktrees\3f7f\camera-hal-sdd-generator\build\uvc-stop\state-final\build\cli-checkpoints\0130fab65464b8b468e5e0f8a0bd7d8ac52c539e611d75ea8f614a9871fee29a.json
-      checkpoint_sha256: 2d939cdd4d336054470896287f4d941181bb6a43b36c3cf76952256e9f912698
-      native_receipts:
-      - 24c21cd0141a4680b090026f2f548fe1/028.receipt.json
-      - 24c21cd0141a4680b090026f2f548fe1/029.receipt.json
-      current_cli_calls:
-      - tag: request-lifecycle_stop-depth_disconnect-stop_0
+      calls:
+      - tag: request-lifecycle_stopping_stop-notification_0
         status: completed
-      - tag: request-lifecycle_stop-depth_disconnect-stop_0_grounding
+      - tag: request-lifecycle_stopping_stop-notification_1
         status: completed
-    - topic: stop-depth
-      part: post-disconnect-state
-      native_record:
-        checkpoint: cc9bc52678f1680230154903e823328992fe30f0ef736d446d89bc63e9f1bfd9.json
-        topic: stop-depth
+      - tag: request-lifecycle_stopping_stop-notification_1_grounding
+        status: completed
+    prior_manuscript_sha256: 4b3fa2d6f19dbc928fae18db4f5512959ca88217d9fae2072a85d3e4abe4997d
+    prior_revision:
+      changed_units:
+      - topic: stop-depth
+        part: disconnect-stop
+        native_record: null
+        action: validated-new-cli
+        verified_checkpoint: C:\Users\baboe\.codex\worktrees\3f7f\camera-hal-sdd-generator\build\uvc-stop\state-final\build\cli-checkpoints\0130fab65464b8b468e5e0f8a0bd7d8ac52c539e611d75ea8f614a9871fee29a.json
+        checkpoint_sha256: 2d939cdd4d336054470896287f4d941181bb6a43b36c3cf76952256e9f912698
+        native_receipts:
+        - 24c21cd0141a4680b090026f2f548fe1/028.receipt.json
+        - 24c21cd0141a4680b090026f2f548fe1/029.receipt.json
+        current_cli_calls:
+        - tag: request-lifecycle_stop-depth_disconnect-stop_0
+          status: completed
+        - tag: request-lifecycle_stop-depth_disconnect-stop_0_grounding
+          status: completed
+      - topic: stop-depth
         part: post-disconnect-state
-        subpart: null
-        revalidated: true
-        new_grounding_review: false
-        receipts:
+        native_record:
+          checkpoint: cc9bc52678f1680230154903e823328992fe30f0ef736d446d89bc63e9f1bfd9.json
+          topic: stop-depth
+          part: post-disconnect-state
+          subpart: null
+          revalidated: true
+          new_grounding_review: false
+          receipts:
+          - cb1786c4acfc48249b7657d55a756fed/024.receipt.json
+          - cb1786c4acfc48249b7657d55a756fed/025.receipt.json
+          - cb1786c4acfc48249b7657d55a756fed/026.receipt.json
+          - cb1786c4acfc48249b7657d55a756fed/027.receipt.json
+        action: checkpoint-revalidated
+        verified_checkpoint: C:\Users\baboe\.codex\worktrees\3f7f\camera-hal-sdd-generator\build\uvc-stop\state-final\build\cli-checkpoints\cc9bc52678f1680230154903e823328992fe30f0ef736d446d89bc63e9f1bfd9.json
+        checkpoint_sha256: 7435d9b2ce7f405ed5861e5979d3a5a42e1b19db8032745d07fa1a7c47c4e577
+        native_receipts:
         - cb1786c4acfc48249b7657d55a756fed/024.receipt.json
         - cb1786c4acfc48249b7657d55a756fed/025.receipt.json
         - cb1786c4acfc48249b7657d55a756fed/026.receipt.json
         - cb1786c4acfc48249b7657d55a756fed/027.receipt.json
-      action: checkpoint-revalidated
-      verified_checkpoint: C:\Users\baboe\.codex\worktrees\3f7f\camera-hal-sdd-generator\build\uvc-stop\state-final\build\cli-checkpoints\cc9bc52678f1680230154903e823328992fe30f0ef736d446d89bc63e9f1bfd9.json
-      checkpoint_sha256: 7435d9b2ce7f405ed5861e5979d3a5a42e1b19db8032745d07fa1a7c47c4e577
-      native_receipts:
-      - cb1786c4acfc48249b7657d55a756fed/024.receipt.json
-      - cb1786c4acfc48249b7657d55a756fed/025.receipt.json
-      - cb1786c4acfc48249b7657d55a756fed/026.receipt.json
-      - cb1786c4acfc48249b7657d55a756fed/027.receipt.json
-      current_cli_calls: []
-    prior_manuscript_sha256: 5930686045902ec7fe2d9234810cdf57fdc93c59a0d4eea57e98c03925b4405a
-    prior_revision:
-      added_unit: submission-correlation
-      topic: preparation-depth
-      source_commit: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
-      previous_manuscript_sha256: 12b2f47c5b279b09730f8c50ad000a3f73f59a571fa3a4215dad2400b86bed08
-      verified_checkpoint: ca52a30b3b83c383e08049377e036b2f0379de164980becb6e5808a5054ab122.json
-      checkpoint_sha256: ce4f92fc3f86b77de4c89763831ad4292044e722f928989d83f2ae15fdf55650
-      native_receipts:
-      - ec55c41772bf4cb48f62efb012b565d8/001.receipt.json
-      - ec55c41772bf4cb48f62efb012b565d8/002.receipt.json
-      retained_statements: 108
-      old_inputs_unchanged: 80
+        current_cli_calls: []
+      prior_manuscript_sha256: 5930686045902ec7fe2d9234810cdf57fdc93c59a0d4eea57e98c03925b4405a
       prior_revision:
-        changed_units:
-        - topic: review
-          part: completion-invariants
-          checkpoint: 1ecd969636899dbd7cb09c7812fcf3f7e753791413d09ee6e4f3a17fbed90826.json
-          checkpoint_sha256: a1c0ba05a9fa1acfc2b082b1d4e6d58691a04e8d76a4dedb213d372a1e9e2459
-          receipts:
-          - 89429041caf146abb0eeee79190123cd/005.receipt.json
-          - 89429041caf146abb0eeee79190123cd/006.receipt.json
-          execution_record: null
-        prior_manuscript_sha256: 14492a385371145d2b7d7c6d3765f30d3ee179bb715133aa93fb9028b816db18
+        added_unit: submission-correlation
+        topic: preparation-depth
+        source_commit: c19d05128f3ae1f0ebe63acb4deaca9fbb1dde78
+        previous_manuscript_sha256: 12b2f47c5b279b09730f8c50ad000a3f73f59a571fa3a4215dad2400b86bed08
+        verified_checkpoint: ca52a30b3b83c383e08049377e036b2f0379de164980becb6e5808a5054ab122.json
+        checkpoint_sha256: ce4f92fc3f86b77de4c89763831ad4292044e722f928989d83f2ae15fdf55650
+        native_receipts:
+        - ec55c41772bf4cb48f62efb012b565d8/001.receipt.json
+        - ec55c41772bf4cb48f62efb012b565d8/002.receipt.json
+        retained_statements: 108
+        old_inputs_unchanged: 80
         prior_revision:
           changed_units:
-          - topic: stop-depth
-            part: disconnect-stop
-            checkpoint: fb5b3b0decf9ac0c78d1f6ca5ab79255b8dfe4044dee80a6a66cfd95e2425c5e.json
-            checkpoint_sha256: 16e0c4b9439c0de0e3d936e69e3e1fe44830bbaf3b3ce8d5039567dcbd854a28
+          - topic: review
+            part: completion-invariants
+            checkpoint: 1ecd969636899dbd7cb09c7812fcf3f7e753791413d09ee6e4f3a17fbed90826.json
+            checkpoint_sha256: a1c0ba05a9fa1acfc2b082b1d4e6d58691a04e8d76a4dedb213d372a1e9e2459
             receipts:
-            - 89429041caf146abb0eeee79190123cd/003.receipt.json
-            - 89429041caf146abb0eeee79190123cd/004.receipt.json
+            - 89429041caf146abb0eeee79190123cd/005.receipt.json
+            - 89429041caf146abb0eeee79190123cd/006.receipt.json
             execution_record: null
-          prior_manuscript_sha256: 578bcaaac2692c3c802c5c120e47ef741ce287f9caf9eb28fe2b2837c29c56c3
+          prior_manuscript_sha256: 14492a385371145d2b7d7c6d3765f30d3ee179bb715133aa93fb9028b816db18
           prior_revision:
             changed_units:
-            - topic: resources
-              part: out-of-order
-              checkpoint: 11f349e542308cf5852896e727fca8b30f35079775775d82b502568a66e3fee7.json
-              checkpoint_sha256: daa27473ca56feccf371a75b0c53947acf76b236f22f9ac1874b3245b18cb43e
+            - topic: stop-depth
+              part: disconnect-stop
+              checkpoint: fb5b3b0decf9ac0c78d1f6ca5ab79255b8dfe4044dee80a6a66cfd95e2425c5e.json
+              checkpoint_sha256: 16e0c4b9439c0de0e3d936e69e3e1fe44830bbaf3b3ce8d5039567dcbd854a28
               receipts:
-              - 89429041caf146abb0eeee79190123cd/001.receipt.json
-              - 89429041caf146abb0eeee79190123cd/002.receipt.json
+              - 89429041caf146abb0eeee79190123cd/003.receipt.json
+              - 89429041caf146abb0eeee79190123cd/004.receipt.json
               execution_record: null
-            prior_manuscript_sha256: 4e6b8404188d78fa86a502055db869778fda96b9796a3084466306c3574d1555
+            prior_manuscript_sha256: 578bcaaac2692c3c802c5c120e47ef741ce287f9caf9eb28fe2b2837c29c56c3
             prior_revision:
               changed_units:
-              - topic: callback-order
-                part: bookkeeping
-                checkpoint: 57abba99729fef1d1a422c839172244da98534d8383916f60ace11fd45afb545.json
-                checkpoint_sha256: ecb9efb3334c4d0928eb10f332a4f03b62331e0c19a2b29dee92d946dd90087b
+              - topic: resources
+                part: out-of-order
+                checkpoint: 11f349e542308cf5852896e727fca8b30f35079775775d82b502568a66e3fee7.json
+                checkpoint_sha256: daa27473ca56feccf371a75b0c53947acf76b236f22f9ac1874b3245b18cb43e
                 receipts:
-                - c63440ffdc5f452b8e182419ca74fae2/003.receipt.json
-                - c63440ffdc5f452b8e182419ca74fae2/004.receipt.json
-                - c63440ffdc5f452b8e182419ca74fae2/005.receipt.json
+                - 89429041caf146abb0eeee79190123cd/001.receipt.json
+                - 89429041caf146abb0eeee79190123cd/002.receipt.json
                 execution_record: null
-              prior_manuscript_sha256: d8200966f3beea91c5cf72239d18f3162a4f0aab4ddd02ed3d63f131bbe44a12
+              prior_manuscript_sha256: 4e6b8404188d78fa86a502055db869778fda96b9796a3084466306c3574d1555
               prior_revision:
                 changed_units:
-                - topic: preparation-depth
-                  part: submission-order
-                  checkpoint: 294e53eff4c6bd25bd1453c9ecf75b160b37b54070b6482a1e7285befdeccc40.json
-                  checkpoint_sha256: eb7af884690098ce7c9639036434c8c8f194de2f1260631ee3aeb32c0810b519
+                - topic: callback-order
+                  part: bookkeeping
+                  checkpoint: 57abba99729fef1d1a422c839172244da98534d8383916f60ace11fd45afb545.json
+                  checkpoint_sha256: ecb9efb3334c4d0928eb10f332a4f03b62331e0c19a2b29dee92d946dd90087b
                   receipts:
-                  - 7f560dac54f445d2afc6c9d0a7e6f8ff/001.receipt.json
-                  - 7f560dac54f445d2afc6c9d0a7e6f8ff/002.receipt.json
+                  - c63440ffdc5f452b8e182419ca74fae2/003.receipt.json
+                  - c63440ffdc5f452b8e182419ca74fae2/004.receipt.json
+                  - c63440ffdc5f452b8e182419ca74fae2/005.receipt.json
                   execution_record: null
-                prior_manuscript_sha256: 318df74cd2b642c445b5ffcb32b495c45014b00b48184075d54ae0a85d851b96
+                prior_manuscript_sha256: d8200966f3beea91c5cf72239d18f3162a4f0aab4ddd02ed3d63f131bbe44a12
                 prior_revision:
                   changed_units:
-                  - topic: stop-depth
-                    part: verification
-                    checkpoint: C:\Users\baboe\.codex\worktrees\8982\camera-hal-sdd-generator\build\issue215\public104-lifecycle-contract-02\build\cli-checkpoints\f7d3616ae2bde39f73d401e340ae1b28b19886218d2f5e9b6ecaf234ef069ab8.json
-                    checkpoint_sha256: 396cb1e1d088d3206f7e00662af08e0cd2772265bbd2434e27ac911d900880f4
+                  - topic: preparation-depth
+                    part: submission-order
+                    checkpoint: 294e53eff4c6bd25bd1453c9ecf75b160b37b54070b6482a1e7285befdeccc40.json
+                    checkpoint_sha256: eb7af884690098ce7c9639036434c8c8f194de2f1260631ee3aeb32c0810b519
                     receipts:
-                    - 8bf9012a0c4c45a2bef0871487b7a1b9/050.receipt.json
-                    - 8bf9012a0c4c45a2bef0871487b7a1b9/051.receipt.json
-                    execution_record:
-                      checkpoint: f7d3616ae2bde39f73d401e340ae1b28b19886218d2f5e9b6ecaf234ef069ab8.json
-                      topic: stop-depth
+                    - 7f560dac54f445d2afc6c9d0a7e6f8ff/001.receipt.json
+                    - 7f560dac54f445d2afc6c9d0a7e6f8ff/002.receipt.json
+                    execution_record: null
+                  prior_manuscript_sha256: 318df74cd2b642c445b5ffcb32b495c45014b00b48184075d54ae0a85d851b96
+                  prior_revision:
+                    changed_units:
+                    - topic: stop-depth
                       part: verification
-                      subpart: null
-                      revalidated: false
-                      new_grounding_review: false
+                      checkpoint: C:\Users\baboe\.codex\worktrees\8982\camera-hal-sdd-generator\build\issue215\public104-lifecycle-contract-02\build\cli-checkpoints\f7d3616ae2bde39f73d401e340ae1b28b19886218d2f5e9b6ecaf234ef069ab8.json
+                      checkpoint_sha256: 396cb1e1d088d3206f7e00662af08e0cd2772265bbd2434e27ac911d900880f4
                       receipts:
                       - 8bf9012a0c4c45a2bef0871487b7a1b9/050.receipt.json
                       - 8bf9012a0c4c45a2bef0871487b7a1b9/051.receipt.json
-                  - topic: review
-                    part: stop-crossing-case
-                    checkpoint: C:\Users\baboe\.codex\worktrees\8982\camera-hal-sdd-generator\build\issue215\public104-lifecycle-contract-02\build\cli-checkpoints\21a3cde8472de1c3200f60220816bd375c80e7b4036527ef31e0948b7e3d4058.json
-                    checkpoint_sha256: f7ac450f14473f65ebc681dab93ff55cdf702cce266e9740b5d8be3093162e4e
-                    receipts:
-                    - 27ba878892a44eddb07418f9622a3a85/055.receipt.json
-                    - 27ba878892a44eddb07418f9622a3a85/056.receipt.json
-                    execution_record: null
-                  prior_manuscript_sha256: 973276e69bd307b018ab01b987195968fed1d43b58d46088662ab71bf5504995
-                  prior_revision:
-                    changed_units:
-                    - topic: uvc-depth
-                      part: pre-qbuf-planes
-                      native_record: null
-                      action: validated-new-cli
-                      verified_checkpoint: C:\Users\baboe\.codex\worktrees\d2e8\camera-hal-sdd-generator\build\issue252\run\final-planes-candidate\build\cli-checkpoints\51984abe7b872bcef74cdb3f3bd9887c1ad9879ed045fb3a698f0f6f99525afd.json
-                      checkpoint_sha256: 2ec6084eee3985add0aa7b3a58239156ca598dfe004aa270a26062d3b868e634
-                      native_receipts:
-                      - c9c71d26d5d443b7ad71891ccd5f0bdf/001.receipt.json
-                      - c9c71d26d5d443b7ad71891ccd5f0bdf/002.receipt.json
-                      current_cli_calls:
-                      - tag: request-lifecycle_uvc-depth_pre-qbuf-planes_0
-                        status: completed
-                      - tag: request-lifecycle_uvc-depth_pre-qbuf-planes_0_grounding
-                        status: completed
-                    prior_manuscript_sha256: 6b91bdcd8a251e5af61da9af8160ae6113accd4bfb3dbcab86924b89d8fee0c7
+                      execution_record:
+                        checkpoint: f7d3616ae2bde39f73d401e340ae1b28b19886218d2f5e9b6ecaf234ef069ab8.json
+                        topic: stop-depth
+                        part: verification
+                        subpart: null
+                        revalidated: false
+                        new_grounding_review: false
+                        receipts:
+                        - 8bf9012a0c4c45a2bef0871487b7a1b9/050.receipt.json
+                        - 8bf9012a0c4c45a2bef0871487b7a1b9/051.receipt.json
+                    - topic: review
+                      part: stop-crossing-case
+                      checkpoint: C:\Users\baboe\.codex\worktrees\8982\camera-hal-sdd-generator\build\issue215\public104-lifecycle-contract-02\build\cli-checkpoints\21a3cde8472de1c3200f60220816bd375c80e7b4036527ef31e0948b7e3d4058.json
+                      checkpoint_sha256: f7ac450f14473f65ebc681dab93ff55cdf702cce266e9740b5d8be3093162e4e
+                      receipts:
+                      - 27ba878892a44eddb07418f9622a3a85/055.receipt.json
+                      - 27ba878892a44eddb07418f9622a3a85/056.receipt.json
+                      execution_record: null
+                    prior_manuscript_sha256: 973276e69bd307b018ab01b987195968fed1d43b58d46088662ab71bf5504995
                     prior_revision:
                       changed_units:
-                      - topic: review
-                        part: pre-qbuf-case
+                      - topic: uvc-depth
+                        part: pre-qbuf-planes
                         native_record: null
                         action: validated-new-cli
-                        verified_checkpoint: C:\Users\baboe\.codex\worktrees\d2e8\camera-hal-sdd-generator\build\issue252\run\build\cli-checkpoints\628499728d48fba80361935847186755426f9efa78f11e755ac19ae12ce24df4.json
-                        checkpoint_sha256: 82483d29faa289c974267311065893ed4a39f6d8db299d271fcc29362a2e2b6e
+                        verified_checkpoint: C:\Users\baboe\.codex\worktrees\d2e8\camera-hal-sdd-generator\build\issue252\run\final-planes-candidate\build\cli-checkpoints\51984abe7b872bcef74cdb3f3bd9887c1ad9879ed045fb3a698f0f6f99525afd.json
+                        checkpoint_sha256: 2ec6084eee3985add0aa7b3a58239156ca598dfe004aa270a26062d3b868e634
                         native_receipts:
-                        - ad62da3258704b27a07f5f70f3f62045/105.receipt.json
-                        - ad62da3258704b27a07f5f70f3f62045/106.receipt.json
+                        - c9c71d26d5d443b7ad71891ccd5f0bdf/001.receipt.json
+                        - c9c71d26d5d443b7ad71891ccd5f0bdf/002.receipt.json
                         current_cli_calls:
-                        - tag: request-lifecycle_review_pre-qbuf-case_0
+                        - tag: request-lifecycle_uvc-depth_pre-qbuf-planes_0
                           status: completed
-                        - tag: request-lifecycle_review_pre-qbuf-case_0_grounding
+                        - tag: request-lifecycle_uvc-depth_pre-qbuf-planes_0_grounding
                           status: completed
-                      prior_manuscript_sha256: 85aba41ea3f7b3c0c66029d40af275fa38c04d045fa54197d7a699fd4172a8bc
-                      prior_revision: null
-                      prior_grounding_review: passed
+                      prior_manuscript_sha256: 6b91bdcd8a251e5af61da9af8160ae6113accd4bfb3dbcab86924b89d8fee0c7
+                      prior_revision:
+                        changed_units:
+                        - topic: review
+                          part: pre-qbuf-case
+                          native_record: null
+                          action: validated-new-cli
+                          verified_checkpoint: C:\Users\baboe\.codex\worktrees\d2e8\camera-hal-sdd-generator\build\issue252\run\build\cli-checkpoints\628499728d48fba80361935847186755426f9efa78f11e755ac19ae12ce24df4.json
+                          checkpoint_sha256: 82483d29faa289c974267311065893ed4a39f6d8db299d271fcc29362a2e2b6e
+                          native_receipts:
+                          - ad62da3258704b27a07f5f70f3f62045/105.receipt.json
+                          - ad62da3258704b27a07f5f70f3f62045/106.receipt.json
+                          current_cli_calls:
+                          - tag: request-lifecycle_review_pre-qbuf-case_0
+                            status: completed
+                          - tag: request-lifecycle_review_pre-qbuf-case_0_grounding
+                            status: completed
+                        prior_manuscript_sha256: 85aba41ea3f7b3c0c66029d40af275fa38c04d045fa54197d7a699fd4172a8bc
+                        prior_revision: null
+                        prior_grounding_review: passed
+                        retained_topic_identities: Historical identities retained;
+                          no current-profile reuse promotion
+                        retained_statement_count: 106
+                        selected_unit_grounding_review: passed; may reuse historical
+                          grounding; see each unit action and native receipts
+                        validation_profile:
+                          runner: codex
+                          model: gpt-6.1-terra
+                          command: []
+                          args:
+                          - -c
+                          - model_reasoning_effort="high"
+                        human_review: pending
+                      prior_grounding_review: not-run
                       retained_topic_identities: Historical identities retained; no
                         current-profile reuse promotion
                       retained_statement_count: 106
@@ -3531,18 +3583,9 @@ generated_design:
                         - model_reasoning_effort="high"
                       human_review: pending
                     prior_grounding_review: not-run
-                    retained_topic_identities: Historical identities retained; no
-                      current-profile reuse promotion
-                    retained_statement_count: 106
-                    selected_unit_grounding_review: passed; may reuse historical grounding;
-                      see each unit action and native receipts
-                    validation_profile:
-                      runner: codex
-                      model: gpt-6.1-terra
-                      command: []
-                      args:
-                      - -c
-                      - model_reasoning_effort="high"
+                    retained_topic_identities: Historical input identities remain
+                      unchanged.
+                    selected_unit_grounding_review: passed
                     human_review: pending
                   prior_grounding_review: not-run
                   retained_topic_identities: Historical input identities remain unchanged.
@@ -3564,27 +3607,35 @@ generated_design:
           retained_topic_identities: Historical input identities remain unchanged.
           selected_unit_grounding_review: passed
           human_review: pending
-        prior_grounding_review: not-run
-        retained_topic_identities: Historical input identities remain unchanged.
-        selected_unit_grounding_review: passed
+        origin: null
         human_review: pending
-      origin: null
+      prior_grounding_review: passed
+      retained_topic_identities: Historical identities retained; no current-profile
+        reuse promotion
+      retained_statement_count: 108
+      selected_unit_grounding_review: passed; may reuse historical grounding; see
+        each unit action and native receipts
+      validation_profile:
+        runner: codex
+        model: gpt-6.1-terra
+        command: []
+        args:
+        - -c
+        - model_reasoning_effort="high"
       human_review: pending
-    prior_grounding_review: passed
-    retained_topic_identities: Historical identities retained; no current-profile
-      reuse promotion
-    retained_statement_count: 108
-    selected_unit_grounding_review: passed; may reuse historical grounding; see each
-      unit action and native receipts
+    prior_grounding_review: not-run
+    retained_topic_identities: Historical identities retained with unchanged statements;
+      no current-profile reuse promotion
+    retained_statement_count: 113
+    selected_unit_grounding_review: passed
     validation_profile:
       runner: codex
       model: gpt-6.1-terra
-      command: []
       args:
       - -c
       - model_reasoning_effort="high"
     human_review: pending
-  body_sha256: 7ac8b525ab37a79c9ba84a2fb9aa94703088c475b38303c918422a141f7ed77e
+  body_sha256: 0652ff2bd95a75b35b7add5ff7c83002f5999eb0ae6fcd0b52d6c3312b1ad746
 generated_visuals:
   schema: 1
   records:
@@ -18004,241 +18055,250 @@ generated_visuals:
       generation_commit: be7e83e91348250c015aad6d6f59f1468555bae8
       citation_binding_policy: identifier-and-guard-boundaries-v2
       reused: true
-  body_sha256: 7ac8b525ab37a79c9ba84a2fb9aa94703088c475b38303c918422a141f7ed77e
+  body_sha256: 0652ff2bd95a75b35b7add5ff7c83002f5999eb0ae6fcd0b52d6c3312b1ad746
 managed_visual_refresh:
 - schema: 1
-  source_commit: da6a6ed33ed0ab305f10b6f8b44736150d39cef4
-  original_manuscript_sha256: d1584b4d50ef032e5c4151a1c803a9d20dc03297788d2bfb5421b0dbece910c8
-  previous_body_sha256: a8134118752917fc8c115706694e299d28cb80c6e540fdf2c4875331603e6cb4
-  body_sha256: 7ac8b525ab37a79c9ba84a2fb9aa94703088c475b38303c918422a141f7ed77e
-  visual_definitions_sha256: 1f66306c1e708e036e66de823886eb59b2e575298f4a4d531879bef904a00a5f
+  source_commit: adfa719f8ed67d18fd8a0739fc088a1f8b9e7252
+  original_manuscript_sha256: 4f6c5a296be93b71b89e252b0136d79de50575d62f1e432b7c3c5841f64320f7
+  previous_body_sha256: 69cb6ebd942f8ea00d44cf05f3d6b84058e1b3ba58c688a46b7bcbdb30626b3b
+  body_sha256: 0652ff2bd95a75b35b7add5ff7c83002f5999eb0ae6fcd0b52d6c3312b1ad746
+  visual_definitions_sha256: dc6a07ee1601ae18b9087211cc269c57d328ce2e15c41b7b3f7402197161f697
   unchanged_native_records_sha256: 4a295abfd074a210bc072d7007838bc115ec1901ced0d21e31916471406b68ba
-  preserved_outside_body_sha256: 2bd6c9e30189289daba19676a4756754174941cee02edc696cbbe744b8ed057e
+  preserved_outside_body_sha256: 94a49700f64b77f1de06a6d73e6fdd5400f1f11bdd52a8a026c4191fb15d833e
   owned_edit_regions:
-  - original_start_byte: 1975
-    original_end_byte: 8252
+  - original_start_byte: 1976
+    original_end_byte: 8253
     original_sha256: e0b478be47f525d60cbac5faff99fc64d3bd0d80503565459bcc42b472a17983
     replacement_sha256: e0b478be47f525d60cbac5faff99fc64d3bd0d80503565459bcc42b472a17983
     visual_ids:
     - request-stages
-  - original_start_byte: 8254
-    original_end_byte: 12100
+  - original_start_byte: 8255
+    original_end_byte: 12101
     original_sha256: 6f0e225e53b402b0d68b366b97478a6a52d71570e8c156ca92bd5dea3dc4eb43
     replacement_sha256: 6f0e225e53b402b0d68b366b97478a6a52d71570e8c156ca92bd5dea3dc4eb43
     visual_ids:
     - lifecycle-queue-return-completion
-  - original_start_byte: 12102
-    original_end_byte: 17276
-    original_sha256: 39872bd58502884cc354f7bc92f1ac8fc0f847eae0965e4729789f0bcdfe02ab
-    replacement_sha256: 39872bd58502884cc354f7bc92f1ac8fc0f847eae0965e4729789f0bcdfe02ab
+  - original_start_byte: 12103
+    original_end_byte: 17277
+    original_sha256: f71fcbe99f15dae3a1bd0999c26163ba4996baa94b4eca3ad43f20fe1191560d
+    replacement_sha256: f71fcbe99f15dae3a1bd0999c26163ba4996baa94b4eca3ad43f20fe1191560d
     visual_ids:
     - waiting-queue-conditions
-  - original_start_byte: 17278
-    original_end_byte: 20741
+  - original_start_byte: 17279
+    original_end_byte: 20742
     original_sha256: fb054972260cc5671c40a2dce8d2eb12dca34b7fd4cdecc7d2d710709d0e2d8d
     replacement_sha256: fb054972260cc5671c40a2dce8d2eb12dca34b7fd4cdecc7d2d710709d0e2d8d
     visual_ids:
     - dispatch-cancel-or-device
-  - original_start_byte: 20743
-    original_end_byte: 25307
-    original_sha256: 1a4a57c4cb9f49e1d2fa319dd80b1d5f3d6ca0541bbdea2ebe94eca74d957295
-    replacement_sha256: 1a4a57c4cb9f49e1d2fa319dd80b1d5f3d6ca0541bbdea2ebe94eca74d957295
+  - original_start_byte: 20744
+    original_end_byte: 25308
+    original_sha256: 8dc0425f6e18789e632b15caec502fd4b6f4298a6ac47a48bc0cfa90fac4b122
+    replacement_sha256: 8dc0425f6e18789e632b15caec502fd4b6f4298a6ac47a48bc0cfa90fac4b122
     visual_ids:
     - buffer-and-request-completion
-  - original_start_byte: 25309
-    original_end_byte: 31010
-    original_sha256: f28ffff54311515a70e7e6ec447ad6e659a6fd2e224cafb3923ad92af20c6eb3
-    replacement_sha256: f28ffff54311515a70e7e6ec447ad6e659a6fd2e224cafb3923ad92af20c6eb3
+  - original_start_byte: 25310
+    original_end_byte: 31011
+    original_sha256: b8e40b512e1e45707de29757d12f206ac4f533332324e5b44cbb0d0e1ef04286
+    replacement_sha256: b8e40b512e1e45707de29757d12f206ac4f533332324e5b44cbb0d0e1ef04286
     visual_ids:
     - submission-order-completion
-  - original_start_byte: 36553
-    original_end_byte: 50444
+  - original_start_byte: 36554
+    original_end_byte: 50445
     original_sha256: 8cb467e07ac984ecbe5cd72c58151abecc8e87db031bd932516c34f3561dc6fa
     replacement_sha256: 8cb467e07ac984ecbe5cd72c58151abecc8e87db031bd932516c34f3561dc6fa
     visual_ids:
     - preparation-depth-flow
-  - original_start_byte: 50446
-    original_end_byte: 60988
+  - original_start_byte: 50447
+    original_end_byte: 60989
     original_sha256: b1db53eba91ddf7c8e69a624255a923143ea300cb06f40ab4bdeb56f4f017b74
     replacement_sha256: b1db53eba91ddf7c8e69a624255a923143ea300cb06f40ab4bdeb56f4f017b74
     visual_ids:
     - submission-order-flow
-  - original_start_byte: 60990
-    original_end_byte: 74118
+  - original_start_byte: 60991
+    original_end_byte: 74119
     original_sha256: 46f2949c9e3d9f737b3db2b4286ce5026ad26e820f95ffcb7e5b88d173693f2b
     replacement_sha256: 46f2949c9e3d9f737b3db2b4286ce5026ad26e820f95ffcb7e5b88d173693f2b
     visual_ids:
     - fence-timer-order-flow
-  - original_start_byte: 83720
-    original_end_byte: 100495
+  - original_start_byte: 83721
+    original_end_byte: 100496
     original_sha256: eb603956a4f91d792dfa011c8ff9615ded7018bc05a1a71db0b122d637f54f28
     replacement_sha256: eb603956a4f91d792dfa011c8ff9615ded7018bc05a1a71db0b122d637f54f28
     visual_ids:
     - uvc-depth-flow
-  - original_start_byte: 100497
-    original_end_byte: 117834
+  - original_start_byte: 100498
+    original_end_byte: 117835
     original_sha256: 8609e5502aaee8580ceb9a5da32a5b36c327f4087de89337f7a461790a630ed9
     replacement_sha256: 8609e5502aaee8580ceb9a5da32a5b36c327f4087de89337f7a461790a630ed9
     visual_ids:
     - pre-qbuf-failure-flow
-  - original_start_byte: 126402
-    original_end_byte: 139070
+  - original_start_byte: 126403
+    original_end_byte: 139071
     original_sha256: e42b65f0e31a24ef452b5809a6b1129cdbd5eb08305f6642ef86c918a0376e74
     replacement_sha256: e42b65f0e31a24ef452b5809a6b1129cdbd5eb08305f6642ef86c918a0376e74
     visual_ids:
     - request-ownership
-  - original_start_byte: 139895
-    original_end_byte: 142762
+  - original_start_byte: 139896
+    original_end_byte: 142763
     original_sha256: a071b45f603db0e6015e2acede0ad0c7e6d4282aeee0dfe168364f088bc3a461
     replacement_sha256: a071b45f603db0e6015e2acede0ad0c7e6d4282aeee0dfe168364f088bc3a461
     visual_ids:
     - completion-notification-order
-  - original_start_byte: 144474
-    original_end_byte: 151941
+  - original_start_byte: 144475
+    original_end_byte: 151942
     original_sha256: 72b0db6bdeea138bfd859415eb9c7ecc01c4ba4f8113e8f9d80c8e9517764c67
     replacement_sha256: 72b0db6bdeea138bfd859415eb9c7ecc01c4ba4f8113e8f9d80c8e9517764c67
     visual_ids:
     - completed-but-not-returned
-  - original_start_byte: 151943
-    original_end_byte: 154854
+  - original_start_byte: 151944
+    original_end_byte: 154855
     original_sha256: a97a8f986c0f59c8968d9fc8d096cfa54e8170f5cb6864d2ca5a175afe3bcf63
     replacement_sha256: a97a8f986c0f59c8968d9fc8d096cfa54e8170f5cb6864d2ca5a175afe3bcf63
     visual_ids:
     - lifecycle-timeout-fence-recovery
-  - original_start_byte: 154856
-    original_end_byte: 157563
+  - original_start_byte: 154857
+    original_end_byte: 157564
     original_sha256: fd526eb998b1c11fc701e509e46035516b6b0a02fbb0c2f72272b48268753cdc
     replacement_sha256: fd526eb998b1c11fc701e509e46035516b6b0a02fbb0c2f72272b48268753cdc
     visual_ids:
     - lifecycle-reuse-buffer-fence-distinction
-  - original_start_byte: 160881
-    original_end_byte: 164374
+  - original_start_byte: 160882
+    original_end_byte: 164375
     original_sha256: 3cd2e79b55b54175d0cb65ab44516023eb05c434054032089eaa57f3d3894c12
     replacement_sha256: 3cd2e79b55b54175d0cb65ab44516023eb05c434054032089eaa57f3d3894c12
     visual_ids:
     - completion-change-checks
-  - original_start_byte: 166622
-    original_end_byte: 186980
+  - original_start_byte: 166623
+    original_end_byte: 186981
     original_sha256: b73f7b6a0097a2decf98566f423bc3e880e8812831fd3b9aae74cdb737a63a1f
     replacement_sha256: b73f7b6a0097a2decf98566f423bc3e880e8812831fd3b9aae74cdb737a63a1f
     visual_ids:
     - callback-order-flow
-  - original_start_byte: 192252
-    original_end_byte: 197441
+  - original_start_byte: 192253
+    original_end_byte: 197442
     original_sha256: e82ea29384ee37dd36205ab2c00c5370c37e47e10c6ab4f774805892f5d4ab19
     replacement_sha256: e82ea29384ee37dd36205ab2c00c5370c37e47e10c6ab4f774805892f5d4ab19
     visual_ids:
     - callback-depth-flow
-  - original_start_byte: 197443
-    original_end_byte: 205441
+  - original_start_byte: 197444
+    original_end_byte: 205442
     original_sha256: 3e51746ec1e8348a3773ac25149e83748e9b1b1d8d542f9b845b3e44922dc9ba
     replacement_sha256: 3e51746ec1e8348a3773ac25149e83748e9b1b1d8d542f9b845b3e44922dc9ba
     visual_ids:
     - queued-lifetime-flow
-  - original_start_byte: 205443
-    original_end_byte: 225030
+  - original_start_byte: 205444
+    original_end_byte: 225031
     original_sha256: 9213027a232f6b6e10915c76a3678ffdf7b0121e96e18c31a2bd21320c6c747c
     replacement_sha256: 9213027a232f6b6e10915c76a3678ffdf7b0121e96e18c31a2bd21320c6c747c
     visual_ids:
     - callback-boundaries-flow
-  - original_start_byte: 225032
-    original_end_byte: 233228
+  - original_start_byte: 225033
+    original_end_byte: 233229
     original_sha256: 24cf6001034d4427f8705520c7771a09bb232a87ea86a0e6491577545ed7f244
     replacement_sha256: 24cf6001034d4427f8705520c7771a09bb232a87ea86a0e6491577545ed7f244
     visual_ids:
     - stop-lifetime-flow
-  - original_start_byte: 242324
-    original_end_byte: 248282
+  - original_start_byte: 242993
+    original_end_byte: 243309
+    original_sha256: ec3d90cfa9410a8ec0af470ef2c4460b9863bbd8af43753a5c48a08142883f95
+    replacement_sha256: bc4d33b91ebdaff28a495845c9e95d77ccddfba0bd231c43eddb281a0ebc54ee
+    visual_ids:
+    - stop-notification-boundary
+  - original_start_byte: 243311
+    original_end_byte: 249269
     original_sha256: e4641293e8ce2e6c7d1872bb013008173eb6304e2bd0b3af43c33126aec3e063
     replacement_sha256: e4641293e8ce2e6c7d1872bb013008173eb6304e2bd0b3af43c33126aec3e063
     visual_ids:
     - stop-order
-  - original_start_byte: 248284
-    original_end_byte: 250950
+  - original_start_byte: 249271
+    original_end_byte: 251937
     original_sha256: a09a7a9db87d5d3bf059cf01b19381d82c020c4479fbd72f0c90e1101e79b14a
     replacement_sha256: a09a7a9db87d5d3bf059cf01b19381d82c020c4479fbd72f0c90e1101e79b14a
     visual_ids:
     - stop-disconnect-contract
-  - original_start_byte: 250952
-    original_end_byte: 256295
-    original_sha256: 50e2b325fa4be78c5d7d731e13f44dc8994f129e4b64454392589db7e63c88ff
-    replacement_sha256: 50e2b325fa4be78c5d7d731e13f44dc8994f129e4b64454392589db7e63c88ff
+  - original_start_byte: 251939
+    original_end_byte: 257282
+    original_sha256: 46d169106879bade3ecada3f2f3c59e7c3a2309bf344a190b540c7dfda065898
+    replacement_sha256: 46d169106879bade3ecada3f2f3c59e7c3a2309bf344a190b540c7dfda065898
     visual_ids:
     - camera-stop-branches
-  - original_start_byte: 256297
-    original_end_byte: 263667
+  - original_start_byte: 257284
+    original_end_byte: 264654
     original_sha256: 6ddbd9187bda7e2da861333e1f84640d11b60886f92398a2b7e5c33cbb86e6f4
     replacement_sha256: 6ddbd9187bda7e2da861333e1f84640d11b60886f92398a2b7e5c33cbb86e6f4
     visual_ids:
     - stop-device-observation-plan
-  - original_start_byte: 263669
-    original_end_byte: 266278
+  - original_start_byte: 264656
+    original_end_byte: 267265
     original_sha256: 4376adb022093fcfe5cf96f363c810c61403663ab9a72dc615d707db995e91d9
     replacement_sha256: 4376adb022093fcfe5cf96f363c810c61403663ab9a72dc615d707db995e91d9
     visual_ids:
     - stopping-completion-contract
-  - original_start_byte: 266280
-    original_end_byte: 271674
+  - original_start_byte: 267267
+    original_end_byte: 272661
     original_sha256: 96bfea2c23521ce9c28abe1a698b7212bbc6732751e83dca88b108c929e3def4
     replacement_sha256: 96bfea2c23521ce9c28abe1a698b7212bbc6732751e83dca88b108c929e3def4
     visual_ids:
     - request-completion-audit-plan
-  - original_start_byte: 276884
-    original_end_byte: 295463
-    original_sha256: 85b64a4d8684bc109a4047b7bf7815b19b61446c499e777d970e44fa63a11247
-    replacement_sha256: ab6d17bffe410fda567fc33b95c69b78095273d5e0b2af9cd445fb2214748b6c
+  - original_start_byte: 279069
+    original_end_byte: 329599
+    original_sha256: bf13826474ac84112b5c1272649c8c482fccd2fe4c845f0f5cc5e01d6b2cd117
+    replacement_sha256: bf13826474ac84112b5c1272649c8c482fccd2fe4c845f0f5cc5e01d6b2cd117
     visual_ids:
     - uvc-device-request-observation
+  - original_start_byte: 329601
+    original_end_byte: 348180
+    original_sha256: 2c44a843696dedda8765c3157d94b201ab2333c85c4f7626f229be9541039f5a
+    replacement_sha256: 2c44a843696dedda8765c3157d94b201ab2333c85c4f7626f229be9541039f5a
+    visual_ids:
     - disconnect-completion-state
-  - original_start_byte: 295465
-    original_end_byte: 351058
-    original_sha256: c82bc06da20c0724ec8e8f2eb05ea6641df8fac3d41844a47c7cc41a939aeed1
-    replacement_sha256: c82bc06da20c0724ec8e8f2eb05ea6641df8fac3d41844a47c7cc41a939aeed1
+  - original_start_byte: 348182
+    original_end_byte: 403775
+    original_sha256: 1091eff1b80602b27576faa2fa73f509b7131ab12abda27775f09fafb2adcce8
+    replacement_sha256: 1091eff1b80602b27576faa2fa73f509b7131ab12abda27775f09fafb2adcce8
     visual_ids:
     - uvc-stop-missing-buffer
-  - original_start_byte: 351060
-    original_end_byte: 362125
+  - original_start_byte: 403777
+    original_end_byte: 414842
     original_sha256: 9a1f6b0fd4ebc0c11ea89a8304c322ee218f756c6f4803c2e8450f8d16f50537
     replacement_sha256: 9a1f6b0fd4ebc0c11ea89a8304c322ee218f756c6f4803c2e8450f8d16f50537
     visual_ids:
     - stop-depth-flow
-  - original_start_byte: 372727
-    original_end_byte: 384383
+  - original_start_byte: 425444
+    original_end_byte: 437100
     original_sha256: fef9fa7104135c1164b0f8a901d69689a4b2919d4c7545bac73dfbdf52a8b480
     replacement_sha256: fef9fa7104135c1164b0f8a901d69689a4b2919d4c7545bac73dfbdf52a8b480
     visual_ids:
     - change-verification-flow
-  - original_start_byte: 384385
-    original_end_byte: 393558
+  - original_start_byte: 437102
+    original_end_byte: 446275
     original_sha256: 14b07d47a768211931f656e90d345bf4dda2c5926a2b96afa231630a0af5ed3e
     replacement_sha256: 14b07d47a768211931f656e90d345bf4dda2c5926a2b96afa231630a0af5ed3e
     visual_ids:
     - concurrent-stop-and-queued-lifetime-review
-  - original_start_byte: 393560
-    original_end_byte: 411484
+  - original_start_byte: 446277
+    original_end_byte: 464201
     original_sha256: 9d12f6b23341c2771502d1021216b8e85fed6c1192d1158313ddc702f7e8fcc6
     replacement_sha256: 9d12f6b23341c2771502d1021216b8e85fed6c1192d1158313ddc702f7e8fcc6
     visual_ids:
     - failure-investigation-flow
-  - original_start_byte: 428066
-    original_end_byte: 431222
+  - original_start_byte: 480783
+    original_end_byte: 483939
     original_sha256: fbb6849ce50ab1141ca6f3361e0e54f327284916720118efda8ad1342a91285d
     replacement_sha256: fbb6849ce50ab1141ca6f3361e0e54f327284916720118efda8ad1342a91285d
     visual_ids:
     - observed-stop-callback-timing
-  - original_start_byte: 431224
-    original_end_byte: 433897
+  - original_start_byte: 483941
+    original_end_byte: 486614
     original_sha256: 286ab93add96f46997ea07a158b4ddcd82a6ef358ff94eb19e287c75286f85fe
     replacement_sha256: 286ab93add96f46997ea07a158b4ddcd82a6ef358ff94eb19e287c75286f85fe
     visual_ids:
     - near-return-marker-boundary
-  added_visuals:
-  - uvc-device-request-observation
+  added_visuals: []
   scope: Configured figure reassembly only; figure authorship remains per visual
   new_inference: false
   semantic_approval: false
   human_review: unchanged
-revalidated_from: da6a6ed33ed0ab305f10b6f8b44736150d39cef4
 ---
 
 # 요청 처리와 문제 진단
@@ -18251,7 +18311,7 @@ revalidated_from: da6a6ed33ed0ab305f10b6f8b44736150d39cef4
 | 요청 제출과 완료의 연결을 확인합니다. | [제출에서 완료까지](#제출에서-완료까지) |
 | 자원을 재사용하거나 해제할 시점을 확인합니다. | [요청·버퍼·fence의 수명](#요청버퍼fence의-수명) |
 | <a id="실패-위치별-확인-순서"></a>실패 위치별 확인 순서의 조건과 근거를 대조하세요. | [구성과 요청 오류 조사](request-diagnosis.md#실패-위치별-확인-순서) |
-| 정지와 연결 해제의 차이를 확인합니다. | [정지와 연결 해제를 구분하기](#정지와-연결-해제를-구분하기) |
+| 촬영을 멈췄는데 왜 완료 알림이 오는가? | [정지와 연결 해제를 구분하기](#정지와-연결-해제를-구분하기) |
 | <a id="요청이-대기하거나-장치로-가는-조건"></a>“요청이 대기하거나 장치로 가는 조건” 그림을 확인하세요. | [구성과 요청 오류 조사](request-diagnosis.md#요청이-대기하거나-장치로-가는-조건) |
 | <a id="구성-실패를-좁히는-분기"></a>“구성 실패를 좁히는 분기” 그림을 확인하세요. | [구성과 요청 오류 조사](request-diagnosis.md#구성-실패를-좁히는-분기) |
 
@@ -18367,7 +18427,7 @@ flowchart TB
   v_forward -->|"반복 조건 재검사"| v_waiting
 ```
 
-<span data-sdd-label-en="PipelineHandler::queueRequest() passes 300 ms as the timeout argument for request preparation. If forwarding stops, check separately whether queuedRequests_.size() equals maxQueuedRequestsDevice_ and whether the request at the front of waitingRequests_ is prepared.">PipelineHandler::queueRequest()는 요청 준비의 타임아웃 인자로 300 ms를 전달합니다. 전달이 멈추면 queuedRequests_.size()가 maxQueuedRequestsDevice_와 같은지와 waitingRequests_의 맨 앞 요청이 준비되었는지를 각각 확인하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L477"><code>pipeline_handler.cpp:477</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L513"><code>pipeline_handler.cpp:513</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L517"><code>pipeline_handler.cpp:517</code></a>
+<span data-sdd-label-en="PipelineHandler::queueRequest() passes 300 ms as the timeout argument for request preparation. If forwarding stops, check separately whether queuedRequests_.size() equals maxQueuedRequestsDevice_ and whether the request at the front of waitingRequests_ is prepared.">PipelineHandler::queueRequest()는 요청 준비의 타임아웃 인자로 300 ms를 전달합니다. 전달이 멈추면 queuedRequests_.size()가 maxQueuedRequestsDevice_와 같은지와 waitingRequests_의 맨 앞 요청이 준비되었는지를 각각 확인하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L477"><code>pipeline_handler.cpp:477</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L513"><code>pipeline_handler.cpp:513</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L517"><code>pipeline_handler.cpp:517</code></a>
 
 [Mermaid 원문](request-lifecycle.waiting-queue-conditions.mmd)
 
@@ -18450,7 +18510,7 @@ flowchart TB
   v_true -->|"필요한 작업이 있다면 그 <br/>작업 기회 후"| v_explicit
 ```
 
-<span data-sdd-label-en="A true return from completeBuffer() means all buffers in the request have completed. The request does not complete automatically when its last buffer completes, so if it remains incomplete, check whether the pipeline handler explicitly calls completeRequest().">completeBuffer()가 true를 반환하면 요청에 포함된 모든 버퍼가 완료된 것입니다. 마지막 버퍼가 완료되어도 요청은 자동으로 완료되지 않으므로, 요청이 완료되지 않았다면 파이프라인 핸들러가 completeRequest()를 명시적으로 호출하는지 확인하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L556"><code>pipeline_handler.cpp:556</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L560"><code>pipeline_handler.cpp:560</code></a>
+<span data-sdd-label-en="A true return from completeBuffer() means all buffers in the request have completed. The request does not complete automatically when its last buffer completes, so if it remains incomplete, check whether the pipeline handler explicitly calls completeRequest().">completeBuffer()가 true를 반환하면 요청에 포함된 모든 버퍼가 완료된 것입니다. 마지막 버퍼가 완료되어도 요청은 자동으로 완료되지 않으므로, 요청이 완료되지 않았다면 파이프라인 핸들러가 completeRequest()를 명시적으로 호출하는지 확인하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L556"><code>pipeline_handler.cpp:556</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L560"><code>pipeline_handler.cpp:560</code></a>
 
 [Mermaid 원문](request-lifecycle.buffer-and-request-completion.mmd)
 
@@ -18493,7 +18553,7 @@ flowchart TB
   v_notify -->|"다음 선두 검사"| v_queue
 ```
 
-<span data-sdd-label-en="The pipeline handler may call completeRequest() on completed requests in any order, but requests are returned to the application in submission order. If an earlier request has status Request::RequestPending, a later completed request is not returned yet.">파이프라인 핸들러는 완료된 요청에 대해 순서 제약 없이 completeRequest()를 호출할 수 있지만, 요청은 제출 순서대로 애플리케이션에 반환됩니다. 앞선 요청의 상태가 Request::RequestPending이면 뒤에 있는 완료된 요청도 반환되지 않습니다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L588"><code>pipeline_handler.cpp:588</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594"><code>pipeline_handler.cpp:594</code></a>
+<span data-sdd-label-en="The pipeline handler may call completeRequest() on completed requests in any order, but requests are returned to the application in submission order. If an earlier request has status Request::RequestPending, a later completed request is not returned yet.">파이프라인 핸들러는 완료된 요청에 대해 순서 제약 없이 completeRequest()를 호출할 수 있지만, 요청은 제출 순서대로 애플리케이션에 반환됩니다. 앞선 요청의 상태가 Request::RequestPending이면 뒤에 있는 완료된 요청도 반환되지 않습니다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L588"><code>pipeline_handler.cpp:588</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L594"><code>pipeline_handler.cpp:594</code></a>
 
 [Mermaid 원문](request-lifecycle.submission-order-completion.mmd)
 
@@ -19415,7 +19475,72 @@ flowchart TB
 
 ## 정지와 연결 해제를 구분하기
 
-`PipelineHandler::stop`의 문서 계약은 정지 시 모든 미완료 요청을 취소하고 즉시 오류 상태로 완료하도록 요구합니다. 실행 중 연결 해제될 때 대기 요청을 처리하는 일은 TODO이며, 선택된 UVC 구현에서는 장치 버퍼 반환 전에 스트리밍 정지가 실패해도 버퍼 해제를 계속 호출하므로 모든 요청이 반환되거나 계약이 자동으로 충족된다고 보장할 수 없습니다. `src/libcamera/pipeline_handler.cpp:359`, `src/libcamera/camera.cpp:952`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:320`, `src/libcamera/v4l2_videodevice.cpp:2023`
+UVC의 정상 버퍼 반환과 STREAMOFF 성공 시 남은 버퍼 취소는 `imageBufferReady`에서 `completeBuffer`와 `completeRequest`를 거쳐 같은 `requestCompleted` 알림으로 이어질 수 있습니다. Developer는 이 슬롯에서 `RequestComplete`와 `RequestCancelled`를 구별하고 버퍼별 `FrameSuccess`로 영상 사용 여부를 판단해야 하며, `RequestComplete`에도 `FrameError`가 있을 수 있고 취소된 버퍼는 `FrameCancelled`입니다. Vendor의 장치 검증 계획은 첫 실행에서 정상 촬영하고 둘째 실행에서 미완료 요청을 남긴 채 `stop()`을 호출하며, 수신 루프를 처리해 제출별 알림 횟수와 미수신 여부, 요청과 버퍼 상태를 기록하는 것입니다. 다른 스레드에 큐잉된 슬롯은 `stop()` 반환 뒤에도 실행될 수 있습니다. `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:893`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:535`, `src/libcamera/v4l2_videodevice.cpp:1814`, `src/libcamera/v4l2_videodevice.cpp:2023`, `include/libcamera/internal/framebuffer.h:36`, `src/libcamera/pipeline_handler.cpp:547`, `src/libcamera/camera.cpp:1481`, `src/libcamera/request.cpp:103`, `src/libcamera/framebuffer.cpp:40`, `src/libcamera/camera.cpp:1431`, `src/libcamera/base/bound_method.cpp:68`
+
+<!-- sdd:visual:stop-notification-boundary -->
+### 촬영을 멈췄는데 왜 완료 알림이 오는가?
+
+```mermaid
+flowchart TB
+%% sdd:translations {"Camera API: Running 또는 <br/>Stopping에서 <br/>requestCompleted 발행": "Camera API: emit <br/>requestCompleted in Running <br/>or Stopping", "Camera API가 <br/>CameraStopping으로 전환": "Camera API enters <br/>CameraStopping", "Pipeline Handler가 대기열을 <br/>분리하고 장치를 정지": "Pipeline Handler detaches <br/>the waiting queue and stops <br/>the device", "UVC 정지 중 장치에 남은 <br/>버퍼를 FrameCancelled로 반환": "During UVC stop, return <br/>buffers still queued on the <br/>device as FrameCancelled", "UVC 촬영 중 회수한 버퍼: <br/>FrameSuccess 또는 FrameError": "Buffer dequeued during UVC <br/>capture: FrameSuccess or <br/>FrameError", "UVC 핸들러가 버퍼 완료 뒤 <br/>요청 완료를 명시적으로 호출": "UVC handler explicitly <br/>completes the request after <br/>completing the buffer", "UVC의 VIDIOC#95;STREAMOFF 성공": "VIDIOC#95;STREAMOFF succeeds <br/>in UVC", "UVC의 VIDIOC#95;STREAMOFF 실패": "VIDIOC#95;STREAMOFF fails in <br/>UVC", "bufferReady → <br/>imageBufferReady": "bufferReady → <br/>imageBufferReady", "cancelled#95;에 따라 <br/>RequestCancelled 또는 <br/>RequestComplete": "cancelled#95; selects <br/>RequestCancelled or <br/>RequestComplete", "같은 bufferReady 신호": "Same bufferReady signal", "공통 핸들러가 분리했던 대기 <br/>요청을 취소해 완료": "Common handler cancels and <br/>completes the detached <br/>waiting requests", "버퍼 상태를 반영한 뒤 요청 <br/>완료": "Apply the buffer status, <br/>then complete the request", "블로킹 호출": "Blocking invocation", "실행 중이고 접근 검사 통과": "Running and access check <br/>passes", "앱에서 Camera::stop#40;#41; 호출": "App calls Camera::stop#40;#41;", "앱이 요청 상태와 버퍼별 <br/>FrameSuccess 여부를 확인": "App checks request status <br/>and whether each buffer <br/>reports FrameSuccess", "장치 버퍼 반환 루프를 <br/>건너뛰고 오류 반환": "Return an error before the <br/>device-buffer return loop", "장치 정지 호출이 반환한 뒤": "After the device stop call <br/>returns", "제출 순서대로 반환, 선두가 <br/>Pending이면 대기": "Return in submission order; <br/>wait if the head is pending", "취소 표시 후 소프트웨어 <br/>큐에서 완료": "Complete in the software <br/>queue after marking <br/>cancelled", "큐에 들어간 슬롯은 stop#40;#41; <br/>반환 뒤에도 실행 가능": "A queued slot may run after <br/>stop#40;#41; returns"}
+  v_app-stop["앱에서 Camera::stop#40;#41; 호출"]
+  v_camera-stop["Camera API가 <br/>CameraStopping으로 전환"]
+  v_pipe-stop["Pipeline Handler가 대기열을 <br/>분리하고 장치를 정지"]
+  v_device-frame["UVC 촬영 중 회수한 버퍼: <br/>FrameSuccess 또는 FrameError"]
+  v_streamoff-error["장치 버퍼 반환 루프를 <br/>건너뛰고 오류 반환"]
+  v_device-cancel["UVC 정지 중 장치에 남은 <br/>버퍼를 FrameCancelled로 반환"]
+  v_uvc-ready["UVC 핸들러가 버퍼 완료 뒤 <br/>요청 완료를 명시적으로 호출"]
+  v_waiting-cancel["공통 핸들러가 분리했던 대기 <br/>요청을 취소해 완료"]
+  v_request-result["cancelled#95;에 따라 <br/>RequestCancelled 또는 <br/>RequestComplete"]
+  v_camera-notify["Camera API: Running 또는 <br/>Stopping에서 <br/>requestCompleted 발행"]
+  v_app-result["앱이 요청 상태와 버퍼별 <br/>FrameSuccess 여부를 확인"]
+  v_app-stop -->|"실행 중이고 접근 검사 통과"| v_camera-stop
+  v_camera-stop -->|"블로킹 호출"| v_pipe-stop
+  v_pipe-stop -->|"UVC의 VIDIOC#95;STREAMOFF 성공"| v_device-cancel
+  v_pipe-stop -->|"장치 정지 호출이 반환한 뒤"| v_waiting-cancel
+  v_pipe-stop -->|"UVC의 VIDIOC#95;STREAMOFF 실패"| v_streamoff-error
+  v_device-frame -->|"bufferReady → <br/>imageBufferReady"| v_uvc-ready
+  v_device-cancel -->|"같은 bufferReady 신호"| v_uvc-ready
+  v_uvc-ready -->|"버퍼 상태를 반영한 뒤 요청 <br/>완료"| v_request-result
+  v_waiting-cancel -->|"취소 표시 후 소프트웨어 <br/>큐에서 완료"| v_request-result
+  v_request-result -->|"제출 순서대로 반환, 선두가 <br/>Pending이면 대기"| v_camera-notify
+  v_camera-notify -->|"큐에 들어간 슬롯은 stop#40;#41; <br/>반환 뒤에도 실행 가능"| v_app-result
+```
+
+<span data-sdd-label-en="The completion state check allows a disconnected camera. A state outside Running and Stopping triggers the Fatal log path.">완료 시 상태 검사는 연결 해제도 허용합니다. Running과 Stopping 범위를 벗어나면 Fatal 로그 경로에 들어갑니다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1483"><code>camera.cpp:1483</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1486"><code>camera.cpp:1486</code></a>
+
+[Mermaid 원문](request-lifecycle.stop-notification-boundary.mmd)
+
+??? note "그림 근거와 확인 범위"
+    정상 촬영과 정지 중 취소가 어떤 경로를 거쳐 같은 완료 신호로 앱에 전달됩니까?
+    
+    소스에 연결한 설계 해석입니다. 자동 연결 검사는 의미 승인이나 기기 실행 검증이 아닙니다.
+    
+    | 요소·전이 | 소스 근거 |
+    |---|---|
+    | <span data-sdd-label-en="App calls Camera::stop()">앱에서 Camera::stop&#40;&#41; 호출</span> | [src/libcamera/camera.cpp:1431](#source-e09324743def3f09) |
+    | <span data-sdd-label-en="Camera API enters CameraStopping">Camera API가 CameraStopping으로 전환</span> | [src/libcamera/camera.cpp:1431](#source-e09324743def3f09) |
+    | <span data-sdd-label-en="Pipeline Handler detaches the waiting queue and stops the device">Pipeline Handler가 대기열을 분리하고 장치를 정지</span> | [src/libcamera/pipeline_handler.cpp:359](#source-eefd1bbecb1aad0a) |
+    | <span data-sdd-label-en="Buffer dequeued during UVC capture: FrameSuccess or FrameError">UVC 촬영 중 회수한 버퍼: FrameSuccess 또는 FrameError</span> | [src/libcamera/v4l2_videodevice.cpp:1814](#source-c75cbbe9c0bd5f96) |
+    | <span data-sdd-label-en="Return an error before the device-buffer return loop">장치 버퍼 반환 루프를 건너뛰고 오류 반환</span> | [src/libcamera/v4l2_videodevice.cpp:2023](#source-660c24600a4d45c9) |
+    | <span data-sdd-label-en="During UVC stop, return buffers still queued on the device as FrameCancelled">UVC 정지 중 장치에 남은 버퍼를 FrameCancelled로 반환</span> | [src/libcamera/v4l2_videodevice.cpp:2023](#source-660c24600a4d45c9) · [include/libcamera/internal/framebuffer.h:36](#source-6700ac41898c0548) |
+    | <span data-sdd-label-en="UVC handler explicitly completes the request after completing the buffer">UVC 핸들러가 버퍼 완료 뒤 요청 완료를 명시적으로 호출</span> | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:893](#source-bfa0db3a4bc7970d) |
+    | <span data-sdd-label-en="Common handler cancels and completes the detached waiting requests">공통 핸들러가 분리했던 대기 요청을 취소해 완료</span> | [src/libcamera/pipeline_handler.cpp:359](#source-eefd1bbecb1aad0a) · [src/libcamera/pipeline_handler.cpp:483](#source-8bf901f3faef18e5) |
+    | <span data-sdd-label-en="cancelled_ selects RequestCancelled or RequestComplete">cancelled&#95;에 따라 RequestCancelled 또는 RequestComplete</span> | [src/libcamera/request.cpp:103](#source-db7f21585c4c2708) |
+    | <span data-sdd-label-en="Camera API: emit requestCompleted in Running or Stopping">Camera API: Running 또는 Stopping에서 requestCompleted 발행</span> | [src/libcamera/camera.cpp:1481](#source-d53c87090347ce81) |
+    | <span data-sdd-label-en="App checks request status and whether each buffer reports FrameSuccess">앱이 요청 상태와 버퍼별 FrameSuccess 여부를 확인</span> | [src/libcamera/camera.cpp:1481](#source-d53c87090347ce81) · [src/libcamera/request.cpp:103](#source-db7f21585c4c2708) · [src/libcamera/framebuffer.cpp:40](#source-50aa8a55cc04062e) |
+    | <span data-sdd-label-en="Running and access check passes">실행 중이고 접근 검사 통과</span> | [src/libcamera/camera.cpp:1431](#source-e09324743def3f09) |
+    | <span data-sdd-label-en="Blocking invocation">블로킹 호출</span> | [src/libcamera/camera.cpp:1462](#source-6191f91df6cbffa2) |
+    | <span data-sdd-label-en="VIDIOC_STREAMOFF succeeds in UVC">UVC의 VIDIOC&#95;STREAMOFF 성공</span> | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:320](#source-36920038ed2e6053) · [src/libcamera/v4l2_videodevice.cpp:2023](#source-660c24600a4d45c9) |
+    | <span data-sdd-label-en="After the device stop call returns">장치 정지 호출이 반환한 뒤</span> | [src/libcamera/pipeline_handler.cpp:359](#source-eefd1bbecb1aad0a) |
+    | <span data-sdd-label-en="VIDIOC_STREAMOFF fails in UVC">UVC의 VIDIOC&#95;STREAMOFF 실패</span> | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:320](#source-36920038ed2e6053) · [src/libcamera/v4l2_videodevice.cpp:2023](#source-660c24600a4d45c9) |
+    | <span data-sdd-label-en="bufferReady → imageBufferReady">bufferReady → imageBufferReady</span> | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:535](#source-f9929d36ff1c1b93) |
+    | <span data-sdd-label-en="Same bufferReady signal">같은 bufferReady 신호</span> | [src/libcamera/v4l2_videodevice.cpp:2023](#source-660c24600a4d45c9) · [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:535](#source-f9929d36ff1c1b93) |
+    | <span data-sdd-label-en="Apply the buffer status, then complete the request">버퍼 상태를 반영한 뒤 요청 완료</span> | [src/libcamera/request.cpp:103](#source-db7f21585c4c2708) · [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a) |
+    | <span data-sdd-label-en="Complete in the software queue after marking cancelled">취소 표시 후 소프트웨어 큐에서 완료</span> | [src/libcamera/pipeline_handler.cpp:483](#source-8bf901f3faef18e5) |
+    | <span data-sdd-label-en="Return in submission order; wait if the head is pending">제출 순서대로 반환, 선두가 Pending이면 대기</span> | [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a) |
+    | <span data-sdd-label-en="A queued slot may run after stop() returns">큐에 들어간 슬롯은 stop&#40;&#41; 반환 뒤에도 실행 가능</span> | [src/libcamera/camera.cpp:1481](#source-d53c87090347ce81) · [src/libcamera/base/bound_method.cpp:68](#source-0470759dc8387e9a) · [src/libcamera/camera.cpp:1462](#source-6191f91df6cbffa2) |
+<!-- /sdd:visual:stop-notification-boundary -->
 
 <!-- sdd:visual:stop-order -->
 ### 정지할 때 대기 요청을 처리하는 순서
@@ -19526,7 +19651,7 @@ flowchart TB
   v_assertion -->|"이어지는 소스 순서"| v_configured
 ```
 
-<span data-sdd-label-en="When the running camera passes the access check, the public API contract for Camera::stop() is to stop capture and request processing immediately and cancel and complete all pending requests synchronously in an error state. If !d-&gt;isRunning(), the function does nothing and returns 0.">실행 중인 카메라가 접근 검사를 통과하면 Camera::stop()은 촬영과 요청 처리를 즉시 중단하며, 모든 미완료 요청을 취소하고 오류 상태로 동기적으로 완료하는 것이 공개 API 계약입니다. !d-&gt;isRunning()이면 이 함수는 아무 작업도 하지 않고 0을 반환합니다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1434"><code>camera.cpp:1434</code></a>
+<span data-sdd-label-en="When the running camera passes the access check, the public API contract for Camera::stop() is to stop capture and request processing immediately and cancel and complete all pending requests synchronously in an error state. If !d-&gt;isRunning(), the function does nothing and returns 0.">실행 중인 카메라가 접근 검사를 통과하면 Camera::stop()은 촬영과 요청 처리를 즉시 중단하며, 모든 미완료 요청을 취소하고 오류 상태로 동기적으로 완료하는 것이 공개 API 계약입니다. !d-&gt;isRunning()이면 이 함수는 아무 작업도 하지 않고 0을 반환합니다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1434"><code>camera.cpp:1434</code></a>
 
 [Mermaid 원문](request-lifecycle.camera-stop-branches.mmd)
 
@@ -19667,6 +19792,8 @@ flowchart TB
     | <span data-sdd-label-en="Compare only retained records after notification, without reading request fields">통지 뒤 요청 필드 대신 보관 기록만 비교</span> | [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a) |
 <!-- /sdd:visual:request-completion-audit-plan -->
 
+`PipelineHandler::stop`의 문서 계약은 정지 시 모든 미완료 요청을 취소하고 즉시 오류 상태로 완료하도록 요구합니다. 실행 중 연결 해제될 때 대기 요청을 처리하는 일은 TODO이며, 선택된 UVC 구현에서는 장치 버퍼 반환 전에 스트리밍 정지가 실패해도 버퍼 해제를 계속 호출하므로 모든 요청이 반환되거나 계약이 자동으로 충족된다고 보장할 수 없습니다. `src/libcamera/pipeline_handler.cpp:359`, `src/libcamera/camera.cpp:952`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:320`, `src/libcamera/v4l2_videodevice.cpp:2023`
+
 `Camera::stop` 조사에서는 카메라가 실행 중이 아니면 `0`을 반환하고, 실행 중인 경로에서 `isAccessAllowed`가 음수를 반환하면 그 값을 그대로 반환하는 분기를 확인합니다. 접근 검사를 통과한 경로에서는 `CameraStopping` 상태 설정과 `ConnectionTypeBlocking` 방식으로 호출되는 `PipelineHandler::stop`의 진입 및 복귀를 관찰합니다. 호출 뒤에는 pending 요청이 없다는 `ASSERT`, `CameraConfigured` 상태 설정, `0` 반환을 순서대로 확인합니다. `src/libcamera/camera.cpp:1462`, `src/libcamera/camera.cpp:1431`
 
 조사 계획으로, `stopDevice`의 공통 계약은 진행 중인 모든 스트림의 캡처와 요청 처리를 즉시 중지하고 대기 중인 모든 요청을 취소해 오류 상태로 즉시 완료하는 것임을 확인한 뒤, 대상 장치의 `PipelineHandler`를 식별하고 해당 `stopDevice` 구현에서 진행 중인 요청을 취소하고 완료하는 경로를 검토합니다. 조사 계획으로 `PipelineHandler::stop`에서 `waitingRequests_`를 분리하는 지점과 `stopDevice` 호출 직전, 실제 구현 진입 및 복귀를 각각 관찰해 비교합니다. 호출 직전 표시만으로 장치 내부 정지를 확정하지 않으며, 선택한 관찰 창에서 복귀가 관찰되지 않은 원인은 미확정으로 둡니다. 조사 계획으로 기존 실행에서 `PipelineHandler::stop()`의 취소 반복문이 `doQueueRequest(request)`에 전달하는 `request` 값을 기록합니다. `src/libcamera/pipeline_handler.cpp:359`, `src/libcamera/pipeline_handler.cpp:394`
@@ -19677,7 +19804,7 @@ flowchart TB
 
 `Camera::disconnect()`는 내부 객체의 `_d()->disconnect()`를 호출한 뒤 `disconnected.emit()`으로 알림을 발행합니다. `Camera::disconnect()`의 TODO는 카메라가 실행 중 연결 해제될 때 대기 중인 요청을 처리할 대상으로 남겨 둡니다. `src/libcamera/camera.cpp:944`
 
-근거 원문: [src/libcamera/camera.cpp:1431](#source-e09324743def3f09) · [src/libcamera/pipeline_handler.cpp:359](#source-eefd1bbecb1aad0a) · [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a) · [src/libcamera/camera.cpp:1462](#source-6191f91df6cbffa2) · [src/libcamera/pipeline_handler.cpp:398](#source-5e7914238ff81605) · [src/libcamera/camera.cpp:952](#source-1d583253fc11ef1c) · [src/libcamera/pipeline_handler.cpp:394](#source-fd5daba4aa44adfd) · [src/libcamera/camera.cpp:959](#source-56494d0aedf70c2d) · [src/libcamera/camera.cpp:960](#source-7d48ce2e18c8877c) · [src/libcamera/camera.cpp:944](#source-2758e9ddd31ad41d) · [src/libcamera/camera.cpp:944](#source-839140c350119dd1) · [src/libcamera/base/bound_method.cpp:68](#source-0470759dc8387e9a) · [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:320](#source-36920038ed2e6053) · [src/libcamera/v4l2_videodevice.cpp:2023](#source-660c24600a4d45c9)
+근거 원문: [src/libcamera/camera.cpp:1431](#source-e09324743def3f09) · [src/libcamera/pipeline_handler.cpp:359](#source-eefd1bbecb1aad0a) · [src/libcamera/pipeline_handler.cpp:547](#source-01ad7c6605c3296a) · [src/libcamera/camera.cpp:1462](#source-6191f91df6cbffa2) · [src/libcamera/pipeline_handler.cpp:398](#source-5e7914238ff81605) · [src/libcamera/camera.cpp:952](#source-1d583253fc11ef1c) · [src/libcamera/pipeline_handler.cpp:394](#source-fd5daba4aa44adfd) · [src/libcamera/camera.cpp:959](#source-56494d0aedf70c2d) · [src/libcamera/camera.cpp:960](#source-7d48ce2e18c8877c) · [src/libcamera/camera.cpp:944](#source-2758e9ddd31ad41d) · [src/libcamera/camera.cpp:944](#source-839140c350119dd1) · [src/libcamera/base/bound_method.cpp:68](#source-0470759dc8387e9a) · [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:320](#source-36920038ed2e6053) · [src/libcamera/v4l2_videodevice.cpp:2023](#source-660c24600a4d45c9) · [src/libcamera/camera.cpp:1481](#source-d53c87090347ce81) · [src/libcamera/request.cpp:103](#source-db7f21585c4c2708) · [src/libcamera/framebuffer.cpp:40](#source-50aa8a55cc04062e) · [include/libcamera/internal/framebuffer.h:36](#source-6700ac41898c0548) · [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:893](#source-bfa0db3a4bc7970d) · [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:535](#source-f9929d36ff1c1b93) · [src/libcamera/pipeline_handler.cpp:483](#source-8bf901f3faef18e5) · [src/libcamera/v4l2_videodevice.cpp:1814](#source-c75cbbe9c0bd5f96)
 
 ## UVC 정지의 정상 경로와 실패 경계
 
@@ -19717,24 +19844,24 @@ flowchart TB
   v_receiver -->|"핸들러 진입을 확인하지 못함"| v_gap
 ```
 
-<span data-sdd-label-en="Confirm the camera ID, actual UVC pipeline, and libcamera build and revision. Before normal capture, prepare the application receiver and passive observers, then use a completed request from a short ordinary capture to check both ends and observation coverage. For every observation record the shared monotonic time, thread ID, camera and run IDs, per-submission application ID, event and values, associating Request* and the assigned request sequence when available. The code paths below come from the supplied source; obtain each value through actual observation and do not assume default logs contain every field.">카메라 ID, 실제 UVC 파이프라인, libcamera 빌드와 리비전을 확인한다. 일반 촬영 전에 애플리케이션 수신기와 수동 관찰 수단을 준비하고, 짧은 일반 촬영에서 완료된 요청으로 양 끝과 관찰 범위를 확인한다. 모든 관찰에 공통 단조 시각, 스레드 ID, 카메라와 실행 ID, 제출별 애플리케이션 ID, 이벤트와 값을 기록하고 가능한 경우 Request*와 할당된 요청 시퀀스를 연결한다. 아래 코드 경로는 제공된 소스에 근거하며 각 값은 실제 관찰로 확보하고 기본 로그에 모든 필드가 있다고 가정하지 않는다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L893"><code>uvcvideo.cpp:893</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L385"><code>request.cpp:385</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L491"><code>pipeline_handler.cpp:491</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L742"><code>camera.cpp:742</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L716"><code>camera.cpp:716</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/base/bound_method.cpp#L40"><code>bound_method.cpp:40</code></a>
+<span data-sdd-label-en="Confirm the camera ID, actual UVC pipeline, and libcamera build and revision. Before normal capture, prepare the application receiver and passive observers, then use a completed request from a short ordinary capture to check both ends and observation coverage. For every observation record the shared monotonic time, thread ID, camera and run IDs, per-submission application ID, event and values, associating Request* and the assigned request sequence when available. The code paths below come from the supplied source; obtain each value through actual observation and do not assume default logs contain every field.">카메라 ID, 실제 UVC 파이프라인, libcamera 빌드와 리비전을 확인한다. 일반 촬영 전에 애플리케이션 수신기와 수동 관찰 수단을 준비하고, 짧은 일반 촬영에서 완료된 요청으로 양 끝과 관찰 범위를 확인한다. 모든 관찰에 공통 단조 시각, 스레드 ID, 카메라와 실행 ID, 제출별 애플리케이션 ID, 이벤트와 값을 기록하고 가능한 경우 Request*와 할당된 요청 시퀀스를 연결한다. 아래 코드 경로는 제공된 소스에 근거하며 각 값은 실제 관찰로 확보하고 기본 로그에 모든 필드가 있다고 가정하지 않는다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L893"><code>uvcvideo.cpp:893</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L385"><code>request.cpp:385</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L491"><code>pipeline_handler.cpp:491</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L742"><code>camera.cpp:742</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L716"><code>camera.cpp:716</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/bound_method.cpp#L40"><code>bound_method.cpp:40</code></a>
 
 | <span data-sdd-label-en="Current check">현재 확인 지점</span> | <span data-sdd-label-en="Observation">관찰 결과</span> | <span data-sdd-label-en="Next check">다음 확인 지점</span> |
 |---|---|---|
-| <span data-sdd-label-en="Link the per-submission ID and generation from queueing through the callback and record Request* and request sequence when available. A pointer and sequence alone do not identify a reused request; do not use a frame sequence as the request key.">제출별 ID와 세대를 큐 등록부터 콜백까지 연결하고 가능한 Request*와 요청 시퀀스를 기록한다. 재사용 시 포인터와 시퀀스만으로 식별하지 않으며 프레임 시퀀스를 요청 키로 쓰지 않는다.</span> | <span data-sdd-label-en="Identity is missing or ambiguous">식별이 누락되거나 모호함</span> | <span data-sdd-label-en="Check the missing or ambiguous association between submission and callback generation and the observation coverage. Do not fabricate device rows.">누락되거나 모호한 제출과 콜백의 세대 연결 및 관찰 범위를 확인한다. 관찰하지 않은 장치 행은 만들지 않는다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L491"><code>pipeline_handler.cpp:491</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L385"><code>request.cpp:385</code></a> |
-| <span data-sdd-label-en="Link the per-submission ID and generation from queueing through the callback and record Request* and request sequence when available. A pointer and sequence alone do not identify a reused request; do not use a frame sequence as the request key.">제출별 ID와 세대를 큐 등록부터 콜백까지 연결하고 가능한 Request*와 요청 시퀀스를 기록한다. 재사용 시 포인터와 시퀀스만으로 식별하지 않으며 프레임 시퀀스를 요청 키로 쓰지 않는다.</span> | <span data-sdd-label-en="Submission generation is linked">제출 세대가 연결됨</span> | <span data-sdd-label-en="Record observed values for the state_ read and actual store and disconnected_ assignment in Camera::Private::disconnect(). Record actual state writes in Camera::stop() and release() separately from notifications such as the disconnected signal.">Camera::Private::disconnect()의 state_ 읽기와 실제 저장, disconnected_ 설정을 관찰된 값으로 기록한다. Camera::stop()과 release()의 실제 상태 쓰기는 disconnected 신호 등 알림과 별도로 기록한다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L491"><code>pipeline_handler.cpp:491</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L742"><code>camera.cpp:742</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L960"><code>camera.cpp:960</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1462"><code>camera.cpp:1462</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1058"><code>camera.cpp:1058</code></a> |
-| <span data-sdd-label-en="Record observed values for the state_ read and actual store and disconnected_ assignment in Camera::Private::disconnect(). Record actual state writes in Camera::stop() and release() separately from notifications such as the disconnected signal.">Camera::Private::disconnect()의 state_ 읽기와 실제 저장, disconnected_ 설정을 관찰된 값으로 기록한다. Camera::stop()과 release()의 실제 상태 쓰기는 disconnected 신호 등 알림과 별도로 기록한다.</span> | <span data-sdd-label-en="No disconnect observed">연결 해제가 관찰되지 않음</span> | <span data-sdd-label-en="Reference capture: Verify that the disconnect observer was active for this camera throughout the relevant interval with no lost events. Record an ordinary capture as a reference only if coverage is complete and no disconnect event occurred; otherwise, disconnect status remains unknown.">기준 촬영: 이 카메라의 해당 구간 전체에서 연결 해제 관찰이 활성화되어 있고 이벤트 유실이 없는지 확인한다. 관찰 범위가 완전하고 연결 해제 이벤트가 없는 일반 촬영만 기준으로 기록한다. 관찰 범위가 불완전하거나 이벤트가 유실되면 연결 해제 여부는 미확인으로 둔다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L960"><code>camera.cpp:960</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L742"><code>camera.cpp:742</code></a> |
-| <span data-sdd-label-en="Record observed values for the state_ read and actual store and disconnected_ assignment in Camera::Private::disconnect(). Record actual state writes in Camera::stop() and release() separately from notifications such as the disconnected signal.">Camera::Private::disconnect()의 state_ 읽기와 실제 저장, disconnected_ 설정을 관찰된 값으로 기록한다. Camera::stop()과 release()의 실제 상태 쓰기는 disconnected 신호 등 알림과 별도로 기록한다.</span> | <span data-sdd-label-en="Compare the target request&#x27;s completion path">대상 요청의 완료 경로를 대조</span> | <span data-sdd-label-en="Record observed values for completeBuffer() and completeRequest() in UVCCameraData::imageBufferReady(). Compare the submission ID and status of the completeRequest(request) argument with those of req actually forwarded to requestComplete(req) after a non-Pending queuedRequests_.front() was popped.">UVCCameraData::imageBufferReady()에서 completeBuffer()와 completeRequest()의 관찰값을 기록한다. completeRequest(request)의 인자와 queuedRequests_.front()에서 Pending이 아닌 상태로 pop된 뒤 requestComplete(req)에 실제 전달된 req의 제출 ID와 상태를 각각 대조한다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L742"><code>camera.cpp:742</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1462"><code>camera.cpp:1462</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594"><code>pipeline_handler.cpp:594</code></a> |
-| <span data-sdd-label-en="Record observed values for completeBuffer() and completeRequest() in UVCCameraData::imageBufferReady(). Compare the submission ID and status of the completeRequest(request) argument with those of req actually forwarded to requestComplete(req) after a non-Pending queuedRequests_.front() was popped.">UVCCameraData::imageBufferReady()에서 completeBuffer()와 completeRequest()의 관찰값을 기록한다. completeRequest(request)의 인자와 queuedRequests_.front()에서 Pending이 아닌 상태로 pop된 뒤 requestComplete(req)에 실제 전달된 req의 제출 ID와 상태를 각각 대조한다.</span> | <span data-sdd-label-en="Earlier head is Pending">앞선 선두가 Pending</span> | <span data-sdd-label-en="Record the earlier head&#x27;s submission ID and RequestPending status and that the target request was not forwarded in that iteration.">앞선 선두의 제출 ID와 RequestPending 상태를 기록하고 해당 반복에서 대상 요청이 전달되지 않았음을 기록한다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594"><code>pipeline_handler.cpp:594</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> |
-| <span data-sdd-label-en="Record observed values for completeBuffer() and completeRequest() in UVCCameraData::imageBufferReady(). Compare the submission ID and status of the completeRequest(request) argument with those of req actually forwarded to requestComplete(req) after a non-Pending queuedRequests_.front() was popped.">UVCCameraData::imageBufferReady()에서 completeBuffer()와 completeRequest()의 관찰값을 기록한다. completeRequest(request)의 인자와 queuedRequests_.front()에서 Pending이 아닌 상태로 pop된 뒤 requestComplete(req)에 실제 전달된 req의 제출 ID와 상태를 각각 대조한다.</span> | <span data-sdd-label-en="Target req was actually forwarded">대상 req가 실제 전달됨</span> | <span data-sdd-label-en="Record state_ actually read inside the range overload of isAccessAllowed() called by Camera::requestComplete(), that call&#x27;s result, and allowDisconnected=true. Distinguish the disconnect-time state from the guard-time state.">Camera::requestComplete()가 호출한 범위 지정 isAccessAllowed() 내부에서 실제 읽은 state_, 해당 호출의 결과와 allowDisconnected=true를 기록한다. 연결 해제 시점의 상태와 검사 시점의 상태를 구분한다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L716"><code>camera.cpp:716</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L729"><code>camera.cpp:729</code></a> |
-| <span data-sdd-label-en="Record observed values for completeBuffer() and completeRequest() in UVCCameraData::imageBufferReady(). Compare the submission ID and status of the completeRequest(request) argument with those of req actually forwarded to requestComplete(req) after a non-Pending queuedRequests_.front() was popped.">UVCCameraData::imageBufferReady()에서 completeBuffer()와 completeRequest()의 관찰값을 기록한다. completeRequest(request)의 인자와 queuedRequests_.front()에서 Pending이 아닌 상태로 pop된 뒤 requestComplete(req)에 실제 전달된 req의 제출 ID와 상태를 각각 대조한다.</span> | <span data-sdd-label-en="If a different req was forwarded, record its ID and follow subsequent queue-head iterations for the target req. If forwarding is unknown, inspect trace coverage.">다른 req가 전달되었다면 ID를 기록하고 대상 req의 이후 큐 헤드 반복을 추적한다. 전달 여부를 알 수 없으면 추적 범위를 확인한다.</span> | <span data-sdd-label-en="Record the last confirmed point, first unobserved point, enabled probe, observation interval, and drop count.">마지막 확인 지점, 처음 관찰되지 않은 지점, 활성화한 관찰 수단, 관찰 구간과 손실 건수를 기록한다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594"><code>pipeline_handler.cpp:594</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L716"><code>camera.cpp:716</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/base/bound_method.cpp#L40"><code>bound_method.cpp:40</code></a> |
-| <span data-sdd-label-en="Record state_ actually read inside the range overload of isAccessAllowed() called by Camera::requestComplete(), that call&#x27;s result, and allowDisconnected=true. Distinguish the disconnect-time state from the guard-time state.">Camera::requestComplete()가 호출한 범위 지정 isAccessAllowed() 내부에서 실제 읽은 state_, 해당 호출의 결과와 allowDisconnected=true를 기록한다. 연결 해제 시점의 상태와 검사 시점의 상태를 구분한다.</span> | <span data-sdd-label-en="Guard result is 0">검사 결과 0</span> | <span data-sdd-label-en="When the guard result is 0, record whether the caller actually emitted requestCompleted. Record bufferCompleted as a separate signal.">검사 결과가 0이면 호출자가 requestCompleted를 실제 발생시켰는지 기록한다. bufferCompleted는 별도의 신호로 기록한다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L716"><code>camera.cpp:716</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a> |
-| <span data-sdd-label-en="Record state_ actually read inside the range overload of isAccessAllowed() called by Camera::requestComplete(), that call&#x27;s result, and allowDisconnected=true. Distinguish the disconnect-time state from the guard-time state.">Camera::requestComplete()가 호출한 범위 지정 isAccessAllowed() 내부에서 실제 읽은 state_, 해당 호출의 결과와 allowDisconnected=true를 기록한다. 연결 해제 시점의 상태와 검사 시점의 상태를 구분한다.</span> | <span data-sdd-label-en="-EACCES observed">-EACCES 관찰</span> | <span data-sdd-label-en="Classify an observed -EACCES at the rejection boundary recorded by the caller and do not infer receiver state.">관찰된 -EACCES를 호출자 기록의 거부 경계로 분류하고 수신기 상태를 추론하지 않는다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L729"><code>camera.cpp:729</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1486"><code>camera.cpp:1486</code></a> |
-| <span data-sdd-label-en="Record state_ actually read inside the range overload of isAccessAllowed() called by Camera::requestComplete(), that call&#x27;s result, and allowDisconnected=true. Distinguish the disconnect-time state from the guard-time state.">Camera::requestComplete()가 호출한 범위 지정 isAccessAllowed() 내부에서 실제 읽은 state_, 해당 호출의 결과와 allowDisconnected=true를 기록한다. 연결 해제 시점의 상태와 검사 시점의 상태를 구분한다.</span> | <span data-sdd-label-en="Guard or result was not observed">검사 또는 결과를 관찰하지 못함</span> | <span data-sdd-label-en="Record the last confirmed point, first unobserved point, enabled probe, observation interval, and drop count.">마지막 확인 지점, 처음 관찰되지 않은 지점, 활성화한 관찰 수단, 관찰 구간과 손실 건수를 기록한다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L716"><code>camera.cpp:716</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L729"><code>camera.cpp:729</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/base/bound_method.cpp#L40"><code>bound_method.cpp:40</code></a> |
-| <span data-sdd-label-en="When the guard result is 0, record whether the caller actually emitted requestCompleted. Record bufferCompleted as a separate signal.">검사 결과가 0이면 호출자가 requestCompleted를 실제 발생시켰는지 기록한다. bufferCompleted는 별도의 신호로 기록한다.</span> | <span data-sdd-label-en="requestCompleted emission observed">requestCompleted 발생을 관찰</span> | <span data-sdd-label-en="Verify application handler entry for the same submission generation. If entry is absent, check the actual slot connection, receiver lifetime, direct or queued delivery, the relevant receiver thread&#x27;s event loop, observation window, and trace loss.">같은 제출 세대의 애플리케이션 핸들러 진입을 확인한다. 진입이 없으면 실제 슬롯 연결, 수신기 수명, 직접 또는 큐 전달 방식, 해당 수신기 스레드의 이벤트 루프, 관찰 구간과 추적 손실을 확인한다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/base/bound_method.cpp#L40"><code>bound_method.cpp:40</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/base/signal.h#L38"><code>signal.h:38</code></a> |
-| <span data-sdd-label-en="When the guard result is 0, record whether the caller actually emitted requestCompleted. Record bufferCompleted as a separate signal.">검사 결과가 0이면 호출자가 requestCompleted를 실제 발생시켰는지 기록한다. bufferCompleted는 별도의 신호로 기록한다.</span> | <span data-sdd-label-en="Emission was not observed">발생 여부를 관찰하지 못함</span> | <span data-sdd-label-en="Record the last confirmed point, first unobserved point, enabled probe, observation interval, and drop count.">마지막 확인 지점, 처음 관찰되지 않은 지점, 활성화한 관찰 수단, 관찰 구간과 손실 건수를 기록한다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L716"><code>camera.cpp:716</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/base/bound_method.cpp#L40"><code>bound_method.cpp:40</code></a> |
-| <span data-sdd-label-en="Verify application handler entry for the same submission generation. If entry is absent, check the actual slot connection, receiver lifetime, direct or queued delivery, the relevant receiver thread&#x27;s event loop, observation window, and trace loss.">같은 제출 세대의 애플리케이션 핸들러 진입을 확인한다. 진입이 없으면 실제 슬롯 연결, 수신기 수명, 직접 또는 큐 전달 방식, 해당 수신기 스레드의 이벤트 루프, 관찰 구간과 추적 손실을 확인한다.</span> | <span data-sdd-label-en="Handler entry for the same submission generation confirmed">같은 제출 세대의 핸들러 진입 확인</span> | <span data-sdd-label-en="Record the ordering and delay of matched events calculated on the shared clock.">대응된 이벤트의 순서와 지연을 공통 시계에서 계산해 기록한다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L385"><code>request.cpp:385</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a> |
-| <span data-sdd-label-en="Verify application handler entry for the same submission generation. If entry is absent, check the actual slot connection, receiver lifetime, direct or queued delivery, the relevant receiver thread&#x27;s event loop, observation window, and trace loss.">같은 제출 세대의 애플리케이션 핸들러 진입을 확인한다. 진입이 없으면 실제 슬롯 연결, 수신기 수명, 직접 또는 큐 전달 방식, 해당 수신기 스레드의 이벤트 루프, 관찰 구간과 추적 손실을 확인한다.</span> | <span data-sdd-label-en="Handler entry not confirmed">핸들러 진입을 확인하지 못함</span> | <span data-sdd-label-en="Record the last confirmed point, first unobserved point, enabled probe, observation interval, and drop count.">마지막 확인 지점, 처음 관찰되지 않은 지점, 활성화한 관찰 수단, 관찰 구간과 손실 건수를 기록한다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/base/bound_method.cpp#L40"><code>bound_method.cpp:40</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/base/signal.h#L38"><code>signal.h:38</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L716"><code>camera.cpp:716</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a> |
+| <span data-sdd-label-en="Link the per-submission ID and generation from queueing through the callback and record Request* and request sequence when available. A pointer and sequence alone do not identify a reused request; do not use a frame sequence as the request key.">제출별 ID와 세대를 큐 등록부터 콜백까지 연결하고 가능한 Request*와 요청 시퀀스를 기록한다. 재사용 시 포인터와 시퀀스만으로 식별하지 않으며 프레임 시퀀스를 요청 키로 쓰지 않는다.</span> | <span data-sdd-label-en="Identity is missing or ambiguous">식별이 누락되거나 모호함</span> | <span data-sdd-label-en="Check the missing or ambiguous association between submission and callback generation and the observation coverage. Do not fabricate device rows.">누락되거나 모호한 제출과 콜백의 세대 연결 및 관찰 범위를 확인한다. 관찰하지 않은 장치 행은 만들지 않는다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L491"><code>pipeline_handler.cpp:491</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L385"><code>request.cpp:385</code></a> |
+| <span data-sdd-label-en="Link the per-submission ID and generation from queueing through the callback and record Request* and request sequence when available. A pointer and sequence alone do not identify a reused request; do not use a frame sequence as the request key.">제출별 ID와 세대를 큐 등록부터 콜백까지 연결하고 가능한 Request*와 요청 시퀀스를 기록한다. 재사용 시 포인터와 시퀀스만으로 식별하지 않으며 프레임 시퀀스를 요청 키로 쓰지 않는다.</span> | <span data-sdd-label-en="Submission generation is linked">제출 세대가 연결됨</span> | <span data-sdd-label-en="Record observed values for the state_ read and actual store and disconnected_ assignment in Camera::Private::disconnect(). Record actual state writes in Camera::stop() and release() separately from notifications such as the disconnected signal.">Camera::Private::disconnect()의 state_ 읽기와 실제 저장, disconnected_ 설정을 관찰된 값으로 기록한다. Camera::stop()과 release()의 실제 상태 쓰기는 disconnected 신호 등 알림과 별도로 기록한다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L491"><code>pipeline_handler.cpp:491</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L742"><code>camera.cpp:742</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L960"><code>camera.cpp:960</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1462"><code>camera.cpp:1462</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1058"><code>camera.cpp:1058</code></a> |
+| <span data-sdd-label-en="Record observed values for the state_ read and actual store and disconnected_ assignment in Camera::Private::disconnect(). Record actual state writes in Camera::stop() and release() separately from notifications such as the disconnected signal.">Camera::Private::disconnect()의 state_ 읽기와 실제 저장, disconnected_ 설정을 관찰된 값으로 기록한다. Camera::stop()과 release()의 실제 상태 쓰기는 disconnected 신호 등 알림과 별도로 기록한다.</span> | <span data-sdd-label-en="No disconnect observed">연결 해제가 관찰되지 않음</span> | <span data-sdd-label-en="Reference capture: Verify that the disconnect observer was active for this camera throughout the relevant interval with no lost events. Record an ordinary capture as a reference only if coverage is complete and no disconnect event occurred; otherwise, disconnect status remains unknown.">기준 촬영: 이 카메라의 해당 구간 전체에서 연결 해제 관찰이 활성화되어 있고 이벤트 유실이 없는지 확인한다. 관찰 범위가 완전하고 연결 해제 이벤트가 없는 일반 촬영만 기준으로 기록한다. 관찰 범위가 불완전하거나 이벤트가 유실되면 연결 해제 여부는 미확인으로 둔다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L960"><code>camera.cpp:960</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L742"><code>camera.cpp:742</code></a> |
+| <span data-sdd-label-en="Record observed values for the state_ read and actual store and disconnected_ assignment in Camera::Private::disconnect(). Record actual state writes in Camera::stop() and release() separately from notifications such as the disconnected signal.">Camera::Private::disconnect()의 state_ 읽기와 실제 저장, disconnected_ 설정을 관찰된 값으로 기록한다. Camera::stop()과 release()의 실제 상태 쓰기는 disconnected 신호 등 알림과 별도로 기록한다.</span> | <span data-sdd-label-en="Compare the target request&#x27;s completion path">대상 요청의 완료 경로를 대조</span> | <span data-sdd-label-en="Record observed values for completeBuffer() and completeRequest() in UVCCameraData::imageBufferReady(). Compare the submission ID and status of the completeRequest(request) argument with those of req actually forwarded to requestComplete(req) after a non-Pending queuedRequests_.front() was popped.">UVCCameraData::imageBufferReady()에서 completeBuffer()와 completeRequest()의 관찰값을 기록한다. completeRequest(request)의 인자와 queuedRequests_.front()에서 Pending이 아닌 상태로 pop된 뒤 requestComplete(req)에 실제 전달된 req의 제출 ID와 상태를 각각 대조한다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L742"><code>camera.cpp:742</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1462"><code>camera.cpp:1462</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L594"><code>pipeline_handler.cpp:594</code></a> |
+| <span data-sdd-label-en="Record observed values for completeBuffer() and completeRequest() in UVCCameraData::imageBufferReady(). Compare the submission ID and status of the completeRequest(request) argument with those of req actually forwarded to requestComplete(req) after a non-Pending queuedRequests_.front() was popped.">UVCCameraData::imageBufferReady()에서 completeBuffer()와 completeRequest()의 관찰값을 기록한다. completeRequest(request)의 인자와 queuedRequests_.front()에서 Pending이 아닌 상태로 pop된 뒤 requestComplete(req)에 실제 전달된 req의 제출 ID와 상태를 각각 대조한다.</span> | <span data-sdd-label-en="Earlier head is Pending">앞선 선두가 Pending</span> | <span data-sdd-label-en="Record the earlier head&#x27;s submission ID and RequestPending status and that the target request was not forwarded in that iteration.">앞선 선두의 제출 ID와 RequestPending 상태를 기록하고 해당 반복에서 대상 요청이 전달되지 않았음을 기록한다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L594"><code>pipeline_handler.cpp:594</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> |
+| <span data-sdd-label-en="Record observed values for completeBuffer() and completeRequest() in UVCCameraData::imageBufferReady(). Compare the submission ID and status of the completeRequest(request) argument with those of req actually forwarded to requestComplete(req) after a non-Pending queuedRequests_.front() was popped.">UVCCameraData::imageBufferReady()에서 completeBuffer()와 completeRequest()의 관찰값을 기록한다. completeRequest(request)의 인자와 queuedRequests_.front()에서 Pending이 아닌 상태로 pop된 뒤 requestComplete(req)에 실제 전달된 req의 제출 ID와 상태를 각각 대조한다.</span> | <span data-sdd-label-en="Target req was actually forwarded">대상 req가 실제 전달됨</span> | <span data-sdd-label-en="Record state_ actually read inside the range overload of isAccessAllowed() called by Camera::requestComplete(), that call&#x27;s result, and allowDisconnected=true. Distinguish the disconnect-time state from the guard-time state.">Camera::requestComplete()가 호출한 범위 지정 isAccessAllowed() 내부에서 실제 읽은 state_, 해당 호출의 결과와 allowDisconnected=true를 기록한다. 연결 해제 시점의 상태와 검사 시점의 상태를 구분한다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L716"><code>camera.cpp:716</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L729"><code>camera.cpp:729</code></a> |
+| <span data-sdd-label-en="Record observed values for completeBuffer() and completeRequest() in UVCCameraData::imageBufferReady(). Compare the submission ID and status of the completeRequest(request) argument with those of req actually forwarded to requestComplete(req) after a non-Pending queuedRequests_.front() was popped.">UVCCameraData::imageBufferReady()에서 completeBuffer()와 completeRequest()의 관찰값을 기록한다. completeRequest(request)의 인자와 queuedRequests_.front()에서 Pending이 아닌 상태로 pop된 뒤 requestComplete(req)에 실제 전달된 req의 제출 ID와 상태를 각각 대조한다.</span> | <span data-sdd-label-en="If a different req was forwarded, record its ID and follow subsequent queue-head iterations for the target req. If forwarding is unknown, inspect trace coverage.">다른 req가 전달되었다면 ID를 기록하고 대상 req의 이후 큐 헤드 반복을 추적한다. 전달 여부를 알 수 없으면 추적 범위를 확인한다.</span> | <span data-sdd-label-en="Record the last confirmed point, first unobserved point, enabled probe, observation interval, and drop count.">마지막 확인 지점, 처음 관찰되지 않은 지점, 활성화한 관찰 수단, 관찰 구간과 손실 건수를 기록한다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L594"><code>pipeline_handler.cpp:594</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L716"><code>camera.cpp:716</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/bound_method.cpp#L40"><code>bound_method.cpp:40</code></a> |
+| <span data-sdd-label-en="Record state_ actually read inside the range overload of isAccessAllowed() called by Camera::requestComplete(), that call&#x27;s result, and allowDisconnected=true. Distinguish the disconnect-time state from the guard-time state.">Camera::requestComplete()가 호출한 범위 지정 isAccessAllowed() 내부에서 실제 읽은 state_, 해당 호출의 결과와 allowDisconnected=true를 기록한다. 연결 해제 시점의 상태와 검사 시점의 상태를 구분한다.</span> | <span data-sdd-label-en="Guard result is 0">검사 결과 0</span> | <span data-sdd-label-en="When the guard result is 0, record whether the caller actually emitted requestCompleted. Record bufferCompleted as a separate signal.">검사 결과가 0이면 호출자가 requestCompleted를 실제 발생시켰는지 기록한다. bufferCompleted는 별도의 신호로 기록한다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L716"><code>camera.cpp:716</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a> |
+| <span data-sdd-label-en="Record state_ actually read inside the range overload of isAccessAllowed() called by Camera::requestComplete(), that call&#x27;s result, and allowDisconnected=true. Distinguish the disconnect-time state from the guard-time state.">Camera::requestComplete()가 호출한 범위 지정 isAccessAllowed() 내부에서 실제 읽은 state_, 해당 호출의 결과와 allowDisconnected=true를 기록한다. 연결 해제 시점의 상태와 검사 시점의 상태를 구분한다.</span> | <span data-sdd-label-en="-EACCES observed">-EACCES 관찰</span> | <span data-sdd-label-en="Classify an observed -EACCES at the rejection boundary recorded by the caller and do not infer receiver state.">관찰된 -EACCES를 호출자 기록의 거부 경계로 분류하고 수신기 상태를 추론하지 않는다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L729"><code>camera.cpp:729</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1486"><code>camera.cpp:1486</code></a> |
+| <span data-sdd-label-en="Record state_ actually read inside the range overload of isAccessAllowed() called by Camera::requestComplete(), that call&#x27;s result, and allowDisconnected=true. Distinguish the disconnect-time state from the guard-time state.">Camera::requestComplete()가 호출한 범위 지정 isAccessAllowed() 내부에서 실제 읽은 state_, 해당 호출의 결과와 allowDisconnected=true를 기록한다. 연결 해제 시점의 상태와 검사 시점의 상태를 구분한다.</span> | <span data-sdd-label-en="Guard or result was not observed">검사 또는 결과를 관찰하지 못함</span> | <span data-sdd-label-en="Record the last confirmed point, first unobserved point, enabled probe, observation interval, and drop count.">마지막 확인 지점, 처음 관찰되지 않은 지점, 활성화한 관찰 수단, 관찰 구간과 손실 건수를 기록한다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L716"><code>camera.cpp:716</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L729"><code>camera.cpp:729</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/bound_method.cpp#L40"><code>bound_method.cpp:40</code></a> |
+| <span data-sdd-label-en="When the guard result is 0, record whether the caller actually emitted requestCompleted. Record bufferCompleted as a separate signal.">검사 결과가 0이면 호출자가 requestCompleted를 실제 발생시켰는지 기록한다. bufferCompleted는 별도의 신호로 기록한다.</span> | <span data-sdd-label-en="requestCompleted emission observed">requestCompleted 발생을 관찰</span> | <span data-sdd-label-en="Verify application handler entry for the same submission generation. If entry is absent, check the actual slot connection, receiver lifetime, direct or queued delivery, the relevant receiver thread&#x27;s event loop, observation window, and trace loss.">같은 제출 세대의 애플리케이션 핸들러 진입을 확인한다. 진입이 없으면 실제 슬롯 연결, 수신기 수명, 직접 또는 큐 전달 방식, 해당 수신기 스레드의 이벤트 루프, 관찰 구간과 추적 손실을 확인한다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/bound_method.cpp#L40"><code>bound_method.cpp:40</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/base/signal.h#L38"><code>signal.h:38</code></a> |
+| <span data-sdd-label-en="When the guard result is 0, record whether the caller actually emitted requestCompleted. Record bufferCompleted as a separate signal.">검사 결과가 0이면 호출자가 requestCompleted를 실제 발생시켰는지 기록한다. bufferCompleted는 별도의 신호로 기록한다.</span> | <span data-sdd-label-en="Emission was not observed">발생 여부를 관찰하지 못함</span> | <span data-sdd-label-en="Record the last confirmed point, first unobserved point, enabled probe, observation interval, and drop count.">마지막 확인 지점, 처음 관찰되지 않은 지점, 활성화한 관찰 수단, 관찰 구간과 손실 건수를 기록한다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L716"><code>camera.cpp:716</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/bound_method.cpp#L40"><code>bound_method.cpp:40</code></a> |
+| <span data-sdd-label-en="Verify application handler entry for the same submission generation. If entry is absent, check the actual slot connection, receiver lifetime, direct or queued delivery, the relevant receiver thread&#x27;s event loop, observation window, and trace loss.">같은 제출 세대의 애플리케이션 핸들러 진입을 확인한다. 진입이 없으면 실제 슬롯 연결, 수신기 수명, 직접 또는 큐 전달 방식, 해당 수신기 스레드의 이벤트 루프, 관찰 구간과 추적 손실을 확인한다.</span> | <span data-sdd-label-en="Handler entry for the same submission generation confirmed">같은 제출 세대의 핸들러 진입 확인</span> | <span data-sdd-label-en="Record the ordering and delay of matched events calculated on the shared clock.">대응된 이벤트의 순서와 지연을 공통 시계에서 계산해 기록한다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L385"><code>request.cpp:385</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a> |
+| <span data-sdd-label-en="Verify application handler entry for the same submission generation. If entry is absent, check the actual slot connection, receiver lifetime, direct or queued delivery, the relevant receiver thread&#x27;s event loop, observation window, and trace loss.">같은 제출 세대의 애플리케이션 핸들러 진입을 확인한다. 진입이 없으면 실제 슬롯 연결, 수신기 수명, 직접 또는 큐 전달 방식, 해당 수신기 스레드의 이벤트 루프, 관찰 구간과 추적 손실을 확인한다.</span> | <span data-sdd-label-en="Handler entry not confirmed">핸들러 진입을 확인하지 못함</span> | <span data-sdd-label-en="Record the last confirmed point, first unobserved point, enabled probe, observation interval, and drop count.">마지막 확인 지점, 처음 관찰되지 않은 지점, 활성화한 관찰 수단, 관찰 구간과 손실 건수를 기록한다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/bound_method.cpp#L40"><code>bound_method.cpp:40</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/base/signal.h#L38"><code>signal.h:38</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L716"><code>camera.cpp:716</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a> |
 
 [Mermaid 원문](request-lifecycle.uvc-device-request-observation.mmd)
 
@@ -19797,18 +19924,18 @@ flowchart TB
   v_sample -->|"읽은 값이 허용 범위 밖"| v_rejected
 ```
 
-<span data-sdd-label-en="Identify the same camera and submitted request. Record sequence, time, thread, state writes, values actually read by each check, return values, and signal emission and receipt. Emission is separate from application receipt.">같은 카메라와 제출된 요청을 식별하고, 순번·시간·스레드, 상태가 바뀐 시점와 각 검사에서 실제로 읽은 값, 반환값과 신호 발행·수신을 함께 기록하세요. 발행은 앱의 수신과 별개입니다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L739"><code>camera.cpp:739</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L717"><code>camera.cpp:717</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a>
+<span data-sdd-label-en="Identify the same camera and submitted request. Record sequence, time, thread, state writes, values actually read by each check, return values, and signal emission and receipt. Emission is separate from application receipt.">같은 카메라와 제출된 요청을 식별하고, 순번·시간·스레드, 상태가 바뀐 시점와 각 검사에서 실제로 읽은 값, 반환값과 신호 발행·수신을 함께 기록하세요. 발행은 앱의 수신과 별개입니다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L739"><code>camera.cpp:739</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L717"><code>camera.cpp:717</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a>
 
 | <span data-sdd-label-en="Current check">현재 확인 지점</span> | <span data-sdd-label-en="Observation">관찰 결과</span> | <span data-sdd-label-en="Next check">다음 확인 지점</span> |
 |---|---|---|
-| <span data-sdd-label-en="State read by disconnect. disconnected_ set">disconnect가 읽은 상태. disconnected_ 설정</span> | <span data-sdd-label-en="Read Running">읽은 값이 Running</span> | <span data-sdd-label-en="If Running, store Configured">Running이면 Configured 저장</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L739"><code>camera.cpp:739</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L742"><code>camera.cpp:742</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1469"><code>camera.cpp:1469</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1058"><code>camera.cpp:1058</code></a> |
-| <span data-sdd-label-en="State read by disconnect. disconnected_ set">disconnect가 읽은 상태. disconnected_ 설정</span> | <span data-sdd-label-en="Read a value other than Running">읽은 값이 Running 외</span> | <span data-sdd-label-en="Otherwise retain the value, including Stopping">그 밖의 값은 유지. Stopping도 그대로</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L739"><code>camera.cpp:739</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L742"><code>camera.cpp:742</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1462"><code>camera.cpp:1462</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1469"><code>camera.cpp:1469</code></a> |
-| <span data-sdd-label-en="If Running, store Configured">Running이면 Configured 저장</span> | <span data-sdd-label-en="Next check: the same request">다음 조사: 같은 요청 확인</span> | <span data-sdd-label-en="Check whether the same submitted request reached requestComplete at the FIFO head">같은 제출 요청이 제출 순서 큐의 선두에서 requestComplete에 전달됐는지 확인</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1058"><code>camera.cpp:1058</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594"><code>pipeline_handler.cpp:594</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L960"><code>camera.cpp:960</code></a> |
-| <span data-sdd-label-en="Otherwise retain the value, including Stopping">그 밖의 값은 유지. Stopping도 그대로</span> | <span data-sdd-label-en="Next check: the same request">다음 조사: 같은 요청 확인</span> | <span data-sdd-label-en="Check whether the same submitted request reached requestComplete at the FIFO head">같은 제출 요청이 제출 순서 큐의 선두에서 requestComplete에 전달됐는지 확인</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1462"><code>camera.cpp:1462</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1469"><code>camera.cpp:1469</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594"><code>pipeline_handler.cpp:594</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L960"><code>camera.cpp:960</code></a> |
-| <span data-sdd-label-en="Check whether the same submitted request reached requestComplete at the FIFO head">같은 제출 요청이 제출 순서 큐의 선두에서 requestComplete에 전달됐는지 확인</span> | <span data-sdd-label-en="Call did not occur or was not observed">호출이 없거나 관측되지 않음</span> | <span data-sdd-label-en="Not entered or not observed: distinguish the two">호출 미진입 또는 미관측: 구별 필요</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594"><code>pipeline_handler.cpp:594</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L960"><code>camera.cpp:960</code></a> |
-| <span data-sdd-label-en="Check whether the same submitted request reached requestComplete at the FIFO head">같은 제출 요청이 제출 순서 큐의 선두에서 requestComplete에 전달됐는지 확인</span> | <span data-sdd-label-en="Actually called">실제 호출됨</span> | <span data-sdd-label-en="isAccessAllowed reads the current state">isAccessAllowed가 현재 상태를 읽음</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1484"><code>camera.cpp:1484</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L717"><code>camera.cpp:717</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/internal/camera.h#L53"><code>camera.h:53</code></a> |
-| <span data-sdd-label-en="isAccessAllowed reads the current state">isAccessAllowed가 현재 상태를 읽음</span> | <span data-sdd-label-en="Read value is in the allowed range">읽은 값이 허용 범위</span> | <span data-sdd-label-en="Stopping or Running: guard passes, then requestCompleted is emitted">Stopping 또는 Running: 가드 통과 후 requestCompleted 발행</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L717"><code>camera.cpp:717</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/internal/camera.h#L53"><code>camera.h:53</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1484"><code>camera.cpp:1484</code></a> |
-| <span data-sdd-label-en="isAccessAllowed reads the current state">isAccessAllowed가 현재 상태를 읽음</span> | <span data-sdd-label-en="Read value is outside the allowed range">읽은 값이 허용 범위 밖</span> | <span data-sdd-label-en="Available, Acquired, or Configured: -EACCES, Fatal. no basis for normal emission">Available·Acquired·Configured: -EACCES, Fatal. 정상 발행 근거 없음</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L717"><code>camera.cpp:717</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/include/libcamera/internal/camera.h#L53"><code>camera.h:53</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L729"><code>camera.cpp:729</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1486"><code>camera.cpp:1486</code></a> |
+| <span data-sdd-label-en="State read by disconnect. disconnected_ set">disconnect가 읽은 상태. disconnected_ 설정</span> | <span data-sdd-label-en="Read Running">읽은 값이 Running</span> | <span data-sdd-label-en="If Running, store Configured">Running이면 Configured 저장</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L739"><code>camera.cpp:739</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L742"><code>camera.cpp:742</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1469"><code>camera.cpp:1469</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1058"><code>camera.cpp:1058</code></a> |
+| <span data-sdd-label-en="State read by disconnect. disconnected_ set">disconnect가 읽은 상태. disconnected_ 설정</span> | <span data-sdd-label-en="Read a value other than Running">읽은 값이 Running 외</span> | <span data-sdd-label-en="Otherwise retain the value, including Stopping">그 밖의 값은 유지. Stopping도 그대로</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L739"><code>camera.cpp:739</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L742"><code>camera.cpp:742</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1462"><code>camera.cpp:1462</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1469"><code>camera.cpp:1469</code></a> |
+| <span data-sdd-label-en="If Running, store Configured">Running이면 Configured 저장</span> | <span data-sdd-label-en="Next check: the same request">다음 조사: 같은 요청 확인</span> | <span data-sdd-label-en="Check whether the same submitted request reached requestComplete at the FIFO head">같은 제출 요청이 제출 순서 큐의 선두에서 requestComplete에 전달됐는지 확인</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1058"><code>camera.cpp:1058</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L594"><code>pipeline_handler.cpp:594</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L960"><code>camera.cpp:960</code></a> |
+| <span data-sdd-label-en="Otherwise retain the value, including Stopping">그 밖의 값은 유지. Stopping도 그대로</span> | <span data-sdd-label-en="Next check: the same request">다음 조사: 같은 요청 확인</span> | <span data-sdd-label-en="Check whether the same submitted request reached requestComplete at the FIFO head">같은 제출 요청이 제출 순서 큐의 선두에서 requestComplete에 전달됐는지 확인</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1462"><code>camera.cpp:1462</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1469"><code>camera.cpp:1469</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L594"><code>pipeline_handler.cpp:594</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L960"><code>camera.cpp:960</code></a> |
+| <span data-sdd-label-en="Check whether the same submitted request reached requestComplete at the FIFO head">같은 제출 요청이 제출 순서 큐의 선두에서 requestComplete에 전달됐는지 확인</span> | <span data-sdd-label-en="Call did not occur or was not observed">호출이 없거나 관측되지 않음</span> | <span data-sdd-label-en="Not entered or not observed: distinguish the two">호출 미진입 또는 미관측: 구별 필요</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L594"><code>pipeline_handler.cpp:594</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L960"><code>camera.cpp:960</code></a> |
+| <span data-sdd-label-en="Check whether the same submitted request reached requestComplete at the FIFO head">같은 제출 요청이 제출 순서 큐의 선두에서 requestComplete에 전달됐는지 확인</span> | <span data-sdd-label-en="Actually called">실제 호출됨</span> | <span data-sdd-label-en="isAccessAllowed reads the current state">isAccessAllowed가 현재 상태를 읽음</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1484"><code>camera.cpp:1484</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L717"><code>camera.cpp:717</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/camera.h#L53"><code>camera.h:53</code></a> |
+| <span data-sdd-label-en="isAccessAllowed reads the current state">isAccessAllowed가 현재 상태를 읽음</span> | <span data-sdd-label-en="Read value is in the allowed range">읽은 값이 허용 범위</span> | <span data-sdd-label-en="Stopping or Running: guard passes, then requestCompleted is emitted">Stopping 또는 Running: 가드 통과 후 requestCompleted 발행</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L717"><code>camera.cpp:717</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/camera.h#L53"><code>camera.h:53</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1484"><code>camera.cpp:1484</code></a> |
+| <span data-sdd-label-en="isAccessAllowed reads the current state">isAccessAllowed가 현재 상태를 읽음</span> | <span data-sdd-label-en="Read value is outside the allowed range">읽은 값이 허용 범위 밖</span> | <span data-sdd-label-en="Available, Acquired, or Configured: -EACCES, Fatal. no basis for normal emission">Available·Acquired·Configured: -EACCES, Fatal. 정상 발행 근거 없음</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L717"><code>camera.cpp:717</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/camera.h#L53"><code>camera.h:53</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L729"><code>camera.cpp:729</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1486"><code>camera.cpp:1486</code></a> |
 
 [Mermaid 원문](request-lifecycle.disconnect-completion-state.mmd)
 
@@ -19873,26 +20000,26 @@ flowchart TB
   v_completion -->|"bufferCompleted 발생 또는 <br/>앱 수신이 미관찰·불명확"| v_callback_gap
 ```
 
-<span data-sdd-label-en="Record a per-submission ID and buffer pointer, plus the same device&#x27;s state and buffer index when available. completeBuffer emits bufferCompleted before updating pending-buffer tracking and clearing buffer-&gt;request(), so record the association before it is cleared. For FrameCancelled, only the status field of FrameMetadata is valid. Branches suggest observations to check; they do not guarantee a cause.">제출마다 식별자와 버퍼 포인터를 기록하고, 가능하면 같은 장치의 상태와 버퍼 인덱스도 기록하세요. completeBuffer는 bufferCompleted를 발생시킨 뒤 대기 버퍼 추적을 갱신하고 buffer-&gt;request()를 지우므로, 그 전에 연결 관계를 기록하세요. FrameCancelled에서는 FrameMetadata의 상태 필드만 유효합니다. 분기는 확인할 관찰 지점이며 원인을 보장하지 않습니다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1799"><code>v4l2_videodevice.cpp:1799</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L2040"><code>v4l2_videodevice.cpp:2040</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L110"><code>request.cpp:110</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/framebuffer.cpp#L52"><code>framebuffer.cpp:52</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L566"><code>pipeline_handler.cpp:566</code></a>
+<span data-sdd-label-en="Record a per-submission ID and buffer pointer, plus the same device&#x27;s state and buffer index when available. completeBuffer emits bufferCompleted before updating pending-buffer tracking and clearing buffer-&gt;request(), so record the association before it is cleared. For FrameCancelled, only the status field of FrameMetadata is valid. Branches suggest observations to check; they do not guarantee a cause.">제출마다 식별자와 버퍼 포인터를 기록하고, 가능하면 같은 장치의 상태와 버퍼 인덱스도 기록하세요. completeBuffer는 bufferCompleted를 발생시킨 뒤 대기 버퍼 추적을 갱신하고 buffer-&gt;request()를 지우므로, 그 전에 연결 관계를 기록하세요. FrameCancelled에서는 FrameMetadata의 상태 필드만 유효합니다. 분기는 확인할 관찰 지점이며 원인을 보장하지 않습니다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1799"><code>v4l2_videodevice.cpp:1799</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2040"><code>v4l2_videodevice.cpp:2040</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L110"><code>request.cpp:110</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/framebuffer.cpp#L52"><code>framebuffer.cpp:52</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L566"><code>pipeline_handler.cpp:566</code></a>
 
 | <span data-sdd-label-en="Current check">현재 확인 지점</span> | <span data-sdd-label-en="Observation">관찰 결과</span> | <span data-sdd-label-en="Next check">다음 확인 지점</span> |
 |---|---|---|
-| <span data-sdd-label-en="At streamOff entry, is this submission&#x27;s buffer in the device&#x27;s queuedBuffers_?">streamOff 진입 시 같은 장치의 queuedBuffers_에 이 제출의 FrameBuffer가 있나요?</span> | <span data-sdd-label-en="streamOff entry itself not observed">streamOff 진입 자체가 미관찰</span> | <span data-sdd-label-en="If entry was not observed, check Camera state, access and the pipeline stop path.">진입 기록이 없으면 Camera의 실행·접근 검사와 파이프라인 정지 경로를 확인하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1453"><code>camera.cpp:1453</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L323"><code>uvcvideo.cpp:323</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1456"><code>camera.cpp:1456</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1464"><code>camera.cpp:1464</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L379"><code>pipeline_handler.cpp:379</code></a> |
-| <span data-sdd-label-en="At streamOff entry, is this submission&#x27;s buffer in the device&#x27;s queuedBuffers_?">streamOff 진입 시 같은 장치의 queuedBuffers_에 이 제출의 FrameBuffer가 있나요?</span> | <span data-sdd-label-en="Target buffer present at entry">진입 시 대상 버퍼 있음</span> | <span data-sdd-label-en="What was the VIDIOC_STREAMOFF result?">VIDIOC_STREAMOFF의 결과는 무엇인가요?</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L2043"><code>v4l2_videodevice.cpp:2043</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L2033"><code>v4l2_videodevice.cpp:2033</code></a> |
-| <span data-sdd-label-en="At streamOff entry, is this submission&#x27;s buffer in the device&#x27;s queuedBuffers_?">streamOff 진입 시 같은 장치의 queuedBuffers_에 이 제출의 FrameBuffer가 있나요?</span> | <span data-sdd-label-en="Target buffer absent at entry">진입 시 대상 버퍼 없음</span> | <span data-sdd-label-en="Check device state, the whole queue, and this submission&#x27;s QBUF history. If state_ != State::Streaming &amp;&amp; queuedBuffers_.empty(), streamOff returns 0 without an ioctl.">장치 상태와 전체 큐, 이 제출의 QBUF 이력을 확인하세요. state_ != State::Streaming &amp;&amp; queuedBuffers_.empty()이면 streamOff가 ioctl 없이 0을 반환합니다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1799"><code>v4l2_videodevice.cpp:1799</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1785"><code>v4l2_videodevice.cpp:1785</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L2027"><code>v4l2_videodevice.cpp:2027</code></a> |
-| <span data-sdd-label-en="At streamOff entry, is this submission&#x27;s buffer in the device&#x27;s queuedBuffers_?">streamOff 진입 시 같은 장치의 queuedBuffers_에 이 제출의 FrameBuffer가 있나요?</span> | <span data-sdd-label-en="Entry observed, but target buffer&#x27;s map membership is inconclusive">진입은 관찰됐지만 대상 버퍼의 맵 존재 여부가 불명확</span> | <span data-sdd-label-en="Compare records and probe coverage for the same submission, device, and buffer. Depending on the missing step, check the streamOff return and map; bufferAvailable entry, DQBUF return, returned index and map match, and map removal; bufferReady emission and imageBufferReady entry; and completeBuffer entry, bufferCompleted emission, and receipt.">같은 제출·장치·버퍼의 기록과 계측 범위를 대조하세요. 누락된 단계에 맞춰 streamOff 반환과 맵, bufferAvailable 진입·DQBUF 반환·인덱스·맵 제거, bufferReady 발생·imageBufferReady 진입, completeBuffer 진입·bufferCompleted 발생과 수신을 확인하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L2043"><code>v4l2_videodevice.cpp:2043</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L2033"><code>v4l2_videodevice.cpp:2033</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1816"><code>v4l2_videodevice.cpp:1816</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L535"><code>uvcvideo.cpp:535</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L563"><code>pipeline_handler.cpp:563</code></a> |
-| <span data-sdd-label-en="What was the VIDIOC_STREAMOFF result?">VIDIOC_STREAMOFF의 결과는 무엇인가요?</span> | <span data-sdd-label-en="Negative ioctl result">ioctl 음수</span> | <span data-sdd-label-en="Record the device and negative return. This streamOff call returns before its queued-buffer cancellation loop; UVC ignores the return.">장치와 음수 반환값을 기록하세요. 이 streamOff 호출은 대기 버퍼 취소 루프 전에 반환하며 UVC는 반환값을 무시합니다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L2034"><code>v4l2_videodevice.cpp:2034</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L2036"><code>v4l2_videodevice.cpp:2036</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L2045"><code>v4l2_videodevice.cpp:2045</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L323"><code>uvcvideo.cpp:323</code></a> |
-| <span data-sdd-label-en="What was the VIDIOC_STREAMOFF result?">VIDIOC_STREAMOFF의 결과는 무엇인가요?</span> | <span data-sdd-label-en="ioctl succeeded">ioctl 성공</span> | <span data-sdd-label-en="Compare bufferReady emission and imageBufferReady entry for the same device and buffer. If the ioctl succeeds, bufferReady is emitted for queued buffers inside streamOff before the function returns.">같은 video_와 버퍼의 bufferReady 발생과 imageBufferReady 진입을 비교하세요. ioctl이 성공하면 대기 버퍼의 bufferReady는 streamOff 안에서 함수가 반환되기 전에 발생합니다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L2045"><code>v4l2_videodevice.cpp:2045</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L2044"><code>v4l2_videodevice.cpp:2044</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L535"><code>uvcvideo.cpp:535</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L893"><code>uvcvideo.cpp:893</code></a> |
-| <span data-sdd-label-en="What was the VIDIOC_STREAMOFF result?">VIDIOC_STREAMOFF의 결과는 무엇인가요?</span> | <span data-sdd-label-en="ioctl result not observed or inconclusive">ioctl 결과 미관찰 또는 불명확</span> | <span data-sdd-label-en="Compare records and probe coverage for the same submission, device, and buffer. Depending on the missing step, check the streamOff return and map; bufferAvailable entry, DQBUF return, returned index and map match, and map removal; bufferReady emission and imageBufferReady entry; and completeBuffer entry, bufferCompleted emission, and receipt.">같은 제출·장치·버퍼의 기록과 계측 범위를 대조하세요. 누락된 단계에 맞춰 streamOff 반환과 맵, bufferAvailable 진입·DQBUF 반환·인덱스·맵 제거, bufferReady 발생·imageBufferReady 진입, completeBuffer 진입·bufferCompleted 발생과 수신을 확인하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L2033"><code>v4l2_videodevice.cpp:2033</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1816"><code>v4l2_videodevice.cpp:1816</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L535"><code>uvcvideo.cpp:535</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L563"><code>pipeline_handler.cpp:563</code></a> |
-| <span data-sdd-label-en="Compare bufferReady emission and imageBufferReady entry for the same device and buffer. If the ioctl succeeds, bufferReady is emitted for queued buffers inside streamOff before the function returns.">같은 video_와 버퍼의 bufferReady 발생과 imageBufferReady 진입을 비교하세요. ioctl이 성공하면 대기 버퍼의 bufferReady는 streamOff 안에서 함수가 반환되기 전에 발생합니다.</span> | <span data-sdd-label-en="bufferReady emission and imageBufferReady entry observed for the same buffer">같은 버퍼의 bufferReady 발생과 imageBufferReady 진입을 모두 관찰</span> | <span data-sdd-label-en="Check bufferCompleted observation and buffer status separately. Statuses include FrameSuccess, FrameError and FrameCancelled.">bufferCompleted 관찰 여부와 버퍼 상태를 각각 확인하세요. 상태에는 FrameSuccess, FrameError, FrameCancelled 등이 있습니다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L901"><code>uvcvideo.cpp:901</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L566"><code>pipeline_handler.cpp:566</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L112"><code>request.cpp:112</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1933"><code>v4l2_videodevice.cpp:1933</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L145"><code>request.cpp:145</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1897"><code>v4l2_videodevice.cpp:1897</code></a> |
-| <span data-sdd-label-en="Compare bufferReady emission and imageBufferReady entry for the same device and buffer. If the ioctl succeeds, bufferReady is emitted for queued buffers inside streamOff before the function returns.">같은 video_와 버퍼의 bufferReady 발생과 imageBufferReady 진입을 비교하세요. ioctl이 성공하면 대기 버퍼의 bufferReady는 streamOff 안에서 함수가 반환되기 전에 발생합니다.</span> | <span data-sdd-label-en="Emission or entry not observed, or their match is inconclusive">발생 또는 진입이 미관찰이거나 두 기록의 일치가 불명확</span> | <span data-sdd-label-en="Compare records and probe coverage for the same submission, device, and buffer. Depending on the missing step, check the streamOff return and map; bufferAvailable entry, DQBUF return, returned index and map match, and map removal; bufferReady emission and imageBufferReady entry; and completeBuffer entry, bufferCompleted emission, and receipt.">같은 제출·장치·버퍼의 기록과 계측 범위를 대조하세요. 누락된 단계에 맞춰 streamOff 반환과 맵, bufferAvailable 진입·DQBUF 반환·인덱스·맵 제거, bufferReady 발생·imageBufferReady 진입, completeBuffer 진입·bufferCompleted 발생과 수신을 확인하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L2046"><code>v4l2_videodevice.cpp:2046</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L535"><code>uvcvideo.cpp:535</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L2033"><code>v4l2_videodevice.cpp:2033</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1816"><code>v4l2_videodevice.cpp:1816</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L563"><code>pipeline_handler.cpp:563</code></a> |
-| <span data-sdd-label-en="Check device state, the whole queue, and this submission&#x27;s QBUF history. If state_ != State::Streaming &amp;&amp; queuedBuffers_.empty(), streamOff returns 0 without an ioctl.">장치 상태와 전체 큐, 이 제출의 QBUF 이력을 확인하세요. state_ != State::Streaming &amp;&amp; queuedBuffers_.empty()이면 streamOff가 ioctl 없이 0을 반환합니다.</span> | <span data-sdd-label-en="Same submission&#x27;s successful QBUF and indexed map insertion confirmed">같은 제출의 QBUF 성공과 인덱스별 맵 삽입 확인</span> | <span data-sdd-label-en="Trace slot entry, DQBUF match and erase, bufferReady, then UVC entry.">bufferAvailable 슬롯 진입부터 DQBUF 일치·맵 제거, bufferReady 발생, imageBufferReady 진입까지 순서대로 대조하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1799"><code>v4l2_videodevice.cpp:1799</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1869"><code>v4l2_videodevice.cpp:1869</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1814"><code>v4l2_videodevice.cpp:1814</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1848"><code>v4l2_videodevice.cpp:1848</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1879"><code>v4l2_videodevice.cpp:1879</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1820"><code>v4l2_videodevice.cpp:1820</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L893"><code>uvcvideo.cpp:893</code></a> |
-| <span data-sdd-label-en="Check device state, the whole queue, and this submission&#x27;s QBUF history. If state_ != State::Streaming &amp;&amp; queuedBuffers_.empty(), streamOff returns 0 without an ioctl.">장치 상태와 전체 큐, 이 제출의 QBUF 이력을 확인하세요. state_ != State::Streaming &amp;&amp; queuedBuffers_.empty()이면 streamOff가 ioctl 없이 0을 반환합니다.</span> | <span data-sdd-label-en="Otherwise: failed or success not established">그 외: 실패 또는 성공 미확인</span> | <span data-sdd-label-en="Distinguish the Camera::queueRequest return value, waitingRequests_ during stop, direct bufferCompleted emission by doCancelRequest, and cancellation after queueRequestDevice failure. Also check for missing records.">Camera::queueRequest 반환값, 정지 시 waitingRequests_, doCancelRequest의 직접 bufferCompleted, queueRequestDevice 실패 취소를 구분하세요. 기록 누락도 확인하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1785"><code>v4l2_videodevice.cpp:1785</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L499"><code>pipeline_handler.cpp:499</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1330"><code>camera.cpp:1330</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1334"><code>camera.cpp:1334</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L376"><code>pipeline_handler.cpp:376</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L393"><code>pipeline_handler.cpp:393</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L144"><code>request.cpp:144</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L498"><code>pipeline_handler.cpp:498</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1799"><code>v4l2_videodevice.cpp:1799</code></a> |
-| <span data-sdd-label-en="Trace slot entry, DQBUF match and erase, bufferReady, then UVC entry.">bufferAvailable 슬롯 진입부터 DQBUF 일치·맵 제거, bufferReady 발생, imageBufferReady 진입까지 순서대로 대조하세요.</span> | <span data-sdd-label-en="Slot entry, successful same-index DQBUF and map erase, bufferReady emission, then imageBufferReady entry all confirmed">bufferAvailable 슬롯 진입, 같은 인덱스의 DQBUF 성공과 맵 제거, bufferReady 발생, imageBufferReady 진입을 순서대로 모두 확인</span> | <span data-sdd-label-en="Check bufferCompleted observation and buffer status separately. Statuses include FrameSuccess, FrameError and FrameCancelled.">bufferCompleted 관찰 여부와 버퍼 상태를 각각 확인하세요. 상태에는 FrameSuccess, FrameError, FrameCancelled 등이 있습니다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1814"><code>v4l2_videodevice.cpp:1814</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1879"><code>v4l2_videodevice.cpp:1879</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1820"><code>v4l2_videodevice.cpp:1820</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L893"><code>uvcvideo.cpp:893</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L901"><code>uvcvideo.cpp:901</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L566"><code>pipeline_handler.cpp:566</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L112"><code>request.cpp:112</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1933"><code>v4l2_videodevice.cpp:1933</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L145"><code>request.cpp:145</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1897"><code>v4l2_videodevice.cpp:1897</code></a> |
-| <span data-sdd-label-en="Trace slot entry, DQBUF match and erase, bufferReady, then UVC entry.">bufferAvailable 슬롯 진입부터 DQBUF 일치·맵 제거, bufferReady 발생, imageBufferReady 진입까지 순서대로 대조하세요.</span> | <span data-sdd-label-en="Negative DQBUF return, unexpected index, or dequeueBuffer null return observed before bufferReady emission">DQBUF 음수 반환, 예상 밖 인덱스 또는 bufferReady 발생 전 dequeueBuffer의 null 반환 관찰</span> | <span data-sdd-label-en="Distinguish DQBUF failure, an unexpected index, and a null return. Check the return value, returned index and whether it matches the map, and probe coverage for the same device.">DQBUF 실패, 예상 밖 인덱스, null 반환을 구분하고 같은 장치의 반환값과 인덱스 및 기록 범위를 확인하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1870"><code>v4l2_videodevice.cpp:1870</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1817"><code>v4l2_videodevice.cpp:1817</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1851"><code>v4l2_videodevice.cpp:1851</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1872"><code>v4l2_videodevice.cpp:1872</code></a> |
-| <span data-sdd-label-en="Trace slot entry, DQBUF match and erase, bufferReady, then UVC entry.">bufferAvailable 슬롯 진입부터 DQBUF 일치·맵 제거, bufferReady 발생, imageBufferReady 진입까지 순서대로 대조하세요.</span> | <span data-sdd-label-en="Slot entry, DQBUF result, index or map erase, emission, or UVC entry is missing or inconclusive">슬롯 진입, DQBUF 결과·인덱스·맵 제거, 발생 또는 UVC 진입 중 미관찰이 있거나 일치가 불명확</span> | <span data-sdd-label-en="Compare records and probe coverage for the same submission, device, and buffer. Depending on the missing step, check the streamOff return and map; bufferAvailable entry, DQBUF return, returned index and map match, and map removal; bufferReady emission and imageBufferReady entry; and completeBuffer entry, bufferCompleted emission, and receipt.">같은 제출·장치·버퍼의 기록과 계측 범위를 대조하세요. 누락된 단계에 맞춰 streamOff 반환과 맵, bufferAvailable 진입·DQBUF 반환·인덱스·맵 제거, bufferReady 발생·imageBufferReady 진입, completeBuffer 진입·bufferCompleted 발생과 수신을 확인하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1814"><code>v4l2_videodevice.cpp:1814</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L535"><code>uvcvideo.cpp:535</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L2033"><code>v4l2_videodevice.cpp:2033</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1816"><code>v4l2_videodevice.cpp:1816</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L563"><code>pipeline_handler.cpp:563</code></a> |
-| <span data-sdd-label-en="Check bufferCompleted observation and buffer status separately. Statuses include FrameSuccess, FrameError and FrameCancelled.">bufferCompleted 관찰 여부와 버퍼 상태를 각각 확인하세요. 상태에는 FrameSuccess, FrameError, FrameCancelled 등이 있습니다.</span> | <span data-sdd-label-en="Same submission&#x27;s bufferCompleted observed; app still waiting">같은 제출의 bufferCompleted를 관찰했지만 앱이 여전히 대기</span> | <span data-sdd-label-en="Check whether the FIFO head is pending and whether the target requestCompleted was emitted and received.">선두 요청이 대기 중인지, 대상 requestCompleted가 발생·수신됐는지 확인하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L566"><code>pipeline_handler.cpp:566</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L594"><code>pipeline_handler.cpp:594</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> |
-| <span data-sdd-label-en="Check bufferCompleted observation and buffer status separately. Statuses include FrameSuccess, FrameError and FrameCancelled.">bufferCompleted 관찰 여부와 버퍼 상태를 각각 확인하세요. 상태에는 FrameSuccess, FrameError, FrameCancelled 등이 있습니다.</span> | <span data-sdd-label-en="bufferCompleted emission or app receipt not observed or inconclusive">bufferCompleted 발생 또는 앱 수신이 미관찰·불명확</span> | <span data-sdd-label-en="Compare records and probe coverage for the same submission, device, and buffer. Depending on the missing step, check the streamOff return and map; bufferAvailable entry, DQBUF return, returned index and map match, and map removal; bufferReady emission and imageBufferReady entry; and completeBuffer entry, bufferCompleted emission, and receipt.">같은 제출·장치·버퍼의 기록과 계측 범위를 대조하세요. 누락된 단계에 맞춰 streamOff 반환과 맵, bufferAvailable 진입·DQBUF 반환·인덱스·맵 제거, bufferReady 발생·imageBufferReady 진입, completeBuffer 진입·bufferCompleted 발생과 수신을 확인하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L566"><code>pipeline_handler.cpp:566</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/request.cpp#L145"><code>request.cpp:145</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L2033"><code>v4l2_videodevice.cpp:2033</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/v4l2_videodevice.cpp#L1816"><code>v4l2_videodevice.cpp:1816</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L535"><code>uvcvideo.cpp:535</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/da6a6ed33ed0ab305f10b6f8b44736150d39cef4/src/libcamera/pipeline_handler.cpp#L563"><code>pipeline_handler.cpp:563</code></a> |
+| <span data-sdd-label-en="At streamOff entry, is this submission&#x27;s buffer in the device&#x27;s queuedBuffers_?">streamOff 진입 시 같은 장치의 queuedBuffers_에 이 제출의 FrameBuffer가 있나요?</span> | <span data-sdd-label-en="streamOff entry itself not observed">streamOff 진입 자체가 미관찰</span> | <span data-sdd-label-en="If entry was not observed, check Camera state, access and the pipeline stop path.">진입 기록이 없으면 Camera의 실행·접근 검사와 파이프라인 정지 경로를 확인하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1453"><code>camera.cpp:1453</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L323"><code>uvcvideo.cpp:323</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1456"><code>camera.cpp:1456</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1464"><code>camera.cpp:1464</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L379"><code>pipeline_handler.cpp:379</code></a> |
+| <span data-sdd-label-en="At streamOff entry, is this submission&#x27;s buffer in the device&#x27;s queuedBuffers_?">streamOff 진입 시 같은 장치의 queuedBuffers_에 이 제출의 FrameBuffer가 있나요?</span> | <span data-sdd-label-en="Target buffer present at entry">진입 시 대상 버퍼 있음</span> | <span data-sdd-label-en="What was the VIDIOC_STREAMOFF result?">VIDIOC_STREAMOFF의 결과는 무엇인가요?</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2043"><code>v4l2_videodevice.cpp:2043</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2033"><code>v4l2_videodevice.cpp:2033</code></a> |
+| <span data-sdd-label-en="At streamOff entry, is this submission&#x27;s buffer in the device&#x27;s queuedBuffers_?">streamOff 진입 시 같은 장치의 queuedBuffers_에 이 제출의 FrameBuffer가 있나요?</span> | <span data-sdd-label-en="Target buffer absent at entry">진입 시 대상 버퍼 없음</span> | <span data-sdd-label-en="Check device state, the whole queue, and this submission&#x27;s QBUF history. If state_ != State::Streaming &amp;&amp; queuedBuffers_.empty(), streamOff returns 0 without an ioctl.">장치 상태와 전체 큐, 이 제출의 QBUF 이력을 확인하세요. state_ != State::Streaming &amp;&amp; queuedBuffers_.empty()이면 streamOff가 ioctl 없이 0을 반환합니다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1799"><code>v4l2_videodevice.cpp:1799</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1785"><code>v4l2_videodevice.cpp:1785</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2027"><code>v4l2_videodevice.cpp:2027</code></a> |
+| <span data-sdd-label-en="At streamOff entry, is this submission&#x27;s buffer in the device&#x27;s queuedBuffers_?">streamOff 진입 시 같은 장치의 queuedBuffers_에 이 제출의 FrameBuffer가 있나요?</span> | <span data-sdd-label-en="Entry observed, but target buffer&#x27;s map membership is inconclusive">진입은 관찰됐지만 대상 버퍼의 맵 존재 여부가 불명확</span> | <span data-sdd-label-en="Compare records and probe coverage for the same submission, device, and buffer. Depending on the missing step, check the streamOff return and map; bufferAvailable entry, DQBUF return, returned index and map match, and map removal; bufferReady emission and imageBufferReady entry; and completeBuffer entry, bufferCompleted emission, and receipt.">같은 제출·장치·버퍼의 기록과 계측 범위를 대조하세요. 누락된 단계에 맞춰 streamOff 반환과 맵, bufferAvailable 진입·DQBUF 반환·인덱스·맵 제거, bufferReady 발생·imageBufferReady 진입, completeBuffer 진입·bufferCompleted 발생과 수신을 확인하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2043"><code>v4l2_videodevice.cpp:2043</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2033"><code>v4l2_videodevice.cpp:2033</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1816"><code>v4l2_videodevice.cpp:1816</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L535"><code>uvcvideo.cpp:535</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L563"><code>pipeline_handler.cpp:563</code></a> |
+| <span data-sdd-label-en="What was the VIDIOC_STREAMOFF result?">VIDIOC_STREAMOFF의 결과는 무엇인가요?</span> | <span data-sdd-label-en="Negative ioctl result">ioctl 음수</span> | <span data-sdd-label-en="Record the device and negative return. This streamOff call returns before its queued-buffer cancellation loop; UVC ignores the return.">장치와 음수 반환값을 기록하세요. 이 streamOff 호출은 대기 버퍼 취소 루프 전에 반환하며 UVC는 반환값을 무시합니다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2034"><code>v4l2_videodevice.cpp:2034</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2036"><code>v4l2_videodevice.cpp:2036</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2045"><code>v4l2_videodevice.cpp:2045</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L323"><code>uvcvideo.cpp:323</code></a> |
+| <span data-sdd-label-en="What was the VIDIOC_STREAMOFF result?">VIDIOC_STREAMOFF의 결과는 무엇인가요?</span> | <span data-sdd-label-en="ioctl succeeded">ioctl 성공</span> | <span data-sdd-label-en="Compare bufferReady emission and imageBufferReady entry for the same device and buffer. If the ioctl succeeds, bufferReady is emitted for queued buffers inside streamOff before the function returns.">같은 video_와 버퍼의 bufferReady 발생과 imageBufferReady 진입을 비교하세요. ioctl이 성공하면 대기 버퍼의 bufferReady는 streamOff 안에서 함수가 반환되기 전에 발생합니다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2045"><code>v4l2_videodevice.cpp:2045</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2044"><code>v4l2_videodevice.cpp:2044</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L535"><code>uvcvideo.cpp:535</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L893"><code>uvcvideo.cpp:893</code></a> |
+| <span data-sdd-label-en="What was the VIDIOC_STREAMOFF result?">VIDIOC_STREAMOFF의 결과는 무엇인가요?</span> | <span data-sdd-label-en="ioctl result not observed or inconclusive">ioctl 결과 미관찰 또는 불명확</span> | <span data-sdd-label-en="Compare records and probe coverage for the same submission, device, and buffer. Depending on the missing step, check the streamOff return and map; bufferAvailable entry, DQBUF return, returned index and map match, and map removal; bufferReady emission and imageBufferReady entry; and completeBuffer entry, bufferCompleted emission, and receipt.">같은 제출·장치·버퍼의 기록과 계측 범위를 대조하세요. 누락된 단계에 맞춰 streamOff 반환과 맵, bufferAvailable 진입·DQBUF 반환·인덱스·맵 제거, bufferReady 발생·imageBufferReady 진입, completeBuffer 진입·bufferCompleted 발생과 수신을 확인하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2033"><code>v4l2_videodevice.cpp:2033</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1816"><code>v4l2_videodevice.cpp:1816</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L535"><code>uvcvideo.cpp:535</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L563"><code>pipeline_handler.cpp:563</code></a> |
+| <span data-sdd-label-en="Compare bufferReady emission and imageBufferReady entry for the same device and buffer. If the ioctl succeeds, bufferReady is emitted for queued buffers inside streamOff before the function returns.">같은 video_와 버퍼의 bufferReady 발생과 imageBufferReady 진입을 비교하세요. ioctl이 성공하면 대기 버퍼의 bufferReady는 streamOff 안에서 함수가 반환되기 전에 발생합니다.</span> | <span data-sdd-label-en="bufferReady emission and imageBufferReady entry observed for the same buffer">같은 버퍼의 bufferReady 발생과 imageBufferReady 진입을 모두 관찰</span> | <span data-sdd-label-en="Check bufferCompleted observation and buffer status separately. Statuses include FrameSuccess, FrameError and FrameCancelled.">bufferCompleted 관찰 여부와 버퍼 상태를 각각 확인하세요. 상태에는 FrameSuccess, FrameError, FrameCancelled 등이 있습니다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L901"><code>uvcvideo.cpp:901</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L566"><code>pipeline_handler.cpp:566</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L112"><code>request.cpp:112</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1933"><code>v4l2_videodevice.cpp:1933</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L145"><code>request.cpp:145</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1897"><code>v4l2_videodevice.cpp:1897</code></a> |
+| <span data-sdd-label-en="Compare bufferReady emission and imageBufferReady entry for the same device and buffer. If the ioctl succeeds, bufferReady is emitted for queued buffers inside streamOff before the function returns.">같은 video_와 버퍼의 bufferReady 발생과 imageBufferReady 진입을 비교하세요. ioctl이 성공하면 대기 버퍼의 bufferReady는 streamOff 안에서 함수가 반환되기 전에 발생합니다.</span> | <span data-sdd-label-en="Emission or entry not observed, or their match is inconclusive">발생 또는 진입이 미관찰이거나 두 기록의 일치가 불명확</span> | <span data-sdd-label-en="Compare records and probe coverage for the same submission, device, and buffer. Depending on the missing step, check the streamOff return and map; bufferAvailable entry, DQBUF return, returned index and map match, and map removal; bufferReady emission and imageBufferReady entry; and completeBuffer entry, bufferCompleted emission, and receipt.">같은 제출·장치·버퍼의 기록과 계측 범위를 대조하세요. 누락된 단계에 맞춰 streamOff 반환과 맵, bufferAvailable 진입·DQBUF 반환·인덱스·맵 제거, bufferReady 발생·imageBufferReady 진입, completeBuffer 진입·bufferCompleted 발생과 수신을 확인하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2046"><code>v4l2_videodevice.cpp:2046</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L535"><code>uvcvideo.cpp:535</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2033"><code>v4l2_videodevice.cpp:2033</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1816"><code>v4l2_videodevice.cpp:1816</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L563"><code>pipeline_handler.cpp:563</code></a> |
+| <span data-sdd-label-en="Check device state, the whole queue, and this submission&#x27;s QBUF history. If state_ != State::Streaming &amp;&amp; queuedBuffers_.empty(), streamOff returns 0 without an ioctl.">장치 상태와 전체 큐, 이 제출의 QBUF 이력을 확인하세요. state_ != State::Streaming &amp;&amp; queuedBuffers_.empty()이면 streamOff가 ioctl 없이 0을 반환합니다.</span> | <span data-sdd-label-en="Same submission&#x27;s successful QBUF and indexed map insertion confirmed">같은 제출의 QBUF 성공과 인덱스별 맵 삽입 확인</span> | <span data-sdd-label-en="Trace slot entry, DQBUF match and erase, bufferReady, then UVC entry.">bufferAvailable 슬롯 진입부터 DQBUF 일치·맵 제거, bufferReady 발생, imageBufferReady 진입까지 순서대로 대조하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1799"><code>v4l2_videodevice.cpp:1799</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1869"><code>v4l2_videodevice.cpp:1869</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1814"><code>v4l2_videodevice.cpp:1814</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1848"><code>v4l2_videodevice.cpp:1848</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1879"><code>v4l2_videodevice.cpp:1879</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1820"><code>v4l2_videodevice.cpp:1820</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L893"><code>uvcvideo.cpp:893</code></a> |
+| <span data-sdd-label-en="Check device state, the whole queue, and this submission&#x27;s QBUF history. If state_ != State::Streaming &amp;&amp; queuedBuffers_.empty(), streamOff returns 0 without an ioctl.">장치 상태와 전체 큐, 이 제출의 QBUF 이력을 확인하세요. state_ != State::Streaming &amp;&amp; queuedBuffers_.empty()이면 streamOff가 ioctl 없이 0을 반환합니다.</span> | <span data-sdd-label-en="Otherwise: failed or success not established">그 외: 실패 또는 성공 미확인</span> | <span data-sdd-label-en="Distinguish the Camera::queueRequest return value, waitingRequests_ during stop, direct bufferCompleted emission by doCancelRequest, and cancellation after queueRequestDevice failure. Also check for missing records.">Camera::queueRequest 반환값, 정지 시 waitingRequests_, doCancelRequest의 직접 bufferCompleted, queueRequestDevice 실패 취소를 구분하세요. 기록 누락도 확인하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1785"><code>v4l2_videodevice.cpp:1785</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L499"><code>pipeline_handler.cpp:499</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1330"><code>camera.cpp:1330</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1334"><code>camera.cpp:1334</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L376"><code>pipeline_handler.cpp:376</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L393"><code>pipeline_handler.cpp:393</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L144"><code>request.cpp:144</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L498"><code>pipeline_handler.cpp:498</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1799"><code>v4l2_videodevice.cpp:1799</code></a> |
+| <span data-sdd-label-en="Trace slot entry, DQBUF match and erase, bufferReady, then UVC entry.">bufferAvailable 슬롯 진입부터 DQBUF 일치·맵 제거, bufferReady 발생, imageBufferReady 진입까지 순서대로 대조하세요.</span> | <span data-sdd-label-en="Slot entry, successful same-index DQBUF and map erase, bufferReady emission, then imageBufferReady entry all confirmed">bufferAvailable 슬롯 진입, 같은 인덱스의 DQBUF 성공과 맵 제거, bufferReady 발생, imageBufferReady 진입을 순서대로 모두 확인</span> | <span data-sdd-label-en="Check bufferCompleted observation and buffer status separately. Statuses include FrameSuccess, FrameError and FrameCancelled.">bufferCompleted 관찰 여부와 버퍼 상태를 각각 확인하세요. 상태에는 FrameSuccess, FrameError, FrameCancelled 등이 있습니다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1814"><code>v4l2_videodevice.cpp:1814</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1879"><code>v4l2_videodevice.cpp:1879</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1820"><code>v4l2_videodevice.cpp:1820</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L893"><code>uvcvideo.cpp:893</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L901"><code>uvcvideo.cpp:901</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L566"><code>pipeline_handler.cpp:566</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L112"><code>request.cpp:112</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1933"><code>v4l2_videodevice.cpp:1933</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L145"><code>request.cpp:145</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1897"><code>v4l2_videodevice.cpp:1897</code></a> |
+| <span data-sdd-label-en="Trace slot entry, DQBUF match and erase, bufferReady, then UVC entry.">bufferAvailable 슬롯 진입부터 DQBUF 일치·맵 제거, bufferReady 발생, imageBufferReady 진입까지 순서대로 대조하세요.</span> | <span data-sdd-label-en="Negative DQBUF return, unexpected index, or dequeueBuffer null return observed before bufferReady emission">DQBUF 음수 반환, 예상 밖 인덱스 또는 bufferReady 발생 전 dequeueBuffer의 null 반환 관찰</span> | <span data-sdd-label-en="Distinguish DQBUF failure, an unexpected index, and a null return. Check the return value, returned index and whether it matches the map, and probe coverage for the same device.">DQBUF 실패, 예상 밖 인덱스, null 반환을 구분하고 같은 장치의 반환값과 인덱스 및 기록 범위를 확인하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1870"><code>v4l2_videodevice.cpp:1870</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1817"><code>v4l2_videodevice.cpp:1817</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1851"><code>v4l2_videodevice.cpp:1851</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1872"><code>v4l2_videodevice.cpp:1872</code></a> |
+| <span data-sdd-label-en="Trace slot entry, DQBUF match and erase, bufferReady, then UVC entry.">bufferAvailable 슬롯 진입부터 DQBUF 일치·맵 제거, bufferReady 발생, imageBufferReady 진입까지 순서대로 대조하세요.</span> | <span data-sdd-label-en="Slot entry, DQBUF result, index or map erase, emission, or UVC entry is missing or inconclusive">슬롯 진입, DQBUF 결과·인덱스·맵 제거, 발생 또는 UVC 진입 중 미관찰이 있거나 일치가 불명확</span> | <span data-sdd-label-en="Compare records and probe coverage for the same submission, device, and buffer. Depending on the missing step, check the streamOff return and map; bufferAvailable entry, DQBUF return, returned index and map match, and map removal; bufferReady emission and imageBufferReady entry; and completeBuffer entry, bufferCompleted emission, and receipt.">같은 제출·장치·버퍼의 기록과 계측 범위를 대조하세요. 누락된 단계에 맞춰 streamOff 반환과 맵, bufferAvailable 진입·DQBUF 반환·인덱스·맵 제거, bufferReady 발생·imageBufferReady 진입, completeBuffer 진입·bufferCompleted 발생과 수신을 확인하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1814"><code>v4l2_videodevice.cpp:1814</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L535"><code>uvcvideo.cpp:535</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2033"><code>v4l2_videodevice.cpp:2033</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1816"><code>v4l2_videodevice.cpp:1816</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L563"><code>pipeline_handler.cpp:563</code></a> |
+| <span data-sdd-label-en="Check bufferCompleted observation and buffer status separately. Statuses include FrameSuccess, FrameError and FrameCancelled.">bufferCompleted 관찰 여부와 버퍼 상태를 각각 확인하세요. 상태에는 FrameSuccess, FrameError, FrameCancelled 등이 있습니다.</span> | <span data-sdd-label-en="Same submission&#x27;s bufferCompleted observed; app still waiting">같은 제출의 bufferCompleted를 관찰했지만 앱이 여전히 대기</span> | <span data-sdd-label-en="Check whether the FIFO head is pending and whether the target requestCompleted was emitted and received.">선두 요청이 대기 중인지, 대상 requestCompleted가 발생·수신됐는지 확인하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L566"><code>pipeline_handler.cpp:566</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L594"><code>pipeline_handler.cpp:594</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1488"><code>camera.cpp:1488</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L593"><code>pipeline_handler.cpp:593</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L599"><code>pipeline_handler.cpp:599</code></a> |
+| <span data-sdd-label-en="Check bufferCompleted observation and buffer status separately. Statuses include FrameSuccess, FrameError and FrameCancelled.">bufferCompleted 관찰 여부와 버퍼 상태를 각각 확인하세요. 상태에는 FrameSuccess, FrameError, FrameCancelled 등이 있습니다.</span> | <span data-sdd-label-en="bufferCompleted emission or app receipt not observed or inconclusive">bufferCompleted 발생 또는 앱 수신이 미관찰·불명확</span> | <span data-sdd-label-en="Compare records and probe coverage for the same submission, device, and buffer. Depending on the missing step, check the streamOff return and map; bufferAvailable entry, DQBUF return, returned index and map match, and map removal; bufferReady emission and imageBufferReady entry; and completeBuffer entry, bufferCompleted emission, and receipt.">같은 제출·장치·버퍼의 기록과 계측 범위를 대조하세요. 누락된 단계에 맞춰 streamOff 반환과 맵, bufferAvailable 진입·DQBUF 반환·인덱스·맵 제거, bufferReady 발생·imageBufferReady 진입, completeBuffer 진입·bufferCompleted 발생과 수신을 확인하세요.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L566"><code>pipeline_handler.cpp:566</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L145"><code>request.cpp:145</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2033"><code>v4l2_videodevice.cpp:2033</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1816"><code>v4l2_videodevice.cpp:1816</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L535"><code>uvcvideo.cpp:535</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L563"><code>pipeline_handler.cpp:563</code></a> |
 
 [Mermaid 원문](request-lifecycle.uvc-stop-missing-buffer.mmd)
 
@@ -24355,6 +24482,35 @@ flowchart TB
      * \brief Set the dequeue timeout value
     ```
 
+<a id="source-d53c87090347ce81"></a>
+
+??? note "소스 근거: src/libcamera/camera.cpp:1481"
+    `src/libcamera/camera.cpp:1481`에서 시작하는 발췌입니다. 종료 줄은 1488이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `b8dfbcf8a903847aa98db2793e682faae22e8fb4fd0d2eba3d80a00ffd4b835c`
+    
+    ```text
+    void Camera::requestComplete(Request *request)
+    {
+    	/* Disconnected cameras are still able to complete requests. */
+    	if (_d()->isAccessAllowed(Private::CameraStopping, Private::CameraRunning,
+    				  true))
+    		LOG(Camera, Fatal) << "Trying to complete a request when stopped";
+    
+    	requestCompleted.emit(request);
+    ```
+
+<a id="source-6700ac41898c0548"></a>
+
+??? note "소스 근거: include/libcamera/internal/framebuffer.h:36"
+    `include/libcamera/internal/framebuffer.h:36`에서 시작하는 발췌입니다. 종료 줄은 36이며, 아래 원문을 설명과 대조할 수 있습니다.
+    
+    SHA-256: `4ee32fcaa773d545e62f29b6655ab3874f73ea267af1d307e6b08c32a9af821c`
+    
+    ```text
+    void cancel() { metadata_.status = FrameMetadata::FrameCancelled;
+    ```
+
 <a id="source-538955a1660f2ce9"></a>
 
 ??? note "소스 근거: src/libcamera/v4l2_videodevice.cpp:1616"
@@ -24827,9 +24983,9 @@ flowchart TB
 ??? note "근거와 검토 정보"
     - 생성 방식: 추출 사실과 LLM 설명
     - 검증 범위: 표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.
-    - 근거 파일: `include/libcamera/base/bound_method.h`, `include/libcamera/base/object.h`, `include/libcamera/base/signal.h`, `include/libcamera/base/utils.h`, `include/libcamera/camera.h`, `include/libcamera/internal/camera.h`, `include/libcamera/internal/framebuffer.h`, `include/libcamera/internal/pipeline_handler.h`, `include/libcamera/internal/request.h`, `include/libcamera/request.h`, `product-evidence/libcamera-callback-probe/callback-run.txt`, `src/libcamera/base/bound_method.cpp`, `src/libcamera/base/event_dispatcher_poll.cpp`, `src/libcamera/base/message.cpp`, `src/libcamera/base/object.cpp`, `src/libcamera/base/signal.cpp`, `src/libcamera/base/thread.cpp`, `src/libcamera/base/timer.cpp`, `src/libcamera/camera.cpp`, `src/libcamera/framebuffer.cpp`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp`, `src/libcamera/pipeline_handler.cpp`, `src/libcamera/request.cpp`, `src/libcamera/v4l2_device.cpp`, `src/libcamera/v4l2_videodevice.cpp`
-    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `da6a6ed33e`)
+    - 근거 파일: `Documentation/thread-safety.dox`, `include/libcamera/base/bound_method.h`, `include/libcamera/base/object.h`, `include/libcamera/base/signal.h`, `include/libcamera/base/utils.h`, `include/libcamera/camera.h`, `include/libcamera/internal/camera.h`, `include/libcamera/internal/framebuffer.h`, `include/libcamera/internal/pipeline_handler.h`, `include/libcamera/internal/request.h`, `include/libcamera/request.h`, `product-evidence/libcamera-callback-probe/callback-run.txt`, `src/libcamera/base/bound_method.cpp`, `src/libcamera/base/event_dispatcher_poll.cpp`, `src/libcamera/base/message.cpp`, `src/libcamera/base/object.cpp`, `src/libcamera/base/signal.cpp`, `src/libcamera/base/thread.cpp`, `src/libcamera/base/timer.cpp`, `src/libcamera/camera.cpp`, `src/libcamera/framebuffer.cpp`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp`, `src/libcamera/pipeline_handler.cpp`, `src/libcamera/request.cpp`, `src/libcamera/v4l2_device.cpp`, `src/libcamera/v4l2_videodevice.cpp`
+    - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `adfa719f8e`)
     - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-    - 검토 상태 기록일: 2026-11-20 · 사람 검토 전
+    - 검토 상태 기록일: 2026-11-21 · 사람 검토 전
 
 다음 단계: [구성과 요청 오류 조사](request-diagnosis.md)

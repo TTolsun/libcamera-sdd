@@ -1,0 +1,24 @@
+flowchart TB
+
+  v_app-stop["App calls Camera::stop#40;#41;"]
+  v_camera-stop["Camera API enters <br/>CameraStopping"]
+  v_pipe-stop["Pipeline Handler detaches <br/>the waiting queue and stops <br/>the device"]
+  v_device-frame["Buffer dequeued during UVC <br/>capture: FrameSuccess or <br/>FrameError"]
+  v_streamoff-error["Return an error before the <br/>device-buffer return loop"]
+  v_device-cancel["During UVC stop, return <br/>buffers still queued on the <br/>device as FrameCancelled"]
+  v_uvc-ready["UVC handler explicitly <br/>completes the request after <br/>completing the buffer"]
+  v_waiting-cancel["Common handler cancels and <br/>completes the detached <br/>waiting requests"]
+  v_request-result["cancelled#95; selects <br/>RequestCancelled or <br/>RequestComplete"]
+  v_camera-notify["Camera API: emit <br/>requestCompleted in Running <br/>or Stopping"]
+  v_app-result["App checks request status <br/>and whether each buffer <br/>reports FrameSuccess"]
+  v_app-stop -->|"Running and access check <br/>passes"| v_camera-stop
+  v_camera-stop -->|"Blocking invocation"| v_pipe-stop
+  v_pipe-stop -->|"VIDIOC#95;STREAMOFF succeeds <br/>in UVC"| v_device-cancel
+  v_pipe-stop -->|"After the device stop call <br/>returns"| v_waiting-cancel
+  v_pipe-stop -->|"VIDIOC#95;STREAMOFF fails in <br/>UVC"| v_streamoff-error
+  v_device-frame -->|"bufferReady → <br/>imageBufferReady"| v_uvc-ready
+  v_device-cancel -->|"Same bufferReady signal"| v_uvc-ready
+  v_uvc-ready -->|"Apply the buffer status, <br/>then complete the request"| v_request-result
+  v_waiting-cancel -->|"Complete in the software <br/>queue after marking <br/>cancelled"| v_request-result
+  v_request-result -->|"Return in submission order; <br/>wait if the head is pending"| v_camera-notify
+  v_camera-notify -->|"A queued slot may run after <br/>stop#40;#41; returns"| v_app-result
