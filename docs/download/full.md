@@ -9501,12 +9501,13 @@ For Vendor
 </details>
 
 <details open>
-<summary>이 문서의 용어: RKISP1, 왜곡 보정, RAW, 메타데이터 외 1개</summary>
+<summary>이 문서의 용어: RKISP1, 왜곡 보정, RAW, 메타데이터 외 2개</summary>
 
 - **RKISP1** (Rockchip Image Signal Processor 1): Rockchip SoC와 NXP i.MX8MP 등에 들어 있는 카메라 ISP입니다. libcamera에는 이 장치용 Pipeline Handler와 IPA가 있습니다.
 - **왜곡 보정**: 렌즈 때문에 휘어진 영상을 곧게 펴는 처리입니다. RKISP1 파이프라인은 DW100 장치에 좌표 표(vertex map)를 넣어 수행합니다.
 - **RAW**: RAW는 픽셀의 색상 인코딩 분류이며, 센서의 원시 프레임을 캡처하기 위한 별도의 스트림 역할인 StreamRole::Raw와 구분됩니다.
 - **메타데이터**: 영상 픽셀과 함께 확인하는 촬영 정보입니다. Request의 메타데이터는 ControlList로 제공되며, FrameBuffer의 FrameMetadata는 촬영 상태·타임스탬프·사용한 바이트 수 등을 담습니다. FrameMetadata의 다른 필드가 유효한지는 촬영 상태에 따라 달라집니다.
+- **ISP** (Image Signal Processor): 센서가 출력한 원시(bayer) 데이터를 화면에 쓸 수 있는 영상으로 바꾸는 처리 장치입니다. 블랙 레벨 보정, 렌즈 음영 보정, 화이트 밸런스, 디베이어 등을 수행합니다.
 - **Pipeline Handler**: 특정 하드웨어 플랫폼(IPU3, RKISP1 등)의 미디어 장치를 찾아 카메라를 만들고, 요청을 장치에 넣고 완료를 돌려주는 libcamera 구성 요소입니다. 플랫폼마다 하나씩 있습니다.
 
 다른 용어는 [용어집](#doc-2)에서 찾을 수 있습니다.
@@ -9668,7 +9669,7 @@ flowchart TB
 
 ## <a id="d12-스트림-적용과-실행-확인-범위"></a>스트림 적용과 실행 확인 범위
 
-`ConverterDW100Module::configure`는 각 출력 설정을 순회하며 해당 스트림의 `vertexMap`에 `inputCfg.size`를 `setInputSize`로, `outputCfg.size`를 `setOutputSize`로, `sensorCrop_`을 `setSensorCrop`으로 순서대로 전달합니다. `ConverterDW100Module::configure`는 출력 스트림을 순회하면서 `dewarpParams`에 값이 있으면 해당 스트림의 `vertexMap.setDewarpParams`를 호출하고 `*dewarpParams`를 전달합니다.
+`ConverterDW100Module::configure`는 `outputCfgs`의 각 출력 설정을 순회하면서 해당 스트림의 `vertexMap`에 `inputCfg.size`를 `setInputSize`로, `outputCfg.size`를 `setOutputSize`로, `sensorCrop_`을 `setSensorCrop`으로 전달합니다. `ConverterDW100Module::configure`는 출력 스트림을 순회하면서 `dewarpParams`에 값이 있으면 해당 스트림의 `vertexMap.setDewarpParams`를 호출하고 `*dewarpParams`를 전달합니다.
 
 ### 출력별 맵과 선택적 보정값
 
@@ -10003,22 +10004,68 @@ LLM 그림 초안 · 사람 검토 전
 
 </details>
 
-`ConverterDW100Module::updateControlInfos`는 `hasDewarpParams_`가 참이면 `controls::LensDewarpEnable`을 지원 제어로 등록하고 제어 정보의 최솟값, 최댓값, 기본값을 각각 `false`, `true`, `true`로 설정합니다. `ConverterDW100Module::setControls`는 `isConfigured(stream)`이 거짓이면 반환하고 종료합니다. 구성된 스트림에서 `ConverterDW100Module::setControls`는 `info.update`와 `running_`이 참이고 `converter_.supportsRequests()`가 거짓이면 동적 제어에 관한 오류 로그를 기록합니다. `populateMetadata`는 `isConfigured(stream)` 검사에서 스트림이 설정되지 않았으면 즉시 반환합니다.
+### 보정 경로가 앱 버퍼를 취소하는 두 경우
+
+```mermaid
+flowchart TB
+%% sdd:translations {"dewarper#95;-#62;queueBuffers#40;#41;가 <br/>음수를 반환하면 큐 등록이 <br/>실패합니다.": "Queueing fails if <br/>dewarper#95;-#62;queueBuffers#40;#41; <br/>returns a negative value.", "dewarper를 사용하는 <br/>경로에서 ISP 내부 버퍼가 <br/>FrameMetadata::<br/>FrameCancelled이면 <br/>dewarper에 큐 등록하지 <br/>않습니다.": "On the path using the <br/>dewarper, an ISP internal <br/>buffer marked <br/>FrameMetadata::<br/>FrameCancelled is not <br/>queued to the dewarper.", "tryCompleteRequest#40;#41;에서 <br/>요청의 완료 조건을 <br/>확인합니다. 요청 전체가 <br/>항상 이 자리에서 완료되는 <br/>것은 아닙니다.": "Check the request#39;s <br/>completion conditions with <br/>tryCompleteRequest#40;#41;. The <br/>whole request does not <br/>necessarily complete at <br/>this point.", "두 경로는 <br/>cancelDewarpRequest#40;#41;를 <br/>호출합니다.": "Both paths call <br/>cancelDewarpRequest#40;#41;.", "버퍼 처리를 마친 뒤 요청 <br/>완료를 확인합니다.": "Check request completion <br/>after processing the <br/>buffers.", "앱이 제공한 요청의 <br/>main-path 버퍼를 <br/>FrameMetadata::<br/>FrameCancelled로 표시하고 <br/>completeBuffer#40;#41;로 <br/>완료합니다. ISP 내부 버퍼는 <br/>완료하지 않습니다.": "Mark the <br/>application-supplied <br/>request#39;s main-path buffer <br/>as <br/>FrameMetadata::<br/>FrameCancelled and complete <br/>it with completeBuffer#40;#41;. <br/>Do not complete the ISP <br/>internal buffer.", "요청의 main-path 스트림에 <br/>해당하는 버퍼를 취소하고 <br/>완료합니다. · stream #61;#61; <br/>#38;data-#62;mainPathStream#95; <br/>#91;true#93;": "Cancel and complete the <br/>buffer for the request#39;s <br/>main-path stream. · stream <br/>#61;#61; #38;data-#62;mainPathStream#95; <br/>#91;true#93;", "취소된 내부 버퍼에 대해 <br/>호출합니다. · <br/>metadata.status #61;#61; <br/>FrameMetadata::<br/>FrameCancelled #91;true#93;": "Call it for the cancelled <br/>internal buffer. · <br/>metadata.status #61;#61; <br/>FrameMetadata::<br/>FrameCancelled #91;true#93;", "큐 등록이 실패하면 <br/>호출합니다. · ret #60; 0 #91;true#93;": "Call it if queueing fails. <br/>· ret #60; 0 #91;true#93;"}
+  v_cancelled{"dewarper를 사용하는 <br/>경로에서 ISP 내부 버퍼가 <br/>FrameMetadata::<br/>FrameCancelled이면 <br/>dewarper에 큐 등록하지 <br/>않습니다."}
+  v_queue{"dewarper#95;-#62;queueBuffers#40;#41;가 <br/>음수를 반환하면 큐 등록이 <br/>실패합니다."}
+  v_cancel_request["두 경로는 <br/>cancelDewarpRequest#40;#41;를 <br/>호출합니다."]
+  v_complete_buffer["앱이 제공한 요청의 <br/>main-path 버퍼를 <br/>FrameMetadata::<br/>FrameCancelled로 표시하고 <br/>completeBuffer#40;#41;로 <br/>완료합니다. ISP 내부 버퍼는 <br/>완료하지 않습니다."]
+  v_complete_request["tryCompleteRequest#40;#41;에서 <br/>요청의 완료 조건을 <br/>확인합니다. 요청 전체가 <br/>항상 이 자리에서 완료되는 <br/>것은 아닙니다."]
+  v_cancelled -->|"취소된 내부 버퍼에 대해 <br/>호출합니다. · <br/>metadata.status #61;#61; <br/>FrameMetadata::<br/>FrameCancelled #91;true#93;"| v_cancel_request
+  v_queue -->|"큐 등록이 실패하면 <br/>호출합니다. · ret #60; 0 #91;true#93;"| v_cancel_request
+  v_cancel_request -->|"요청의 main-path 스트림에 <br/>해당하는 버퍼를 취소하고 <br/>완료합니다. · stream #61;#61; <br/>#38;data-#62;mainPathStream#95; <br/>#91;true#93;"| v_complete_buffer
+  v_complete_buffer -->|"버퍼 처리를 마친 뒤 요청 <br/>완료를 확인합니다."| v_complete_request
+```
+
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/rkisp1-dewarp.cancelled-main-path-buffer.mmd)
+
+<details open>
+<summary>그림 근거와 확인 범위</summary>
+
+ISP가 취소한 버퍼와 dewarper 큐 등록 실패는 앱의 main-path 버퍼에 어떻게 전달됩니까?
+
+소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전
+
+LLM 그림 초안 · 사람 검토 전
+
+작성 모델: `cli/codex/gpt-6.1-terra`
+
+| 요소·전이 | 소스 근거 |
+| --- | --- |
+| dewarper를 사용하는 경로에서 ISP 내부 버퍼가 FrameMetadata::FrameCancelled이면 dewarper에 큐 등록하지 않습니다. | [src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630](#d12-source-ac82e844328c94fc) · [src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605](#d12-source-6f7ca94446a01328) |
+| dewarper\_-\>queueBuffers()가 음수를 반환하면 큐 등록이 실패합니다. | [src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630](#d12-source-ac82e844328c94fc) |
+| 두 경로는 cancelDewarpRequest()를 호출합니다. | [src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630](#d12-source-ac82e844328c94fc) |
+| 앱이 제공한 요청의 main-path 버퍼를 FrameMetadata::FrameCancelled로 표시하고 completeBuffer()로 완료합니다. ISP 내부 버퍼는 완료하지 않습니다. | [src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630](#d12-source-ac82e844328c94fc) · [src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605](#d12-source-6f7ca94446a01328) · [include/libcamera/internal/framebuffer.h:36](#d12-source-f22474612903b58b) |
+| tryCompleteRequest()에서 요청의 완료 조건을 확인합니다. 요청 전체가 항상 이 자리에서 완료되는 것은 아닙니다. | [src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605](#d12-source-6f7ca94446a01328) |
+| 취소된 내부 버퍼에 대해 호출합니다. · metadata.status == FrameMetadata::FrameCancelled \[true\] | [src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630](#d12-source-ac82e844328c94fc) |
+| 큐 등록이 실패하면 호출합니다. · ret \< 0 \[true\] | [src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630](#d12-source-ac82e844328c94fc) |
+| 요청의 main-path 스트림에 해당하는 버퍼를 취소하고 완료합니다. · stream == &data-\>mainPathStream\_ \[true\] | [src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605](#d12-source-6f7ca94446a01328) |
+| 버퍼 처리를 마친 뒤 요청 완료를 확인합니다. | [src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605](#d12-source-6f7ca94446a01328) |
+
+</details>
+
+`ConverterDW100Module::updateControlInfos`는 `hasDewarpParams_`가 참이면 `controls::LensDewarpEnable`을 `controls`에 등록하고, 제어 정보의 최솟값을 `false`, 최댓값과 기본값을 `true`로 설정합니다. `setControls`는 `isConfigured(stream)`이 거짓이면 `return`으로 종료합니다. 구성된 스트림에서 `setControls`는 `info.update`와 `running_`이 참이고 `converter_.supportsRequests()`가 거짓이면 동적 제어 오류 로그를 기록합니다. `populateMetadata`는 `isConfigured(stream)` 검사에서 스트림이 설정되지 않은 것으로 확인되면 즉시 반환합니다.
 
 `ConverterDW100Module::populateMetadata`는 구성된 스트림의 `vertexMap.effectiveScalerCrop()` 값을 `controls::ScalerCrop`에 기록합니다. 이어서 `hasDewarpParams_`가 참이면 `vertexMap.lensDewarpEnable()` 값을 `controls::LensDewarpEnable`에 기록합니다.
 
-<details open>
-<summary>절 전체 근거 12개</summary>
+dewarper를 사용하는 RKISP1 보드에서 `imageBufferReady()`는 ISP 반환 버퍼가 `FrameCancelled`이거나 dewarper의 `queueBuffers()`가 실패하면 `cancelDewarpRequest()`를 호출합니다. 보드에서 이 경로를 확인할 때 `cancelDewarpRequest()`는 ISP와 dewarper 사이의 내부 버퍼 대신 요청에 연결된 앱의 `main-path` 버퍼를 `FrameCancelled`로 표시하고 `completeBuffer()`로 완료한 뒤 `tryCompleteRequest()`를 호출합니다.
 
-- `src/libcamera/converter/converter_dw100.cpp`[`L178`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L178) · [`L369`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L369) · [`L402` 발췌](#d12-source-ec47236059d2723f) · [전체 소스 `L402`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L402) · [`L400` 발췌](#d12-source-3b37038ea14e4a3f) · [전체 소스 `L400`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L400) · [`L434`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L434) · [`L441` 발췌](#d12-source-6fc7fca6e9842fbd) · [전체 소스 `L441`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L441) · [`L443` 발췌](#d12-source-aebf4a59ba423b05) · [전체 소스 `L443`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L443) · [`L178`](#d12-source-167e93a77fbf4931) · [`L369`](#d12-source-fc0e25ddead912f1) · [`L434`](#d12-source-3a4c4ed7cee81158) · [`L197`](#d12-source-fff6050000b728bd) · [`L198`](#d12-source-a6496a0f6db3636a) · [`L199`](#d12-source-a92725ea0f81f8d7) · [`L178`](#d12-source-25d871212cbd755c) · [`L212`](#d12-source-3c3967c227d1109c) · [`L369`](#d12-source-d069b98fadac2d0c) · [`L434`](#d12-source-91482028dd941751)
-- `src/libcamera/pipeline/rkisp1/rkisp1.cpp`[`L914`](#d12-source-36de5a75453d86c6)
+<details open>
+<summary>절 전체 근거 15개</summary>
+
+- `src/libcamera/converter/converter_dw100.cpp`[`L178`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L178) · [`L369`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L369) · [`L402` 발췌](#d12-source-ec47236059d2723f) · [전체 소스 `L402`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L402) · [`L400` 발췌](#d12-source-3b37038ea14e4a3f) · [전체 소스 `L400`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L400) · [`L434`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L434) · [`L443` 발췌](#d12-source-aebf4a59ba423b05) · [전체 소스 `L443`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L443) · [`L441` 발췌](#d12-source-6fc7fca6e9842fbd) · [전체 소스 `L441`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L441) · [`L178`](#d12-source-167e93a77fbf4931) · [`L369`](#d12-source-fc0e25ddead912f1) · [`L434`](#d12-source-3a4c4ed7cee81158) · [`L197`](#d12-source-fff6050000b728bd) · [`L198`](#d12-source-a6496a0f6db3636a) · [`L199`](#d12-source-a92725ea0f81f8d7) · [`L178`](#d12-source-25d871212cbd755c) · [`L212`](#d12-source-3c3967c227d1109c) · [`L369`](#d12-source-d069b98fadac2d0c) · [`L434`](#d12-source-91482028dd941751)
+- `src/libcamera/pipeline/rkisp1/rkisp1.cpp`[`L1605` 발췌](#d12-source-6f7ca94446a01328) · [전체 소스 `L1605`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L1605) · [`L1630` 발췌](#d12-source-ac82e844328c94fc) · [전체 소스 `L1630`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L1630) · [`L914`](#d12-source-36de5a75453d86c6)
+- `include/libcamera/internal/framebuffer.h`[`L36` 발췌](#d12-source-f22474612903b58b) · [전체 소스 `L36`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/framebuffer.h#L36)
 
 </details>
 
 ## 소스 근거
 
 <details open>
-<summary>소스 발췌 20개</summary>
+<summary>소스 발췌 23개</summary>
 
 같은 발췌는 한 번만 싣습니다. 필요한 원문을 펼쳐 설명과 대조하세요.
 
@@ -11153,6 +11200,138 @@ void ConverterDW100Module::populateMetadata(const Stream *stream, ControlList &m
 
 </details>
 
+<a id="d12-source-6f7ca94446a01328"></a>
+
+<details open>
+<summary>소스 근거: src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605</summary>
+
+발췌 범위: [`src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L1605) \~ `1630`
+
+SHA-256: `a4b4edb6a4180ff35d2550dd78d43a2e31e9e66fa2764c3dc1a58408d3b00702`
+
+```
+void PipelineHandlerRkISP1::cancelDewarpRequest(RkISP1FrameInfo *info)
+{
+    RkISP1CameraData *data = cameraData(activeCamera_);
+    Request *request = info->request;
+    /*
+     * i.MX8MP is the only known platform with dewarper. It has
+     * no self path. Hence, only main path buffer completion is
+     * required.
+     *
+     * Also, we cannot completeBuffer(request, buffer) as buffer
+     * here, is an internal buffer (between ISP and dewarper) and
+     * is not associated to the any specific request. The request
+     * buffer associated with main path stream is the one that
+     * is required to be completed (not the internal buffer).
+     */
+    for (auto [stream, buffer] : request->buffers()) {
+        if (stream == &data->mainPathStream_) {
+            buffer->_d()->cancel();
+            completeBuffer(request, buffer);
+        }
+    }
+
+    tryCompleteRequest(info);
+}
+
+void PipelineHandlerRkISP1::imageBufferReady(
+```
+
+</details>
+
+<a id="d12-source-ac82e844328c94fc"></a>
+
+<details open>
+<summary>소스 근거: src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</summary>
+
+발췌 범위: [`src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L1630) \~ `1692`
+
+SHA-256: `62104a649b24e0ebd469b01b17d793f5ab7a3fbb98033b82b78a663cfd08b3f0`
+
+```
+void PipelineHandlerRkISP1::imageBufferReady(FrameBuffer *buffer)
+{
+    ASSERT(activeCamera_);
+    RkISP1CameraData *data = cameraData(activeCamera_);
+
+    RkISP1FrameInfo *info = data->frameInfo_.find(buffer);
+    if (!info)
+        return;
+
+    const FrameMetadata &metadata = buffer->metadata();
+    Request *request = info->request;
+
+    if (metadata.status != FrameMetadata::FrameCancelled) {
+        /*
+         * Record the sensor's timestamp in the request metadata.
+         *
+         * \todo The sensor timestamp should be better estimated by connecting
+         * to the V4L2Device::frameStart signal.
+         */
+        request->_d()->metadata().set(controls::SensorTimestamp,
+                          metadata.timestamp);
+
+        if (isRaw_) {
+            const ControlList &ctrls =
+                data->delayedCtrls_->get(metadata.sequence);
+            data->ipa_->processStats(info->frame, 0, ctrls);
+        }
+    } else {
+        if (isRaw_)
+            info->metadataProcessed = true;
+    }
+
+    if (!data->usesDewarper_) {
+        completeBuffer(request, buffer);
+        tryCompleteRequest(info);
+
+        return;
+    }
+
+    /* Do not queue cancelled frames to dewarper. */
+    if (metadata.status == FrameMetadata::FrameCancelled) {
+        cancelDewarpRequest(info);
+        return;
+    }
+
+    dewarper_->setControls(&data->mainPathStream_, request->controls());
+
+    /*
+     * Queue input and output buffers to the dewarper. The output
+     * buffers for the dewarper are the buffers of the request, supplied
+     * by the application.
+     */
+    int ret = dewarper_->queueBuffers(buffer, request->buffers());
+    if (ret < 0) {
+        LOG(RkISP1, Error) << "Failed to queue buffers to dewarper: -"
+                   << strerror(-ret);
+
+        cancelDewarpRequest(info);
+
+        return;
+    }
+
+    dewarper_->populateMetadata(&data->mainPathStream_, request->_d()->metadata());
+```
+
+</details>
+
+<a id="d12-source-f22474612903b58b"></a>
+
+<details open>
+<summary>소스 근거: include/libcamera/internal/framebuffer.h:36</summary>
+
+발췌 범위: [`include/libcamera/internal/framebuffer.h:36`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/framebuffer.h#L36) \~ `36`
+
+SHA-256: `32d16622d9536dcc6e9be1ec0db0577d13e7c3a7be8fa18e17409377676f67c7`
+
+```
+void cancel() { metadata_.status = FrameMetadata::FrameCancelled; }
+```
+
+</details>
+
 </details>
 
 ## <a id="d12-page-evidence"></a>문서 생성·검토 정보
@@ -11162,7 +11341,7 @@ void ConverterDW100Module::populateMetadata(const Stream *stream, ControlList &m
 - **자동 검사**: 통과 (`ok`). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.
 - **사람 검토**: 사람 검토 전
 - **분석 기준 커밋**: `adfa719f8ed67d18fd8a0739fc088a1f8b9e7252`
-- **문서 생성 시각**: `2026-11-11 19:12:32+00:00`
+- **문서 생성 시각**: `2026-11-21 13:36:35+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
 - **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 
@@ -11171,10 +11350,10 @@ void ConverterDW100Module::populateMetadata(const Stream *stream, ControlList &m
 
 원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.
 
-- 근거 파일: `include/libcamera/internal/converter.h`, `include/libcamera/internal/converter/converter_dw100.h`, `include/libcamera/internal/converter/converter_dw100_vertexmap.h`, `src/libcamera/converter.cpp`, `src/libcamera/converter/converter_dw100.cpp`, `src/libcamera/converter/converter_dw100_vertexmap.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`
-- 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `c19d05128f`)
+- 근거 파일: `include/libcamera/internal/converter.h`, `include/libcamera/internal/converter/converter_dw100.h`, `include/libcamera/internal/converter/converter_dw100_vertexmap.h`, `include/libcamera/internal/framebuffer.h`, `src/libcamera/converter.cpp`, `src/libcamera/converter/converter_dw100.cpp`, `src/libcamera/converter/converter_dw100_vertexmap.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`
+- 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `adfa719f8e`)
 - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-- 검토 상태 기록일: 2026-11-12 · 사람 검토 전
+- 검토 상태 기록일: 2026-11-21 · 사람 검토 전
 
 </details>
 

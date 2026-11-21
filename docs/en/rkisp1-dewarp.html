@@ -22,6 +22,7 @@
 <li><a href="#구성된-스트림의-제어-갱신">Control updates for configured streams</a></li>
 <li><a href="#스트림-메타데이터의-조건">Conditions for stream metadata</a></li>
 <li><a href="#메인-경로의-보정-구성과-crop-전달">Calibration configuration and crop forwarding in the main path</a></li>
+<li><a href="#보정-경로가-앱-버퍼를-취소하는-두-경우">Two cases where the correction path cancels an app buffer</a></li>
 </ul>
 </li>
 <li><a href="#소스-근거">Source evidence</a></li>
@@ -33,12 +34,13 @@
 <ul class="coverage-links"><li><p>Who stores and passes calibration values so that those of multiple cameras are not mixed up?</p><p><a href="#카메라별-보정값의-소유권">Ownership of per-camera calibration values</a></p></li><li><p>What result does it return when calibration values are missing or only partially present?</p><p><a href="#튜닝-입력의-기본값과-오류">Default values and errors of tuning inputs</a></p></li><li><p>Which stream does the calibration value apply to, and which execution conditions must be checked separately?</p><p><a href="#스트림-적용과-실행-확인-범위">Scope of stream application and execution verification</a></p></li></ul><p><span>Verification scope</span>: <span>Linking code evidence to explanations</span></p>
 </details>
 <details class="page-terms">
-<summary>Terms in this document: RKISP1, distortion correction, RAW, metadata, and 1 more</summary>
+<summary>Terms in this document: RKISP1, distortion correction, RAW, metadata, and 2 others</summary>
 <ul>
 <li><strong>RKISP1</strong> (Rockchip Image Signal Processor 1): A camera ISP included in Rockchip SoCs, the NXP i.MX8MP, and others. libcamera has a Pipeline Handler and an IPA for this device.</li>
 <li><strong>Distortion correction</strong>: A process that straightens an image bent by the lens. The RKISP1 pipeline performs it by supplying a vertex map to the DW100 device.</li>
 <li><strong>RAW</strong>: RAW is a pixel color-encoding classification and is distinguished from StreamRole::Raw, a separate stream role for capturing raw sensor frames.</li>
 <li><strong>Metadata</strong>: Capture information checked alongside the image pixels. The metadata of a Request is provided as a ControlList, and the FrameMetadata of a FrameBuffer holds capture status, timestamp, bytes used, and so on. Whether the other fields of FrameMetadata are valid depends on the capture status.</li>
+<li><strong>ISP</strong> (Image Signal Processor): A processing unit that converts raw (Bayer) data output by the sensor into an image that can be displayed on screen. It performs operations such as black level correction, lens shading correction, white balance, and debayering.</li>
 <li><strong>Pipeline Handler</strong>: A libcamera component that finds the media device of a specific hardware platform (IPU3, RKISP1, etc.), creates cameras, passes requests to the device, and returns their completion. There is one per platform.</li>
 </ul>
 <p>Other terms can be found in <a href="glossary.html">Glossary</a>.</p>
@@ -291,7 +293,7 @@
 <p data-sdd-evidence="[[&quot;src/libcamera/converter/converter_dw100.cpp:105&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L105\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:105&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/converter/converter_dw100.cpp:105&quot;: [&quot;#source-eacff078bd6a9d79&quot;]}">After passing the preceding checks, <code>ConverterDW100Module::loadDewarpParams</code> reads <code>cmNew</code>, if present, as a 3×3 <code>double</code> matrix and stores it in <code>dp.cmNew</code>, returning <code>-EINVAL</code> if the conversion fails; if <code>cmNew</code> is absent, it copies <code>dp.cm</code> to <code>dp.cmNew</code>. If processing succeeds along either path, it stores <code>dp</code> in <code>dewarpParams</code> and then returns <code>0</code>.</p>
 
 <details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>2</span></summary><ul><li><code>src/libcamera/converter/converter_dw100.cpp</code><span class="evidence-lines"><a href="#source-eacff078bd6a9d79" aria-label="src/libcamera/converter/converter_dw100.cpp:105 excerpt"><code>L105</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:105" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L105">Full source <code>L105</code></a></span></li><li><code>src/libcamera/converter/converter_dw100_vertexmap.cpp</code><span class="evidence-lines"><a href="#source-abfd8a7335a891ed" aria-label="src/libcamera/converter/converter_dw100_vertexmap.cpp:258 excerpt"><code>L258</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100_vertexmap.cpp:258" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100_vertexmap.cpp#L258">Full source <code>L258</code></a></span></li></ul></details><h2 id="스트림-적용과-실행-확인-범위">Scope of stream application and execution verification</h2>
-<p data-sdd-evidence="[[&quot;src/libcamera/converter/converter_dw100.cpp:178&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L178\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:178&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/converter/converter_dw100.cpp:178&quot;: [&quot;#source-167e93a77fbf4931&quot;, &quot;#source-25d871212cbd755c&quot;]}"><code>ConverterDW100Module::configure</code> iterates over each output configuration and, for the corresponding stream's <code>vertexMap</code>, passes <code>inputCfg.size</code> to <code>setInputSize</code>, <code>outputCfg.size</code> to <code>setOutputSize</code>, and <code>sensorCrop_</code> to <code>setSensorCrop</code>, in that order. <code>ConverterDW100Module::configure</code> iterates over the output streams and, if <code>dewarpParams</code> has a value, calls the corresponding stream's <code>vertexMap.setDewarpParams</code> and passes <code>*dewarpParams</code>.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/converter/converter_dw100.cpp:178&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L178\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:178&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/converter/converter_dw100.cpp:178&quot;: [&quot;#source-167e93a77fbf4931&quot;, &quot;#source-25d871212cbd755c&quot;]}">While iterating over each output configuration in <code>outputCfgs</code>, <code>ConverterDW100Module::configure</code> passes <code>inputCfg.size</code> to <code>setInputSize</code>, <code>outputCfg.size</code> to <code>setOutputSize</code>, and <code>sensorCrop_</code> to <code>setSensorCrop</code> on the corresponding stream's <code>vertexMap</code>. While iterating over the output streams, <code>ConverterDW100Module::configure</code> calls the corresponding stream's <code>vertexMap.setDewarpParams</code> and passes <code>*dewarpParams</code> if <code>dewarpParams</code> has a value.</p>
 <!-- sdd:visual:per-output-vertex-map -->
 <h3 id="출력별-맵과-선택적-보정값">Per-output maps and optional correction values</h3>
 <pre class="mermaid">flowchart TB
@@ -932,12 +934,82 @@
 </details>
 <!-- /sdd:visual:main-path-dewarp-handoff -->
 
-<p data-sdd-evidence="[[&quot;src/libcamera/converter/converter_dw100.cpp:369&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L369\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:369&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/converter/converter_dw100.cpp:402&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L402\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:402&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/converter/converter_dw100.cpp:400&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L400\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:400&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/converter/converter_dw100.cpp:434&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L434\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:434&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/converter/converter_dw100.cpp:369&quot;: [&quot;#source-d069b98fadac2d0c&quot;, &quot;#source-fc0e25ddead912f1&quot;], &quot;src/libcamera/converter/converter_dw100.cpp:402&quot;: [&quot;#source-ec47236059d2723f&quot;], &quot;src/libcamera/converter/converter_dw100.cpp:400&quot;: [&quot;#source-3b37038ea14e4a3f&quot;], &quot;src/libcamera/converter/converter_dw100.cpp:434&quot;: [&quot;#source-3a4c4ed7cee81158&quot;, &quot;#source-91482028dd941751&quot;]}">If <code>hasDewarpParams_</code> is true, <code>ConverterDW100Module::updateControlInfos</code> registers <code>controls::LensDewarpEnable</code> as a supported control and sets the control information's minimum, maximum, and default values to <code>false</code>, <code>true</code>, and <code>true</code>, respectively. <code>ConverterDW100Module::setControls</code> returns and exits if <code>isConfigured(stream)</code> is false. For a configured stream, <code>ConverterDW100Module::setControls</code> logs an error about dynamic controls if <code>info.update</code> and <code>running_</code> are true and <code>converter_.supportsRequests()</code> is false. <code>populateMetadata</code> returns immediately if the <code>isConfigured(stream)</code> check finds that the stream is not configured.</p>
-<p data-sdd-evidence="[[&quot;src/libcamera/converter/converter_dw100.cpp:441&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L441\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:441&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/converter/converter_dw100.cpp:443&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L443\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:443&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/converter/converter_dw100.cpp:441&quot;: [&quot;#source-6fc7fca6e9842fbd&quot;], &quot;src/libcamera/converter/converter_dw100.cpp:443&quot;: [&quot;#source-aebf4a59ba423b05&quot;]}"><code>ConverterDW100Module::populateMetadata</code> records the configured stream's <code>vertexMap.effectiveScalerCrop()</code> value in <code>controls::ScalerCrop</code> and then, if <code>hasDewarpParams_</code> is true, records the <code>vertexMap.lensDewarpEnable()</code> value in <code>controls::LensDewarpEnable</code>.</p>
+<!-- sdd:visual:cancelled-main-path-buffer -->
+<h3 id="보정-경로가-앱-버퍼를-취소하는-두-경우">Two cases where the correction path cancels an app buffer</h3>
+<pre class="mermaid">flowchart TB
+
+  v_cancelled{"On the path using the &lt;br/&gt;dewarper, an ISP internal &lt;br/&gt;buffer marked &lt;br/&gt;FrameMetadata::&lt;br/&gt;FrameCancelled is not &lt;br/&gt;queued to the dewarper."}
+  v_queue{"Queueing fails if &lt;br/&gt;dewarper#95;-#62;queueBuffers#40;#41; &lt;br/&gt;returns a negative value."}
+  v_cancel_request["Both paths call &lt;br/&gt;cancelDewarpRequest#40;#41;."]
+  v_complete_buffer["Mark the &lt;br/&gt;application-supplied &lt;br/&gt;request#39;s main-path buffer &lt;br/&gt;as &lt;br/&gt;FrameMetadata::&lt;br/&gt;FrameCancelled and complete &lt;br/&gt;it with completeBuffer#40;#41;. &lt;br/&gt;Do not complete the ISP &lt;br/&gt;internal buffer."]
+  v_complete_request["Check the request#39;s &lt;br/&gt;completion conditions with &lt;br/&gt;tryCompleteRequest#40;#41;. The &lt;br/&gt;whole request does not &lt;br/&gt;necessarily complete at &lt;br/&gt;this point."]
+  v_cancelled --&gt;|"Call it for the cancelled &lt;br/&gt;internal buffer. · &lt;br/&gt;metadata.status #61;#61; &lt;br/&gt;FrameMetadata::&lt;br/&gt;FrameCancelled #91;true#93;"| v_cancel_request
+  v_queue --&gt;|"Call it if queueing fails. &lt;br/&gt;· ret #60; 0 #91;true#93;"| v_cancel_request
+  v_cancel_request --&gt;|"Cancel and complete the &lt;br/&gt;buffer for the request#39;s &lt;br/&gt;main-path stream. · stream &lt;br/&gt;#61;#61; #38;data-#62;mainPathStream#95; &lt;br/&gt;#91;true#93;"| v_complete_buffer
+  v_complete_buffer --&gt;|"Check request completion &lt;br/&gt;after processing the &lt;br/&gt;buffers."| v_complete_request</pre>
+<p><a href="rkisp1-dewarp.cancelled-main-path-buffer.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>How are buffers canceled by the ISP and dewarper queue registration failures communicated to the app's main-path buffers?</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="On the path using the dewarper, an ISP internal buffer marked FrameMetadata::FrameCancelled is not queued to the dewarper.">On the path using the dewarper, an ISP internal buffer marked FrameMetadata::FrameCancelled is not queued to the dewarper.</span></td>
+<td><a href="#source-ac82e844328c94fc">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</a> · <a href="#source-6f7ca94446a01328">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Queueing fails if dewarper_-&gt;queueBuffers() returns a negative value.">Queueing fails if dewarper_-&gt;queueBuffers() returns a negative value.</span></td>
+<td><a href="#source-ac82e844328c94fc">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Both paths call cancelDewarpRequest().">Both paths call cancelDewarpRequest().</span></td>
+<td><a href="#source-ac82e844328c94fc">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Mark the application-supplied request&#x27;s main-path buffer as FrameMetadata::FrameCancelled and complete it with completeBuffer(). Do not complete the ISP internal buffer.">Mark the application-supplied request's main-path buffer as FrameMetadata::FrameCancelled and complete it with completeBuffer(). Do not complete the ISP internal buffer.</span></td>
+<td><a href="#source-ac82e844328c94fc">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</a> · <a href="#source-6f7ca94446a01328">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605</a> · <a href="#source-f22474612903b58b">include/libcamera/internal/framebuffer.h:36</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the request&#x27;s completion conditions with tryCompleteRequest(). The whole request does not necessarily complete at this point.">Check the request's completion conditions with tryCompleteRequest(). The whole request does not necessarily complete at this point.</span></td>
+<td><a href="#source-6f7ca94446a01328">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call it for the cancelled internal buffer. · metadata.status == FrameMetadata::FrameCancelled [true]">Call it for the cancelled internal buffer. · metadata.status == FrameMetadata::FrameCancelled [true]</span></td>
+<td><a href="#source-ac82e844328c94fc">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call it if queueing fails. · ret &lt; 0 [true]">Call it if queueing fails. · ret &lt; 0 [true]</span></td>
+<td><a href="#source-ac82e844328c94fc">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Cancel and complete the buffer for the request&#x27;s main-path stream. · stream == &amp;data-&gt;mainPathStream_ [true]">Cancel and complete the buffer for the request's main-path stream. · stream == &amp;data-&gt;mainPathStream_ [true]</span></td>
+<td><a href="#source-6f7ca94446a01328">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check request completion after processing the buffers.">Check request completion after processing the buffers.</span></td>
+<td><a href="#source-6f7ca94446a01328">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:cancelled-main-path-buffer -->
+
+<p data-sdd-evidence="[[&quot;src/libcamera/converter/converter_dw100.cpp:369&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L369\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:369&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/converter/converter_dw100.cpp:402&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L402\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:402&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/converter/converter_dw100.cpp:400&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L400\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:400&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/converter/converter_dw100.cpp:434&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L434\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:434&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/converter/converter_dw100.cpp:369&quot;: [&quot;#source-d069b98fadac2d0c&quot;, &quot;#source-fc0e25ddead912f1&quot;], &quot;src/libcamera/converter/converter_dw100.cpp:402&quot;: [&quot;#source-ec47236059d2723f&quot;], &quot;src/libcamera/converter/converter_dw100.cpp:400&quot;: [&quot;#source-3b37038ea14e4a3f&quot;], &quot;src/libcamera/converter/converter_dw100.cpp:434&quot;: [&quot;#source-3a4c4ed7cee81158&quot;, &quot;#source-91482028dd941751&quot;]}">If <code>hasDewarpParams_</code> is true, <code>ConverterDW100Module::updateControlInfos</code> registers <code>controls::LensDewarpEnable</code> in <code>controls</code> and sets the control information's minimum to <code>false</code> and its maximum and default to <code>true</code>. If <code>isConfigured(stream)</code> is false, <code>setControls</code> exits with <code>return</code>. For a configured stream, <code>setControls</code> logs a dynamic control error if <code>info.update</code> and <code>running_</code> are true and <code>converter_.supportsRequests()</code> is false. If the <code>isConfigured(stream)</code> check finds that the stream is not configured, <code>populateMetadata</code> returns immediately.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/converter/converter_dw100.cpp:443&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L443\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:443&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/converter/converter_dw100.cpp:441&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L441\&quot;&gt;&lt;code&gt;src/libcamera/converter/converter_dw100.cpp:441&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/converter/converter_dw100.cpp:443&quot;: [&quot;#source-aebf4a59ba423b05&quot;], &quot;src/libcamera/converter/converter_dw100.cpp:441&quot;: [&quot;#source-6fc7fca6e9842fbd&quot;]}"><code>ConverterDW100Module::populateMetadata</code> records the configured stream's <code>vertexMap.effectiveScalerCrop()</code> value in <code>controls::ScalerCrop</code> and then, if <code>hasDewarpParams_</code> is true, records the <code>vertexMap.lensDewarpEnable()</code> value in <code>controls::LensDewarpEnable</code>.</p>
+<p data-sdd-evidence="[[&quot;src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L1605\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L1630\&quot;&gt;&lt;code&gt;src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630&lt;/code&gt;&lt;/a&gt;&quot;], [&quot;include/libcamera/internal/framebuffer.h:36&quot;, &quot;&lt;a class=\&quot;citation\&quot; href=\&quot;https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/framebuffer.h#L36\&quot;&gt;&lt;code&gt;include/libcamera/internal/framebuffer.h:36&lt;/code&gt;&lt;/a&gt;&quot;]]" data-sdd-excerpts="{&quot;src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605&quot;: [&quot;#source-6f7ca94446a01328&quot;], &quot;src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630&quot;: [&quot;#source-ac82e844328c94fc&quot;], &quot;include/libcamera/internal/framebuffer.h:36&quot;: [&quot;#source-f22474612903b58b&quot;]}">On an RKISP1 board using a dewarper, <code>imageBufferReady()</code> calls <code>cancelDewarpRequest()</code> if the buffer returned by the ISP is <code>FrameCancelled</code> or the dewarper's <code>queueBuffers()</code> fails. When checking this path on the board, <code>cancelDewarpRequest()</code> marks the app's <code>main-path</code> buffer associated with the request as <code>FrameCancelled</code> instead of the internal buffer between the ISP and the dewarper, completes it with <code>completeBuffer()</code>, and then calls <code>tryCompleteRequest()</code>.</p>
 
 
-<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>12</span></summary><ul><li><code>src/libcamera/converter/converter_dw100.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/converter/converter_dw100.cpp:178" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L178"><code>L178</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:369" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L369"><code>L369</code></a> · <a href="#source-ec47236059d2723f" aria-label="src/libcamera/converter/converter_dw100.cpp:402 excerpt"><code>L402</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:402" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L402">Full source <code>L402</code></a> · <a href="#source-3b37038ea14e4a3f" aria-label="src/libcamera/converter/converter_dw100.cpp:400 excerpt"><code>L400</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:400" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L400">Full source <code>L400</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:434" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L434"><code>L434</code></a> · <a href="#source-6fc7fca6e9842fbd" aria-label="src/libcamera/converter/converter_dw100.cpp:441 excerpt"><code>L441</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:441" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L441">Full source <code>L441</code></a> · <a href="#source-aebf4a59ba423b05" aria-label="src/libcamera/converter/converter_dw100.cpp:443 excerpt"><code>L443</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:443" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L443">Full source <code>L443</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:178" href="#source-167e93a77fbf4931"><code>L178</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:369" href="#source-fc0e25ddead912f1"><code>L369</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:434" href="#source-3a4c4ed7cee81158"><code>L434</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:197" href="#source-fff6050000b728bd"><code>L197</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:198" href="#source-a6496a0f6db3636a"><code>L198</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:199" href="#source-a92725ea0f81f8d7"><code>L199</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:178" href="#source-25d871212cbd755c"><code>L178</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:212" href="#source-3c3967c227d1109c"><code>L212</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:369" href="#source-d069b98fadac2d0c"><code>L369</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:434" href="#source-91482028dd941751"><code>L434</code></a></span></li><li><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:914" href="#source-36de5a75453d86c6"><code>L914</code></a></span></li></ul></details><h2 id="소스-근거">Source evidence</h2>
-<details class="source-excerpts"><summary>Source excerpts: <span>20</span></summary>
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>15</span></summary><ul><li><code>src/libcamera/converter/converter_dw100.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/converter/converter_dw100.cpp:178" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L178"><code>L178</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:369" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L369"><code>L369</code></a> · <a href="#source-ec47236059d2723f" aria-label="src/libcamera/converter/converter_dw100.cpp:402 excerpt"><code>L402</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:402" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L402">Full source <code>L402</code></a> · <a href="#source-3b37038ea14e4a3f" aria-label="src/libcamera/converter/converter_dw100.cpp:400 excerpt"><code>L400</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:400" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L400">Full source <code>L400</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:434" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L434"><code>L434</code></a> · <a href="#source-aebf4a59ba423b05" aria-label="src/libcamera/converter/converter_dw100.cpp:443 excerpt"><code>L443</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:443" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L443">Full source <code>L443</code></a> · <a href="#source-6fc7fca6e9842fbd" aria-label="src/libcamera/converter/converter_dw100.cpp:441 excerpt"><code>L441</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:441" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L441">Full source <code>L441</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:178" href="#source-167e93a77fbf4931"><code>L178</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:369" href="#source-fc0e25ddead912f1"><code>L369</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:434" href="#source-3a4c4ed7cee81158"><code>L434</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:197" href="#source-fff6050000b728bd"><code>L197</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:198" href="#source-a6496a0f6db3636a"><code>L198</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:199" href="#source-a92725ea0f81f8d7"><code>L199</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:178" href="#source-25d871212cbd755c"><code>L178</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:212" href="#source-3c3967c227d1109c"><code>L212</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:369" href="#source-d069b98fadac2d0c"><code>L369</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:434" href="#source-91482028dd941751"><code>L434</code></a></span></li><li><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code><span class="evidence-lines"><a href="#source-6f7ca94446a01328" aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605 excerpt"><code>L1605</code> excerpt</a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L1605">Full source <code>L1605</code></a> · <a href="#source-ac82e844328c94fc" aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630 excerpt"><code>L1630</code> excerpt</a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L1630">Full source <code>L1630</code></a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:914" href="#source-36de5a75453d86c6"><code>L914</code></a></span></li><li><code>include/libcamera/internal/framebuffer.h</code><span class="evidence-lines"><a href="#source-f22474612903b58b" aria-label="include/libcamera/internal/framebuffer.h:36 excerpt"><code>L36</code> excerpt</a> · <a aria-label="include/libcamera/internal/framebuffer.h:36" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/framebuffer.h#L36">Full source <code>L36</code></a></span></li></ul></details><h2 id="소스-근거">Source evidence</h2>
+<details class="source-excerpts"><summary>Source excerpts: <span>23</span></summary>
 <p>Include each excerpt only once. Expand the needed original text and check it against the explanation.</p>
 <p><a id="source-04546183f68b35f4"></a></p>
 <details class="note">
@@ -1930,9 +2002,120 @@ void ConverterDW100Module::setSensorCrop(
 }
 </code></pre></div>
 </details>
+<p><a id="source-6f7ca94446a01328"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L1605"><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605</code></a> to <code>1630</code></p>
+<p>SHA-256: <code>a4b4edb6a4180ff35d2550dd78d43a2e31e9e66fa2764c3dc1a58408d3b00702</code></p>
+<div class="highlight"><pre><span></span><code>void PipelineHandlerRkISP1::cancelDewarpRequest(RkISP1FrameInfo *info)
+{
+    RkISP1CameraData *data = cameraData(activeCamera_);
+    Request *request = info-&gt;request;
+    /*
+     * i.MX8MP is the only known platform with dewarper. It has
+     * no self path. Hence, only main path buffer completion is
+     * required.
+     *
+     * Also, we cannot completeBuffer(request, buffer) as buffer
+     * here, is an internal buffer (between ISP and dewarper) and
+     * is not associated to the any specific request. The request
+     * buffer associated with main path stream is the one that
+     * is required to be completed (not the internal buffer).
+     */
+    for (auto [stream, buffer] : request-&gt;buffers()) {
+        if (stream == &amp;data-&gt;mainPathStream_) {
+            buffer-&gt;_d()-&gt;cancel();
+            completeBuffer(request, buffer);
+        }
+    }
+
+    tryCompleteRequest(info);
+}
+
+void PipelineHandlerRkISP1::imageBufferReady(
+</code></pre></div>
+</details>
+<p><a id="source-ac82e844328c94fc"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L1630"><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</code></a> to <code>1692</code></p>
+<p>SHA-256: <code>62104a649b24e0ebd469b01b17d793f5ab7a3fbb98033b82b78a663cfd08b3f0</code></p>
+<div class="highlight"><pre><span></span><code>void PipelineHandlerRkISP1::imageBufferReady(FrameBuffer *buffer)
+{
+    ASSERT(activeCamera_);
+    RkISP1CameraData *data = cameraData(activeCamera_);
+
+    RkISP1FrameInfo *info = data-&gt;frameInfo_.find(buffer);
+    if (!info)
+        return;
+
+    const FrameMetadata &amp;metadata = buffer-&gt;metadata();
+    Request *request = info-&gt;request;
+
+    if (metadata.status != FrameMetadata::FrameCancelled) {
+        /*
+         * Record the sensor's timestamp in the request metadata.
+         *
+         * \todo The sensor timestamp should be better estimated by connecting
+         * to the V4L2Device::frameStart signal.
+         */
+        request-&gt;_d()-&gt;metadata().set(controls::SensorTimestamp,
+                          metadata.timestamp);
+
+        if (isRaw_) {
+            const ControlList &amp;ctrls =
+                data-&gt;delayedCtrls_-&gt;get(metadata.sequence);
+            data-&gt;ipa_-&gt;processStats(info-&gt;frame, 0, ctrls);
+        }
+    } else {
+        if (isRaw_)
+            info-&gt;metadataProcessed = true;
+    }
+
+    if (!data-&gt;usesDewarper_) {
+        completeBuffer(request, buffer);
+        tryCompleteRequest(info);
+
+        return;
+    }
+
+    /* Do not queue cancelled frames to dewarper. */
+    if (metadata.status == FrameMetadata::FrameCancelled) {
+        cancelDewarpRequest(info);
+        return;
+    }
+
+    dewarper_-&gt;setControls(&amp;data-&gt;mainPathStream_, request-&gt;controls());
+
+    /*
+     * Queue input and output buffers to the dewarper. The output
+     * buffers for the dewarper are the buffers of the request, supplied
+     * by the application.
+     */
+    int ret = dewarper_-&gt;queueBuffers(buffer, request-&gt;buffers());
+    if (ret &lt; 0) {
+        LOG(RkISP1, Error) &lt;&lt; "Failed to queue buffers to dewarper: -"
+                   &lt;&lt; strerror(-ret);
+
+        cancelDewarpRequest(info);
+
+        return;
+    }
+
+    dewarper_-&gt;populateMetadata(&amp;data-&gt;mainPathStream_, request-&gt;_d()-&gt;metadata());
+</code></pre></div>
+</details>
+<p><a id="source-f22474612903b58b"></a></p>
+<details class="note">
+<summary>Source evidence: include/libcamera/internal/framebuffer.h:36</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/framebuffer.h#L36"><code>include/libcamera/internal/framebuffer.h:36</code></a> to <code>36</code></p>
+<p>SHA-256: <code>32d16622d9536dcc6e9be1ec0db0577d13e7c3a7be8fa18e17409377676f67c7</code></p>
+<div class="highlight"><pre><span></span><code>void cancel() { metadata_.status = FrameMetadata::FrameCancelled; }
+</code></pre></div>
+</details>
 </details>
 
-</article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>Document generation time</dt><dd><code>2026-11-11 19:12:32+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>include/libcamera/internal/converter.h</code>, <code>include/libcamera/internal/converter/converter_dw100.h</code>, <code>include/libcamera/internal/converter/converter_dw100_vertexmap.h</code>, <code>src/libcamera/converter.cpp</code>, <code>src/libcamera/converter/converter_dw100.cpp</code>, <code>src/libcamera/converter/converter_dw100_vertexmap.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code></li><li>Evidence level: code verified (static analysis, simple_compdb configuration, commit <code>c19d05128f</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded: 2026-11-12 · Before human review</li></ul></details><a href="../rkisp1-dewarp.md">Markdown source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="ipu3-lsc-prepare.html"><small>Previous</small>IPU3 Lens Correction Table Preparation ←</a><a class="next" href="pipeline-handler.html"><small>Next</small>Pipeline Handler →</a></nav>
+</article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>Document generation time</dt><dd><code>2026-11-21 13:36:35+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>include/libcamera/internal/converter.h</code>, <code>include/libcamera/internal/converter/converter_dw100.h</code>, <code>include/libcamera/internal/converter/converter_dw100_vertexmap.h</code>, <code>include/libcamera/internal/framebuffer.h</code>, <code>src/libcamera/converter.cpp</code>, <code>src/libcamera/converter/converter_dw100.cpp</code>, <code>src/libcamera/converter/converter_dw100_vertexmap.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code></li><li>Evidence level: code verified (static analysis, simple_compdb configuration, commit <code>adfa719f8e</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded on: 2026-11-21 · Awaiting human review</li></ul></details><a href="../rkisp1-dewarp.md">Markdown source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="ipu3-lsc-prepare.html"><small>Previous</small>IPU3 Lens Correction Table Preparation ←</a><a class="next" href="pipeline-handler.html"><small>Next</small>Pipeline Handler →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
 <aside class="page-toc"><nav aria-label="Table of contents for this page"><p>On this page</p><div class="toc">
 <ul>
@@ -1950,6 +2133,7 @@ void ConverterDW100Module::setSensorCrop(
 <li><a href="#구성된-스트림의-제어-갱신">Control updates for configured streams</a></li>
 <li><a href="#스트림-메타데이터의-조건">Conditions for stream metadata</a></li>
 <li><a href="#메인-경로의-보정-구성과-crop-전달">Calibration configuration and crop forwarding in the main path</a></li>
+<li><a href="#보정-경로가-앱-버퍼를-취소하는-두-경우">Two cases where the correction path cancels an app buffer</a></li>
 </ul>
 </li>
 <li><a href="#소스-근거">Source evidence</a></li>
