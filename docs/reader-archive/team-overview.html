@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이 프로젝트가 하는 일 · libcamera 설계 문서</title><link rel="stylesheet" href="../assets/reading.css?v=dd3415510a"><meta name="robots" content="noindex"><link rel="alternate" hreflang="ko" href="team-overview.html"><link rel="alternate" hreflang="en" href="../en/reader-archive/team-overview.html"></head>
+<body><a class="skip" href="#main">본문으로 이동</a>
+<header class="site-header"><a class="brand" href="../index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera 설계 문서</a>
+<div class="header-actions"><details class="language-selector"><summary aria-label="언어 선택">한국어 ▾</summary><nav><a lang="ko" hreflang="ko" href="team-overview.html" aria-current="true">한국어</a><a lang="en" hreflang="en" href="../en/reader-archive/team-overview.html">English</a></nav></details><button id="search-open" hidden>문서 찾기 <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>메뉴</button></div></header>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="문서 메뉴"></nav><p class="sidebar-note">코드에서 구조를 추출하고<br>근거와 함께 검토합니다.</p></aside>
+<main id="main"><p class="breadcrumb">For Developer <span>/</span> 이 프로젝트가 하는 일</p><h1>이 프로젝트가 하는 일</h1><div class="page-state"><span class="review-state">사람 검토 전</span><span>자동 검사 통과</span><span class="generation-method">작성: 추출한 구조와 모델이 쓴 초안</span><a class="state-help" href="#page-evidence">상태 설명 ↓</a></div>
+<p class="translation-note">이전 주소에서 연결하는 원본 자료 · <a href="../index.html">독자용 문서로 이동</a></p><article><p><strong>이 프로젝트가 무엇을 받아 무엇을 내놓는지, 어느 계층·팀과 맞닿아 있는지 짧게 확인하세요.</strong></p><details class="note scope-notices">
+<summary>설계 질문과 검증 범위</summary>
+<p>질문별 답변과 근거 연결을 검사했습니다. 의미와 실행 결과는 사람 검토가 필요합니다.</p>
+<ul class="coverage-links"><li><p>이 프로젝트는 무엇을 하며 누구의 어떤 문제를 풉니까?</p><p><a href="../index.html#project-purpose">하는 일</a></p></li><li><p>이 프로젝트는 무엇을 입력으로 받습니까?</p><p><a href="#받는-것">받는 것</a></p></li><li><p>이 프로젝트는 무엇을 결과로 내놓습니까?</p><p><a href="#내놓는-것">내놓는 것</a></p></li><li><p>어느 계층·팀과 책임이 나뉩니까?</p><p><a href="../architecture.html#layer-boundaries">다른 팀·계층과의 경계</a></p></li></ul><p><span>확인 범위</span>: <span>코드 근거와 설명 연결</span></p>
+</details>
+<details class="page-terms">
+<summary>이 문서의 용어: V4L2, Pipeline Handler, HAL, IPA</summary>
+<ul>
+<li><strong>V4L2</strong> (Video4Linux2): Linux 커널이 카메라와 영상 장치를 다루는 API입니다. libcamera는 이 API로 센서와 ISP 장치를 제어합니다.</li>
+<li><strong>Pipeline Handler</strong>: 특정 하드웨어 플랫폼(IPU3, RKISP1 등)의 미디어 장치를 찾아 카메라를 만들고, 요청을 장치에 넣고 완료를 돌려주는 libcamera 구성 요소입니다. 플랫폼마다 하나씩 있습니다.</li>
+<li><strong>HAL</strong> (Hardware Abstraction Layer): 운영체제가 제조사마다 다른 하드웨어를 같은 인터페이스로 다루게 하는 계층입니다. 이 프로젝트의 최종 적용 대상은 사내 Android Camera HAL입니다.</li>
+<li><strong>IPA</strong> (Image Processing Algorithms): 화질 알고리즘을 담은 별도 모듈(.so)입니다. ISP가 보낸 통계를 보고 다음 프레임에 쓸 ISP 설정값을 계산합니다. 제조사가 소스를 공개하지 않고 제공할 수 있도록 libcamera 본체와 분리되어 있습니다.</li>
+</ul>
+<p>다른 용어는 <a href="../glossary.html">용어집</a>에서 찾을 수 있습니다.</p>
+</details>
+
+<p id="하는-일"><a href="../index.html#project-purpose">하는 일</a></p><p id="카메라-스택의-네-계층"><a href="../index.html#%EC%B9%B4%EB%A9%94%EB%9D%BC-%EC%8A%A4%ED%83%9D%EC%9D%98-%EB%84%A4-%EA%B3%84%EC%B8%B5">카메라 스택의 네 계층</a></p><h2 id="받는-것">받는 것</h2>
+<p data-sdd-evidence='[["Documentation/introduction.rst:139", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/introduction.rst#L139\"><code>Documentation/introduction.rst:139</code></a>"], ["Documentation/libcamera_architecture.rst:87", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/libcamera_architecture.rst#L87\"><code>Documentation/libcamera_architecture.rst:87</code></a>"]]' data-sdd-excerpts='{"Documentation/introduction.rst:139": ["#source-e93209ecbe248c51"], "Documentation/libcamera_architecture.rst:87": ["#source-8bd888bd0473995e"]}'>커널 드라이버는 카메라 하드웨어를 제어하는 구성 요소로, Linux 영상 장치용 API인 V4L2를 비롯한 API를 통해 사용자 공간에 하위 수준의 접점을 제공합니다. API는 프로그램이 장치 기능을 요청하는 접점입니다. libcamera의 Pipeline Handler는 이 접점으로 노출된 파이프라인을 관리하고, 스트림 설정을 바탕으로 파이프라인을 구성하며 장치에 필요한 경우 실행과 일정을 관리합니다. 장치별 Pipeline Handler는 감지하고 지원하는 장치를 바탕으로 <code>Camera</code> 인스턴스를 만들고 카메라 장치와의 상호작용을 관리합니다.</p>
+<!-- sdd:visual:item-inputs -->
+<h3 id="커널-입력과-카메라-제어-책임">커널 입력과 카메라 제어 책임</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"Camera Manager가 Pipeline &lt;br/&gt;Handlers를 생성합니다.": "Camera Manager instantiates &lt;br/&gt;Pipeline Handlers.", "Camera Manager는 카메라를 &lt;br/&gt;열거하고 Pipeline &lt;br/&gt;Handlers를 생성합니다.": "Camera Manager enumerates &lt;br/&gt;cameras and instantiates &lt;br/&gt;Pipeline Handlers.", "Linux kernel의 drivers가 &lt;br/&gt;카메라 하드웨어를 &lt;br/&gt;제어합니다.": "Linux kernel drivers &lt;br/&gt;control the camera hardware.", "Pipeline Handlers는 &lt;br/&gt;libcamera가 지원하는 각 &lt;br/&gt;Camera를 관리합니다.": "Pipeline Handlers manage &lt;br/&gt;each Camera that libcamera &lt;br/&gt;supports.", "Pipeline Handler는 커널이 &lt;br/&gt;Media Controller와 V4L2로 &lt;br/&gt;노출한 파이프라인을 &lt;br/&gt;관리합니다.": "Pipeline Handler manages &lt;br/&gt;the pipelines exposed &lt;br/&gt;through Media Controller &lt;br/&gt;and V4L2.", "interface는 Linux 커널 V4L2 &lt;br/&gt;API 계열을 통해 userspace에 &lt;br/&gt;노출됩니다.": "The interface is exposed to &lt;br/&gt;userspace through Linux &lt;br/&gt;V4L2 APIs.", "kernel drivers가 저수준 &lt;br/&gt;interface를 노출합니다.": "Kernel drivers expose the &lt;br/&gt;low-level interface.", "userspace에는 저수준 &lt;br/&gt;interface가 노출됩니다.": "The low-level interface is &lt;br/&gt;exposed to userspace.", "각 application에서는 Camera &lt;br/&gt;Manager 인스턴스가 하나만 &lt;br/&gt;실행됩니다.": "Only one Camera Manager &lt;br/&gt;instance runs per &lt;br/&gt;application.", "각 application의 Camera &lt;br/&gt;Manager는 한 번에 하나의 &lt;br/&gt;application만 camera &lt;br/&gt;device를 제어할 수 있게 &lt;br/&gt;보장합니다.": "Camera Manager ensures only &lt;br/&gt;one application controls a &lt;br/&gt;device at once.", "기반 kernel 기기가 지원하면 &lt;br/&gt;Camera Manager도 핫플러그 &lt;br/&gt;감지와 알림 이벤트를 &lt;br/&gt;지원합니다.": "Camera Manager supports &lt;br/&gt;hotplug events when kernel &lt;br/&gt;devices do.", "저수준 interface는 Linux &lt;br/&gt;커널의 V4L2 API 계열을 &lt;br/&gt;사용합니다.": "The low-level interface &lt;br/&gt;uses the Linux kernel V4L2 &lt;br/&gt;family of APIs.", "한 번에 하나의 &lt;br/&gt;application만 camera &lt;br/&gt;device를 제어할 수 있습니다.": "Only one application can &lt;br/&gt;control a camera device at &lt;br/&gt;once."}
+  v_kernel["Linux kernel의 drivers가 &lt;br/&gt;카메라 하드웨어를 &lt;br/&gt;제어합니다."]
+  v_interface["저수준 interface는 Linux &lt;br/&gt;커널의 V4L2 API 계열을 &lt;br/&gt;사용합니다."]
+  v_userspace["userspace에는 저수준 &lt;br/&gt;interface가 노출됩니다."]
+  v_manager["Camera Manager는 카메라를 &lt;br/&gt;열거하고 Pipeline &lt;br/&gt;Handlers를 생성합니다."]
+  v_handlers["Pipeline Handlers는 &lt;br/&gt;libcamera가 지원하는 각 &lt;br/&gt;Camera를 관리합니다."]
+  v_application["각 application에서는 Camera &lt;br/&gt;Manager 인스턴스가 하나만 &lt;br/&gt;실행됩니다."]
+  v_device["한 번에 하나의 &lt;br/&gt;application만 camera &lt;br/&gt;device를 제어할 수 있습니다."]
+  v_kernel --&gt;|"kernel drivers가 저수준 &lt;br/&gt;interface를 노출합니다."| v_interface
+  v_interface --&gt;|"interface는 Linux 커널 V4L2 &lt;br/&gt;API 계열을 통해 userspace에 &lt;br/&gt;노출됩니다."| v_userspace
+  v_manager --&gt;|"기반 kernel 기기가 지원하면 &lt;br/&gt;Camera Manager도 핫플러그 &lt;br/&gt;감지와 알림 이벤트를 &lt;br/&gt;지원합니다."| v_kernel
+  v_manager --&gt;|"Camera Manager가 Pipeline &lt;br/&gt;Handlers를 생성합니다."| v_handlers
+  v_application --&gt;|"각 application에서는 Camera &lt;br/&gt;Manager 인스턴스가 하나만 &lt;br/&gt;실행됩니다."| v_manager
+  v_manager --&gt;|"각 application의 Camera &lt;br/&gt;Manager는 한 번에 하나의 &lt;br/&gt;application만 camera &lt;br/&gt;device를 제어할 수 있게 &lt;br/&gt;보장합니다."| v_device
+  v_userspace --&gt;|"Pipeline Handler는 커널이 &lt;br/&gt;Media Controller와 V4L2로 &lt;br/&gt;노출한 파이프라인을 &lt;br/&gt;관리합니다."| v_handlers</pre>
+<p><a href="../team-overview.item-inputs.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>커널 인터페이스, Camera Manager, Pipeline Handler와 애플리케이션은 어떻게 관계를 맺으며 한 번에 누가 카메라를 제어할 수 있습니까?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Linux kernel drivers control the camera hardware.">Linux kernel의 drivers가 카메라 하드웨어를 제어합니다.</span></td>
+<td><a href="#source-e93209ecbe248c51">Documentation/introduction.rst:139</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The low-level interface uses the Linux kernel V4L2 family of APIs.">저수준 interface는 Linux 커널의 V4L2 API 계열을 사용합니다.</span></td>
+<td><a href="#source-e93209ecbe248c51">Documentation/introduction.rst:139</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The low-level interface is exposed to userspace.">userspace에는 저수준 interface가 노출됩니다.</span></td>
+<td><a href="#source-e93209ecbe248c51">Documentation/introduction.rst:139</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera Manager enumerates cameras and instantiates Pipeline Handlers.">Camera Manager는 카메라를 열거하고 Pipeline Handlers를 생성합니다.</span></td>
+<td><a href="#source-64bdc114ca74bd2c">Documentation/libcamera_architecture.rst:60</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Pipeline Handlers manage each Camera that libcamera supports.">Pipeline Handlers는 libcamera가 지원하는 각 Camera를 관리합니다.</span></td>
+<td><a href="#source-64bdc114ca74bd2c">Documentation/libcamera_architecture.rst:60</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Only one Camera Manager instance runs per application.">각 application에서는 Camera Manager 인스턴스가 하나만 실행됩니다.</span></td>
+<td><a href="#source-64bdc114ca74bd2c">Documentation/libcamera_architecture.rst:60</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Only one application can control a camera device at once.">한 번에 하나의 application만 camera device를 제어할 수 있습니다.</span></td>
+<td><a href="#source-64bdc114ca74bd2c">Documentation/libcamera_architecture.rst:60</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Kernel drivers expose the low-level interface.">kernel drivers가 저수준 interface를 노출합니다.</span></td>
+<td><a href="#source-e93209ecbe248c51">Documentation/introduction.rst:139</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The interface is exposed to userspace through Linux V4L2 APIs.">interface는 Linux 커널 V4L2 API 계열을 통해 userspace에 노출됩니다.</span></td>
+<td><a href="#source-e93209ecbe248c51">Documentation/introduction.rst:139</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera Manager supports hotplug events when kernel devices do.">기반 kernel 기기가 지원하면 Camera Manager도 핫플러그 감지와 알림 이벤트를 지원합니다.</span></td>
+<td><a href="#source-64bdc114ca74bd2c">Documentation/libcamera_architecture.rst:60</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera Manager instantiates Pipeline Handlers.">Camera Manager가 Pipeline Handlers를 생성합니다.</span></td>
+<td><a href="#source-64bdc114ca74bd2c">Documentation/libcamera_architecture.rst:60</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Only one Camera Manager instance runs per application.">각 application에서는 Camera Manager 인스턴스가 하나만 실행됩니다.</span></td>
+<td><a href="#source-64bdc114ca74bd2c">Documentation/libcamera_architecture.rst:60</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera Manager ensures only one application controls a device at once.">각 application의 Camera Manager는 한 번에 하나의 application만 camera device를 제어할 수 있게 보장합니다.</span></td>
+<td><a href="#source-64bdc114ca74bd2c">Documentation/libcamera_architecture.rst:60</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Pipeline Handler manages the pipelines exposed through Media Controller and V4L2.">Pipeline Handler는 커널이 Media Controller와 V4L2로 노출한 파이프라인을 관리합니다.</span></td>
+<td><a href="#source-8bd888bd0473995e">Documentation/libcamera_architecture.rst:87</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:item-inputs -->
+
+<p data-sdd-evidence='[["Documentation/libcamera_architecture.rst:60", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/libcamera_architecture.rst#L60\"><code>Documentation/libcamera_architecture.rst:60</code></a>"]]' data-sdd-excerpts='{"Documentation/libcamera_architecture.rst:60": ["#source-64bdc114ca74bd2c"]}'><code>Camera</code> Manager(카메라 관리자)는 카메라를 찾아 목록화하고, libcamera가 지원하는 각 카메라를 관리할 Pipeline Handler(카메라 처리 관리자)를 생성합니다. 각 애플리케이션에는 <code>Camera</code> Manager가 하나만 실행되며, 한 번에 하나의 애플리케이션만 카메라 장치의 제어권을 가질 수 있도록 합니다.</p>
+
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>3</span>개</summary><ul><li><code>Documentation/introduction.rst</code><span class="evidence-lines"><a href="#source-e93209ecbe248c51" aria-label="Documentation/introduction.rst:139 발췌"><code>L139</code> 발췌</a> · <a aria-label="Documentation/introduction.rst:139" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/introduction.rst#L139">전체 소스 <code>L139</code></a></span></li><li><code>Documentation/libcamera_architecture.rst</code><span class="evidence-lines"><a href="#source-8bd888bd0473995e" aria-label="Documentation/libcamera_architecture.rst:87 발췌"><code>L87</code> 발췌</a> · <a aria-label="Documentation/libcamera_architecture.rst:87" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/libcamera_architecture.rst#L87">전체 소스 <code>L87</code></a> · <a href="#source-64bdc114ca74bd2c" aria-label="Documentation/libcamera_architecture.rst:60 발췌"><code>L60</code> 발췌</a> · <a aria-label="Documentation/libcamera_architecture.rst:60" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/libcamera_architecture.rst#L60">전체 소스 <code>L60</code></a></span></li></ul></details><h2 id="내놓는-것">내놓는 것</h2>
+<p data-sdd-evidence='[["Documentation/introduction.rst:144", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/introduction.rst#L144\"><code>Documentation/introduction.rst:144</code></a>"], ["Documentation/libcamera_architecture.rst:72", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/libcamera_architecture.rst#L72\"><code>Documentation/libcamera_architecture.rst:72</code></a>"]]' data-sdd-excerpts='{"Documentation/introduction.rst:144": ["#source-d47b8630f593cf3c"], "Documentation/libcamera_architecture.rst:72": ["#source-611760d3be65ec8c"]}'>libcamera는 애플리케이션 등 상위 계층이 카메라 장치를 제어할 수 있도록 네이티브 C++ API를 제공합니다. 선택적인 언어 바인딩을 사용하면 다른 프로그래밍 언어에서도 libcamera와 연결할 수 있습니다.</p>
+<!-- sdd:visual:interfaces-to-upper-layers -->
+<h3 id="상위-계층이-libcamera에-연결하는-인터페이스">상위 계층이 libcamera에 연결하는 인터페이스</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"V4L2 호환 계층, GStreamer &lt;br/&gt;요소, Android 카메라 HAL이 &lt;br/&gt;예입니다.": "Examples include a V4L2 &lt;br/&gt;layer, a GStreamer element, &lt;br/&gt;and an Android camera HAL.", "libcamera 코어가 카메라 &lt;br/&gt;장치를 제어합니다.": "The libcamera core controls &lt;br/&gt;camera devices.", "libcamera에 연결": "Connects to libcamera", "네이티브 C++ API": "Native C++ API", "다른 언어는 선택적 언어 &lt;br/&gt;바인딩을 사용할 수 있습니다.": "Other languages can use &lt;br/&gt;optional bindings.", "상위 계층은 네이티브 C++ &lt;br/&gt;API를 사용합니다.": "Upper layers use the native &lt;br/&gt;C++ API.", "선택적 바인딩": "Optional bindings", "연결 구성 요소 예": "Integration examples", "외부 프레임워크는 연결 구성 &lt;br/&gt;요소를 사용합니다.": "Other frameworks use &lt;br/&gt;integration components."}
+  v_upper["상위 계층은 네이티브 C++ &lt;br/&gt;API를 사용합니다."]
+  v_other_language["다른 언어는 선택적 언어 &lt;br/&gt;바인딩을 사용할 수 있습니다."]
+  v_adaptation["외부 프레임워크는 연결 구성 &lt;br/&gt;요소를 사용합니다."]
+  v_examples["V4L2 호환 계층, GStreamer &lt;br/&gt;요소, Android 카메라 HAL이 &lt;br/&gt;예입니다."]
+  v_core["libcamera 코어가 카메라 &lt;br/&gt;장치를 제어합니다."]
+  v_upper --&gt;|"네이티브 C++ API"| v_core
+  v_other_language --&gt;|"선택적 바인딩"| v_core
+  v_adaptation --&gt;|"libcamera에 연결"| v_core
+  v_adaptation --&gt;|"연결 구성 요소 예"| v_examples</pre>
+<p><a href="../team-overview.interfaces-to-upper-layers.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>네이티브 API, 언어 바인딩과 외부 프레임워크의 adaptation은 어떻게 연결됩니까?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Upper layers use the native C++ API.">상위 계층은 네이티브 C++ API를 사용합니다.</span></td>
+<td><a href="#source-d47b8630f593cf3c">Documentation/introduction.rst:144</a> · <a href="#source-611760d3be65ec8c">Documentation/libcamera_architecture.rst:72</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Other languages can use optional bindings.">다른 언어는 선택적 언어 바인딩을 사용할 수 있습니다.</span></td>
+<td><a href="#source-d47b8630f593cf3c">Documentation/introduction.rst:144</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Other frameworks use integration components.">외부 프레임워크는 연결 구성 요소를 사용합니다.</span></td>
+<td><a href="#source-72dfdf22c79d4609">Documentation/introduction.rst:153</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Examples include a V4L2 layer, a GStreamer element, and an Android camera HAL.">V4L2 호환 계층, GStreamer 요소, Android 카메라 HAL이 예입니다.</span></td>
+<td><a href="#source-72dfdf22c79d4609">Documentation/introduction.rst:153</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The libcamera core controls camera devices.">libcamera 코어가 카메라 장치를 제어합니다.</span></td>
+<td><a href="#source-d47b8630f593cf3c">Documentation/introduction.rst:144</a> · <a href="#source-611760d3be65ec8c">Documentation/libcamera_architecture.rst:72</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Native C++ API">네이티브 C++ API</span></td>
+<td><a href="#source-d47b8630f593cf3c">Documentation/introduction.rst:144</a> · <a href="#source-611760d3be65ec8c">Documentation/libcamera_architecture.rst:72</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Optional bindings">선택적 바인딩</span></td>
+<td><a href="#source-d47b8630f593cf3c">Documentation/introduction.rst:144</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Connects to libcamera">libcamera에 연결</span></td>
+<td><a href="#source-72dfdf22c79d4609">Documentation/introduction.rst:153</a> · <a href="#source-d47b8630f593cf3c">Documentation/introduction.rst:144</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Integration examples">연결 구성 요소 예</span></td>
+<td><a href="#source-72dfdf22c79d4609">Documentation/introduction.rst:153</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:interfaces-to-upper-layers -->
+
+<p data-sdd-evidence='[["Documentation/introduction.rst:153", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/introduction.rst#L153\"><code>Documentation/introduction.rst:153</code></a>"]]' data-sdd-excerpts='{"Documentation/introduction.rst:153": ["#source-72dfdf22c79d4609"]}'>libcamera adaptation은 다른 프레임워크의 구성 요소 중 libcamera와 연결되는 구성 요소를 통칭합니다. 예로는 V4L2 호환 계층, gstreamer의 libcamera 요소, libcamera를 기반으로 구현한 Android 카메라 HAL(하드웨어와 소프트웨어를 연결하는 계층)이 있습니다. 이러한 구성 요소는 libcamera 프로젝트 소스 코드의 별도 저장소에 있거나 각 프로젝트의 저장소로 옮겨질 수 있습니다. 구체적인 입출력과 협업 책임은 확인되지 않습니다.</p>
+
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>3</span>개</summary><ul><li><code>Documentation/introduction.rst</code><span class="evidence-lines"><a href="#source-d47b8630f593cf3c" aria-label="Documentation/introduction.rst:144 발췌"><code>L144</code> 발췌</a> · <a aria-label="Documentation/introduction.rst:144" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/introduction.rst#L144">전체 소스 <code>L144</code></a> · <a href="#source-72dfdf22c79d4609" aria-label="Documentation/introduction.rst:153 발췌"><code>L153</code> 발췌</a> · <a aria-label="Documentation/introduction.rst:153" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/introduction.rst#L153">전체 소스 <code>L153</code></a></span></li><li><code>Documentation/libcamera_architecture.rst</code><span class="evidence-lines"><a href="#source-611760d3be65ec8c" aria-label="Documentation/libcamera_architecture.rst:72 발췌"><code>L72</code> 발췌</a> · <a aria-label="Documentation/libcamera_architecture.rst:72" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/libcamera_architecture.rst#L72">전체 소스 <code>L72</code></a></span></li></ul></details><p id="다른-팀계층과의-경계"><a href="../architecture.html#layer-boundaries">다른 팀·계층과의 경계</a></p><p id="다른-팀계층과의-경계의-관계와-경계"><a href="../architecture.html#%EB%8B%A4%EB%A5%B8-%ED%8C%80%EA%B3%84%EC%B8%B5%EA%B3%BC%EC%9D%98-%EA%B2%BD%EA%B3%84%EC%9D%98-%EA%B4%80%EA%B3%84%EC%99%80-%EA%B2%BD%EA%B3%84">다른 팀·계층과의 경계의 관계와 경계</a></p><h2 id="소스-근거">소스 근거</h2>
+<details class="source-excerpts"><summary>소스 발췌 <span>14</span>개</summary>
+<p>같은 발췌는 한 번만 싣습니다. 필요한 원문을 펼쳐 설명과 대조하세요.</p>
+<p><a id="source-34fda84500757231"></a></p>
+<details class="note">
+<summary>소스 근거: Documentation/introduction.rst:10</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/introduction.rst#L10"><code>Documentation/introduction.rst:10</code></a> ~ <code>13</code></p>
+<p>SHA-256: <code>84621541899cba7430b844bc03d13fc8e6f3f03e7c30556df0bf1cd11007494c</code></p>
+<div class="highlight"><pre><span></span><code>libcamera is an open source complex camera support library for Linux, Android
+and ChromeOS. The library interfaces with Linux kernel device drivers and
+provides an intuitive API to developers in order to simplify the complexity
+involved in capturing images from complex cameras on Linux systems.
+</code></pre></div>
+</details>
+<p><a id="source-de476c940b030e4a"></a></p>
+<details class="note">
+<summary>소스 근거: Documentation/introduction.rst:35</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/introduction.rst#L35"><code>Documentation/introduction.rst:35</code></a> ~ <code>40</code></p>
+<p>SHA-256: <code>0c6b72f4ffe9e608101639096b5597a61f41f776e4f5ac4aaa43229c744db3f0</code></p>
+<div class="highlight"><pre><span></span><code>The usage of these drivers to provide a functioning camera stack is a
+responsibility that lies in userspace, and is commonly implemented separately
+by vendors without a common architecture or API for application developers. This
+adds a lot of complexity to the task, particularly when considering that the
+differences in hardware pipelines and their representation in the kernel's APIs
+often necessitate bespoke handling.
+</code></pre></div>
+</details>
+<p><a id="source-f350cabac0db8343"></a></p>
+<details class="note">
+<summary>소스 근거: Documentation/introduction.rst:45</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/introduction.rst#L45"><code>Documentation/introduction.rst:45</code></a> ~ <code>49</code></p>
+<p>SHA-256: <code>56f623776b7eab9511de1f32c1f3080c4eab37239185f5134db6b2644760b1f5</code></p>
+<div class="highlight"><pre><span></span><code>libcamera provides a complete camera stack for Linux-based systems to abstract
+the configuration of hardware and image control algorithms required to obtain
+desirable results from the camera through the kernel's APIs, reducing those
+operations to a simple and consistent method for developers. In short instead of
+having to deal with this:
+</code></pre></div>
+</details>
+<p><a id="source-e3b563f549a8c46d"></a></p>
+<details class="note">
+<summary>소스 근거: Documentation/introduction.rst:137</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/introduction.rst#L137"><code>Documentation/introduction.rst:137</code></a> ~ <code>165</code></p>
+<p>SHA-256: <code>750a623b45ad76fbd899b56427ad76ef91bdc922497972317df868fe538c3b03</code></p>
+<div class="highlight"><pre><span></span><code>The camera stack comprises four software layers. From bottom to top:
+
+* The kernel drivers control the camera hardware and expose a
+  low-level interface to userspace through the Linux kernel V4L2
+  family of APIs (Media Controller API, V4L2 Video Device API and
+  V4L2 Subdev API).
+
+* The libcamera framework is the core part of the stack. It
+  handles all control of the camera devices in its core component,
+  libcamera, and exposes a native C++ API to upper layers. Optional
+  language bindings allow interfacing to libcamera from other
+  programming languages.
+
+  Those components live in the same source code repository and
+  all together constitute the libcamera framework.
+
+* The libcamera adaptation is an umbrella term designating the
+  components that interface to libcamera in other frameworks.
+  Notable examples are a V4L2 compatibility layer, a gstreamer
+  libcamera element, and an Android camera HAL implementation based
+  on libcamera.
+
+  Those components can live in the libcamera project source code
+  in separate repositories, or move to their respective project's
+  repository (for instance the gstreamer libcamera element).
+
+* The applications and upper level frameworks are based on the
+  libcamera framework or libcamera adaptation, and are outside of
+  the scope of the libcamera project.
+</code></pre></div>
+</details>
+<p><a id="source-e93209ecbe248c51"></a></p>
+<details class="note">
+<summary>소스 근거: Documentation/introduction.rst:139</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/introduction.rst#L139"><code>Documentation/introduction.rst:139</code></a> ~ <code>142</code></p>
+<p>SHA-256: <code>33d991f6b824d355da564d0c328fb633374964b7dfee2b8e68b450cb29a80efa</code></p>
+<div class="highlight"><pre><span></span><code>* The kernel drivers control the camera hardware and expose a
+  low-level interface to userspace through the Linux kernel V4L2
+  family of APIs (Media Controller API, V4L2 Video Device API and
+  V4L2 Subdev API).
+</code></pre></div>
+</details>
+<p><a id="source-8bd888bd0473995e"></a></p>
+<details class="note">
+<summary>소스 근거: Documentation/libcamera_architecture.rst:87</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/libcamera_architecture.rst#L87"><code>Documentation/libcamera_architecture.rst:87</code></a> ~ <code>102</code></p>
+<p>SHA-256: <code>868d392c7f94391d196168c05db330a1f07da72687d94f7b5a6ffaf1d6dee988</code></p>
+<div class="highlight"><pre><span></span><code>The Pipeline Handler manages the complex pipelines exposed by the kernel
+  drivers through the Media Controller and V4L2 APIs. It abstracts pipeline
+  handling to hide device-specific details from the rest of the library, and
+  implements both pipeline configuration based on stream configuration, and
+  pipeline runtime execution and scheduling when needed by the device.
+
+  The Pipeline Handler lives in the same process as the rest of the library, and
+  has access to all helpers and kernel camera-related devices.
+
+  Hardware abstraction is handled by device specific Pipeline Handlers which are
+  derived from the Pipeline Handler base class allowing commonality to be shared
+  among the implementations.
+
+  Derived pipeline handlers create Camera device instances based on the devices
+  they detect and support on the running system, and are responsible for
+  managing the interactions with a camera device.
+</code></pre></div>
+</details>
+<p><a id="source-64bdc114ca74bd2c"></a></p>
+<details class="note">
+<summary>소스 근거: Documentation/libcamera_architecture.rst:60</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/libcamera_architecture.rst#L60"><code>Documentation/libcamera_architecture.rst:60</code></a> ~ <code>67</code></p>
+<p>SHA-256: <code>bd036b31d192ef7504f07202ebcbc475e23b8b4387bf322ddf529accbbb786a7</code></p>
+<div class="highlight"><pre><span></span><code>The Camera Manager enumerates cameras and instantiates Pipeline Handlers to
+  manage each Camera that libcamera supports. The Camera Manager supports
+  hotplug detection and notification events when supported by the underlying
+  kernel devices.
+
+  There is only ever one instance of the Camera Manager running per application.
+  Each application's instance of the Camera Manager ensures that only a single
+  application can take control of a camera device at once.
+</code></pre></div>
+</details>
+<p><a id="source-d47b8630f593cf3c"></a></p>
+<details class="note">
+<summary>소스 근거: Documentation/introduction.rst:144</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/introduction.rst#L144"><code>Documentation/introduction.rst:144</code></a> ~ <code>151</code></p>
+<p>SHA-256: <code>69bc145221729420c980f5fe5887a43497e96b41eb16fa12ed7fdef01ccfdb97</code></p>
+<div class="highlight"><pre><span></span><code>* The libcamera framework is the core part of the stack. It
+  handles all control of the camera devices in its core component,
+  libcamera, and exposes a native C++ API to upper layers. Optional
+  language bindings allow interfacing to libcamera from other
+  programming languages.
+
+  Those components live in the same source code repository and
+  all together constitute the libcamera framework.
+</code></pre></div>
+</details>
+<p><a id="source-611760d3be65ec8c"></a></p>
+<details class="note">
+<summary>소스 근거: Documentation/libcamera_architecture.rst:72</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/libcamera_architecture.rst#L72"><code>Documentation/libcamera_architecture.rst:72</code></a> ~ <code>82</code></p>
+<p>SHA-256: <code>d64fa7a71ca69a53433d250a2fd8f59a0beed2578980eee658d8dfb44a7513ee</code></p>
+<div class="highlight"><pre><span></span><code>The Camera class represents a single item of camera hardware that is capable
+  of producing one or more image streams, and provides the API to interact with
+  the underlying device.
+
+  If a system has multiple instances of the same hardware attached, each has its
+  own instance of the camera class.
+
+  The API exposes full control of the device to upper layers of libcamera through
+  the public API, making it the highest level object libcamera exposes, and the
+  object that all other API operations interact with from configuration to
+  capture.
+</code></pre></div>
+</details>
+<p><a id="source-72dfdf22c79d4609"></a></p>
+<details class="note">
+<summary>소스 근거: Documentation/introduction.rst:153</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/introduction.rst#L153"><code>Documentation/introduction.rst:153</code></a> ~ <code>161</code></p>
+<p>SHA-256: <code>684ccb39cfc9bebf3125bd79b4b2f847de806a34261a9bcac9216bda52f1f99d</code></p>
+<div class="highlight"><pre><span></span><code>* The libcamera adaptation is an umbrella term designating the
+  components that interface to libcamera in other frameworks.
+  Notable examples are a V4L2 compatibility layer, a gstreamer
+  libcamera element, and an Android camera HAL implementation based
+  on libcamera.
+
+  Those components can live in the libcamera project source code
+  in separate repositories, or move to their respective project's
+  repository (for instance the gstreamer libcamera element).
+</code></pre></div>
+</details>
+<p><a id="source-9e653b8ff755db78"></a></p>
+<details class="note">
+<summary>소스 근거: Documentation/introduction.rst:163</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/introduction.rst#L163"><code>Documentation/introduction.rst:163</code></a> ~ <code>165</code></p>
+<p>SHA-256: <code>e8a1fc73a04b4feadbf1c6ca5d820f482b4eaaebfafec27a74612e2189b01c7c</code></p>
+<div class="highlight"><pre><span></span><code>* The applications and upper level frameworks are based on the
+  libcamera framework or libcamera adaptation, and are outside of
+  the scope of the libcamera project.
+</code></pre></div>
+</details>
+<p><a id="source-1f130cc8640ef810"></a></p>
+<details class="note">
+<summary>소스 근거: Documentation/libcamera_architecture.rst:109</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/libcamera_architecture.rst#L109"><code>Documentation/libcamera_architecture.rst:109</code></a> ~ <code>118</code></p>
+<p>SHA-256: <code>f0858f8576140aaf8b57ac5d757e8be0910218fb68d85b4704fe9275e2683a28</code></p>
+<div class="highlight"><pre><span></span><code>Together with the hardware image processing and hardware statistics
+  collection, the Image Processing Algorithms (IPA) implement 3A (Auto-Exposure,
+  Auto-White Balance and Auto-Focus) and other algorithms. They run on the CPU
+  and control hardware image processing based on the parameters supplied by
+  upper layers, closing the control loop of the ISP.
+
+  IPAs are loaded as external plugins named IPA Modules. IPA Modules can be
+  part of the libcamera code base or provided externally by camera vendors.
+  In-tree IPA modules are covered by the same license as the rest of libcamera,
+  external IPA modules can be open-source or closed-source.
+</code></pre></div>
+</details>
+<p><a id="source-341442e08591ef50"></a></p>
+<details class="note">
+<summary>소스 근거: Documentation/introduction.rst:200</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/introduction.rst#L200"><code>Documentation/introduction.rst:200</code></a> ~ <code>204</code></p>
+<p>SHA-256: <code>ef0482e955d8c625e622517f8a1bd58e9fcc321770a02c19aa241cdc485bb623</code></p>
+<div class="highlight"><pre><span></span><code>Handlers are a part of the libcamera code base and need to be contributed
+upstream by device vendors. IPA modules included in libcamera are covered by a
+free software license, however third-parties may develop IPA modules outside of
+libcamera and distribute them under a closed-source license, provided they do
+not include source code from the libcamera project.
+</code></pre></div>
+</details>
+<p><a id="source-6c10d5aeb8fc7ca9"></a></p>
+<details class="note">
+<summary>소스 근거: Documentation/libcamera_architecture.rst:120</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/libcamera_architecture.rst#L120"><code>Documentation/libcamera_architecture.rst:120</code></a> ~ <code>127</code></p>
+<p>SHA-256: <code>d877bb3fd4bb3023c4b18924fc81b0d964997c3ddf7263ba68b4c05d91f883c9</code></p>
+<div class="highlight"><pre><span></span><code>IPA Modules built with libcamera are run in the same process space as the
+  library. External IPA Modules are run in a separate sandboxed process. In
+  either case, they can only interact with libcamera through the API provided
+  by the Pipeline Handler. They have a restricted view of the system, with no
+  direct access to kernel camera devices, no access to networking APIs, and
+  limited access to file systems. All their accesses to image and metadata are
+  mediated by dmabuf instances explicitly passed by the Pipeline Handler to the
+  IPA Module.
+</code></pre></div>
+</details>
+</details>
+
+</article><section class="evidence"><h2 id="page-evidence">문서 생성·검토 정보</h2><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>사람 검토</dt><dd>사람 검토 전</dd><dt>분석 기준 커밋</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>문서 생성 시각</dt><dd><code>2026-11-11 20:35:47+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>문서 간 계약</dt><dd><a href="../contract-consistency.json">자동 대조 보고서</a> · 사람 검토 전</dd><dt>독자 범위</dt><dd><a href="../reader-scope.json">과업별 답변과 미검토 범위</a></dd></dl><details class="note manuscript-record"><summary>원고 작성 당시 기록</summary><p>원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.</p><ul><li>근거 파일: <code>Documentation/introduction.rst</code>, <code>Documentation/libcamera_architecture.rst</code>, <code>include/libcamera/camera.h</code>, <code>include/libcamera/camera_manager.h</code>, <code>include/libcamera/internal/pipeline_handler.h</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/camera_manager.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code></li><li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>c19d05128f</code>)</li><li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li><li>검토 상태 기록일: 2026-11-12 · 사람 검토 전</li></ul></details><a href="../team-overview.md">Markdown 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="../implementation.html"><small>이전</small>RKISP1 카메라별 왜곡 보정 ←</a><a class="next" href="../architecture.html"><small>다음</small>시스템 개요 →</a></nav>
+<footer>Generated by camera-hal-sdd-generator · 인용 검사와 사람의 내용 검토는 별도입니다.</footer></main>
+<aside class="page-toc"></aside></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">문서 찾기</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><label for="search-input">문서·절·용어·코드 요소 검색</label><input id="search-input" type="search" autocomplete="off" placeholder="예: Pipeline, IPA, 클래스 관계"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">클래스 관계</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">요소 찾기</label><input id="node-search" type="search" placeholder="그림 요소·함수 이름"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="축소">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="확대">+</button><button id="zoom-fit">화면에 맞춤</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">마우스로 끌거나 터치로 밀어서 그림을 이동합니다. '화면에 맞춤'은 그림 전체를 보는 개요 보기입니다.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="확대된 다이어그램"><div id="diagram-canvas"></div></div></dialog>
+<script id="site-config" type="application/json">{"root": "../", "mermaid": "assets/mermaid/mermaid.esm.min.mjs", "terms": "e624f47117"}</script><script defer src="../assets/site.js?v=dd3415510a"></script><script defer src="../assets/reader-tools.js?v=dd3415510a"></script></body></html>

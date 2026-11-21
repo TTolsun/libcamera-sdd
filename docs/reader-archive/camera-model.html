@@ -1,0 +1,1521 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>카메라와 요청 모델 · libcamera 설계 문서</title><link rel="stylesheet" href="../assets/reading.css?v=dd3415510a"><meta name="robots" content="noindex"><link rel="alternate" hreflang="ko" href="camera-model.html"><link rel="alternate" hreflang="en" href="../en/reader-archive/camera-model.html"></head>
+<body><a class="skip" href="#main">본문으로 이동</a>
+<header class="site-header"><a class="brand" href="../index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera 설계 문서</a>
+<div class="header-actions"><details class="language-selector"><summary aria-label="언어 선택">한국어 ▾</summary><nav><a lang="ko" hreflang="ko" href="camera-model.html" aria-current="true">한국어</a><a lang="en" hreflang="en" href="../en/reader-archive/camera-model.html">English</a></nav></details><button id="search-open" hidden>문서 찾기 <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>메뉴</button></div></header>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="문서 메뉴"></nav><p class="sidebar-note">코드에서 구조를 추출하고<br>근거와 함께 검토합니다.</p></aside>
+<main id="main"><p class="breadcrumb">For Developer <span>/</span> 카메라와 요청 모델</p><h1>카메라와 요청 모델</h1><div class="page-state"><span class="review-state">사람 검토 전</span><span>자동 검사 통과</span><span class="generation-method">작성: 추출한 구조와 모델이 쓴 초안</span><a class="state-help" href="#page-evidence">상태 설명 ↓</a></div>
+<p class="translation-note">이전 주소에서 연결하는 원본 자료 · <a href="../request-flow.html">독자용 문서로 이동</a></p><article><p><strong>클래스의 책임, 요청과 버퍼의 수명, 상태 전이와 종료·동기화 계약을 코드 근거로 확인하세요.</strong></p><details class="note scope-notices">
+<summary>설계 질문과 검증 범위</summary>
+<p>질문별 답변과 근거 연결을 검사했습니다. 의미와 실행 결과는 사람 검토가 필요합니다.</p>
+<ul class="coverage-links"><li><p>CameraManager, Camera, Request의 책임과 객체 수명은 어떻게 나뉩니까?</p><p><a href="#클래스별-책임">클래스별 책임</a></p></li><li><p>상태별 허용 호출과 동기화 책임은 어떻게 나뉩니까?</p><p><a href="#상태와-허용-호출">상태와 허용 호출</a></p></li><li><p>queueRequest의 실패 조건과 stop의 취소·완료·반환 상태는 무엇입니까?</p><p><a href="#오류와-종료">오류와 종료</a></p></li><li><p>threadsafe 보장, 호출자의 동기화 책임과 파이프라인의 완료 통지 계약을 구분하세요. 애플리케이션 콜백 전달 방식과 실기기 검증은 별도로 확인하세요.</p><p><a href="#동시성과-실행-확인">동시성과 실행 확인</a></p></li><li><p>카메라 연결이 끊어지면 상태·API 접근·대기 요청에 어떤 변화와 확인 한계가 있습니까?</p><p><a href="#연결-해제와-대기-요청">연결 해제와 대기 요청</a></p><p>실행 확인 항목 별도</p></li></ul><p><span>확인 범위</span>: <span>코드 근거와 설명 연결</span></p>
+</details>
+<details class="page-terms">
+<summary>이 문서의 용어: 활성 스트림, Pipeline Handler</summary>
+<ul>
+<li><strong>활성 스트림</strong>: 현재 카메라 구성에 연결된 Stream입니다. 요청 버퍼가 다른 구성의 스트림을 가리키면 제출 검사에서 거절됩니다.</li>
+<li><strong>Pipeline Handler</strong>: 특정 하드웨어 플랫폼(IPU3, RKISP1 등)의 미디어 장치를 찾아 카메라를 만들고, 요청을 장치에 넣고 완료를 돌려주는 libcamera 구성 요소입니다. 플랫폼마다 하나씩 있습니다.</li>
+</ul>
+<p>다른 용어는 <a href="../glossary.html">용어집</a>에서 찾을 수 있습니다.</p>
+</details>
+<div class="previous-route" id="요청-생성과-완료"><p>이전 링크의 목적지</p><a href="camera-requests.html#%EC%9A%94%EC%B2%AD-%EC%83%9D%EC%84%B1%EA%B3%BC-%EC%99%84%EB%A3%8C">요청 객체와 버퍼 수명</a></div>
+<div class="previous-route" id="소유권과-재사용"><p>이전 링크의 목적지</p><a href="camera-requests.html#%EC%86%8C%EC%9C%A0%EA%B6%8C%EA%B3%BC-%EC%9E%AC%EC%82%AC%EC%9A%A9">요청 객체와 버퍼 수명</a></div>
+<div class="previous-route" id="요청과-버퍼를-유지할-기간"><p>이전 링크의 목적지</p><a href="camera-requests.html#%EC%9A%94%EC%B2%AD%EA%B3%BC-%EB%B2%84%ED%8D%BC%EB%A5%BC-%EC%9C%A0%EC%A7%80%ED%95%A0-%EA%B8%B0%EA%B0%84">요청 객체와 버퍼 수명</a></div>
+<h2 id="클래스별-책임">클래스별 책임</h2>
+<p data-sdd-evidence='[["src/libcamera/camera_manager.cpp:280", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera_manager.cpp#L280\"><code>src/libcamera/camera_manager.cpp:280</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera_manager.cpp:280": ["#source-fbcf3effd2584b79"]}'><code>CameraManager</code>는 장치를 열거하고 파이프라인 관리자와 연결하며, 애플리케이션에 카메라 접근을 제공하고 카메라 객체를 소유하며 핫플러그와 핫언플러그에 따른 수명을 관리하는 libcamera의 진입점입니다. <code>CameraManager</code> 인스턴스는 한 번에 하나만 존재할 수 있으며, 기존 인스턴스를 삭제하기 전에 추가 인스턴스를 만들면 동작이 정의되지 않습니다.</p>
+<!-- sdd:visual:item-responsibility -->
+<h3 id="클래스별-책임의-관계와-경계">클래스별 책임의 관계와 경계</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"Camera 인스턴스는 &lt;br/&gt;create#40;#41;로 만들어야 하며, &lt;br/&gt;생성자와 소멸자는 수동 &lt;br/&gt;생성과 파괴를 막도록 &lt;br/&gt;비공개입니다.": "Camera instances must use &lt;br/&gt;create#40;#41;; private &lt;br/&gt;constructors and destructor &lt;br/&gt;prevent manual use.", "CameraManager는 모든 Camera &lt;br/&gt;객체를 소유하고 앱에 접근을 &lt;br/&gt;제공합니다.": "CameraManager owns all &lt;br/&gt;Camera objects and provides &lt;br/&gt;access to them.", "CameraManager는 장치를 &lt;br/&gt;열거하고 파이프라인 &lt;br/&gt;관리자와 연결하며 카메라의 &lt;br/&gt;핫플러그와 제거를 &lt;br/&gt;처리합니다.": "CameraManager enumerates &lt;br/&gt;devices, links pipeline &lt;br/&gt;managers, and handles &lt;br/&gt;camera hot-plugs.", "Camera는 Request를 &lt;br/&gt;생성합니다.": "Camera creates a Request.", "Camera는 단일 이미지 &lt;br/&gt;소스에서 하나 이상의 &lt;br/&gt;스트림을 만드는 장치를 &lt;br/&gt;모델링하고 설정, 제어, 캡처 &lt;br/&gt;인터페이스를 제공합니다.": "Camera models a &lt;br/&gt;single-source device and &lt;br/&gt;provides configuration, &lt;br/&gt;control and capture.", "Request는 프레임별 버퍼와 &lt;br/&gt;제어를 연결해 카메라 장치의 &lt;br/&gt;처리 대기열에 넣을 수 있게 &lt;br/&gt;합니다.": "Request associates &lt;br/&gt;per-frame buffers and &lt;br/&gt;controls for queuing to the &lt;br/&gt;camera device.", "create#40;#41;는 공유 포인터를 &lt;br/&gt;반환합니다.": "create#40;#41; returns a shared &lt;br/&gt;pointer.", "libcamera는 Camera의 수명을 &lt;br/&gt;std::shared#95;ptr로 &lt;br/&gt;관리합니다.": "libcamera manages Camera &lt;br/&gt;lifetime with &lt;br/&gt;std::shared#95;ptr.", "std::shared#95;ptr로 공유되는 &lt;br/&gt;Camera는 마지막 참조가 &lt;br/&gt;해제될 때까지 유효하며 앱의 &lt;br/&gt;특별한 조치가 필요하지 &lt;br/&gt;않습니다.": "A Camera shared by &lt;br/&gt;std::shared#95;ptr stays valid &lt;br/&gt;until its last reference is &lt;br/&gt;released.", "관리자가 제공한 자원은 정지 &lt;br/&gt;후 아직 삭제되지 않았더라도 &lt;br/&gt;유효하거나 작동한다고 &lt;br/&gt;간주해서는 안 됩니다.": "After stopping, manager &lt;br/&gt;resources should not be &lt;br/&gt;considered valid or &lt;br/&gt;functional, even if &lt;br/&gt;undeleted.", "앱이 보유한 카메라 참조를 &lt;br/&gt;모두 해제하면 &lt;br/&gt;CameraManager를 stop#40;#41;으로 &lt;br/&gt;중지할 수 있습니다.": "The app can stop &lt;br/&gt;CameraManager after &lt;br/&gt;releasing all camera &lt;br/&gt;references it held.", "앱이 보유한 카메라 참조를 &lt;br/&gt;모두 해제하면 &lt;br/&gt;CameraManager를 중지할 수 &lt;br/&gt;있습니다.": "CameraManager can stop &lt;br/&gt;after the app releases its &lt;br/&gt;camera references.", "정지 후에는 삭제되지 않은 &lt;br/&gt;자원도 유효하거나 &lt;br/&gt;작동한다고 간주해서는 안 &lt;br/&gt;됩니다.": "After stop, even undeleted &lt;br/&gt;resources should not be &lt;br/&gt;considered valid or &lt;br/&gt;functional.", "호출자는 관리자를 중지하기 &lt;br/&gt;전에 제공된 모든 카메라가 &lt;br/&gt;관리자에게 반환되도록 해야 &lt;br/&gt;합니다.": "Before stopping the &lt;br/&gt;manager, the caller must &lt;br/&gt;ensure all provided cameras &lt;br/&gt;are returned.", "호출자는 정지 전에 제공된 &lt;br/&gt;모든 카메라가 관리자에게 &lt;br/&gt;반환되도록 해야 합니다.": "The caller must ensure all &lt;br/&gt;provided cameras are &lt;br/&gt;returned before stop."}
+  v_manager["CameraManager는 장치를 &lt;br/&gt;열거하고 파이프라인 &lt;br/&gt;관리자와 연결하며 카메라의 &lt;br/&gt;핫플러그와 제거를 &lt;br/&gt;처리합니다."]
+  v_camera["Camera는 단일 이미지 &lt;br/&gt;소스에서 하나 이상의 &lt;br/&gt;스트림을 만드는 장치를 &lt;br/&gt;모델링하고 설정, 제어, 캡처 &lt;br/&gt;인터페이스를 제공합니다."]
+  v_request["Request는 프레임별 버퍼와 &lt;br/&gt;제어를 연결해 카메라 장치의 &lt;br/&gt;처리 대기열에 넣을 수 있게 &lt;br/&gt;합니다."]
+  v_shared["std::shared#95;ptr로 공유되는 &lt;br/&gt;Camera는 마지막 참조가 &lt;br/&gt;해제될 때까지 유효하며 앱의 &lt;br/&gt;특별한 조치가 필요하지 &lt;br/&gt;않습니다."]
+  v_create["Camera 인스턴스는 &lt;br/&gt;create#40;#41;로 만들어야 하며, &lt;br/&gt;생성자와 소멸자는 수동 &lt;br/&gt;생성과 파괴를 막도록 &lt;br/&gt;비공개입니다."]
+  v_stop["앱이 보유한 카메라 참조를 &lt;br/&gt;모두 해제하면 &lt;br/&gt;CameraManager를 stop#40;#41;으로 &lt;br/&gt;중지할 수 있습니다."]
+  v_caller["호출자는 관리자를 중지하기 &lt;br/&gt;전에 제공된 모든 카메라가 &lt;br/&gt;관리자에게 반환되도록 해야 &lt;br/&gt;합니다."]
+  v_resource["관리자가 제공한 자원은 정지 &lt;br/&gt;후 아직 삭제되지 않았더라도 &lt;br/&gt;유효하거나 작동한다고 &lt;br/&gt;간주해서는 안 됩니다."]
+  v_manager --&gt;|"CameraManager는 모든 Camera &lt;br/&gt;객체를 소유하고 앱에 접근을 &lt;br/&gt;제공합니다."| v_camera
+  v_camera --&gt;|"Camera는 Request를 &lt;br/&gt;생성합니다."| v_request
+  v_camera --&gt;|"libcamera는 Camera의 수명을 &lt;br/&gt;std::shared#95;ptr로 &lt;br/&gt;관리합니다."| v_shared
+  v_create --&gt;|"create#40;#41;는 공유 포인터를 &lt;br/&gt;반환합니다."| v_shared
+  v_manager --&gt;|"앱이 보유한 카메라 참조를 &lt;br/&gt;모두 해제하면 &lt;br/&gt;CameraManager를 중지할 수 &lt;br/&gt;있습니다."| v_stop
+  v_caller --&gt;|"호출자는 정지 전에 제공된 &lt;br/&gt;모든 카메라가 관리자에게 &lt;br/&gt;반환되도록 해야 합니다."| v_stop
+  v_stop --&gt;|"정지 후에는 삭제되지 않은 &lt;br/&gt;자원도 유효하거나 &lt;br/&gt;작동한다고 간주해서는 안 &lt;br/&gt;됩니다."| v_resource</pre>
+<p><a href="../camera-model.item-responsibility.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>CameraManager, Camera, Request의 책임과 Camera의 공유 수명은 어떻게 나뉘는가? CameraManager 정지 후 관리자 자원의 유효성 조건은 무엇인가?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<p>LLM 그림 초안 · 사람 검토 전</p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="CameraManager enumerates devices, links pipeline managers, and handles camera hot-plugs.">CameraManager는 장치를 열거하고 파이프라인 관리자와 연결하며 카메라의 핫플러그와 제거를 처리합니다.</span></td>
+<td><a href="#source-fbcf3effd2584b79">src/libcamera/camera_manager.cpp:280</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera models a single-source device and provides configuration, control and capture.">Camera는 단일 이미지 소스에서 하나 이상의 스트림을 만드는 장치를 모델링하고 설정, 제어, 캡처 인터페이스를 제공합니다.</span></td>
+<td><a href="#source-6c066281dcce33d6">src/libcamera/camera.cpp:758</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Request associates per-frame buffers and controls for queuing to the camera device.">Request는 프레임별 버퍼와 제어를 연결해 카메라 장치의 처리 대기열에 넣을 수 있게 합니다.</span></td>
+<td><a href="#source-abce7dd469896527">src/libcamera/request.cpp:343</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="A Camera shared by std::shared_ptr stays valid until its last reference is released.">std::shared_ptr로 공유되는 Camera는 마지막 참조가 해제될 때까지 유효하며 앱의 특별한 조치가 필요하지 않습니다.</span></td>
+<td><a href="#source-fbcf3effd2584b79">src/libcamera/camera_manager.cpp:280</a> · <a href="#source-6c066281dcce33d6">src/libcamera/camera.cpp:758</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera instances must use create(); private constructors and destructor prevent manual use.">Camera 인스턴스는 create()로 만들어야 하며, 생성자와 소멸자는 수동 생성과 파괴를 막도록 비공개입니다.</span></td>
+<td><a href="#source-6c066281dcce33d6">src/libcamera/camera.cpp:758</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The app can stop CameraManager after releasing all camera references it held.">앱이 보유한 카메라 참조를 모두 해제하면 CameraManager를 stop()으로 중지할 수 있습니다.</span></td>
+<td><a href="#source-fbcf3effd2584b79">src/libcamera/camera_manager.cpp:280</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Before stopping the manager, the caller must ensure all provided cameras are returned.">호출자는 관리자를 중지하기 전에 제공된 모든 카메라가 관리자에게 반환되도록 해야 합니다.</span></td>
+<td><a href="#source-f655f7db9b67c8d8">src/libcamera/camera_manager.cpp:351</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After stopping, manager resources should not be considered valid or functional, even if undeleted.">관리자가 제공한 자원은 정지 후 아직 삭제되지 않았더라도 유효하거나 작동한다고 간주해서는 안 됩니다.</span></td>
+<td><a href="#source-f655f7db9b67c8d8">src/libcamera/camera_manager.cpp:351</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="CameraManager owns all Camera objects and provides access to them.">CameraManager는 모든 Camera 객체를 소유하고 앱에 접근을 제공합니다.</span></td>
+<td><a href="#source-fbcf3effd2584b79">src/libcamera/camera_manager.cpp:280</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera creates a Request.">Camera는 Request를 생성합니다.</span></td>
+<td><a href="#source-abce7dd469896527">src/libcamera/request.cpp:343</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="libcamera manages Camera lifetime with std::shared_ptr.">libcamera는 Camera의 수명을 std::shared_ptr로 관리합니다.</span></td>
+<td><a href="#source-6c066281dcce33d6">src/libcamera/camera.cpp:758</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="create() returns a shared pointer.">create()는 공유 포인터를 반환합니다.</span></td>
+<td><a href="#source-6c066281dcce33d6">src/libcamera/camera.cpp:758</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="CameraManager can stop after the app releases its camera references.">앱이 보유한 카메라 참조를 모두 해제하면 CameraManager를 중지할 수 있습니다.</span></td>
+<td><a href="#source-fbcf3effd2584b79">src/libcamera/camera_manager.cpp:280</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The caller must ensure all provided cameras are returned before stop.">호출자는 정지 전에 제공된 모든 카메라가 관리자에게 반환되도록 해야 합니다.</span></td>
+<td><a href="#source-f655f7db9b67c8d8">src/libcamera/camera_manager.cpp:351</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After stop, even undeleted resources should not be considered valid or functional.">정지 후에는 삭제되지 않은 자원도 유효하거나 작동한다고 간주해서는 안 됩니다.</span></td>
+<td><a href="#source-f655f7db9b67c8d8">src/libcamera/camera_manager.cpp:351</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:item-responsibility -->
+
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:758", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L758\"><code>src/libcamera/camera.cpp:758</code></a>"], ["src/libcamera/request.cpp:343", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L343\"><code>src/libcamera/request.cpp:343</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:758": ["#source-6c066281dcce33d6"], "src/libcamera/request.cpp:343": ["#source-abce7dd469896527"]}'><code>Camera</code>는 하나의 이미지 소스에서 하나 이상의 이미지 스트림을 생성할 수 있는 카메라를 모델링하며, 장치 설정과 제어 및 이미지 스트림 캡처를 위한 주요 인터페이스입니다. libcamera는 카메라 인스턴스의 수명을 <code>std::shared_ptr</code>로 관리하며, 인스턴스는 공유 포인터를 반환하는 <code>create()</code> 함수로 생성해야 합니다. <code>Camera</code>의 생성자와 소멸자는 수동 생성과 소멸을 막기 위해 비공개입니다. <code>Request</code>는 애플리케이션이 프레임마다 버퍼와 컨트롤을 연결하고 카메라 장치에서 처리하도록 큐에 넣을 수 있는 객체입니다.</p>
+<p data-sdd-evidence='[["src/libcamera/request.cpp:343", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L343\"><code>src/libcamera/request.cpp:343</code></a>"], ["src/libcamera/camera_manager.cpp:351", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera_manager.cpp#L351\"><code>src/libcamera/camera_manager.cpp:351</code></a>"]]' data-sdd-excerpts='{"src/libcamera/request.cpp:343": ["#source-abce7dd469896527"], "src/libcamera/camera_manager.cpp:351": ["#source-f655f7db9b67c8d8"]}'><code>Request</code> 생성자에 전달한 <code>cookie</code>는 요청에 저장되는 애플리케이션용 불투명 값이며, 언제든지 <code>cookie()</code>로 읽을 수 있습니다. 호출자는 <code>CameraManager::stop</code>으로 관리자를 중지한 후에는 관리자가 제공한 자원이 아직 삭제되지 않았더라도 유효하거나 동작한다고 봐서는 안 됩니다.</p>
+
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>4</span>개</summary><ul><li><code>src/libcamera/camera_manager.cpp</code><span class="evidence-lines"><a href="#source-fbcf3effd2584b79" aria-label="src/libcamera/camera_manager.cpp:280 발췌"><code>L280</code> 발췌</a> · <a aria-label="src/libcamera/camera_manager.cpp:280" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera_manager.cpp#L280">전체 소스 <code>L280</code></a> · <a href="#source-f655f7db9b67c8d8" aria-label="src/libcamera/camera_manager.cpp:351 발췌"><code>L351</code> 발췌</a> · <a aria-label="src/libcamera/camera_manager.cpp:351" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera_manager.cpp#L351">전체 소스 <code>L351</code></a></span></li><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-6c066281dcce33d6" aria-label="src/libcamera/camera.cpp:758 발췌"><code>L758</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:758" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L758">전체 소스 <code>L758</code></a></span></li><li><code>src/libcamera/request.cpp</code><span class="evidence-lines"><a href="#source-abce7dd469896527" aria-label="src/libcamera/request.cpp:343 발췌"><code>L343</code> 발췌</a> · <a aria-label="src/libcamera/request.cpp:343" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L343">전체 소스 <code>L343</code></a></span></li></ul></details><h2 id="상태와-허용-호출">상태와 허용 호출</h2>
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:769", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L769\"><code>src/libcamera/camera.cpp:769</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:769": ["#source-4b17a07667f3a55d"]}'>카메라가 <code>Available</code> 상태에서 <code>acquire()</code>에 성공하면 <code>Acquired</code> 상태가 됩니다.</p>
+<!-- sdd:visual:camera-states -->
+<h3 id="카메라-상태와-허용-호출">카메라 상태와 허용 호출</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"Acquired": "Acquired", "Available": "Available", "Configured": "Configured", "Running": "Running", "Stopping": "Stopping", "acquire#40;#41;": "acquire#40;#41;", "configure#40;#41;": "configure#40;#41;", "configure#40;#41;, createRequest#40;#41;": "configure#40;#41;, createRequest#40;#41;", "createRequest#40;#41;, &lt;br/&gt;queueRequest#40;#41;": "createRequest#40;#41;, &lt;br/&gt;queueRequest#40;#41;", "release#40;#41;": "release#40;#41;", "start#40;#41;": "start#40;#41;", "stop#40;#41;": "stop#40;#41;", "정지 처리 종료": "stop finished"}
+  v_available["Available"]
+  v_acquired["Acquired"]
+  v_configured["Configured"]
+  v_running["Running"]
+  v_stopping["Stopping"]
+  v_available --&gt;|"release#40;#41;"| v_available
+  v_available --&gt;|"acquire#40;#41;"| v_acquired
+  v_acquired --&gt;|"release#40;#41;"| v_available
+  v_acquired --&gt;|"configure#40;#41;"| v_configured
+  v_configured --&gt;|"release#40;#41;"| v_available
+  v_configured --&gt;|"configure#40;#41;, createRequest#40;#41;"| v_configured
+  v_configured --&gt;|"start#40;#41;"| v_running
+  v_running --&gt;|"stop#40;#41;"| v_stopping
+  v_stopping --&gt;|"정지 처리 종료"| v_configured
+  v_running --&gt;|"createRequest#40;#41;, &lt;br/&gt;queueRequest#40;#41;"| v_running</pre>
+<p><a href="../camera-model.camera-states.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>성공한 상태 전이와 상태를 유지하는 호출을 구분하세요. 상태 변경 함수의 동기화는 호출자가 책임집니다.</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Available">Available</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Acquired">Acquired</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Configured">Configured</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Running">Running</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Stopping">Stopping</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="release()">release()</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="acquire()">acquire()</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="release()">release()</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="configure()">configure()</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="release()">release()</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="configure(), createRequest()">configure(), createRequest()</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="start()">start()</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="stop()">stop()</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="stop finished">정지 처리 종료</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="createRequest(), queueRequest()">createRequest(), queueRequest()</span></td>
+<td><a href="#source-4b17a07667f3a55d">src/libcamera/camera.cpp:769</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:camera-states -->
+
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:1237", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1237\"><code>src/libcamera/camera.cpp:1237</code></a>"], ["src/libcamera/base/log.cpp:1022", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/log.cpp#L1022\"><code>src/libcamera/base/log.cpp:1022</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:1237": ["#source-077fcae46087aee0"], "src/libcamera/base/log.cpp:1022": ["#source-47a6ef3943a7b53c"]}'><code>Camera::configure()</code>는 <code>CameraAcquired</code>부터 <code>CameraConfigured</code>까지의 접근을 검사해 결과가 음수이면 그 값을 반환하고, 각 설정의 스트림을 <code>nullptr</code>로 설정한 뒤 <code>validate()</code>가 <code>CameraConfiguration::Valid</code>가 아니면 <code>-EINVAL</code>을 반환합니다. 이후 <code>PipelineHandler::configure</code>의 반환값이 0이 아니면 그 값을 반환하고, 성공하면 활성 스트림을 비운 뒤 각 설정의 <code>cfg.stream()</code>을 확인합니다. 스트림이 null이면 <code>LOG</code>로 <code>Fatal</code> 메시지를 출력하고 그 뒤 활성 스트림을 비우고 <code>-EINVAL</code>을 반환하는 구문이 있지만, <code>Fatal</code> 로그는 메시지 출력 직후 프로그램을 종료하며, 모든 스트림 처리를 마치면 상태를 <code>Configured</code>로 설정하고 0을 반환합니다.</p>
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:769", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L769\"><code>src/libcamera/camera.cpp:769</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:769": ["#source-4b17a07667f3a55d"]}'><code>Configured</code> 상태에서 <code>start()</code>가 성공하면 카메라는 <code>Running</code> 상태가 됩니다. 카메라는 <code>Running</code> 상태에서 <code>stop()</code>을 호출하면 <code>Stopping</code> 상태로 진입합니다. 카메라는 <code>Stopping</code> 상태에서 정지 처리가 끝나면 <code>Configured</code> 상태로 돌아갑니다. <code>release()</code>는 <code>Available</code> 상태에서는 상태를 유지하고, <code>Acquired</code> 또는 <code>Configured</code> 상태에서는 <code>Available</code>로 바꿉니다.</p>
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:1258", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1258\"><code>src/libcamera/camera.cpp:1258</code></a>"], ["src/libcamera/camera.cpp:1320", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1320\"><code>src/libcamera/camera.cpp:1320</code></a>"], ["src/libcamera/camera.cpp:1383", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1383\"><code>src/libcamera/camera.cpp:1383</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:1258": ["#source-8f791427a31c3313"], "src/libcamera/camera.cpp:1320": ["#source-e0caa8c16f728202"], "src/libcamera/camera.cpp:1383": ["#source-617d53c4c7de2c0c"]}'>호출자는 카메라가 <code>Configured</code> 또는 <code>Running</code> 상태일 때만 <code>Camera::createRequest()</code>를 호출할 수 있습니다. 호출자는 카메라가 <code>Running</code> 상태일 때만 <code>Camera::queueRequest</code>를 호출할 수 있습니다. 카메라가 실행 중이 아니어서 요청을 큐에 넣을 수 없으면 <code>-EACCES</code>를 반환합니다. <code>Camera::start()</code>는 카메라가 <code>Configured</code> 상태일 때만 호출할 수 있습니다.</p>
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:780", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L780\"><code>src/libcamera/camera.cpp:780</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:780": ["#source-cc6c66b57cf028e6"]}'><code>Camera</code> 클래스는 카메라 상태에 영향을 주는 함수들을 일반적으로 서로 동기화하지 않습니다. 호출자는 필요한 경우 이 함수들이 동기화되도록 해야 합니다.</p>
+
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>7</span>개</summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-4b17a07667f3a55d" aria-label="src/libcamera/camera.cpp:769 발췌"><code>L769</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:769" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L769">전체 소스 <code>L769</code></a> · <a href="#source-077fcae46087aee0" aria-label="src/libcamera/camera.cpp:1237 발췌"><code>L1237</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:1237" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1237">전체 소스 <code>L1237</code></a> · <a href="#source-8f791427a31c3313" aria-label="src/libcamera/camera.cpp:1258 발췌"><code>L1258</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:1258" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1258">전체 소스 <code>L1258</code></a> · <a href="#source-e0caa8c16f728202" aria-label="src/libcamera/camera.cpp:1320 발췌"><code>L1320</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:1320" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1320">전체 소스 <code>L1320</code></a> · <a href="#source-617d53c4c7de2c0c" aria-label="src/libcamera/camera.cpp:1383 발췌"><code>L1383</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:1383" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1383">전체 소스 <code>L1383</code></a> · <a href="#source-cc6c66b57cf028e6" aria-label="src/libcamera/camera.cpp:780 발췌"><code>L780</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:780" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L780">전체 소스 <code>L780</code></a></span></li><li><code>src/libcamera/base/log.cpp</code><span class="evidence-lines"><a href="#source-47a6ef3943a7b53c" aria-label="src/libcamera/base/log.cpp:1022 발췌"><code>L1022</code> 발췌</a> · <a aria-label="src/libcamera/base/log.cpp:1022" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/log.cpp#L1022">전체 소스 <code>L1022</code></a></span></li></ul></details><h2 id="오류와-종료">오류와 종료</h2>
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:1308", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1308\"><code>src/libcamera/camera.cpp:1308</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:1308": ["#source-28d007de6ad1a8a5"]}'><code>Camera::queueRequest()</code>는 성공하면 0을 반환합니다. 실행 상태를 확인하는 <code>isAccessAllowed()</code>가 음수를 반환하면 그 값을 그대로 반환하며, API 주석에는 카메라 연결이 끊긴 경우 <code>-ENODEV</code>, 실행 중이 아닌 경우 <code>-EACCES</code>, 요청을 처리할 버퍼 메모리가 없는 경우 <code>-ENOMEM</code>이 명시되어 있습니다. <code>Camera::queueRequest()</code>는 요청을 생성한 카메라가 자신과 다르면 <code>-EXDEV</code>를 반환하고, 요청 상태가 <code>Request::RequestPending</code>이 아니면 <code>-EINVAL</code>을 반환합니다. 또한 <code>request-&gt;controls().infoMap()</code>이 <code>&amp;controls()</code> 주소와 다르면 <code>-EINVAL</code>을 반환합니다.</p>
+<!-- sdd:visual:stop-running-and-noop -->
+<h3 id="stop의-즉시-반환과-실행-중-정리">stop의 즉시 반환과 실행 중 정리</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"Camera::stop#40;#41;은 모든 &lt;br/&gt;카메라 상태에서 호출할 수 &lt;br/&gt;있습니다. 호출자는 카메라 &lt;br/&gt;상태에 영향을 주는 다른 &lt;br/&gt;함수와 호출을 동기화해야 &lt;br/&gt;합니다.": "Camera::stop#40;#41; may be &lt;br/&gt;called in any camera state. &lt;br/&gt;The caller must synchronize &lt;br/&gt;it with other functions &lt;br/&gt;that affect the camera &lt;br/&gt;state.", "PipelineHandler::stop을 &lt;br/&gt;동기 호출합니다. 대기 중인 &lt;br/&gt;모든 요청은 취소되고 오류 &lt;br/&gt;상태로 동기 완료됩니다.": "Call PipelineHandler::stop &lt;br/&gt;synchronously. All pending &lt;br/&gt;requests are canceled and &lt;br/&gt;complete synchronously in &lt;br/&gt;an error state.", "Private::CameraRunning에 &lt;br/&gt;대한 접근을 검사하고 결과가 &lt;br/&gt;음수인지 확인합니다.": "Check access for &lt;br/&gt;Private::CameraRunning and &lt;br/&gt;whether the result is &lt;br/&gt;negative.", "검사 결과가 음수가 아니면 &lt;br/&gt;상태를 바꿉니다. #91;false#93;": "Change the state if the &lt;br/&gt;check result is not &lt;br/&gt;negative. #91;false#93;", "검사 결과가 음수이면 &lt;br/&gt;반환합니다. #91;true#93;": "Return if the check result &lt;br/&gt;is negative. #91;true#93;", "대기 중인 요청이 없는지 &lt;br/&gt;ASSERT로 확인합니다.": "ASSERT checks that no &lt;br/&gt;requests are pending.", "동기 중지가 끝나면 대기 &lt;br/&gt;요청을 확인합니다.": "Check pending requests &lt;br/&gt;after the synchronous stop &lt;br/&gt;completes.", "상태를 &lt;br/&gt;Private::CameraConfigured로 &lt;br/&gt;바꿉니다.": "Set the state to &lt;br/&gt;Private::CameraConfigured.", "상태를 &lt;br/&gt;Private::CameraStopping으로 &lt;br/&gt;바꿉니다.": "Set the state to &lt;br/&gt;Private::CameraStopping.", "상태를 바꾼 뒤 동기 중지를 &lt;br/&gt;호출합니다.": "Call the synchronous stop &lt;br/&gt;after changing the state.", "상태를 바꾼 뒤 반환합니다.": "Return after changing the &lt;br/&gt;state.", "실행 여부를 확인합니다.": "Check whether the camera is &lt;br/&gt;running.", "실행 중이 아니면 바로 &lt;br/&gt;반환합니다. #91;true#93;": "Return immediately if the &lt;br/&gt;camera is not running. &lt;br/&gt;#91;true#93;", "실행 중이 아니면 상태를 &lt;br/&gt;바꾸지 않고 0을 반환합니다.": "If the camera is not &lt;br/&gt;running, return 0 without &lt;br/&gt;changing its state.", "실행 중이면 접근을 &lt;br/&gt;검사합니다. #91;false#93;": "Check access if the camera &lt;br/&gt;is running. #91;false#93;", "요청을 확인한 뒤 상태를 &lt;br/&gt;바꿉니다.": "Change the state after &lt;br/&gt;checking the requests.", "접근 검사 결과가 음수이면 &lt;br/&gt;그 오류 코드를 반환합니다.": "If the access check result &lt;br/&gt;is negative, return that &lt;br/&gt;error code.", "중지를 마치고 0을 &lt;br/&gt;반환합니다.": "Return 0 after stopping.", "카메라가 실행 중인지 &lt;br/&gt;확인합니다.": "Check whether the camera is &lt;br/&gt;running."}
+  v_entry["Camera::stop#40;#41;은 모든 &lt;br/&gt;카메라 상태에서 호출할 수 &lt;br/&gt;있습니다. 호출자는 카메라 &lt;br/&gt;상태에 영향을 주는 다른 &lt;br/&gt;함수와 호출을 동기화해야 &lt;br/&gt;합니다."]
+  v_running{"카메라가 실행 중인지 &lt;br/&gt;확인합니다."}
+  v_noop["실행 중이 아니면 상태를 &lt;br/&gt;바꾸지 않고 0을 반환합니다."]
+  v_access{"Private::CameraRunning에 &lt;br/&gt;대한 접근을 검사하고 결과가 &lt;br/&gt;음수인지 확인합니다."}
+  v_error["접근 검사 결과가 음수이면 &lt;br/&gt;그 오류 코드를 반환합니다."]
+  v_stopping["상태를 &lt;br/&gt;Private::CameraStopping으로 &lt;br/&gt;바꿉니다."]
+  v_stop["PipelineHandler::stop을 &lt;br/&gt;동기 호출합니다. 대기 중인 &lt;br/&gt;모든 요청은 취소되고 오류 &lt;br/&gt;상태로 동기 완료됩니다."]
+  v_pending["대기 중인 요청이 없는지 &lt;br/&gt;ASSERT로 확인합니다."]
+  v_configured["상태를 &lt;br/&gt;Private::CameraConfigured로 &lt;br/&gt;바꿉니다."]
+  v_success["중지를 마치고 0을 &lt;br/&gt;반환합니다."]
+  v_entry --&gt;|"실행 여부를 확인합니다."| v_running
+  v_running --&gt;|"실행 중이 아니면 바로 &lt;br/&gt;반환합니다. #91;true#93;"| v_noop
+  v_running --&gt;|"실행 중이면 접근을 &lt;br/&gt;검사합니다. #91;false#93;"| v_access
+  v_access --&gt;|"검사 결과가 음수이면 &lt;br/&gt;반환합니다. #91;true#93;"| v_error
+  v_access --&gt;|"검사 결과가 음수가 아니면 &lt;br/&gt;상태를 바꿉니다. #91;false#93;"| v_stopping
+  v_stopping --&gt;|"상태를 바꾼 뒤 동기 중지를 &lt;br/&gt;호출합니다."| v_stop
+  v_stop --&gt;|"동기 중지가 끝나면 대기 &lt;br/&gt;요청을 확인합니다."| v_pending
+  v_pending --&gt;|"요청을 확인한 뒤 상태를 &lt;br/&gt;바꿉니다."| v_configured
+  v_configured --&gt;|"상태를 바꾼 뒤 반환합니다."| v_success</pre>
+<p><a href="../camera-model.stop-running-and-noop.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>Camera::stop()은 실행 중이 아닐 때 무엇을 유지하고, 실행 중일 때 접근 검사·정지·대기 요청·상태 변경을 어떤 순서로 처리합니까?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<p>LLM 그림 초안 · 사람 검토 전</p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Camera::stop() may be called in any camera state. The caller must synchronize it with other functions that affect the camera state.">Camera::stop()은 모든 카메라 상태에서 호출할 수 있습니다. 호출자는 카메라 상태에 영향을 주는 다른 함수와 호출을 동기화해야 합니다.</span></td>
+<td><a href="#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether the camera is running.">카메라가 실행 중인지 확인합니다.</span></td>
+<td><a href="#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the camera is not running, return 0 without changing its state.">실행 중이 아니면 상태를 바꾸지 않고 0을 반환합니다.</span></td>
+<td><a href="#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check access for Private::CameraRunning and whether the result is negative.">Private::CameraRunning에 대한 접근을 검사하고 결과가 음수인지 확인합니다.</span></td>
+<td><a href="#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the access check result is negative, return that error code.">접근 검사 결과가 음수이면 그 오류 코드를 반환합니다.</span></td>
+<td><a href="#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Set the state to Private::CameraStopping.">상태를 Private::CameraStopping으로 바꿉니다.</span></td>
+<td><a href="#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call PipelineHandler::stop synchronously. All pending requests are canceled and complete synchronously in an error state.">PipelineHandler::stop을 동기 호출합니다. 대기 중인 모든 요청은 취소되고 오류 상태로 동기 완료됩니다.</span></td>
+<td><a href="#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="ASSERT checks that no requests are pending.">대기 중인 요청이 없는지 ASSERT로 확인합니다.</span></td>
+<td><a href="#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Set the state to Private::CameraConfigured.">상태를 Private::CameraConfigured로 바꿉니다.</span></td>
+<td><a href="#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return 0 after stopping.">중지를 마치고 0을 반환합니다.</span></td>
+<td><a href="#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether the camera is running.">실행 여부를 확인합니다.</span></td>
+<td><a href="#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return immediately if the camera is not running. · !d->isRunning() [true]">실행 중이 아니면 바로 반환합니다. · !d-&gt;isRunning() [true]</span></td>
+<td><a href="#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check access if the camera is running. · !d->isRunning() [false]">실행 중이면 접근을 검사합니다. · !d-&gt;isRunning() [false]</span></td>
+<td><a href="#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return if the check result is negative. · ret < 0 [true]">검사 결과가 음수이면 반환합니다. · ret &lt; 0 [true]</span></td>
+<td><a href="#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Change the state if the check result is not negative. · ret < 0 [false]">검사 결과가 음수가 아니면 상태를 바꿉니다. · ret &lt; 0 [false]</span></td>
+<td><a href="#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call the synchronous stop after changing the state.">상태를 바꾼 뒤 동기 중지를 호출합니다.</span></td>
+<td><a href="#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check pending requests after the synchronous stop completes.">동기 중지가 끝나면 대기 요청을 확인합니다.</span></td>
+<td><a href="#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Change the state after checking the requests.">요청을 확인한 뒤 상태를 바꿉니다.</span></td>
+<td><a href="#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return after changing the state.">상태를 바꾼 뒤 반환합니다.</span></td>
+<td><a href="#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:stop-running-and-noop -->
+
+<!-- sdd:visual:queue-validation-order -->
+<h3 id="queuerequest의-검사와-접수-경계">queueRequest의 검사와 접수 경계</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"PipelineHandler::&lt;br/&gt;queueRequest를 &lt;br/&gt;ConnectionTypeQueued로 &lt;br/&gt;호출하고 0을 반환합니다. &lt;br/&gt;완료는 requestCompleted로 &lt;br/&gt;알립니다.": "Invoke &lt;br/&gt;PipelineHandler::&lt;br/&gt;queueRequest with &lt;br/&gt;ConnectionTypeQueued and &lt;br/&gt;return 0.", "buffers가 비어 있는지 &lt;br/&gt;검사합니다. 호출자는 접수 &lt;br/&gt;전에 캡처 버퍼를 하나 이상 &lt;br/&gt;채워야 합니다.": "Check buffers. The caller &lt;br/&gt;must add at least one &lt;br/&gt;capture buffer before &lt;br/&gt;queuing.", "infoMap이 카메라의 &lt;br/&gt;controls와 같으면 버퍼를 &lt;br/&gt;검사합니다. #91;false#93;": "Check buffers if infoMap &lt;br/&gt;matches the camera &lt;br/&gt;controls. #91;false#93;", "infoMap이 카메라의 &lt;br/&gt;controls와 다르면 &lt;br/&gt;반환합니다. #91;true#93;": "Return if infoMap differs &lt;br/&gt;from the camera controls. &lt;br/&gt;#91;true#93;", "isAccessAllowed로 접근을 &lt;br/&gt;검사합니다. 호출은 카메라가 &lt;br/&gt;Running 상태일 때만 &lt;br/&gt;허용됩니다.": "Check access with &lt;br/&gt;isAccessAllowed. Call only &lt;br/&gt;while the camera is Running.", "request가 이 카메라에 &lt;br/&gt;속하면 상태를 검사합니다. &lt;br/&gt;#91;false#93;": "Check status if request &lt;br/&gt;belongs to this camera. &lt;br/&gt;#91;false#93;", "request가 이 카메라에 &lt;br/&gt;속하지 않으면 반환합니다. &lt;br/&gt;#91;true#93;": "Return if request does not &lt;br/&gt;belong to this camera. &lt;br/&gt;#91;true#93;", "request가 이 카메라에서 &lt;br/&gt;만들어졌는지 검사합니다.": "Check whether this camera &lt;br/&gt;created request.", "request의 status가 &lt;br/&gt;Request::RequestPending인지 &lt;br/&gt;검사합니다.": "Check whether the status of &lt;br/&gt;request is &lt;br/&gt;Request::RequestPending.", "request의 제어 목록이 &lt;br/&gt;유효한지 infoMap을 &lt;br/&gt;검사합니다.": "Check infoMap to validate &lt;br/&gt;the control list of request.", "stream이 activeStreams#95;에 &lt;br/&gt;없으면 반환합니다. #91;true#93;": "Return if stream is absent &lt;br/&gt;from activeStreams#95;. #91;true#93;", "stream이 활성 상태이고 다음 &lt;br/&gt;버퍼가 있으면 다음 스트림을 &lt;br/&gt;검사합니다. #91;false#93;": "Check the next stream if &lt;br/&gt;this one is active and a &lt;br/&gt;buffer remains. #91;false#93;", "각 버퍼의 stream이 &lt;br/&gt;activeStreams#95;에 있는지 &lt;br/&gt;검사합니다.": "Check whether each buffer#39;s &lt;br/&gt;stream is in activeStreams#95;.", "검사에 실패하면 -EINVAL을 &lt;br/&gt;즉시 반환하고 request를 &lt;br/&gt;접수하지 않습니다.": "On a failed check, return &lt;br/&gt;-EINVAL immediately without &lt;br/&gt;queuing request.", "다른 카메라의 request이면 &lt;br/&gt;-EXDEV를 즉시 반환합니다.": "Return -EXDEV immediately &lt;br/&gt;if request belongs to &lt;br/&gt;another camera.", "마지막 stream이 활성 &lt;br/&gt;상태이면 반복을 끝내고 &lt;br/&gt;전처리합니다. #91;false#93;": "End the loop and preprocess &lt;br/&gt;if the last stream is &lt;br/&gt;active. #91;false#93;", "모든 스트림 검사가 끝나면 &lt;br/&gt;patchControlList로 &lt;br/&gt;AeEnable을 전처리합니다.": "After all stream checks, &lt;br/&gt;patchControlList &lt;br/&gt;preprocesses AeEnable.", "버퍼가 없으면 반환합니다. &lt;br/&gt;#91;true#93;": "Return if there are no &lt;br/&gt;buffers. #91;true#93;", "버퍼가 있으면 각 스트림을 &lt;br/&gt;검사합니다. #91;false#93;": "Check each stream if &lt;br/&gt;buffers are present. #91;false#93;", "상태가 &lt;br/&gt;Request::RequestPending이 &lt;br/&gt;아니면 반환합니다. #91;true#93;": "Return if status is not &lt;br/&gt;Request::RequestPending. &lt;br/&gt;#91;true#93;", "상태가 &lt;br/&gt;Request::RequestPending이면 &lt;br/&gt;제어 목록을 검사합니다. &lt;br/&gt;#91;false#93;": "Check controls if status is &lt;br/&gt;Request::RequestPending. &lt;br/&gt;#91;false#93;", "전처리한 뒤 queued 호출을 &lt;br/&gt;하고 0을 반환합니다.": "After preprocessing, make &lt;br/&gt;the queued call and return &lt;br/&gt;0.", "접근 검사 결과가 음수가 &lt;br/&gt;아니면 카메라를 검사합니다. &lt;br/&gt;#91;false#93;": "Check the camera if the &lt;br/&gt;access result is not &lt;br/&gt;negative. #91;false#93;", "접근 검사 결과가 음수이면 &lt;br/&gt;ret을 즉시 반환합니다. &lt;br/&gt;문서에는 연결 해제 시 &lt;br/&gt;-ENODEV, 실행 중이 아닐 때 &lt;br/&gt;-EACCES가 명시됩니다.": "Return a negative ret &lt;br/&gt;immediately. The documented &lt;br/&gt;errors include -ENODEV and &lt;br/&gt;-EACCES.", "접근 검사 결과가 음수이면 &lt;br/&gt;즉시 반환합니다. #91;true#93;": "Return immediately if the &lt;br/&gt;access result is negative. &lt;br/&gt;#91;true#93;"}
+  v_access{"isAccessAllowed로 접근을 &lt;br/&gt;검사합니다. 호출은 카메라가 &lt;br/&gt;Running 상태일 때만 &lt;br/&gt;허용됩니다."}
+  v_access_error["접근 검사 결과가 음수이면 &lt;br/&gt;ret을 즉시 반환합니다. &lt;br/&gt;문서에는 연결 해제 시 &lt;br/&gt;-ENODEV, 실행 중이 아닐 때 &lt;br/&gt;-EACCES가 명시됩니다."]
+  v_camera{"request가 이 카메라에서 &lt;br/&gt;만들어졌는지 검사합니다."}
+  v_wrong_camera["다른 카메라의 request이면 &lt;br/&gt;-EXDEV를 즉시 반환합니다."]
+  v_status{"request의 status가 &lt;br/&gt;Request::RequestPending인지 &lt;br/&gt;검사합니다."}
+  v_controls{"request의 제어 목록이 &lt;br/&gt;유효한지 infoMap을 &lt;br/&gt;검사합니다."}
+  v_buffers{"buffers가 비어 있는지 &lt;br/&gt;검사합니다. 호출자는 접수 &lt;br/&gt;전에 캡처 버퍼를 하나 이상 &lt;br/&gt;채워야 합니다."}
+  v_stream{"각 버퍼의 stream이 &lt;br/&gt;activeStreams#95;에 있는지 &lt;br/&gt;검사합니다."}
+  v_invalid["검사에 실패하면 -EINVAL을 &lt;br/&gt;즉시 반환하고 request를 &lt;br/&gt;접수하지 않습니다."]
+  v_patch["모든 스트림 검사가 끝나면 &lt;br/&gt;patchControlList로 &lt;br/&gt;AeEnable을 전처리합니다."]
+  v_queued["PipelineHandler::&lt;br/&gt;queueRequest를 &lt;br/&gt;ConnectionTypeQueued로 &lt;br/&gt;호출하고 0을 반환합니다. &lt;br/&gt;완료는 requestCompleted로 &lt;br/&gt;알립니다."]
+  v_access --&gt;|"접근 검사 결과가 음수이면 &lt;br/&gt;즉시 반환합니다. #91;true#93;"| v_access_error
+  v_access --&gt;|"접근 검사 결과가 음수가 &lt;br/&gt;아니면 카메라를 검사합니다. &lt;br/&gt;#91;false#93;"| v_camera
+  v_camera --&gt;|"request가 이 카메라에 &lt;br/&gt;속하지 않으면 반환합니다. &lt;br/&gt;#91;true#93;"| v_wrong_camera
+  v_camera --&gt;|"request가 이 카메라에 &lt;br/&gt;속하면 상태를 검사합니다. &lt;br/&gt;#91;false#93;"| v_status
+  v_status --&gt;|"상태가 &lt;br/&gt;Request::RequestPending이 &lt;br/&gt;아니면 반환합니다. #91;true#93;"| v_invalid
+  v_status --&gt;|"상태가 &lt;br/&gt;Request::RequestPending이면 &lt;br/&gt;제어 목록을 검사합니다. &lt;br/&gt;#91;false#93;"| v_controls
+  v_controls --&gt;|"infoMap이 카메라의 &lt;br/&gt;controls와 다르면 &lt;br/&gt;반환합니다. #91;true#93;"| v_invalid
+  v_controls --&gt;|"infoMap이 카메라의 &lt;br/&gt;controls와 같으면 버퍼를 &lt;br/&gt;검사합니다. #91;false#93;"| v_buffers
+  v_buffers --&gt;|"버퍼가 없으면 반환합니다. &lt;br/&gt;#91;true#93;"| v_invalid
+  v_buffers --&gt;|"버퍼가 있으면 각 스트림을 &lt;br/&gt;검사합니다. #91;false#93;"| v_stream
+  v_stream --&gt;|"stream이 activeStreams#95;에 &lt;br/&gt;없으면 반환합니다. #91;true#93;"| v_invalid
+  v_stream --&gt;|"stream이 활성 상태이고 다음 &lt;br/&gt;버퍼가 있으면 다음 스트림을 &lt;br/&gt;검사합니다. #91;false#93;"| v_stream
+  v_stream --&gt;|"마지막 stream이 활성 &lt;br/&gt;상태이면 반복을 끝내고 &lt;br/&gt;전처리합니다. #91;false#93;"| v_patch
+  v_patch --&gt;|"전처리한 뒤 queued 호출을 &lt;br/&gt;하고 0을 반환합니다."| v_queued</pre>
+<p><a href="../camera-model.queue-validation-order.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>Camera::queueRequest()의 접근·카메라·상태·제어·버퍼·스트림 검사 순서와 각 오류 반환 및 접수 경계는 무엇입니까?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<p>LLM 그림 초안 · 사람 검토 전</p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Check access with isAccessAllowed. Call only while the camera is Running.">isAccessAllowed로 접근을 검사합니다. 호출은 카메라가 Running 상태일 때만 허용됩니다.</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return a negative ret immediately. The documented errors include -ENODEV and -EACCES.">접근 검사 결과가 음수이면 ret을 즉시 반환합니다. 문서에는 연결 해제 시 -ENODEV, 실행 중이 아닐 때 -EACCES가 명시됩니다.</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether this camera created request.">request가 이 카메라에서 만들어졌는지 검사합니다.</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return -EXDEV immediately if request belongs to another camera.">다른 카메라의 request이면 -EXDEV를 즉시 반환합니다.</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether the status of request is Request::RequestPending.">request의 status가 Request::RequestPending인지 검사합니다.</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check infoMap to validate the control list of request.">request의 제어 목록이 유효한지 infoMap을 검사합니다.</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check buffers. The caller must add at least one capture buffer before queuing.">buffers가 비어 있는지 검사합니다. 호출자는 접수 전에 캡처 버퍼를 하나 이상 채워야 합니다.</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether each buffer's stream is in activeStreams_.">각 버퍼의 stream이 activeStreams_에 있는지 검사합니다.</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="On a failed check, return -EINVAL immediately without queuing request.">검사에 실패하면 -EINVAL을 즉시 반환하고 request를 접수하지 않습니다.</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After all stream checks, patchControlList preprocesses AeEnable.">모든 스트림 검사가 끝나면 patchControlList로 AeEnable을 전처리합니다.</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Invoke PipelineHandler::queueRequest with ConnectionTypeQueued and return 0.">PipelineHandler::queueRequest를 ConnectionTypeQueued로 호출하고 0을 반환합니다. 완료는 requestCompleted로 알립니다.</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return immediately if the access result is negative. · ret < 0 [true]">접근 검사 결과가 음수이면 즉시 반환합니다. · ret &lt; 0 [true]</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the camera if the access result is not negative. · ret < 0 [false]">접근 검사 결과가 음수가 아니면 카메라를 검사합니다. · ret &lt; 0 [false]</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return if request does not belong to this camera. · request->_d()->camera() != this [true]">request가 이 카메라에 속하지 않으면 반환합니다. · request-&gt;_d()-&gt;camera() != this [true]</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check status if request belongs to this camera. · request->_d()->camera() != this [false]">request가 이 카메라에 속하면 상태를 검사합니다. · request-&gt;_d()-&gt;camera() != this [false]</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return if status is not Request::RequestPending. · request->status() != Request::RequestPending [true]">상태가 Request::RequestPending이 아니면 반환합니다. · request-&gt;status() != Request::RequestPending [true]</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check controls if status is Request::RequestPending. · request->status() != Request::RequestPending [false]">상태가 Request::RequestPending이면 제어 목록을 검사합니다. · request-&gt;status() != Request::RequestPending [false]</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return if infoMap differs from the camera controls. · request->controls().infoMap() != &amp;controls() [true]">infoMap이 카메라의 controls와 다르면 반환합니다. · request-&gt;controls().infoMap() != &amp;controls() [true]</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check buffers if infoMap matches the camera controls. · request->controls().infoMap() != &amp;controls() [false]">infoMap이 카메라의 controls와 같으면 버퍼를 검사합니다. · request-&gt;controls().infoMap() != &amp;controls() [false]</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return if there are no buffers. · request->buffers().empty() [true]">버퍼가 없으면 반환합니다. · request-&gt;buffers().empty() [true]</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check each stream if buffers are present. · request->buffers().empty() [false]">버퍼가 있으면 각 스트림을 검사합니다. · request-&gt;buffers().empty() [false]</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return if stream is absent from activeStreams_. · d->activeStreams_.find(stream) == d->activeStreams_.end() [true]">stream이 activeStreams_에 없으면 반환합니다. · d-&gt;activeStreams_.find(stream) == d-&gt;activeStreams_.end() [true]</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the next stream if this one is active and a buffer remains. · d->activeStreams_.find(stream) == d->activeStreams_.end() [false]">stream이 활성 상태이고 다음 버퍼가 있으면 다음 스트림을 검사합니다. · d-&gt;activeStreams_.find(stream) == d-&gt;activeStreams_.end() [false]</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="End the loop and preprocess if the last stream is active. · d->activeStreams_.find(stream) == d->activeStreams_.end() [false]">마지막 stream이 활성 상태이면 반복을 끝내고 전처리합니다. · d-&gt;activeStreams_.find(stream) == d-&gt;activeStreams_.end() [false]</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After preprocessing, make the queued call and return 0.">전처리한 뒤 queued 호출을 하고 0을 반환합니다.</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:queue-validation-order -->
+
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:1308", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1308\"><code>src/libcamera/camera.cpp:1308</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:1308": ["#source-28d007de6ad1a8a5"]}'>애플리케이션은 <code>createRequest()</code>로 만든 요청을 큐에 넣기 전에 적어도 하나의 캡처 버퍼를 채워야 합니다. <code>Camera::queueRequest()</code>는 카메라 상태·소유 카메라·요청 상태·제어 정보 검사 뒤에 버퍼 존재와 활성 스트림을 검사하며, 버퍼가 없거나 버퍼의 스트림이 활성 스트림에 없으면 <code>-EINVAL</code>을 반환합니다. 큐에 접수된 요청의 완료는 <code>requestCompleted</code> 신호로 알립니다.</p>
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:1431", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1431\"><code>src/libcamera/camera.cpp:1431</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:1431": ["#source-e09324743def3f09"]}'><code>Camera::stop()</code>은 카메라가 실행 중이 아니면 아무 작업도 하지 않고 0을 반환합니다. 실행 중일 때 <code>isAccessAllowed()</code>가 음수를 반환하면 그 값을 그대로 반환합니다. 검사를 통과하면 상태를 <code>CameraStopping</code>으로 바꾸고 <code>PipelineHandler::stop</code>을 <code>ConnectionTypeBlocking</code>으로 호출한 뒤 <code>CameraConfigured</code> 상태로 바꾸고 0을 반환합니다. <code>Camera::stop()</code>의 API 계약에 따르면 캡처와 요청 처리를 즉시 중단하며, 대기 중인 모든 요청을 취소하고 오류 상태로 동기 완료합니다.</p>
+
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>2</span>개</summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-28d007de6ad1a8a5" aria-label="src/libcamera/camera.cpp:1308 발췌"><code>L1308</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:1308" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1308">전체 소스 <code>L1308</code></a> · <a href="#source-e09324743def3f09" aria-label="src/libcamera/camera.cpp:1431 발췌"><code>L1431</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:1431" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1431">전체 소스 <code>L1431</code></a></span></li></ul></details><h2 id="동시성과-실행-확인">동시성과 실행 확인</h2>
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:1243", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1243\"><code>src/libcamera/camera.cpp:1243</code></a>"], ["src/libcamera/camera.cpp:1308", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1308\"><code>src/libcamera/camera.cpp:1308</code></a>"], ["src/libcamera/camera.cpp:1383", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1383\"><code>src/libcamera/camera.cpp:1383</code></a>"], ["src/libcamera/camera.cpp:1431", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1431\"><code>src/libcamera/camera.cpp:1431</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:1243": ["#source-0ae00d77839f61cb"], "src/libcamera/camera.cpp:1308": ["#source-28d007de6ad1a8a5"], "src/libcamera/camera.cpp:1383": ["#source-617d53c4c7de2c0c"], "src/libcamera/camera.cpp:1431": ["#source-e09324743def3f09"]}'><code>Camera::createRequest()</code>는 스레드 안전 함수입니다. <code>Camera::queueRequest()</code>는 스레드 안전 함수입니다. 호출자는 <code>Camera::start</code>와 <code>Camera::stop</code>을 각각 카메라 상태에 영향을 주는 다른 함수들과 동기화해야 합니다.</p>
+<!-- sdd:visual:item-concurrency -->
+<h3 id="api-호출-계약-동기화와-완료-함수의-스레드">API 호출 계약: 동기화와 완료 함수의 스레드</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"Camera::queueRequest#40;#41;는 &lt;br/&gt;threadsafe이며 Running &lt;br/&gt;상태에서만 호출할 수 &lt;br/&gt;있습니다.": "Camera::queueRequest#40;#41; is &lt;br/&gt;threadsafe and may be &lt;br/&gt;called only in the Running &lt;br/&gt;state.", "Camera::start#40;#41;는 &lt;br/&gt;Configured 상태에서만 &lt;br/&gt;호출할 수 있습니다.": "Camera::start#40;#41; may be &lt;br/&gt;called only in the &lt;br/&gt;Configured state.", "Camera::stop#40;#41;은 어느 &lt;br/&gt;상태에서나 호출할 수 &lt;br/&gt;있으며, 카메라가 실행 중이 &lt;br/&gt;아니면 아무 작업도 하지 &lt;br/&gt;않습니다.": "Camera::stop#40;#41; may be &lt;br/&gt;called in any state and &lt;br/&gt;does nothing if the camera &lt;br/&gt;is not running.", "CameraManager 스레드는 &lt;br/&gt;파이프라인 완료 함수의 호출 &lt;br/&gt;문맥입니다.": "The CameraManager thread is &lt;br/&gt;the required calling &lt;br/&gt;context for the pipeline &lt;br/&gt;completion functions.", "PipelineHandler::&lt;br/&gt;cancelRequest#40;#41;는 요청을 &lt;br/&gt;취소하고 완료하며, &lt;br/&gt;completeRequest#40;#41;와 같은 &lt;br/&gt;규칙을 따릅니다.": "PipelineHandler::&lt;br/&gt;cancelRequest#40;#41; cancels and &lt;br/&gt;completes the request and &lt;br/&gt;follows the same rules as &lt;br/&gt;completeRequest#40;#41;.", "PipelineHandler::&lt;br/&gt;cancelRequest#40;#41;에는 &lt;br/&gt;completeRequest#40;#41;와 같은 &lt;br/&gt;규칙이 적용됩니다.": "PipelineHandler::&lt;br/&gt;cancelRequest#40;#41; follows the &lt;br/&gt;same rules as &lt;br/&gt;completeRequest#40;#41;.", "PipelineHandler::&lt;br/&gt;completeBuffer#40;#41;는 &lt;br/&gt;CameraManager 스레드에서 &lt;br/&gt;호출해야 합니다.": "PipelineHandler::&lt;br/&gt;completeBuffer#40;#41; must be &lt;br/&gt;called from the &lt;br/&gt;CameraManager thread.", "caller는 Camera::start#40;#41;를 &lt;br/&gt;다른 상태 영향 함수와 &lt;br/&gt;동기화해야 합니다.": "The caller must synchronize &lt;br/&gt;Camera::start#40;#41; with other &lt;br/&gt;state-affecting functions.", "caller는 Camera::stop#40;#41;을 &lt;br/&gt;다른 상태 영향 함수와 &lt;br/&gt;동기화해야 합니다.": "The caller must synchronize &lt;br/&gt;Camera::stop#40;#41; with other &lt;br/&gt;state-affecting functions.", "caller는 시작과 중지를 &lt;br/&gt;카메라 상태에 영향을 주는 &lt;br/&gt;다른 함수와 동기화해야 &lt;br/&gt;합니다.": "The caller must synchronize &lt;br/&gt;start and stop with other &lt;br/&gt;functions that affect the &lt;br/&gt;camera state.", "completeRequest#40;#41;는 &lt;br/&gt;CameraManager 스레드에서 &lt;br/&gt;호출해야 합니다.": "completeRequest#40;#41; must be &lt;br/&gt;called from the &lt;br/&gt;CameraManager thread.", "completeRequest#40;#41;에는 &lt;br/&gt;완료된 요청을 순서 제약 &lt;br/&gt;없이 전달할 수 있지만, &lt;br/&gt;요청은 애플리케이션에 제출 &lt;br/&gt;순서로 반환됩니다.": "completeRequest#40;#41; may be &lt;br/&gt;called on completed &lt;br/&gt;requests without ordering &lt;br/&gt;constraints, but requests &lt;br/&gt;are returned to the &lt;br/&gt;application in submission &lt;br/&gt;order.", "createRequest#40;#41;는 &lt;br/&gt;threadsafe이며 Configured &lt;br/&gt;또는 Running 상태에서만 &lt;br/&gt;호출할 수 있습니다.": "createRequest#40;#41; is &lt;br/&gt;threadsafe and may be &lt;br/&gt;called only in the &lt;br/&gt;Configured or Running state.", "마지막 버퍼가 완료되어도 &lt;br/&gt;요청은 자동 완료되지 &lt;br/&gt;않으며, 핸들러가 &lt;br/&gt;completeRequest#40;#41;로 &lt;br/&gt;명시적으로 완료해야 합니다.": "When the last buffer &lt;br/&gt;completes, it does not &lt;br/&gt;automatically complete the &lt;br/&gt;request; the handler must &lt;br/&gt;explicitly complete it with &lt;br/&gt;completeRequest#40;#41;.", "애플리케이션은 생성한 &lt;br/&gt;요청에 캡처 버퍼를 하나 &lt;br/&gt;이상 채운 뒤 큐에 넣어야 &lt;br/&gt;합니다.": "The application must add at &lt;br/&gt;least one capture buffer &lt;br/&gt;before queuing the created &lt;br/&gt;request.", "핸들러는 요청을 &lt;br/&gt;completeRequest#40;#41;로 &lt;br/&gt;명시적으로 완료해야 합니다.": "The handler must explicitly &lt;br/&gt;complete the request with &lt;br/&gt;completeRequest#40;#41;."}
+  v_create["createRequest#40;#41;는 &lt;br/&gt;threadsafe이며 Configured &lt;br/&gt;또는 Running 상태에서만 &lt;br/&gt;호출할 수 있습니다."]
+  v_queue["Camera::queueRequest#40;#41;는 &lt;br/&gt;threadsafe이며 Running &lt;br/&gt;상태에서만 호출할 수 &lt;br/&gt;있습니다."]
+  v_start["Camera::start#40;#41;는 &lt;br/&gt;Configured 상태에서만 &lt;br/&gt;호출할 수 있습니다."]
+  v_stop["Camera::stop#40;#41;은 어느 &lt;br/&gt;상태에서나 호출할 수 &lt;br/&gt;있으며, 카메라가 실행 중이 &lt;br/&gt;아니면 아무 작업도 하지 &lt;br/&gt;않습니다."]
+  v_caller["caller는 시작과 중지를 &lt;br/&gt;카메라 상태에 영향을 주는 &lt;br/&gt;다른 함수와 동기화해야 &lt;br/&gt;합니다."]
+  v_buffer["마지막 버퍼가 완료되어도 &lt;br/&gt;요청은 자동 완료되지 &lt;br/&gt;않으며, 핸들러가 &lt;br/&gt;completeRequest#40;#41;로 &lt;br/&gt;명시적으로 완료해야 합니다."]
+  v_complete["completeRequest#40;#41;에는 &lt;br/&gt;완료된 요청을 순서 제약 &lt;br/&gt;없이 전달할 수 있지만, &lt;br/&gt;요청은 애플리케이션에 제출 &lt;br/&gt;순서로 반환됩니다."]
+  v_manager["CameraManager 스레드는 &lt;br/&gt;파이프라인 완료 함수의 호출 &lt;br/&gt;문맥입니다."]
+  v_cancel["PipelineHandler::&lt;br/&gt;cancelRequest#40;#41;는 요청을 &lt;br/&gt;취소하고 완료하며, &lt;br/&gt;completeRequest#40;#41;와 같은 &lt;br/&gt;규칙을 따릅니다."]
+  v_create --&gt;|"애플리케이션은 생성한 &lt;br/&gt;요청에 캡처 버퍼를 하나 &lt;br/&gt;이상 채운 뒤 큐에 넣어야 &lt;br/&gt;합니다."| v_queue
+  v_caller --&gt;|"caller는 Camera::start#40;#41;를 &lt;br/&gt;다른 상태 영향 함수와 &lt;br/&gt;동기화해야 합니다."| v_start
+  v_caller --&gt;|"caller는 Camera::stop#40;#41;을 &lt;br/&gt;다른 상태 영향 함수와 &lt;br/&gt;동기화해야 합니다."| v_stop
+  v_buffer --&gt;|"핸들러는 요청을 &lt;br/&gt;completeRequest#40;#41;로 &lt;br/&gt;명시적으로 완료해야 합니다."| v_complete
+  v_buffer --&gt;|"PipelineHandler::&lt;br/&gt;completeBuffer#40;#41;는 &lt;br/&gt;CameraManager 스레드에서 &lt;br/&gt;호출해야 합니다."| v_manager
+  v_complete --&gt;|"completeRequest#40;#41;는 &lt;br/&gt;CameraManager 스레드에서 &lt;br/&gt;호출해야 합니다."| v_manager
+  v_cancel --&gt;|"PipelineHandler::&lt;br/&gt;cancelRequest#40;#41;에는 &lt;br/&gt;completeRequest#40;#41;와 같은 &lt;br/&gt;규칙이 적용됩니다."| v_complete</pre>
+<p><a href="../camera-model.item-concurrency.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>어떤 API 호출에 threadsafe·상태 조건과 호출자 동기화 의무가 있고, 어떤 완료 함수를 CameraManager 스레드에서 호출해야 합니까? 앱 콜백 전달 방식은 이 그림 범위 밖입니다.</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<p>LLM 그림 초안 · 사람 검토 전</p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="createRequest() is threadsafe and may be called only in the Configured or Running state.">createRequest()는 threadsafe이며 Configured 또는 Running 상태에서만 호출할 수 있습니다.</span></td>
+<td><a href="#source-0ae00d77839f61cb">src/libcamera/camera.cpp:1243</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera::queueRequest() is threadsafe and may be called only in the Running state.">Camera::queueRequest()는 threadsafe이며 Running 상태에서만 호출할 수 있습니다.</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera::start() may be called only in the Configured state.">Camera::start()는 Configured 상태에서만 호출할 수 있습니다.</span></td>
+<td><a href="#source-617d53c4c7de2c0c">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera::stop() may be called in any state and does nothing if the camera is not running.">Camera::stop()은 어느 상태에서나 호출할 수 있으며, 카메라가 실행 중이 아니면 아무 작업도 하지 않습니다.</span></td>
+<td><a href="#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The caller must synchronize start and stop with other functions that affect the camera state.">caller는 시작과 중지를 카메라 상태에 영향을 주는 다른 함수와 동기화해야 합니다.</span></td>
+<td><a href="#source-617d53c4c7de2c0c">src/libcamera/camera.cpp:1383</a> · <a href="#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="When the last buffer completes, it does not automatically complete the request; the handler must explicitly complete it with completeRequest().">마지막 버퍼가 완료되어도 요청은 자동 완료되지 않으며, 핸들러가 completeRequest()로 명시적으로 완료해야 합니다.</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="completeRequest() may be called on completed requests without ordering constraints, but requests are returned to the application in submission order.">completeRequest()에는 완료된 요청을 순서 제약 없이 전달할 수 있지만, 요청은 애플리케이션에 제출 순서로 반환됩니다.</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The CameraManager thread is the required calling context for the pipeline completion functions.">CameraManager 스레드는 파이프라인 완료 함수의 호출 문맥입니다.</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="PipelineHandler::cancelRequest() cancels and completes the request and follows the same rules as completeRequest().">PipelineHandler::cancelRequest()는 요청을 취소하고 완료하며, completeRequest()와 같은 규칙을 따릅니다.</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The application must add at least one capture buffer before queuing the created request.">애플리케이션은 생성한 요청에 캡처 버퍼를 하나 이상 채운 뒤 큐에 넣어야 합니다.</span></td>
+<td><a href="#source-28d007de6ad1a8a5">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The caller must synchronize Camera::start() with other state-affecting functions.">caller는 Camera::start()를 다른 상태 영향 함수와 동기화해야 합니다.</span></td>
+<td><a href="#source-617d53c4c7de2c0c">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The caller must synchronize Camera::stop() with other state-affecting functions.">caller는 Camera::stop()을 다른 상태 영향 함수와 동기화해야 합니다.</span></td>
+<td><a href="#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The handler must explicitly complete the request with completeRequest().">핸들러는 요청을 completeRequest()로 명시적으로 완료해야 합니다.</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="PipelineHandler::completeBuffer() must be called from the CameraManager thread.">PipelineHandler::completeBuffer()는 CameraManager 스레드에서 호출해야 합니다.</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="completeRequest() must be called from the CameraManager thread.">completeRequest()는 CameraManager 스레드에서 호출해야 합니다.</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="PipelineHandler::cancelRequest() follows the same rules as completeRequest().">PipelineHandler::cancelRequest()에는 completeRequest()와 같은 규칙이 적용됩니다.</span></td>
+<td><a href="#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:item-concurrency -->
+
+<p data-sdd-evidence='[["src/libcamera/pipeline_handler.cpp:547", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L547\"><code>src/libcamera/pipeline_handler.cpp:547</code></a>"], ["src/libcamera/camera.cpp:1475", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1475\"><code>src/libcamera/camera.cpp:1475</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline_handler.cpp:547": ["#source-01ad7c6605c3296a"], "src/libcamera/camera.cpp:1475": ["#source-8e6389a7d7864907"]}'>파이프라인 핸들러는 <code>completeBuffer()</code>와 <code>completeRequest()</code>를 <code>CameraManager</code> 스레드에서 호출해야 합니다. <code>cancelRequest()</code>에는 <code>completeRequest()</code>와 같은 규칙이 적용되므로 <code>CameraManager</code> 스레드에서 호출해야 합니다. <code>Camera::requestComplete()</code>는 요청 완료를 알리는 경로에서 <code>requestCompleted.emit(request)</code>를 호출해 <code>requestCompleted</code> 신호를 발행합니다.</p>
+
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>6</span>개</summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-0ae00d77839f61cb" aria-label="src/libcamera/camera.cpp:1243 발췌"><code>L1243</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:1243" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1243">전체 소스 <code>L1243</code></a> · <a href="#source-28d007de6ad1a8a5" aria-label="src/libcamera/camera.cpp:1308 발췌"><code>L1308</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:1308" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1308">전체 소스 <code>L1308</code></a> · <a href="#source-617d53c4c7de2c0c" aria-label="src/libcamera/camera.cpp:1383 발췌"><code>L1383</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:1383" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1383">전체 소스 <code>L1383</code></a> · <a href="#source-e09324743def3f09" aria-label="src/libcamera/camera.cpp:1431 발췌"><code>L1431</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:1431" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1431">전체 소스 <code>L1431</code></a> · <a href="#source-8e6389a7d7864907" aria-label="src/libcamera/camera.cpp:1475 발췌"><code>L1475</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:1475" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1475">전체 소스 <code>L1475</code></a></span></li><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="#source-01ad7c6605c3296a" aria-label="src/libcamera/pipeline_handler.cpp:547 발췌"><code>L547</code> 발췌</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:547" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L547">전체 소스 <code>L547</code></a></span></li></ul></details><h2 id="연결-해제와-대기-요청">연결 해제와 대기 요청</h2>
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:690", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L690\"><code>src/libcamera/camera.cpp:690</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:690": ["#source-43bf991ac670b1aa", "#source-ac8ee83f828fe269"]}'><code>Camera::Private::disconnect()</code>는 현재 상태가 <code>CameraRunning</code>일 때만 <code>CameraConfigured</code>를 저장하며, 다른 상태에서는 이 저장을 생략합니다. 이후 상태와 관계없이 <code>disconnected_</code>를 <code>true</code>로 설정합니다. 주석에 따르면 상태 변경의 목적은 하드웨어가 제거될 때 카메라가 실행 중이었다면 애플리케이션이 카메라를 삭제하기 전에 자원을 해제하고 <code>release()</code>를 호출할 수 있도록 하는 것입니다.</p>
+<!-- sdd:visual:disconnection-state-notification -->
+<h3 id="연결-해제-알림과-상태-정리">연결 해제 알림과 상태 정리</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"Camera::disconnect가 연결 &lt;br/&gt;해제를 전달합니다.": "Camera::disconnect handles &lt;br/&gt;the disconnection &lt;br/&gt;notification.", "Private::disconnect가 &lt;br/&gt;반환된 뒤 신호를 보냅니다.": "After Private::disconnect &lt;br/&gt;returns, it emits the &lt;br/&gt;signal.", "Private::disconnect가 &lt;br/&gt;카메라의 실행 상태를 &lt;br/&gt;확인합니다.": "Private::disconnect checks &lt;br/&gt;whether the camera is &lt;br/&gt;running.", "Private::disconnect를 &lt;br/&gt;호출해 상태를 확인합니다.": "It calls &lt;br/&gt;Private::disconnect, which &lt;br/&gt;checks the state.", "disconnected 신호를 &lt;br/&gt;보냅니다. 대기 요청 처리는 &lt;br/&gt;TODO이며 취소·완료 구현은 &lt;br/&gt;이 발췌에 없습니다.": "It emits disconnected. &lt;br/&gt;Pending requests are a &lt;br/&gt;TODO; no cancellation or &lt;br/&gt;completion is shown here.", "disconnected#95;를 true로 &lt;br/&gt;설정합니다.": "It sets disconnected#95; to &lt;br/&gt;true.", "상태를 바꾼 뒤 플래그를 &lt;br/&gt;설정합니다.": "After changing the state, &lt;br/&gt;it sets the flag.", "실행 중이 아니면 상태를 &lt;br/&gt;유지하고 플래그를 &lt;br/&gt;설정합니다. #91;false#93;": "Otherwise, it keeps the &lt;br/&gt;state and sets the flag. &lt;br/&gt;#91;false#93;", "실행 중이면 상태를 &lt;br/&gt;바꿉니다. #91;true#93;": "If running, it changes the &lt;br/&gt;state. #91;true#93;", "실행 중이었다면 &lt;br/&gt;Private::CameraConfigured로 &lt;br/&gt;바꿔 자원 해제와 release &lt;br/&gt;호출을 허용합니다.": "If running, it changes to &lt;br/&gt;Private::CameraConfigured &lt;br/&gt;to allow freeing resources &lt;br/&gt;and calling release."}
+  v_caller["Camera::disconnect가 연결 &lt;br/&gt;해제를 전달합니다."]
+  v_check{"Private::disconnect가 &lt;br/&gt;카메라의 실행 상태를 &lt;br/&gt;확인합니다."}
+  v_configured["실행 중이었다면 &lt;br/&gt;Private::CameraConfigured로 &lt;br/&gt;바꿔 자원 해제와 release &lt;br/&gt;호출을 허용합니다."]
+  v_flag["disconnected#95;를 true로 &lt;br/&gt;설정합니다."]
+  v_signal["disconnected 신호를 &lt;br/&gt;보냅니다. 대기 요청 처리는 &lt;br/&gt;TODO이며 취소·완료 구현은 &lt;br/&gt;이 발췌에 없습니다."]
+  v_caller --&gt;|"Private::disconnect를 &lt;br/&gt;호출해 상태를 확인합니다."| v_check
+  v_check --&gt;|"실행 중이면 상태를 &lt;br/&gt;바꿉니다. #91;true#93;"| v_configured
+  v_configured --&gt;|"상태를 바꾼 뒤 플래그를 &lt;br/&gt;설정합니다."| v_flag
+  v_check --&gt;|"실행 중이 아니면 상태를 &lt;br/&gt;유지하고 플래그를 &lt;br/&gt;설정합니다. #91;false#93;"| v_flag
+  v_flag --&gt;|"Private::disconnect가 &lt;br/&gt;반환된 뒤 신호를 보냅니다."| v_signal</pre>
+<p><a href="../camera-model.disconnection-state-notification.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>Camera의 연결 해제 알림은 실행 상태 변경과 플래그 설정 뒤 어떤 순서로 전달되며 대기 요청 처리는 어디까지 구현되었습니까?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<p>LLM 그림 초안 · 사람 검토 전</p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Camera::disconnect handles the disconnection notification.">Camera::disconnect가 연결 해제를 전달합니다.</span></td>
+<td><a href="#source-2758e9ddd31ad41d">src/libcamera/camera.cpp:944</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Private::disconnect checks whether the camera is running.">Private::disconnect가 카메라의 실행 상태를 확인합니다.</span></td>
+<td><a href="#source-ac8ee83f828fe269">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If running, it changes to Private::CameraConfigured to allow freeing resources and calling release.">실행 중이었다면 Private::CameraConfigured로 바꿔 자원 해제와 release 호출을 허용합니다.</span></td>
+<td><a href="#source-ac8ee83f828fe269">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It sets disconnected_ to true.">disconnected_를 true로 설정합니다.</span></td>
+<td><a href="#source-ac8ee83f828fe269">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It emits disconnected. Pending requests are a TODO; no cancellation or completion is shown here.">disconnected 신호를 보냅니다. 대기 요청 처리는 TODO이며 취소·완료 구현은 이 발췌에 없습니다.</span></td>
+<td><a href="#source-2758e9ddd31ad41d">src/libcamera/camera.cpp:944</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It calls Private::disconnect, which checks the state.">Private::disconnect를 호출해 상태를 확인합니다.</span></td>
+<td><a href="#source-2758e9ddd31ad41d">src/libcamera/camera.cpp:944</a> · <a href="#source-ac8ee83f828fe269">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If running, it changes the state. · state_.load(std::memory_order_acquire) == Private::CameraRunning [true]">실행 중이면 상태를 바꿉니다. · state_.load(std::memory_order_acquire) == Private::CameraRunning [true]</span></td>
+<td><a href="#source-ac8ee83f828fe269">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After changing the state, it sets the flag.">상태를 바꾼 뒤 플래그를 설정합니다.</span></td>
+<td><a href="#source-ac8ee83f828fe269">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Otherwise, it keeps the state and sets the flag. · state_.load(std::memory_order_acquire) == Private::CameraRunning [false]">실행 중이 아니면 상태를 유지하고 플래그를 설정합니다. · state_.load(std::memory_order_acquire) == Private::CameraRunning [false]</span></td>
+<td><a href="#source-ac8ee83f828fe269">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After Private::disconnect returns, it emits the signal.">Private::disconnect가 반환된 뒤 신호를 보냅니다.</span></td>
+<td><a href="#source-ac8ee83f828fe269">src/libcamera/camera.cpp:690</a> · <a href="#source-2758e9ddd31ad41d">src/libcamera/camera.cpp:944</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:disconnection-state-notification -->
+
+<!-- sdd:visual:disconnection-access-results -->
+<h3 id="해제-상태와-api-접근-결과">해제 상태와 API 접근 결과</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"단일 상태 오버로드는 &lt;br/&gt;currentState와 state의 &lt;br/&gt;일치를 확인합니다.": "The single-state overload &lt;br/&gt;checks whether currentState &lt;br/&gt;matches state.", "두 오버로드는 공통 연결 &lt;br/&gt;해제 조건을 확인합니다.": "Both overloads check the &lt;br/&gt;common disconnection &lt;br/&gt;condition.", "범위 오버로드는 &lt;br/&gt;currentState가 low부터 &lt;br/&gt;high까지의 범위에 있는지 &lt;br/&gt;확인합니다.": "The range overload checks &lt;br/&gt;whether currentState is &lt;br/&gt;between low and high, &lt;br/&gt;inclusive.", "범위 조건이 거짓이면 low와 &lt;br/&gt;high를 검사합니다. #91;false#93;": "If the range condition is &lt;br/&gt;false, it checks low and &lt;br/&gt;high. #91;false#93;", "범위 조건이 참이면 성공을 &lt;br/&gt;반환합니다. #91;true#93;": "If the range condition is &lt;br/&gt;true, it returns success. &lt;br/&gt;#91;true#93;", "상태가 범위 밖이면 ASSERT가 &lt;br/&gt;low와 high를 검사합니다.": "If the state is outside the &lt;br/&gt;range, ASSERT checks low &lt;br/&gt;and high.", "상태가 범위 안에 있으면 0을 &lt;br/&gt;반환합니다.": "If the state is within the &lt;br/&gt;range, it returns 0.", "상태가 일치하면 0을 &lt;br/&gt;반환합니다.": "If the states match, it &lt;br/&gt;returns 0.", "상태가 일치하지 않으면 &lt;br/&gt;ASSERT가 state를 검사합니다.": "If the states do not match, &lt;br/&gt;ASSERT checks state.", "유효한 low와 high가 &lt;br/&gt;ASSERT를 통과하면 오류를 &lt;br/&gt;기록하고 -EACCES를 &lt;br/&gt;반환합니다.": "If valid low and high pass &lt;br/&gt;ASSERT, it logs an error &lt;br/&gt;and returns -EACCES.", "유효한 low와 high가 &lt;br/&gt;ASSERT를 통과하면 오류를 &lt;br/&gt;반환합니다.": "If valid low and high pass &lt;br/&gt;ASSERT, it returns an error.", "유효한 state가 ASSERT를 &lt;br/&gt;통과하면 오류를 기록하고 &lt;br/&gt;-EACCES를 반환합니다.": "If valid state passes &lt;br/&gt;ASSERT, it logs an error &lt;br/&gt;and returns -EACCES.", "유효한 state가 ASSERT를 &lt;br/&gt;통과하면 오류를 반환합니다.": "If valid state passes &lt;br/&gt;ASSERT, it returns an error.", "일치 조건이 거짓이면 &lt;br/&gt;state를 검사합니다. #91;false#93;": "If the match condition is &lt;br/&gt;false, it checks state. &lt;br/&gt;#91;false#93;", "일치 조건이 참이면 성공을 &lt;br/&gt;반환합니다. #91;true#93;": "If the match condition is &lt;br/&gt;true, it returns success. &lt;br/&gt;#91;true#93;", "조건이 거짓이면 단일 상태 &lt;br/&gt;계약은 상태를 확인합니다. &lt;br/&gt;#91;false#93;": "If false, the single-state &lt;br/&gt;contract checks the state. &lt;br/&gt;#91;false#93;", "조건이 거짓이면 범위 계약은 &lt;br/&gt;상태를 확인합니다. #91;false#93;": "If false, the range &lt;br/&gt;contract checks the state. &lt;br/&gt;#91;false#93;", "조건이 참이면 두 오버로드는 &lt;br/&gt;-ENODEV를 반환합니다.": "If the condition is true, &lt;br/&gt;both overloads return &lt;br/&gt;-ENODEV.", "조건이 참이면 연결 해제 &lt;br/&gt;오류를 반환합니다. #91;true#93;": "If true, it returns the &lt;br/&gt;disconnection error. #91;true#93;"}
+  v_disconnect{"두 오버로드는 공통 연결 &lt;br/&gt;해제 조건을 확인합니다."}
+  v_nodev["조건이 참이면 두 오버로드는 &lt;br/&gt;-ENODEV를 반환합니다."]
+  v_exact{"단일 상태 오버로드는 &lt;br/&gt;currentState와 state의 &lt;br/&gt;일치를 확인합니다."}
+  v_range{"범위 오버로드는 &lt;br/&gt;currentState가 low부터 &lt;br/&gt;high까지의 범위에 있는지 &lt;br/&gt;확인합니다."}
+  v_exact_ok["상태가 일치하면 0을 &lt;br/&gt;반환합니다."]
+  v_range_ok["상태가 범위 안에 있으면 0을 &lt;br/&gt;반환합니다."]
+  v_exact_assert["상태가 일치하지 않으면 &lt;br/&gt;ASSERT가 state를 검사합니다."]
+  v_range_assert["상태가 범위 밖이면 ASSERT가 &lt;br/&gt;low와 high를 검사합니다."]
+  v_exact_error["유효한 state가 ASSERT를 &lt;br/&gt;통과하면 오류를 기록하고 &lt;br/&gt;-EACCES를 반환합니다."]
+  v_range_error["유효한 low와 high가 &lt;br/&gt;ASSERT를 통과하면 오류를 &lt;br/&gt;기록하고 -EACCES를 &lt;br/&gt;반환합니다."]
+  v_disconnect --&gt;|"조건이 참이면 연결 해제 &lt;br/&gt;오류를 반환합니다. #91;true#93;"| v_nodev
+  v_disconnect --&gt;|"조건이 거짓이면 단일 상태 &lt;br/&gt;계약은 상태를 확인합니다. &lt;br/&gt;#91;false#93;"| v_exact
+  v_disconnect --&gt;|"조건이 거짓이면 범위 계약은 &lt;br/&gt;상태를 확인합니다. #91;false#93;"| v_range
+  v_exact --&gt;|"일치 조건이 참이면 성공을 &lt;br/&gt;반환합니다. #91;true#93;"| v_exact_ok
+  v_exact --&gt;|"일치 조건이 거짓이면 &lt;br/&gt;state를 검사합니다. #91;false#93;"| v_exact_assert
+  v_range --&gt;|"범위 조건이 참이면 성공을 &lt;br/&gt;반환합니다. #91;true#93;"| v_range_ok
+  v_range --&gt;|"범위 조건이 거짓이면 low와 &lt;br/&gt;high를 검사합니다. #91;false#93;"| v_range_assert
+  v_exact_assert --&gt;|"유효한 state가 ASSERT를 &lt;br/&gt;통과하면 오류를 반환합니다."| v_exact_error
+  v_range_assert --&gt;|"유효한 low와 high가 &lt;br/&gt;ASSERT를 통과하면 오류를 &lt;br/&gt;반환합니다."| v_range_error</pre>
+<p><a href="../camera-model.disconnection-access-results.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>유효한 상태 인자로 호출한 두 isAccessAllowed 오버로드에서 연결 해제 예외와 단일·범위 상태 조건은 반환 결과를 어떻게 결정합니까?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<p>LLM 그림 초안 · 사람 검토 전</p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Both overloads check the common disconnection condition.">두 오버로드는 공통 연결 해제 조건을 확인합니다.</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a> · <a href="#source-0840d2509c9e395b">src/libcamera/camera.cpp:709</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is true, both overloads return -ENODEV.">조건이 참이면 두 오버로드는 -ENODEV를 반환합니다.</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a> · <a href="#source-0840d2509c9e395b">src/libcamera/camera.cpp:709</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The single-state overload checks whether currentState matches state.">단일 상태 오버로드는 currentState와 state의 일치를 확인합니다.</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The range overload checks whether currentState is between low and high, inclusive.">범위 오버로드는 currentState가 low부터 high까지의 범위에 있는지 확인합니다.</span></td>
+<td><a href="#source-0840d2509c9e395b">src/libcamera/camera.cpp:709</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the states match, it returns 0.">상태가 일치하면 0을 반환합니다.</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the state is within the range, it returns 0.">상태가 범위 안에 있으면 0을 반환합니다.</span></td>
+<td><a href="#source-0840d2509c9e395b">src/libcamera/camera.cpp:709</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the states do not match, ASSERT checks state.">상태가 일치하지 않으면 ASSERT가 state를 검사합니다.</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the state is outside the range, ASSERT checks low and high.">상태가 범위 밖이면 ASSERT가 low와 high를 검사합니다.</span></td>
+<td><a href="#source-0840d2509c9e395b">src/libcamera/camera.cpp:709</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If valid state passes ASSERT, it logs an error and returns -EACCES.">유효한 state가 ASSERT를 통과하면 오류를 기록하고 -EACCES를 반환합니다.</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If valid low and high pass ASSERT, it logs an error and returns -EACCES.">유효한 low와 high가 ASSERT를 통과하면 오류를 기록하고 -EACCES를 반환합니다.</span></td>
+<td><a href="#source-0840d2509c9e395b">src/libcamera/camera.cpp:709</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, it returns the disconnection error. · !allowDisconnected &amp;&amp; disconnected_ [true]">조건이 참이면 연결 해제 오류를 반환합니다. · !allowDisconnected &amp;&amp; disconnected_ [true]</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a> · <a href="#source-0840d2509c9e395b">src/libcamera/camera.cpp:709</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, the single-state contract checks the state. · !allowDisconnected &amp;&amp; disconnected_ [false]">조건이 거짓이면 단일 상태 계약은 상태를 확인합니다. · !allowDisconnected &amp;&amp; disconnected_ [false]</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, the range contract checks the state. · !allowDisconnected &amp;&amp; disconnected_ [false]">조건이 거짓이면 범위 계약은 상태를 확인합니다. · !allowDisconnected &amp;&amp; disconnected_ [false]</span></td>
+<td><a href="#source-0840d2509c9e395b">src/libcamera/camera.cpp:709</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the match condition is true, it returns success. · currentState == state [true]">일치 조건이 참이면 성공을 반환합니다. · currentState == state [true]</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the match condition is false, it checks state. · currentState == state [false]">일치 조건이 거짓이면 state를 검사합니다. · currentState == state [false]</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the range condition is true, it returns success. · currentState >= low &amp;&amp; currentState <= high [true]">범위 조건이 참이면 성공을 반환합니다. · currentState &gt;= low &amp;&amp; currentState &lt;= high [true]</span></td>
+<td><a href="#source-0840d2509c9e395b">src/libcamera/camera.cpp:709</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the range condition is false, it checks low and high. · currentState >= low &amp;&amp; currentState <= high [false]">범위 조건이 거짓이면 low와 high를 검사합니다. · currentState &gt;= low &amp;&amp; currentState &lt;= high [false]</span></td>
+<td><a href="#source-0840d2509c9e395b">src/libcamera/camera.cpp:709</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If valid state passes ASSERT, it returns an error.">유효한 state가 ASSERT를 통과하면 오류를 반환합니다.</span></td>
+<td><a href="#source-43bf991ac670b1aa">src/libcamera/camera.cpp:690</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If valid low and high pass ASSERT, it returns an error.">유효한 low와 high가 ASSERT를 통과하면 오류를 반환합니다.</span></td>
+<td><a href="#source-0840d2509c9e395b">src/libcamera/camera.cpp:709</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:disconnection-access-results -->
+
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:690", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L690\"><code>src/libcamera/camera.cpp:690</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:690": ["#source-43bf991ac670b1aa", "#source-ac8ee83f828fe269"]}'><code>Camera::Private::isAccessAllowed</code>의 두 오버로드는 <code>!allowDisconnected</code>와 <code>disconnected_</code>가 모두 참이면 상태 검사 전에 <code>-ENODEV</code>를 반환합니다. 단일 상태 오버로드는 현재 상태가 <code>state</code>와 같으면, 범위 오버로드는 현재 상태가 <code>low</code> 이상 <code>high</code> 이하이면 <code>0</code>을 반환합니다. 상태가 맞지 않으면 먼저 <code>state</code> 또는 <code>low</code>와 <code>high</code>가 상태 이름 배열의 유효 범위에 있는지 <code>ASSERT</code>로 검사하며, 이 검사를 통과한 경로에서 오류 로그를 기록하고 <code>-EACCES</code>를 반환합니다. 오류 로그는 <code>from</code> 뒤에 <code>()</code>를 붙여 출력하며, 상태 이름은 <code>currentState</code>와 <code>state</code> 또는 <code>low</code>와 <code>high</code>를 사용해 가져옵니다.</p>
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:944", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L944\"><code>src/libcamera/camera.cpp:944</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:944": ["#source-2758e9ddd31ad41d"]}'><code>Camera::disconnect()</code>는 <code>_d()-&gt;disconnect()</code>를 호출한 뒤 <code>disconnected.emit()</code>을 호출합니다.</p>
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:944", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L944\"><code>src/libcamera/camera.cpp:944</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:944": ["#source-2758e9ddd31ad41d"]}'>실행 확인 항목: <code>Camera::disconnect()</code>의 TODO는 카메라가 실행 중 연결 해제될 때 대기 중인 요청을 처리하는 일을 남겨 둡니다. 발췌된 본문은 <code>_d()-&gt;disconnect()</code>를 호출한 다음 <code>disconnected.emit()</code>을 호출하며, 개별 요청을 취소하거나 완료하는 코드는 포함하지 않습니다.</p>
+
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>3</span>개</summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/camera.cpp:690" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L690"><code>L690</code></a> · <a href="#source-2758e9ddd31ad41d" aria-label="src/libcamera/camera.cpp:944 발췌"><code>L944</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:944" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L944">전체 소스 <code>L944</code></a> · <a aria-label="src/libcamera/camera.cpp:690" href="#source-ac8ee83f828fe269"><code>L690</code></a> · <a aria-label="src/libcamera/camera.cpp:690" href="#source-43bf991ac670b1aa"><code>L690</code></a> · <a aria-label="src/libcamera/camera.cpp:709" href="#source-0840d2509c9e395b"><code>L709</code></a></span></li></ul></details>
+<!-- sdd:class-diagram -->
+<h2 id="클래스-관계">클래스 관계</h2>
+<p>화살표의 글자는 추출한 관계를 나타내며, 점선은 상속입니다. 화살표는 참조 대상 또는 기반 클래스를 향합니다. 호출 순서를 뜻하지 않습니다.</p>
+<pre class="mermaid">flowchart LR
+  c0["Camera"]
+  c1["CameraManager"]
+  c2["Extensible"]:::context
+  c3["Object"]:::context
+  c4["Request"]
+  c0 -.-&gt;|상속| c2
+  c0 -.-&gt;|상속| c3
+  c1 -.-&gt;|상속| c2
+  c1 -.-&gt;|상속| c3
+  c4 -.-&gt;|상속| c2
+  classDef context fill:#fafafa,stroke:#aaa,stroke-dasharray:4 3,color:#555</pre>
+<!-- /sdd:class-diagram -->
+
+<h2 id="소스-근거">소스 근거</h2>
+<details class="source-excerpts"><summary>소스 발췌 <span>20</span>개</summary>
+<p>같은 발췌는 한 번만 싣습니다. 필요한 원문을 펼쳐 설명과 대조하세요.</p>
+<p><a id="source-fbcf3effd2584b79"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/camera_manager.cpp:280</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera_manager.cpp#L280"><code>src/libcamera/camera_manager.cpp:280</code></a> ~ <code>304</code></p>
+<p>SHA-256: <code>adcd6d49b0c989ec78a81cacece7f6c871a8e0ddf3aa52e42648fae2760a6e84</code></p>
+<div class="highlight"><pre><span></span><code>\class CameraManager
+ * \brief Provide access and manage all cameras in the system
+ *
+ * The camera manager is the entry point to libcamera. It enumerates devices,
+ * associates them with pipeline managers, and provides access to the cameras
+ * in the system to applications. The manager owns all Camera objects and
+ * handles hot-plugging and hot-unplugging to manage the lifetime of cameras.
+ *
+ * To interact with libcamera, an application starts by creating a camera
+ * manager instance. Only a single instance of the camera manager may exist at
+ * a time. Attempting to create a second instance without first deleting the
+ * existing instance results in undefined behaviour.
+ *
+ * The manager is initially stopped, and shall be started with start(). This
+ * will enumerate all the cameras present in the system, which can then be
+ * listed with list() and retrieved with get().
+ *
+ * Cameras are shared through std::shared_ptr&lt;&gt;, ensuring that a camera will
+ * stay valid until the last reference is released without requiring any special
+ * action from the application. Once the application has released all the
+ * references it held to cameras, the camera manager can be stopped with
+ * stop().
+ */
+
+CameraManager *CameraManager::self_
+</code></pre></div>
+</details>
+<p><a id="source-6c066281dcce33d6"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/camera.cpp:758</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L758"><code>src/libcamera/camera.cpp:758</code></a> ~ <code>769</code></p>
+<p>SHA-256: <code>e77cee469b7c57430e4bd4b0f08493289c46b57549873521c476df388d591dc2</code></p>
+<div class="highlight"><pre><span></span><code>The Camera class models a camera capable of producing one or more image
+ * streams from a single image source. It provides the main interface to
+ * configuring and controlling the device, and capturing image streams. It is
+ * the central object exposed by libcamera.
+ *
+ * To support the central nature of Camera objects, libcamera manages the
+ * lifetime of camera instances with std::shared_ptr&lt;&gt;. Instances shall be
+ * created with the create() function which returns a shared pointer. The
+ * Camera constructors and destructor are private, to prevent instances from
+ * being constructed and destroyed manually.
+ *
+ * \section camera_operation
+</code></pre></div>
+</details>
+<p><a id="source-abce7dd469896527"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/request.cpp:343</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L343"><code>src/libcamera/request.cpp:343</code></a> ~ <code>360</code></p>
+<p>SHA-256: <code>948968e35cb0d98957bc63aa2d6b613d2a8203e66855db23974f035e9d679764</code></p>
+<div class="highlight"><pre><span></span><code>\class Request
+ * \brief A frame capture request
+ *
+ * A Request allows an application to associate buffers and controls on a
+ * per-frame basis to be queued to the camera device for processing.
+ */
+
+/**
+ * \brief Create a capture request for a camera
+ * \param[in] camera The camera that creates the request
+ * \param[in] cookie Opaque cookie for application use
+ *
+ * The \a cookie is stored in the request and is accessible through the
+ * cookie() function at any time. It is typically used by applications to map
+ * the request to an external resource in the request completion handler, and is
+ * completely opaque to libcamera.
+ */
+Request::Request(Camera *camera, uint64_t cookie)
+</code></pre></div>
+</details>
+<p><a id="source-f655f7db9b67c8d8"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/camera_manager.cpp:351</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera_manager.cpp#L351"><code>src/libcamera/camera_manager.cpp:351</code></a> ~ <code>360</code></p>
+<p>SHA-256: <code>6d8941664595bc11143322bdaa5a19bd0a077beda8372d7cebdea7377b501926</code></p>
+<div class="highlight"><pre><span></span><code>\brief Stop the camera manager
+ *
+ * Before stopping the camera manager the caller is responsible for making
+ * sure all cameras provided by the manager are returned to the manager.
+ *
+ * After the manager has been stopped no resource provided by the camera
+ * manager should be consider valid or functional even if they for one
+ * reason or another have yet to be deleted.
+ */
+void CameraManager::stop()
+</code></pre></div>
+</details>
+<p><a id="source-4b17a07667f3a55d"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/camera.cpp:769</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L769"><code>src/libcamera/camera.cpp:769</code></a> ~ <code>814</code></p>
+<p>SHA-256: <code>e85796df194551ecbd587ba1a7bb356a1409fa1d606762865e7eb989c92d2f72</code></p>
+<div class="highlight"><pre><span></span><code>\section camera_operation Operating the Camera
+ *
+ * An application needs to perform a sequence of operations on a camera before
+ * it is ready to process requests. The camera needs to be acquired and
+ * configured to prepare the camera for capture. Once started the camera can
+ * process requests until it is stopped. When an application is done with a
+ * camera, the camera needs to be released.
+ *
+ * An application may start and stop a camera multiple times as long as it is
+ * not released. The camera may also be reconfigured.
+ *
+ * Functions that affect the camera state as defined below are generally not
+ * synchronized with each other by the Camera class. The caller is responsible
+ * for ensuring their synchronization if necessary.
+ *
+ * \subsection Camera States
+ *
+ * To help manage the sequence of operations needed to control the camera a set
+ * of states are defined. Each state describes which operations may be performed
+ * on the camera. Performing an operation not allowed in the camera state
+ * results in undefined behaviour. Operations not listed at all in the state
+ * diagram are allowed in all states.
+ *
+ * \dot
+ * digraph camera_state_machine {
+ *   node [shape = doublecircle ]; Available;
+ *   node [shape = circle ]; Acquired;
+ *   node [shape = circle ]; Configured;
+ *   node [shape = circle ]; Stopping;
+ *   node [shape = circle ]; Running;
+ *
+ *   Available -&gt; Available [label = "release()"];
+ *   Available -&gt; Acquired [label = "acquire()"];
+ *
+ *   Acquired -&gt; Available [label = "release()"];
+ *   Acquired -&gt; Configured [label = "configure()"];
+ *
+ *   Configured -&gt; Available [label = "release()"];
+ *   Configured -&gt; Configured [label = "configure(), createRequest()"];
+ *   Configured -&gt; Running [label = "start()"];
+ *
+ *   Running -&gt; Stopping [label = "stop()"];
+ *   Stopping -&gt; Configured;
+ *   Running -&gt; Running [label = "createRequest(), queueRequest()"];
+ * }
+ * \enddot
+</code></pre></div>
+</details>
+<p><a id="source-617d53c4c7de2c0c"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/camera.cpp:1383</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1383"><code>src/libcamera/camera.cpp:1383</code></a> ~ <code>1400</code></p>
+<p>SHA-256: <code>e0abda64dc6b1bdd78d1326c8dd8651e842c03181dcf28e3b8b7eac1a4c70fcf</code></p>
+<div class="highlight"><pre><span></span><code>\brief Start capture from camera
+ * \param[in] controls Controls to be applied before starting the Camera
+ *
+ * Start the camera capture session, optionally providing a list of controls to
+ * apply before starting. Once the camera is started the application can queue
+ * requests to the camera to process and return to the application until the
+ * capture session is terminated with \a stop().
+ *
+ * \context This function may only be called when the camera is in the
+ * Configured state as defined in \ref camera_operation, and shall be
+ * synchronized by the caller with other functions that affect the camera
+ * state.
+ *
+ * \return 0 on success or a negative error code otherwise
+ * \retval -ENODEV The camera has been disconnected from the system
+ * \retval -EACCES The camera is not in a state where it can be started
+ */
+int Camera::start(const ControlList *controls)
+</code></pre></div>
+</details>
+<p><a id="source-8f791427a31c3313"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/camera.cpp:1258</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1258"><code>src/libcamera/camera.cpp:1258</code></a> ~ <code>1263</code></p>
+<p>SHA-256: <code>fd7dc6ea02f64424f17322fff027c34131ac5a3fb64d69d83aa6fa55ca9f826a</code></p>
+<div class="highlight"><pre><span></span><code>\context This function is \threadsafe. It may only be called when the camera
+ * is in the Configured or Running state as defined in \ref camera_operation.
+ *
+ * \return A pointer to the newly created request, or nullptr on error
+ */
+std::unique_ptr&lt;Request&gt; Camera::createRequest(uint64_t cookie)
+</code></pre></div>
+</details>
+<p><a id="source-e0caa8c16f728202"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/camera.cpp:1320</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1320"><code>src/libcamera/camera.cpp:1320</code></a> ~ <code>1330</code></p>
+<p>SHA-256: <code>b9de90acc07617b489b367e116e41ecc8bc712180c6f445763b58658ff1bc649</code></p>
+<div class="highlight"><pre><span></span><code>\context This function is \threadsafe. It may only be called when the camera
+ * is in the Running state as defined in \ref camera_operation.
+ *
+ * \return 0 on success or a negative error code otherwise
+ * \retval -ENODEV The camera has been disconnected from the system
+ * \retval -EACCES The camera is not running so requests can't be queued
+ * \retval -EXDEV The request does not belong to this camera
+ * \retval -EINVAL The request is invalid
+ * \retval -ENOMEM No buffer memory was available to handle the request
+ */
+int Camera::queueRequest(Request *request)
+</code></pre></div>
+</details>
+<p><a id="source-cc6c66b57cf028e6"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/camera.cpp:780</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L780"><code>src/libcamera/camera.cpp:780</code></a> ~ <code>782</code></p>
+<p>SHA-256: <code>de3ba7a26c3bbaf6bbb33d1749b99829fdc58e13718068d149c849d0b2c43388</code></p>
+<div class="highlight"><pre><span></span><code>Functions that affect the camera state as defined below are generally not
+ * synchronized with each other by the Camera class. The caller is responsible
+ * for ensuring their synchronization if necessary.
+</code></pre></div>
+</details>
+<p><a id="source-077fcae46087aee0"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/camera.cpp:1237</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1237"><code>src/libcamera/camera.cpp:1237</code></a> ~ <code>1239</code></p>
+<p>SHA-256: <code>c286717b62d3b69c9dd97f324bb16930edb27f32da54c40916bef758fbca20da</code></p>
+<div class="highlight"><pre><span></span><code>d-&gt;setState(Private::CameraConfigured);
+
+    return 0;
+</code></pre></div>
+</details>
+<p><a id="source-47a6ef3943a7b53c"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/base/log.cpp:1022</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/log.cpp#L1022"><code>src/libcamera/base/log.cpp:1022</code></a> ~ <code>1060</code></p>
+<p>SHA-256: <code>52e64d292f59786541e66fe48f5bae65256bdced60c803aa76bf3637083b47b0</code></p>
+<div class="highlight"><pre><span></span><code>\def LOG(category, severity)
+ * \hideinitializer
+ * \brief Log a message
+ * \param[in] category Category (optional)
+ * \param[in] severity Severity
+ *
+ * Return an std::ostream reference to which a message can be logged using the
+ * iostream API. The \a category, if specified, sets the message category. When
+ * absent the default category is used. The  \a severity controls whether the
+ * message is printed or discarded, depending on the log level for the category.
+ *
+ * If the severity is set to Fatal, execution is aborted and the program
+ * terminates immediately after printing the message.
+ *
+ * \warning Logging from the destructor of a global object, either directly or
+ * indirectly, results in undefined behaviour.
+ *
+ * \todo Allow logging from destructors of global objects to the largest
+ * possible extent
+ */
+
+/**
+ * \def ASSERT(condition)
+ * \hideinitializer
+ * \brief Abort program execution if assertion fails
+ *
+ * If \a condition is false, ASSERT() logs an error message with the Fatal log
+ * level and aborts program execution.
+ *
+ * If the macro NDEBUG is defined before including log.h, ASSERT() generates no
+ * code.
+ *
+ * Using conditions that have side effects with ASSERT() is not recommended, as
+ * these effects would depend on whether NDEBUG is defined or not. Similarly,
+ * ASSERT() should not be used to check for errors that can occur under normal
+ * conditions as those checks would then be removed when compiling with NDEBUG.
+ */
+
+} /* namespace libcamera */
+</code></pre></div>
+</details>
+<p><a id="source-28d007de6ad1a8a5"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/camera.cpp:1308</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1308"><code>src/libcamera/camera.cpp:1308</code></a> ~ <code>1383</code></p>
+<p>SHA-256: <code>96db61baeb32065c966b20942f97518ddbd3a43b36b64e8083eb29a90ecb7f4b</code></p>
+<div class="highlight"><pre><span></span><code>\brief Queue a request to the camera
+ * \param[in] request The request to queue to the camera
+ *
+ * This function queues a \a request to the camera for capture.
+ *
+ * After allocating the request with createRequest(), the application shall
+ * fill it with at least one capture buffer before queuing it. Requests that
+ * contain no buffers are invalid and are rejected without being queued.
+ *
+ * Once the request has been queued, the camera will notify its completion
+ * through the \ref requestCompleted signal.
+ *
+ * \context This function is \threadsafe. It may only be called when the camera
+ * is in the Running state as defined in \ref camera_operation.
+ *
+ * \return 0 on success or a negative error code otherwise
+ * \retval -ENODEV The camera has been disconnected from the system
+ * \retval -EACCES The camera is not running so requests can't be queued
+ * \retval -EXDEV The request does not belong to this camera
+ * \retval -EINVAL The request is invalid
+ * \retval -ENOMEM No buffer memory was available to handle the request
+ */
+int Camera::queueRequest(Request *request)
+{
+    Private *const d = _d();
+
+    int ret = d-&gt;isAccessAllowed(Private::CameraRunning);
+    if (ret &lt; 0)
+        return ret;
+
+    /* Requests can only be queued to the camera that created them. */
+    if (request-&gt;_d()-&gt;camera() != this) {
+        LOG(Camera, Error) &lt;&lt; "Request was not created by this camera";
+        return -EXDEV;
+    }
+
+    if (request-&gt;status() != Request::RequestPending) {
+        LOG(Camera, Error) &lt;&lt; request-&gt;toString() &lt;&lt; " is not valid";
+        return -EINVAL;
+    }
+
+    /* Make sure the Request has a valid control list. */
+    if (request-&gt;controls().infoMap() != &amp;controls()) {
+        LOG(Camera, Error) &lt;&lt; "Overwriting Request::controls() is not allowed";
+        return -EINVAL;
+    }
+
+    /*
+     * The camera state may change until the end of the function. No locking
+     * is however needed as PipelineHandler::queueRequest() will handle
+     * this.
+     */
+
+    if (request-&gt;buffers().empty()) {
+        LOG(Camera, Error) &lt;&lt; "Request contains no buffers";
+        return -EINVAL;
+    }
+
+    for (const auto &amp;[stream, buffer] : request-&gt;buffers()) {
+        if (d-&gt;activeStreams_.find(stream) == d-&gt;activeStreams_.end()) {
+            LOG(Camera, Error) &lt;&lt; "Invalid request";
+            return -EINVAL;
+        }
+    }
+
+    /* Pre-process AeEnable. */
+    patchControlList(request-&gt;controls());
+
+    d-&gt;pipe_-&gt;invokeMethod(&amp;PipelineHandler::queueRequest,
+                   ConnectionTypeQueued, request);
+
+    return 0;
+}
+
+/**
+ * \brief Start capture from camera
+</code></pre></div>
+</details>
+<p><a id="source-e09324743def3f09"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/camera.cpp:1431</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1431"><code>src/libcamera/camera.cpp:1431</code></a> ~ <code>1475</code></p>
+<p>SHA-256: <code>0009c665993b995489738e48affc81643a7159d82b5326e5f182e30fe11e4901</code></p>
+<div class="highlight"><pre><span></span><code>\brief Stop capture from camera
+ *
+ * This function stops capturing and processing requests immediately. All
+ * pending requests are cancelled and complete synchronously in an error state.
+ *
+ * \context This function may be called in any camera state as defined in \ref
+ * camera_operation, and shall be synchronized by the caller with other
+ * functions that affect the camera state. If called when the camera isn't
+ * running, it is a no-op.
+ *
+ * \return 0 on success or a negative error code otherwise
+ * \retval -ENODEV The camera has been disconnected from the system
+ * \retval -EACCES The camera is not running so can't be stopped
+ */
+int Camera::stop()
+{
+    Private *const d = _d();
+
+    /*
+     * \todo Make calling stop() when not in 'Running' part of the state
+     * machine rather than take this shortcut
+     */
+    if (!d-&gt;isRunning())
+        return 0;
+
+    int ret = d-&gt;isAccessAllowed(Private::CameraRunning);
+    if (ret &lt; 0)
+        return ret;
+
+    LOG(Camera, Debug) &lt;&lt; "Stopping capture";
+
+    d-&gt;setState(Private::CameraStopping);
+
+    d-&gt;pipe_-&gt;invokeMethod(&amp;PipelineHandler::stop, ConnectionTypeBlocking,
+                   this);
+
+    ASSERT(!d-&gt;pipe_-&gt;hasPendingRequests(this));
+
+    d-&gt;setState(Private::CameraConfigured);
+
+    return 0;
+}
+
+/**
+ * \brief Handle request completion and notify application
+</code></pre></div>
+</details>
+<p><a id="source-0ae00d77839f61cb"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/camera.cpp:1243</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1243"><code>src/libcamera/camera.cpp:1243</code></a> ~ <code>1263</code></p>
+<p>SHA-256: <code>9f251ecf5ba569606e9753d3619b88e1aef5a4ce15f816ae97efd283e34b823b</code></p>
+<div class="highlight"><pre><span></span><code>\brief Create a request object for the camera
+ * \param[in] cookie Opaque cookie for application use
+ *
+ * This function creates an empty request for the application to fill with
+ * buffers and parameters, and queue for capture.
+ *
+ * The \a cookie is stored in the request and is accessible through the
+ * Request::cookie() function at any time. It is typically used by applications
+ * to map the request to an external resource in the request completion
+ * handler, and is completely opaque to libcamera.
+ *
+ * The ownership of the returned request is passed to the caller, which is
+ * responsible for deleting it. The request may be deleted in the completion
+ * handler, or reused after resetting its state with Request::reuse().
+ *
+ * \context This function is \threadsafe. It may only be called when the camera
+ * is in the Configured or Running state as defined in \ref camera_operation.
+ *
+ * \return A pointer to the newly created request, or nullptr on error
+ */
+std::unique_ptr&lt;Request&gt; Camera::createRequest(uint64_t cookie)
+</code></pre></div>
+</details>
+<p><a id="source-01ad7c6605c3296a"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/pipeline_handler.cpp:547</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L547"><code>src/libcamera/pipeline_handler.cpp:547</code></a> ~ <code>620</code></p>
+<p>SHA-256: <code>514288cc958de9ff5fd19d46393cec3bb3088f4f08486528d4559071138638c9</code></p>
+<div class="highlight"><pre><span></span><code>\brief Complete a buffer for a request
+ * \param[in] request The request the buffer belongs to
+ * \param[in] buffer The buffer that has completed
+ *
+ * This function shall be called by pipeline handlers to signal completion of
+ * the \a buffer part of the \a request. It notifies applications of buffer
+ * completion and updates the request's internal buffer tracking. The request
+ * is not completed automatically when the last buffer completes to give
+ * pipeline handlers a chance to perform any operation that may still be
+ * needed. They shall complete requests explicitly with completeRequest().
+ *
+ * \context This function shall be called from the CameraManager thread.
+ *
+ * \return True if all buffers contained in the request have completed, false
+ * otherwise
+ */
+bool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)
+{
+    Camera *camera = request-&gt;_d()-&gt;camera();
+    camera-&gt;bufferCompleted.emit(request, buffer);
+    return request-&gt;_d()-&gt;completeBuffer(buffer);
+}
+
+/**
+ * \brief Signal request completion
+ * \param[in] request The request that has completed
+ *
+ * The pipeline handler shall call this function to notify the \a camera that
+ * the request has completed. The request is no longer managed by the pipeline
+ * handler and shall not be accessed once this function returns.
+ *
+ * This function ensures that requests will be returned to the application in
+ * submission order, the pipeline handler may call it on any complete request
+ * without any ordering constraint.
+ *
+ * \context This function shall be called from the CameraManager thread.
+ */
+void PipelineHandler::completeRequest(Request *request)
+{
+    Camera *camera = request-&gt;_d()-&gt;camera();
+
+    request-&gt;_d()-&gt;complete();
+
+    Camera::Private *data = camera-&gt;_d();
+
+    while (!data-&gt;queuedRequests_.empty()) {
+        Request *req = data-&gt;queuedRequests_.front();
+        if (req-&gt;status() == Request::RequestPending)
+            break;
+
+        ASSERT(!req-&gt;hasPendingBuffers());
+        data-&gt;queuedRequests_.pop_front();
+        camera-&gt;requestComplete(req);
+    }
+
+    /* Allow any waiting requests to be queued to the pipeline. */
+    doQueueRequests(camera);
+}
+
+/**
+ * \brief Cancel request and signal its completion
+ * \param[in] request The request to cancel
+ *
+ * This function cancels and completes the request. The same rules as for
+ * completeRequest() apply.
+ */
+void PipelineHandler::cancelRequest(Request *request)
+{
+    request-&gt;_d()-&gt;cancel();
+    completeRequest(request);
+}
+
+/**
+ * \brief Retrieve the absolute path to a platform configuration file
+</code></pre></div>
+</details>
+<p><a id="source-8e6389a7d7864907"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/camera.cpp:1475</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1475"><code>src/libcamera/camera.cpp:1475</code></a> ~ <code>1490</code></p>
+<p>SHA-256: <code>69fcc9cae7f7590799771bd304b13feeca21ebe9eed7032ea7562d3ab737db6e</code></p>
+<div class="highlight"><pre><span></span><code>\brief Handle request completion and notify application
+ * \param[in] request The request that has completed
+ *
+ * This function is called by the pipeline handler to notify the camera that
+ * the request has completed. It emits the requestCompleted signal.
+ */
+void Camera::requestComplete(Request *request)
+{
+    /* Disconnected cameras are still able to complete requests. */
+    if (_d()-&gt;isAccessAllowed(Private::CameraStopping, Private::CameraRunning,
+                  true))
+        LOG(Camera, Fatal) &lt;&lt; "Trying to complete a request when stopped";
+
+    requestCompleted.emit(request);
+}
+</code></pre></div>
+</details>
+<p><a id="source-ac8ee83f828fe269"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/camera.cpp:690</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L690"><code>src/libcamera/camera.cpp:690</code></a> ~ <code>745</code></p>
+<p>SHA-256: <code>1e0ac0e45422136580c0722ca5a356f17a7c0b8ae18dbb64090f7734afdbfaae</code></p>
+<div class="highlight"><pre><span></span><code>int Camera::Private::isAccessAllowed(State state, bool allowDisconnected,
+                     const char *from) const
+{
+    if (!allowDisconnected &amp;&amp; disconnected_)
+        return -ENODEV;
+
+    State currentState = state_.load(std::memory_order_acquire);
+    if (currentState == state)
+        return 0;
+
+    ASSERT(static_cast&lt;unsigned int&gt;(state) &lt; std::size(camera_state_names));
+
+    LOG(Camera, Error) &lt;&lt; "Camera in " &lt;&lt; camera_state_names[currentState]
+               &lt;&lt; " state trying " &lt;&lt; from &lt;&lt; "() requiring state "
+               &lt;&lt; camera_state_names[state];
+
+    return -EACCES;
+}
+
+int Camera::Private::isAccessAllowed(State low, State high,
+                     bool allowDisconnected,
+                     const char *from) const
+{
+    if (!allowDisconnected &amp;&amp; disconnected_)
+        return -ENODEV;
+
+    State currentState = state_.load(std::memory_order_acquire);
+    if (currentState &gt;= low &amp;&amp; currentState &lt;= high)
+        return 0;
+
+    ASSERT(static_cast&lt;unsigned int&gt;(low) &lt; std::size(camera_state_names) &amp;&amp;
+           static_cast&lt;unsigned int&gt;(high) &lt; std::size(camera_state_names));
+
+    LOG(Camera, Error) &lt;&lt; "Camera in " &lt;&lt; camera_state_names[currentState]
+               &lt;&lt; " state trying " &lt;&lt; from
+               &lt;&lt; "() requiring state between "
+               &lt;&lt; camera_state_names[low] &lt;&lt; " and "
+               &lt;&lt; camera_state_names[high];
+
+    return -EACCES;
+}
+
+void Camera::Private::disconnect()
+{
+    /*
+     * If the camera was running when the hardware was removed force the
+     * state to Configured state to allow applications to free resources
+     * and call release() before deleting the camera.
+     */
+    if (state_.load(std::memory_order_acquire) == Private::CameraRunning)
+        state_.store(Private::CameraConfigured, std::memory_order_release);
+
+    disconnected_ = true;
+}
+
+void Camera::Private::setState(State state)
+</code></pre></div>
+</details>
+<p><a id="source-2758e9ddd31ad41d"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/camera.cpp:944</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L944"><code>src/libcamera/camera.cpp:944</code></a> ~ <code>963</code></p>
+<p>SHA-256: <code>cbc12aaba21898e519c8599faec5e998b408162912a507880b162ee6787cf8b0</code></p>
+<div class="highlight"><pre><span></span><code>\brief Notify camera disconnection
+ *
+ * This function is used to notify the camera instance that the underlying
+ * hardware has been unplugged. In response to the disconnection the camera
+ * instance notifies the application by emitting the #disconnected signal, and
+ * ensures that all new calls to the application-facing Camera API return an
+ * error immediately.
+ *
+ * \todo Deal with pending requests if the camera is disconnected in a
+ * running state.
+ */
+void Camera::disconnect()
+{
+    LOG(Camera, Debug) &lt;&lt; "Disconnecting camera " &lt;&lt; id();
+
+    _d()-&gt;disconnect();
+    disconnected.emit();
+}
+
+int Camera::exportFrameBuffers(Stream *stream,
+</code></pre></div>
+</details>
+<p><a id="source-43bf991ac670b1aa"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/camera.cpp:690</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L690"><code>src/libcamera/camera.cpp:690</code></a> ~ <code>707</code></p>
+<p>SHA-256: <code>eda58d39ca207e5943afd21f4d2439316a5afdb0d3d19c7a40800658db295899</code></p>
+<div class="highlight"><pre><span></span><code>int Camera::Private::isAccessAllowed(State state, bool allowDisconnected,
+                     const char *from) const
+{
+    if (!allowDisconnected &amp;&amp; disconnected_)
+        return -ENODEV;
+
+    State currentState = state_.load(std::memory_order_acquire);
+    if (currentState == state)
+        return 0;
+
+    ASSERT(static_cast&lt;unsigned int&gt;(state) &lt; std::size(camera_state_names));
+
+    LOG(Camera, Error) &lt;&lt; "Camera in " &lt;&lt; camera_state_names[currentState]
+               &lt;&lt; " state trying " &lt;&lt; from &lt;&lt; "() requiring state "
+               &lt;&lt; camera_state_names[state];
+
+    return -EACCES;
+}
+</code></pre></div>
+</details>
+<p><a id="source-0840d2509c9e395b"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/camera.cpp:709</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L709"><code>src/libcamera/camera.cpp:709</code></a> ~ <code>730</code></p>
+<p>SHA-256: <code>d04dbcf64bf95e8e89669e5c85602d590cd8d6530e44cd275cee39348d644b8f</code></p>
+<div class="highlight"><pre><span></span><code>int Camera::Private::isAccessAllowed(State low, State high,
+                     bool allowDisconnected,
+                     const char *from) const
+{
+    if (!allowDisconnected &amp;&amp; disconnected_)
+        return -ENODEV;
+
+    State currentState = state_.load(std::memory_order_acquire);
+    if (currentState &gt;= low &amp;&amp; currentState &lt;= high)
+        return 0;
+
+    ASSERT(static_cast&lt;unsigned int&gt;(low) &lt; std::size(camera_state_names) &amp;&amp;
+           static_cast&lt;unsigned int&gt;(high) &lt; std::size(camera_state_names));
+
+    LOG(Camera, Error) &lt;&lt; "Camera in " &lt;&lt; camera_state_names[currentState]
+               &lt;&lt; " state trying " &lt;&lt; from
+               &lt;&lt; "() requiring state between "
+               &lt;&lt; camera_state_names[low] &lt;&lt; " and "
+               &lt;&lt; camera_state_names[high];
+
+    return -EACCES;
+}
+</code></pre></div>
+</details>
+</details>
+<h2 id="관련-클래스">관련 클래스</h2>
+<p>선언·상속·주석은 각 클래스 링크에서 확인하세요.</p><ul class="related-symbols"><li><a href="component-index.html#symbol-9ae6e967edca4ba7"><code>libcamera::Camera</code></a></li><li><a href="component-index.html#symbol-b6baaeffd8132566"><code>libcamera::CameraManager</code></a></li><li><a href="component-index.html#symbol-b83ff4379289191d"><code>libcamera::Request</code></a></li></ul>
+
+</article><section class="evidence"><h2 id="page-evidence">문서 생성·검토 정보</h2><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>사람 검토</dt><dd>사람 검토 전</dd><dt>분석 기준 커밋</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>문서 생성 시각</dt><dd><code>2026-11-20 18:07:29+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>문서 간 계약</dt><dd><a href="../contract-consistency.json">자동 대조 보고서</a> · 사람 검토 전</dd></dl><details class="note manuscript-record"><summary>원고 작성 당시 기록</summary><p>원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.</p><ul><li>근거 파일: <code>include/libcamera/camera.h</code>, <code>include/libcamera/camera_manager.h</code>, <code>include/libcamera/request.h</code>, <code>src/libcamera/base/log.cpp</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/camera_manager.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code>, <code>src/libcamera/request.cpp</code></li><li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>adfa719f8e</code>)</li><li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li><li>검토 상태 기록일: 2026-11-21 · 사람 검토 전</li></ul></details><a href="../camera-model.md">Markdown 원문 ↗</a> <a href="../camera-model.mmd">Mermaid 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="../for-developer.html"><small>이전</small>실행해 보고 설계 이유 읽기 ←</a><a class="next" href="../request-flow.html"><small>다음</small>요청 객체와 버퍼 수명 →</a></nav>
+<footer>Generated by camera-hal-sdd-generator · 인용 검사와 사람의 내용 검토는 별도입니다.</footer></main>
+<aside class="page-toc"></aside></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">문서 찾기</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><label for="search-input">문서·절·용어·코드 요소 검색</label><input id="search-input" type="search" autocomplete="off" placeholder="예: Pipeline, IPA, 클래스 관계"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">클래스 관계</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">요소 찾기</label><input id="node-search" type="search" placeholder="그림 요소·함수 이름"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="축소">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="확대">+</button><button id="zoom-fit">화면에 맞춤</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">마우스로 끌거나 터치로 밀어서 그림을 이동합니다. '화면에 맞춤'은 그림 전체를 보는 개요 보기입니다.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="확대된 다이어그램"><div id="diagram-canvas"></div></div></dialog>
+<script id="site-config" type="application/json">{"root": "../", "mermaid": "assets/mermaid/mermaid.esm.min.mjs", "terms": "e624f47117"}</script><script defer src="../assets/site.js?v=dd3415510a"></script><script defer src="../assets/reader-tools.js?v=dd3415510a"></script></body></html>

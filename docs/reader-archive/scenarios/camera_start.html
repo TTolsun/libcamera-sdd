@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>캡처 시작 · libcamera 설계 문서</title><link rel="stylesheet" href="../../assets/reading.css?v=dd3415510a"><meta name="robots" content="noindex"><link rel="alternate" hreflang="ko" href="camera_start.html"><link rel="alternate" hreflang="en" href="../../en/reader-archive/scenarios/camera_start.html"></head>
+<body><a class="skip" href="#main">본문으로 이동</a>
+<header class="site-header"><a class="brand" href="../../index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera 설계 문서</a>
+<div class="header-actions"><details class="language-selector"><summary aria-label="언어 선택">한국어 ▾</summary><nav><a lang="ko" hreflang="ko" href="camera_start.html" aria-current="true">한국어</a><a lang="en" hreflang="en" href="../../en/reader-archive/scenarios/camera_start.html">English</a></nav></details><button id="search-open" hidden>문서 찾기 <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>메뉴</button></div></header>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="문서 메뉴"></nav><p class="sidebar-note">코드에서 구조를 추출하고<br>근거와 함께 검토합니다.</p></aside>
+<main id="main"><p class="breadcrumb">For Developer <span>/</span> 캡처 시작</p><h1>캡처 시작</h1><div class="page-state"><span class="review-state">사람 검토 전</span><span>자동 검사 통과</span><span class="generation-method">작성: 추출한 구조와 모델이 쓴 초안</span><a class="state-help" href="#page-evidence">상태 설명 ↓</a></div>
+<p class="translation-note">이전 주소에서 연결하는 원본 자료 · <a href="../../for-developer.html">독자용 문서로 이동</a></p><article><p><strong>구성이 끝난 카메라를 시작하고 성공 뒤 요청을 제출할 수 있는 상태인지 확인하세요.</strong></p><details class="note scope-notices">
+<summary>설계 질문과 검증 범위</summary>
+<p>질문별 답변과 근거 연결을 검사했습니다. 의미와 실행 결과는 사람 검토가 필요합니다.</p>
+<ul class="coverage-links"><li><p>Camera::start()의 캡처 세션 시작 목적, 선택 controls가 시작 전에 적용된다는 API 계약과 성공 뒤 요청 제출이 가능하고 stop까지 세션이 이어지는 범위를 설명하세요. Configured 상태 전제, 다른 상태 변경 함수와 호출자의 동기화 의무, 연결 해제·잘못된 상태 오류를 관련 조건과 함께 설명하세요. 숫자 성공 반환과 파이프라인 반환 전파는 다음 절에서만 설명하므로 반복하지 마세요. 두 문단 이내로 작성하세요.</p><p><a href="#요청을-제출할-캡처-세션을-시작하기">요청을 제출할 캡처 세션을 시작하기</a></p></li><li><p>카메라를 시작할 때 controls, 반환값, 실행 스레드와 ASSERT 조건을 어떻게 확인합니까?</p><p><a href="../../for-developer.html#start-capture">시작 제어값과 파이프라인 결과 반영</a></p></li></ul><p><span>확인 범위</span>: <span>코드 근거와 설명 연결</span></p>
+</details>
+<div class="previous-route" id="이-흐름에서-확인할-것"><p>이전 링크의 목적지</p><a href="#요청을-제출할-캡처-세션을-시작하기">요청을 제출할 캡처 세션을 시작하기</a></div>
+<h2 id="요청을-제출할-캡처-세션을-시작하기">요청을 제출할 캡처 세션을 시작하기</h2>
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:1383", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1383\"><code>src/libcamera/camera.cpp:1383</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:1383": ["#source-1bb135021258e6a5"]}'><code>Camera::start()</code>는 카메라 캡처 세션을 시작하며, 선택적으로 시작 전에 적용할 <code>controls</code> 목록을 받습니다. 카메라가 시작되면 애플리케이션은 <code>stop()</code>으로 캡처 세션을 종료할 때까지 카메라가 처리하고 애플리케이션에 반환할 요청을 큐에 넣을 수 있습니다. 호출자는 카메라가 <code>Configured</code> 상태일 때만 이 함수를 호출해야 하며, 카메라 상태에 영향을 주는 다른 함수와 호출을 동기화해야 합니다. 카메라의 시스템 연결이 해제된 경우 <code>-ENODEV</code>를, 시작할 수 없는 상태인 경우 <code>-EACCES</code>를 반환합니다.</p>
+<!-- sdd:visual:item-session -->
+<h3 id="요청을-제출할-캡처-세션을-시작하기의-관계와-경계">요청을 제출할 캡처 세션을 시작하기의 관계와 경계</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"-EACCES는 카메라가 시작할 &lt;br/&gt;수 있는 상태가 아님을 &lt;br/&gt;뜻합니다.": "-EACCES means the camera is &lt;br/&gt;not in a state where it can &lt;br/&gt;be started.", "-ENODEV는 카메라가 &lt;br/&gt;시스템에서 연결 &lt;br/&gt;해제되었음을 뜻합니다.": "-ENODEV means the camera &lt;br/&gt;has been disconnected from &lt;br/&gt;the system.", "Camera::start는 카메라 캡처 &lt;br/&gt;세션을 시작합니다.": "Camera::start starts a &lt;br/&gt;camera capture session.", "Configured는 시작 함수 &lt;br/&gt;호출의 전제입니다.": "Configured is a &lt;br/&gt;precondition for calling &lt;br/&gt;the start function.", "caller는 시작 함수를 카메라 &lt;br/&gt;상태에 영향을 주는 다른 &lt;br/&gt;함수와 동기화해야 합니다.": "The caller must synchronize &lt;br/&gt;start with other &lt;br/&gt;state-affecting functions.", "controls 목록은 선택 &lt;br/&gt;사항이며 제공하면 카메라를 &lt;br/&gt;시작하기 전에 적용합니다.": "The controls list is &lt;br/&gt;optional and is applied &lt;br/&gt;before the camera starts if &lt;br/&gt;provided.", "stop#40;#41;은 캡처 세션을 &lt;br/&gt;종료합니다.": "stop#40;#41; terminates the &lt;br/&gt;capture session.", "선택적으로 제공한 &lt;br/&gt;controls는 시작 전에 &lt;br/&gt;적용합니다.": "Optional controls are &lt;br/&gt;applied before starting.", "애플리케이션은 stop#40;#41;으로 &lt;br/&gt;세션이 종료될 때까지 요청을 &lt;br/&gt;큐로 제출할 수 있습니다.": "The application can queue &lt;br/&gt;requests until stop#40;#41; ends &lt;br/&gt;the session.", "카메라가 Configured 상태일 &lt;br/&gt;때만 시작 함수를 호출할 수 &lt;br/&gt;있습니다.": "The start function may only &lt;br/&gt;be called when the camera &lt;br/&gt;is Configured.", "카메라가 시스템에서 연결 &lt;br/&gt;해제되었으면 시작 함수는 &lt;br/&gt;-ENODEV를 반환합니다.": "The start function returns &lt;br/&gt;-ENODEV if the camera is &lt;br/&gt;disconnected.", "카메라가 시작되면 &lt;br/&gt;애플리케이션은 요청을 큐로 &lt;br/&gt;제출할 수 있습니다.": "Once the camera starts, the &lt;br/&gt;application can queue &lt;br/&gt;requests.", "카메라가 시작되면 &lt;br/&gt;애플리케이션은 처리 후 &lt;br/&gt;자신에게 반환할 요청을 &lt;br/&gt;카메라에 큐로 제출할 수 &lt;br/&gt;있습니다.": "Once the camera starts, the &lt;br/&gt;application can queue &lt;br/&gt;requests for processing and &lt;br/&gt;return to it.", "카메라가 시작할 수 있는 &lt;br/&gt;상태가 아니면 시작 함수는 &lt;br/&gt;-EACCES를 반환합니다.": "The start function returns &lt;br/&gt;-EACCES if the camera &lt;br/&gt;cannot be started.", "호출자는 시작 함수를 카메라 &lt;br/&gt;상태에 영향을 주는 다른 &lt;br/&gt;함수와 동기화해야 합니다.": "The caller must synchronize &lt;br/&gt;the start function with &lt;br/&gt;other functions affecting &lt;br/&gt;camera state."}
+  v_start["Camera::start는 카메라 캡처 &lt;br/&gt;세션을 시작합니다."]
+  v_configured["카메라가 Configured 상태일 &lt;br/&gt;때만 시작 함수를 호출할 수 &lt;br/&gt;있습니다."]
+  v_controls["controls 목록은 선택 &lt;br/&gt;사항이며 제공하면 카메라를 &lt;br/&gt;시작하기 전에 적용합니다."]
+  v_caller["호출자는 시작 함수를 카메라 &lt;br/&gt;상태에 영향을 주는 다른 &lt;br/&gt;함수와 동기화해야 합니다."]
+  v_enodev["-ENODEV는 카메라가 &lt;br/&gt;시스템에서 연결 &lt;br/&gt;해제되었음을 뜻합니다."]
+  v_eacces["-EACCES는 카메라가 시작할 &lt;br/&gt;수 있는 상태가 아님을 &lt;br/&gt;뜻합니다."]
+  v_requests["카메라가 시작되면 &lt;br/&gt;애플리케이션은 처리 후 &lt;br/&gt;자신에게 반환할 요청을 &lt;br/&gt;카메라에 큐로 제출할 수 &lt;br/&gt;있습니다."]
+  v_stop["stop#40;#41;은 캡처 세션을 &lt;br/&gt;종료합니다."]
+  v_configured --&gt;|"Configured는 시작 함수 &lt;br/&gt;호출의 전제입니다."| v_start
+  v_controls --&gt;|"선택적으로 제공한 &lt;br/&gt;controls는 시작 전에 &lt;br/&gt;적용합니다."| v_start
+  v_caller --&gt;|"caller는 시작 함수를 카메라 &lt;br/&gt;상태에 영향을 주는 다른 &lt;br/&gt;함수와 동기화해야 합니다."| v_start
+  v_start --&gt;|"카메라가 시스템에서 연결 &lt;br/&gt;해제되었으면 시작 함수는 &lt;br/&gt;-ENODEV를 반환합니다."| v_enodev
+  v_start --&gt;|"카메라가 시작할 수 있는 &lt;br/&gt;상태가 아니면 시작 함수는 &lt;br/&gt;-EACCES를 반환합니다."| v_eacces
+  v_start --&gt;|"카메라가 시작되면 &lt;br/&gt;애플리케이션은 요청을 큐로 &lt;br/&gt;제출할 수 있습니다."| v_requests
+  v_requests --&gt;|"애플리케이션은 stop#40;#41;으로 &lt;br/&gt;세션이 종료될 때까지 요청을 &lt;br/&gt;큐로 제출할 수 있습니다."| v_stop</pre>
+<p><a href="../../scenarios/camera_start.item-session.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>Configured 전제와 선택적 제어값, 시작 오류, 요청 제출 및 stop은 캡처 세션에서 어떻게 연결되는가?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<p>LLM 그림 초안 · 사람 검토 전</p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Camera::start starts a camera capture session.">Camera::start는 카메라 캡처 세션을 시작합니다.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The start function may only be called when the camera is Configured.">카메라가 Configured 상태일 때만 시작 함수를 호출할 수 있습니다.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The controls list is optional and is applied before the camera starts if provided.">controls 목록은 선택 사항이며 제공하면 카메라를 시작하기 전에 적용합니다.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The caller must synchronize the start function with other functions affecting camera state.">호출자는 시작 함수를 카메라 상태에 영향을 주는 다른 함수와 동기화해야 합니다.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="-ENODEV means the camera has been disconnected from the system.">-ENODEV는 카메라가 시스템에서 연결 해제되었음을 뜻합니다.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="-EACCES means the camera is not in a state where it can be started.">-EACCES는 카메라가 시작할 수 있는 상태가 아님을 뜻합니다.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Once the camera starts, the application can queue requests for processing and return to it.">카메라가 시작되면 애플리케이션은 처리 후 자신에게 반환할 요청을 카메라에 큐로 제출할 수 있습니다.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="stop() terminates the capture session.">stop()은 캡처 세션을 종료합니다.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Configured is a precondition for calling the start function.">Configured는 시작 함수 호출의 전제입니다.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Optional controls are applied before starting.">선택적으로 제공한 controls는 시작 전에 적용합니다.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The caller must synchronize start with other state-affecting functions.">caller는 시작 함수를 카메라 상태에 영향을 주는 다른 함수와 동기화해야 합니다.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The start function returns -ENODEV if the camera is disconnected.">카메라가 시스템에서 연결 해제되었으면 시작 함수는 -ENODEV를 반환합니다.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The start function returns -EACCES if the camera cannot be started.">카메라가 시작할 수 있는 상태가 아니면 시작 함수는 -EACCES를 반환합니다.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Once the camera starts, the application can queue requests.">카메라가 시작되면 애플리케이션은 요청을 큐로 제출할 수 있습니다.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The application can queue requests until stop() ends the session.">애플리케이션은 stop()으로 세션이 종료될 때까지 요청을 큐로 제출할 수 있습니다.</span></td>
+<td><a href="#source-1bb135021258e6a5">src/libcamera/camera.cpp:1383</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:item-session -->
+
+
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-1bb135021258e6a5" aria-label="src/libcamera/camera.cpp:1383 발췌"><code>L1383</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:1383" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1383">전체 소스 <code>L1383</code></a></span></li></ul></details><p id="시작-제어값과-파이프라인-결과-반영"><a href="../../for-developer.html#start-capture">시작 제어값과 파이프라인 결과 반영</a></p><p id="시작-제어값과-파이프라인-결과-반영의-관계와-경계"><a href="../../for-developer.html#%EC%8B%9C%EC%9E%91-%EC%A0%9C%EC%96%B4%EA%B0%92%EA%B3%BC-%ED%8C%8C%EC%9D%B4%ED%94%84%EB%9D%BC%EC%9D%B8-%EA%B2%B0%EA%B3%BC-%EB%B0%98%EC%98%81%EC%9D%98-%EA%B4%80%EA%B3%84%EC%99%80-%EA%B2%BD%EA%B3%84">시작 제어값과 파이프라인 결과 반영의 관계와 경계</a></p><h2 id="소스-근거">소스 근거</h2>
+<details class="source-excerpts"><summary>소스 발췌 <span>4</span>개</summary>
+<p>같은 발췌는 한 번만 싣습니다. 필요한 원문을 펼쳐 설명과 대조하세요.</p>
+<p><a id="source-1bb135021258e6a5"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/camera.cpp:1383</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1383"><code>src/libcamera/camera.cpp:1383</code></a> ~ <code>1399</code></p>
+<p>SHA-256: <code>9121c6f5bd2e73de134af571dd2a8a2089f052b08739b10519bdf9433ea1b2b9</code></p>
+<div class="highlight"><pre><span></span><code>\brief Start capture from camera
+ * \param[in] controls Controls to be applied before starting the Camera
+ *
+ * Start the camera capture session, optionally providing a list of controls to
+ * apply before starting. Once the camera is started the application can queue
+ * requests to the camera to process and return to the application until the
+ * capture session is terminated with \a stop().
+ *
+ * \context This function may only be called when the camera is in the
+ * Configured state as defined in \ref camera_operation, and shall be
+ * synchronized by the caller with other functions that affect the camera
+ * state.
+ *
+ * \return 0 on success or a negative error code otherwise
+ * \retval -ENODEV The camera has been disconnected from the system
+ * \retval -EACCES The camera is not in a state where it can be started
+ */
+</code></pre></div>
+</details>
+<p><a id="source-05691b4c81e7ee1c"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/camera.cpp:1400</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1400"><code>src/libcamera/camera.cpp:1400</code></a> ~ <code>1428</code></p>
+<p>SHA-256: <code>a440ed27d1a8c891ff25f542252c50f9fc3040df4cc04346bf771ee8e4e54b73</code></p>
+<div class="highlight"><pre><span></span><code>int Camera::start(const ControlList *controls)
+{
+    Private *const d = _d();
+
+    int ret = d-&gt;isAccessAllowed(Private::CameraConfigured);
+    if (ret &lt; 0)
+        return ret;
+
+    LOG(Camera, Debug) &lt;&lt; "Starting capture";
+
+    ASSERT(d-&gt;requestSequence_ == 0);
+
+    if (controls) {
+        ControlList copy(*controls);
+        patchControlList(copy);
+        ret = d-&gt;pipe_-&gt;invokeMethod(&amp;PipelineHandler::start,
+                         ConnectionTypeBlocking, this, &amp;copy);
+    } else {
+        ret = d-&gt;pipe_-&gt;invokeMethod(&amp;PipelineHandler::start,
+                         ConnectionTypeBlocking, this, nullptr);
+    }
+
+    if (ret)
+        return ret;
+
+    d-&gt;setState(Private::CameraRunning);
+
+    return 0;
+}
+</code></pre></div>
+</details>
+<p><a id="source-490ad21ef2a56108"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/pipeline_handler.cpp:343</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L343"><code>src/libcamera/pipeline_handler.cpp:343</code></a> ~ <code>356</code></p>
+<p>SHA-256: <code>ea0201de61631e8e9551d0c94503e5b000439f9b1a1242dded9abeb9b5870c2e</code></p>
+<div class="highlight"><pre><span></span><code>\fn PipelineHandler::start()
+ * \brief Start capturing from a group of streams
+ * \param[in] camera The camera to start
+ * \param[in] controls Controls to be applied before starting the Camera
+ *
+ * Start the group of streams that have been configured for capture by
+ * \a configure(). The intended caller of this function is the Camera class
+ * which will in turn be called from the application to indicate that it has
+ * configured the streams and is ready to capture.
+ *
+ * \context This function is called from the CameraManager thread.
+ *
+ * \return 0 on success or a negative error code otherwise
+ */
+</code></pre></div>
+</details>
+<p><a id="source-47a6ef3943a7b53c"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/base/log.cpp:1022</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/log.cpp#L1022"><code>src/libcamera/base/log.cpp:1022</code></a> ~ <code>1060</code></p>
+<p>SHA-256: <code>52e64d292f59786541e66fe48f5bae65256bdced60c803aa76bf3637083b47b0</code></p>
+<div class="highlight"><pre><span></span><code>\def LOG(category, severity)
+ * \hideinitializer
+ * \brief Log a message
+ * \param[in] category Category (optional)
+ * \param[in] severity Severity
+ *
+ * Return an std::ostream reference to which a message can be logged using the
+ * iostream API. The \a category, if specified, sets the message category. When
+ * absent the default category is used. The  \a severity controls whether the
+ * message is printed or discarded, depending on the log level for the category.
+ *
+ * If the severity is set to Fatal, execution is aborted and the program
+ * terminates immediately after printing the message.
+ *
+ * \warning Logging from the destructor of a global object, either directly or
+ * indirectly, results in undefined behaviour.
+ *
+ * \todo Allow logging from destructors of global objects to the largest
+ * possible extent
+ */
+
+/**
+ * \def ASSERT(condition)
+ * \hideinitializer
+ * \brief Abort program execution if assertion fails
+ *
+ * If \a condition is false, ASSERT() logs an error message with the Fatal log
+ * level and aborts program execution.
+ *
+ * If the macro NDEBUG is defined before including log.h, ASSERT() generates no
+ * code.
+ *
+ * Using conditions that have side effects with ASSERT() is not recommended, as
+ * these effects would depend on whether NDEBUG is defined or not. Similarly,
+ * ASSERT() should not be used to check for errors that can occur under normal
+ * conditions as those checks would then be removed when compiling with NDEBUG.
+ */
+
+} /* namespace libcamera */
+</code></pre></div>
+</details>
+</details>
+<h2 id="주요-확인-지점">주요 확인 지점</h2>
+<p>아래 항목은 추출한 호출에서 고른 코드 탐색 지점입니다. 나열 순서는 실행 순서가 아닙니다.</p>
+<div class="table-scroll stack" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>확인할 내용</th>
+<th>호출 측과 대상</th>
+<th>구분</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td data-label="확인할 내용">시작 요청 대상</td>
+<td data-label="호출 측과 대상"><code>Camera</code> → <code>PipelineHandler::start()</code></td>
+<td data-label="구분">메서드 전달 대상이며 동기·비동기 여부는 호출부에서 확인해야 합니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1415"><code>src/libcamera/camera.cpp:1415</code></a>, <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1418"><code>src/libcamera/camera.cpp:1418</code></a></td>
+</tr>
+<tr>
+<td data-label="확인할 내용">상태 반영</td>
+<td data-label="호출 측과 대상"><code>Camera</code> → <code>Private::setState()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1425"><code>src/libcamera/camera.cpp:1425</code></a></td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="주요-호출-관계">주요 호출 관계</h2>
+<p>화살표는 호출 측과 대상을 연결합니다. 시간 순서나 모든 경로의 실행을 뜻하지 않습니다. 점선에는 가상 호출 후보·예약 대상 등 확인이 필요한 관계를 표시합니다.</p>
+<pre class="mermaid">flowchart LR
+  p0["Camera"]
+  p1["PipelineHandler"]
+  p2["Private"]
+  p0 -.-&gt;|"start#40;#41; · 예약된 호출, 실행 순서는 정적으로 확인 불가"| p1
+  p0 --&gt;|"setState#40;#41;"| p2</pre>
+<h2 id="추적-범위와-경계">추적 범위와 경계</h2>
+<p>요약의 hide 규칙에 해당하는 호출은 27개입니다. 전체 추적 기록에는 해당 호출도 모두 보존합니다. 기록 번호는 정적 탐색의 식별자이며 실행 순번이 아닙니다.</p>
+<p>조건 분기, 반복 횟수와 실제 실행 스레드는 이 호출 목록만으로 확정할 수 없습니다. 가상 호출 후보는 실제 객체에 따라 선택됩니다. 예약 표시는 인자로 전달한 메서드 대상을 뜻하며, 비동기 실행을 보증하지 않습니다. 호출부의 연결 방식과 동기화 계약을 확인해야 합니다.</p>
+<div class="table-scroll stack" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>호출 지점</th>
+<th>후보 또는 예약 대상</th>
+<th>확인할 경계</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td data-label="호출 지점"><code>Camera</code></td>
+<td data-label="후보 또는 예약 대상"><code>PipelineHandler::start()</code></td>
+<td data-label="확인할 경계">메서드 전달 대상이며 동기·비동기 여부는 호출부에서 확인해야 합니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1415"><code>src/libcamera/camera.cpp:1415</code></a></td>
+</tr>
+<tr>
+<td data-label="호출 지점"><code>Camera</code></td>
+<td data-label="후보 또는 예약 대상"><code>PipelineHandler::start()</code></td>
+<td data-label="확인할 경계">메서드 전달 대상이며 동기·비동기 여부는 호출부에서 확인해야 합니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1418"><code>src/libcamera/camera.cpp:1418</code></a></td>
+</tr>
+</tbody>
+</table></div>
+<p>추출 통계: 미해결 호출 0개, 예약된 호출 2개입니다.</p>
+<h2 id="전체-추적-기록">전체 추적 기록</h2>
+<p>아래 구간을 펼치면 요약에서 제외된 호출까지 확인할 수 있습니다. 이 목록은 추출 깊이 안에서 수집한 기록이며, 소스의 모든 실행 경로를 포함한다는 뜻은 아닙니다.</p>
+<details class="note">
+<summary>추적 기록 1–25 / 48개</summary>
+<div class="table-scroll stack" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>기록</th>
+<th>호출 측</th>
+<th>대상</th>
+<th>구분</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td data-label="기록">1</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>Camera::_d()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1402"><code>src/libcamera/camera.cpp:1402</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">2</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>Private::isAccessAllowed()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1404"><code>src/libcamera/camera.cpp:1404</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">3</td>
+<td data-label="호출 측"><code>Private</code></td>
+<td data-label="대상"><code>log::isLogSeverityEnabled()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L700"><code>src/libcamera/camera.cpp:700</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">4</td>
+<td data-label="호출 측"><code>Private</code></td>
+<td data-label="대상"><code>LogMessageAbortGuard::LogMessageAbortGuard()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L700"><code>src/libcamera/camera.cpp:700</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">5</td>
+<td data-label="호출 측"><code>Private</code></td>
+<td data-label="대상"><code>LogMessage::stream()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L700"><code>src/libcamera/camera.cpp:700</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">6</td>
+<td data-label="호출 측"><code>Private</code></td>
+<td data-label="대상"><code>log::_log()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L700"><code>src/libcamera/camera.cpp:700</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">7</td>
+<td data-label="호출 측"><code>log</code></td>
+<td data-label="대상"><code>LogMessage::LogMessage()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/log.cpp#L990"><code>src/libcamera/base/log.cpp:990</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">8</td>
+<td data-label="호출 측"><code>LogMessage</code></td>
+<td data-label="대상"><code>utils::basename()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/log.cpp#L858"><code>src/libcamera/base/log.cpp:858</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">9</td>
+<td data-label="호출 측"><code>Private</code></td>
+<td data-label="대상"><code>log::isLogSeverityEnabled()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L702"><code>src/libcamera/camera.cpp:702</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">10</td>
+<td data-label="호출 측"><code>Private</code></td>
+<td data-label="대상"><code>LogMessageAbortGuard::LogMessageAbortGuard()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L702"><code>src/libcamera/camera.cpp:702</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">11</td>
+<td data-label="호출 측"><code>Private</code></td>
+<td data-label="대상"><code>LogMessage::stream()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L702"><code>src/libcamera/camera.cpp:702</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">12</td>
+<td data-label="호출 측"><code>Private</code></td>
+<td data-label="대상"><code>log::_log()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L702"><code>src/libcamera/camera.cpp:702</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">13</td>
+<td data-label="호출 측"><code>log</code></td>
+<td data-label="대상"><code>LogMessage::LogMessage()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/log.cpp#L990"><code>src/libcamera/base/log.cpp:990</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">14</td>
+<td data-label="호출 측"><code>LogMessage</code></td>
+<td data-label="대상"><code>utils::basename()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/log.cpp#L858"><code>src/libcamera/base/log.cpp:858</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">15</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>log::isLogSeverityEnabled()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1408"><code>src/libcamera/camera.cpp:1408</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">16</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>LogMessageAbortGuard::LogMessageAbortGuard()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1408"><code>src/libcamera/camera.cpp:1408</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">17</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>LogMessage::stream()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1408"><code>src/libcamera/camera.cpp:1408</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">18</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>log::_log()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1408"><code>src/libcamera/camera.cpp:1408</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">19</td>
+<td data-label="호출 측"><code>log</code></td>
+<td data-label="대상"><code>LogMessage::LogMessage()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/log.cpp#L990"><code>src/libcamera/base/log.cpp:990</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">20</td>
+<td data-label="호출 측"><code>LogMessage</code></td>
+<td data-label="대상"><code>utils::basename()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/log.cpp#L858"><code>src/libcamera/base/log.cpp:858</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">21</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>log::isLogSeverityEnabled()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1410"><code>src/libcamera/camera.cpp:1410</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">22</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>LogMessageAbortGuard::LogMessageAbortGuard()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1410"><code>src/libcamera/camera.cpp:1410</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">23</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>LogMessage::stream()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1410"><code>src/libcamera/camera.cpp:1410</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">24</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>log::_log()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1410"><code>src/libcamera/camera.cpp:1410</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">25</td>
+<td data-label="호출 측"><code>log</code></td>
+<td data-label="대상"><code>LogMessage::LogMessage()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/log.cpp#L990"><code>src/libcamera/base/log.cpp:990</code></a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<details class="note">
+<summary>추적 기록 26–48 / 48개</summary>
+<div class="table-scroll stack" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>기록</th>
+<th>호출 측</th>
+<th>대상</th>
+<th>구분</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td data-label="기록">26</td>
+<td data-label="호출 측"><code>LogMessage</code></td>
+<td data-label="대상"><code>utils::basename()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/log.cpp#L858"><code>src/libcamera/base/log.cpp:858</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">27</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>ControlList::ControlList()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1413"><code>src/libcamera/camera.cpp:1413</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">28</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>Camera::patchControlList()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1414"><code>src/libcamera/camera.cpp:1414</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">29</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>ControlList::get()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1289"><code>src/libcamera/camera.cpp:1289</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">30</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>ControlInfoMap::count()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1291"><code>src/libcamera/camera.cpp:1291</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">31</td>
+<td data-label="호출 측"><code>ControlInfoMap</code></td>
+<td data-label="대상"><code>ControlInfoMap::find()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/controls.cpp#L864"><code>src/libcamera/controls.cpp:864</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">32</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>Camera::_d()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1291"><code>src/libcamera/camera.cpp:1291</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">33</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>ControlId::id()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1291"><code>src/libcamera/camera.cpp:1291</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">34</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>ControlList::contains()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1292"><code>src/libcamera/camera.cpp:1292</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">35</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>ControlId::id()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1292"><code>src/libcamera/camera.cpp:1292</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">36</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>ControlList::set()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1293"><code>src/libcamera/camera.cpp:1293</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">37</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>ControlInfoMap::count()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1298"><code>src/libcamera/camera.cpp:1298</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">38</td>
+<td data-label="호출 측"><code>ControlInfoMap</code></td>
+<td data-label="대상"><code>ControlInfoMap::find()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/controls.cpp#L864"><code>src/libcamera/controls.cpp:864</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">39</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>Camera::_d()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1298"><code>src/libcamera/camera.cpp:1298</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">40</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>ControlId::id()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1298"><code>src/libcamera/camera.cpp:1298</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">41</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>ControlList::contains()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1299"><code>src/libcamera/camera.cpp:1299</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">42</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>ControlId::id()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1299"><code>src/libcamera/camera.cpp:1299</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">43</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>ControlList::set()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1300"><code>src/libcamera/camera.cpp:1300</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">44</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>Object::invokeMethod()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1415"><code>src/libcamera/camera.cpp:1415</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">45</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>PipelineHandler::start()</code></td>
+<td data-label="구분">메서드 전달 대상이며 동기·비동기 여부는 호출부에서 확인해야 합니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1415"><code>src/libcamera/camera.cpp:1415</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">46</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>Object::invokeMethod()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1418"><code>src/libcamera/camera.cpp:1418</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">47</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>PipelineHandler::start()</code></td>
+<td data-label="구분">메서드 전달 대상이며 동기·비동기 여부는 호출부에서 확인해야 합니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1418"><code>src/libcamera/camera.cpp:1418</code></a></td>
+</tr>
+<tr>
+<td data-label="기록">48</td>
+<td data-label="호출 측"><code>Camera</code></td>
+<td data-label="대상"><code>Private::setState()</code></td>
+<td data-label="구분">정적 호출 지점입니다.</td>
+<td data-label="근거"><a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1425"><code>src/libcamera/camera.cpp:1425</code></a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+
+</article><section class="evidence"><h2 id="page-evidence">문서 생성·검토 정보</h2><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>사람 검토</dt><dd>사람 검토 전</dd><dt>분석 기준 커밋</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>문서 생성 시각</dt><dd><code>2026-11-04 05:03:21+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>문서 간 계약</dt><dd><a href="../../contract-consistency.json">자동 대조 보고서</a> · 사람 검토 전</dd></dl><details class="note manuscript-record"><summary>원고 작성 당시 기록</summary><p>원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.</p><ul><li>근거 파일: <code>src/libcamera/base/log.cpp</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/controls.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code></li><li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>293d751a81</code>)</li><li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li><li>검토 상태 기록일: 2026-11-04 · 사람 검토 전</li></ul></details><a href="../../scenarios/camera_start.md">Markdown 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="../../for-developer.html"><small>이전</small>스트림 구성 ←</a><a class="next" href="../../request-flow.html"><small>다음</small>요청 제출 →</a></nav>
+<footer>Generated by camera-hal-sdd-generator · 인용 검사와 사람의 내용 검토는 별도입니다.</footer></main>
+<aside class="page-toc"></aside></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">문서 찾기</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><label for="search-input">문서·절·용어·코드 요소 검색</label><input id="search-input" type="search" autocomplete="off" placeholder="예: Pipeline, IPA, 클래스 관계"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">클래스 관계</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">요소 찾기</label><input id="node-search" type="search" placeholder="그림 요소·함수 이름"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="축소">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="확대">+</button><button id="zoom-fit">화면에 맞춤</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">마우스로 끌거나 터치로 밀어서 그림을 이동합니다. '화면에 맞춤'은 그림 전체를 보는 개요 보기입니다.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="확대된 다이어그램"><div id="diagram-canvas"></div></div></dialog>
+<script id="site-config" type="application/json">{"root": "../../", "mermaid": "assets/mermaid/mermaid.esm.min.mjs", "terms": "e624f47117"}</script><script defer src="../../assets/site.js?v=dd3415510a"></script><script defer src="../../assets/reader-tools.js?v=dd3415510a"></script></body></html>

@@ -1,0 +1,782 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IPA Tuning and Software ISP · libcamera design document</title><link rel="stylesheet" href="../../assets/reading.css?v=dd3415510a"><meta name="robots" content="noindex"><link rel="alternate" hreflang="ko" href="../../reader-archive/ipa-algorithms.html"><link rel="alternate" hreflang="en" href="ipa-algorithms.html"></head>
+<body><a class="skip" href="#main">Go to body text</a>
+<header class="site-header"><a class="brand" href="../index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera Design Document</a>
+<div class="header-actions"><details class="language-selector"><summary aria-label="Choose language">English ▾</summary><nav><a lang="ko" hreflang="ko" href="../../reader-archive/ipa-algorithms.html">한국어</a><a lang="en" hreflang="en" href="ipa-algorithms.html" aria-current="true">English</a></nav></details><button id="search-open" hidden>Find document <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button></div></header>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Document menu"></nav><p class="sidebar-note">Extract the structure from the code and review it together with <br> evidence.</p></aside>
+<main id="main"><p class="breadcrumb">For Vendor <span>/</span> IPA Tuning and Software ISP</p><h1>IPA Tuning and Software ISP</h1><div class="page-state"><span class="review-state">Before human review</span><span>Automated check passed</span><span class="generation-method">Authored: extracted structure and draft written by the model</span><a class="state-help" href="#page-evidence">State description ↓</a></div>
+<p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><p class="translation-note">Source material linked by earlier addresses · <a href="../implementation.html">Reader edition</a></p><article><p><strong>Check the tuning file path and the software ISP's lens correction and input buffer connections against the code.</strong></p><details class="note scope-notices">
+<summary>Design questions and validation scope</summary>
+<p>The answers to each question and their evidence links were checked. The meaning and execution results require human review.</p>
+<ul class="coverage-links"><li><p>If no sensor-specific tuning file exists, which file and algorithm are used?</p><p><a href="#보정-전-튜닝-파일">Tuning file before calibration</a></p></li><li><p>At which stage does the GPU shader of the software ISP apply lens shading correction?</p><p><a href="#소프트웨어-isp-셰이더의-렌즈-음영-보정">Lens shading correction in the software ISP shader</a></p></li><li><p>How are the format and failure handling connected when importing the software ISP's input buffer as a texture?</p><p><a href="#소프트웨어-isp-입력-버퍼의-텍스처-형식">Texture format of the software ISP input buffer</a></p></li></ul><p><span>Verification scope</span>: <span>Linking code evidence to explanations</span></p>
+</details>
+<details class="page-terms">
+<summary>Terms in this document: IPA, software ISP, ISP, tuning file, and 7 others</summary>
+<ul>
+<li><strong>IPA</strong> (Image Processing Algorithms): A separate module (.so) that contains image quality algorithms. It reads the statistics sent by the ISP and calculates the ISP settings to use for the next frame. It is separated from the libcamera core so that manufacturers can provide it without publishing its source.</li>
+<li><strong>Software ISP</strong>: A libcamera component that performs ISP processing on the CPU or GPU in place of a hardware ISP on devices without one. In the source, it is named software_isp or softisp.</li>
+<li><strong>ISP</strong> (Image Signal Processor): A processing unit that converts raw (Bayer) data output by the sensor into an image that can be displayed on screen. It performs operations such as black level correction, lens shading correction, white balance, and debayering.</li>
+<li><strong>Tuning file</strong>: A YAML file containing sensor- and platform-specific algorithm parameters (calibration tables, color matrices, etc.). IPA reads it when it starts.</li>
+<li><strong>RKISP1</strong> (Rockchip Image Signal Processor 1): A camera ISP included in Rockchip SoCs, the NXP i.MX8MP, and others. libcamera has a Pipeline Handler and an IPA for this device.</li>
+<li><strong>mali-c55</strong>: Arm Mali-C55 camera ISP. libcamera has a Pipeline Handler and an IPA for this device.</li>
+<li><strong>GL</strong>: A prefix used in identifiers of OpenGL-family graphics APIs. In this document, GL formats indicate the channel composition of a texture.</li>
+<li><strong>EGL</strong>: An interface that connects the graphics API with the display, image, and buffer of the operating environment. This document covers the boundary where shared buffers are imported as graphics images.</li>
+<li><strong>Shader</strong>: A small program that runs on the GPU. A software ISP may perform debayering and color correction with GPU shaders.</li>
+<li><strong>LSC</strong> (Lens Shading Correction): Processing that corrects lens shading, the phenomenon in which the edges of an image are darker than the center or colors are distorted due to lens characteristics. It is applied by multiplying by a correction table that divides the image into a grid.</li>
+<li><strong>IPU3</strong> (Intel Image Processing Unit 3): A camera ISP included in some Intel laptop processors. libcamera has a Pipeline Handler and an IPA for this device.</li>
+</ul>
+<p>Other terms can be found in <a href="../glossary.html">Glossary</a>.</p>
+</details>
+
+<h2 id="보정-전-튜닝-파일">Tuning file before calibration</h2>
+<p data-sdd-evidence='[["src/libcamera/pipeline/rkisp1/rkisp1.cpp:406", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L406\"><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp:406</code></a>"], ["src/libcamera/pipeline/mali-c55/mali-c55.cpp:468", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/mali-c55/mali-c55.cpp#L468\"><code>src/libcamera/pipeline/mali-c55/mali-c55.cpp:468</code></a>"], ["src/libcamera/ipa_proxy.cpp:174", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_proxy.cpp#L174\"><code>src/libcamera/ipa_proxy.cpp:174</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline/rkisp1/rkisp1.cpp:406": ["#source-a117437c7ec61db3"], "src/libcamera/pipeline/mali-c55/mali-c55.cpp:468": ["#source-efc0c3fc5cf7acef"], "src/libcamera/ipa_proxy.cpp:174": ["#source-4000376c954f5327"]}'>RKISP1 and Mali-C55 each pass a file name formed by appending <code>.yaml</code> to the sensor model name, along with the fallback name <code>uncalibrated.yaml</code>, to <code>IPAProxy::configurationFile()</code>. The function first searches for a configuration file using the IPA module name and the requested name, and returns the path if it is not empty. If the search result and the fallback name are both empty, the function logs an error and returns an empty string. If the fallback name is not empty, the function searches again using that name and logs a warning.</p>
+<!-- sdd:visual:ipa-tuning-file-fallback -->
+<h3 id="ipa-튜닝-파일-검색-순서">IPA tuning file search order</h3>
+<pre class="mermaid">flowchart TB
+
+  v_lookup["Look up the requested name"]
+  v_found{"Requested path found?"}
+  v_requested["Return the requested path"]
+  v_fallback{"Is the fallback name empty?"}
+  v_missing["Log an error and return an &lt;br/&gt;empty path"]
+  v_alternative["Look up the fallback name &lt;br/&gt;and log a warning"]
+  v_lookup --&gt;|"Check the result"| v_found
+  v_found --&gt;|"Yes"| v_requested
+  v_found --&gt;|"No"| v_fallback
+  v_fallback --&gt;|"Yes"| v_missing
+  v_fallback --&gt;|"No"| v_alternative</pre>
+<p><a href="../ipa-algorithms.ipa-tuning-file-fallback.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>If the requested tuning file cannot be found, under what conditions is an alternative name searched for?</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Look up the requested name">Look up the requested name</span></td>
+<td><a href="#source-4000376c954f5327">src/libcamera/ipa_proxy.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Requested path found?">Requested path found?</span></td>
+<td><a href="#source-4000376c954f5327">src/libcamera/ipa_proxy.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return the requested path">Return the requested path</span></td>
+<td><a href="#source-4000376c954f5327">src/libcamera/ipa_proxy.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is the fallback name empty?">Is the fallback name empty?</span></td>
+<td><a href="#source-4000376c954f5327">src/libcamera/ipa_proxy.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Log an error and return an empty path">Log an error and return an empty path</span></td>
+<td><a href="#source-4000376c954f5327">src/libcamera/ipa_proxy.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Look up the fallback name and log a warning">Look up the fallback name and log a warning</span></td>
+<td><a href="#source-4000376c954f5327">src/libcamera/ipa_proxy.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the result">Check the result</span></td>
+<td><a href="#source-4000376c954f5327">src/libcamera/ipa_proxy.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes">Yes</span></td>
+<td><a href="#source-4000376c954f5327">src/libcamera/ipa_proxy.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No">No</span></td>
+<td><a href="#source-4000376c954f5327">src/libcamera/ipa_proxy.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes">Yes</span></td>
+<td><a href="#source-4000376c954f5327">src/libcamera/ipa_proxy.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No">No</span></td>
+<td><a href="#source-4000376c954f5327">src/libcamera/ipa_proxy.cpp:174</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:ipa-tuning-file-fallback -->
+
+<p data-sdd-evidence='[["src/ipa/rkisp1/data/uncalibrated.yaml:1", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/rkisp1/data/uncalibrated.yaml#L1\"><code>src/ipa/rkisp1/data/uncalibrated.yaml:1</code></a>"], ["src/ipa/rkisp1/data/imx219.yaml:1", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/rkisp1/data/imx219.yaml#L1\"><code>src/ipa/rkisp1/data/imx219.yaml:1</code></a>"], ["src/ipa/mali-c55/data/uncalibrated.yaml:1", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/mali-c55/data/uncalibrated.yaml#L1\"><code>src/ipa/mali-c55/data/uncalibrated.yaml:1</code></a>"], ["src/ipa/mali-c55/algorithms/meson.build:1", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/mali-c55/algorithms/meson.build#L1\"><code>src/ipa/mali-c55/algorithms/meson.build:1</code></a>"]]' data-sdd-excerpts='{"src/ipa/rkisp1/data/uncalibrated.yaml:1": ["#source-c3d57577d02a4dc3"], "src/ipa/rkisp1/data/imx219.yaml:1": ["#source-ae07d96c1336aa7d"], "src/ipa/mali-c55/data/uncalibrated.yaml:1": ["#source-2aca0607eacef985"], "src/ipa/mali-c55/algorithms/meson.build:1": ["#source-f8b760d0d191cbea"]}'>RKISP1's <code>uncalibrated.yaml</code> lists <code>Agc</code>, <code>Awb</code>, <code>BlackLevelCorrection</code>, <code>Ccm</code>, and <code>GammaOutCorrection</code>. RKISP1's IMX219 sensor-specific file also has a <code>GammaOutCorrection</code> entry. Mali-C55's <code>uncalibrated.yaml</code> lists <code>Agc</code>, <code>Awb</code>, <code>BlackLevelCorrection</code>, <code>Ccm</code>, and <code>Gamma</code>. Separately, the algorithm build list <code>mali_c55_ipa_algorithms</code> includes <code>gamma.cpp</code>.</p>
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>7</span></summary><ul><li><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code><span class="evidence-lines"><a href="#source-a117437c7ec61db3" aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:406 excerpt"><code>L406</code> excerpt</a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:406" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L406">Full source <code>L406</code></a></span></li><li><code>src/libcamera/pipeline/mali-c55/mali-c55.cpp</code><span class="evidence-lines"><a href="#source-efc0c3fc5cf7acef" aria-label="src/libcamera/pipeline/mali-c55/mali-c55.cpp:468 excerpt"><code>L468</code> excerpt</a> · <a aria-label="src/libcamera/pipeline/mali-c55/mali-c55.cpp:468" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/mali-c55/mali-c55.cpp#L468">Full source <code>L468</code></a></span></li><li><code>src/libcamera/ipa_proxy.cpp</code><span class="evidence-lines"><a href="#source-4000376c954f5327" aria-label="src/libcamera/ipa_proxy.cpp:174 excerpt"><code>L174</code> excerpt</a> · <a aria-label="src/libcamera/ipa_proxy.cpp:174" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_proxy.cpp#L174">Full source <code>L174</code></a></span></li><li><code>src/ipa/rkisp1/data/uncalibrated.yaml</code><span class="evidence-lines"><a href="#source-c3d57577d02a4dc3" aria-label="src/ipa/rkisp1/data/uncalibrated.yaml:1 excerpt"><code>L1</code> excerpt</a> · <a aria-label="src/ipa/rkisp1/data/uncalibrated.yaml:1" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/rkisp1/data/uncalibrated.yaml#L1">Full source <code>L1</code></a></span></li><li><code>src/ipa/rkisp1/data/imx219.yaml</code><span class="evidence-lines"><a href="#source-ae07d96c1336aa7d" aria-label="src/ipa/rkisp1/data/imx219.yaml:1 excerpt"><code>L1</code> excerpt</a> · <a aria-label="src/ipa/rkisp1/data/imx219.yaml:1" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/rkisp1/data/imx219.yaml#L1">Full source <code>L1</code></a></span></li><li><code>src/ipa/mali-c55/data/uncalibrated.yaml</code><span class="evidence-lines"><a href="#source-2aca0607eacef985" aria-label="src/ipa/mali-c55/data/uncalibrated.yaml:1 excerpt"><code>L1</code> excerpt</a> · <a aria-label="src/ipa/mali-c55/data/uncalibrated.yaml:1" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/mali-c55/data/uncalibrated.yaml#L1">Full source <code>L1</code></a></span></li><li><code>src/ipa/mali-c55/algorithms/meson.build</code><span class="evidence-lines"><a href="#source-f8b760d0d191cbea" aria-label="src/ipa/mali-c55/algorithms/meson.build:1 excerpt"><code>L1</code> excerpt</a> · <a aria-label="src/ipa/mali-c55/algorithms/meson.build:1" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/mali-c55/algorithms/meson.build#L1">Full source <code>L1</code></a></span></li></ul></details><h2 id="소프트웨어-isp-입력-버퍼의-텍스처-형식">Texture format of the software ISP input buffer</h2>
+<p data-sdd-evidence='[["src/libcamera/egl.cpp:174", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/egl.cpp#L174\"><code>src/libcamera/egl.cpp:174</code></a>"]]' data-sdd-excerpts='{"src/libcamera/egl.cpp:174": ["#source-8cc12a6ba8b0dced"]}'><code>createDMABufTexture2D()</code> maps both <code>GL_RED</code> and <code>GL_LUMINANCE</code> to <code>DRM_FORMAT_R8</code>. <code>GL_RG</code> maps to <code>DRM_FORMAT_GR88</code>, and <code>GL_RGBA</code> maps to <code>DRM_FORMAT_ARGB8888</code>.</p>
+<!-- sdd:visual:softisp-dmabuf-import-paths -->
+<h3 id="dma-buf-가져오기-분기">DMA-BUF import branch</h3>
+<pre class="mermaid">flowchart TB
+
+  v_format{"Is the GL format supported?"}
+  v_unknown["Return -ENODEV"]
+  v_image{"Did EGL image creation fail?"}
+  v_failed["Set the failure flag and &lt;br/&gt;return -ENODEV"]
+  v_output{"Is this an output texture?"}
+  v_attach["Return the framebuffer &lt;br/&gt;attachment result"]
+  v_success["Return 0"]
+  v_format --&gt;|"No"| v_unknown
+  v_format --&gt;|"GL#95;RED·GL#95;LUMINANCE → &lt;br/&gt;DRM#95;FORMAT#95;R8, GL#95;RG → &lt;br/&gt;DRM#95;FORMAT#95;GR88, GL#95;RGBA → &lt;br/&gt;DRM#95;FORMAT#95;ARGB8888"| v_image
+  v_image --&gt;|"Yes"| v_failed
+  v_image --&gt;|"No"| v_output
+  v_output --&gt;|"Yes"| v_attach
+  v_output --&gt;|"No"| v_success</pre>
+<p><a href="../ipa-algorithms.softisp-dmabuf-import-paths.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>Which DRM format does each GL texture format select, and what does it return if EGL import fails?</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Is the GL format supported?">Is the GL format supported?</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return -ENODEV">Return -ENODEV</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Did EGL image creation fail?">Did EGL image creation fail?</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Set the failure flag and return -ENODEV">Set the failure flag and return -ENODEV</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is this an output texture?">Is this an output texture?</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return the framebuffer attachment result">Return the framebuffer attachment result</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return 0">Return 0</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No">No</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="GL_RED·GL_LUMINANCE → DRM_FORMAT_R8, GL_RG → DRM_FORMAT_GR88, GL_RGBA → DRM_FORMAT_ARGB8888">GL_RED·GL_LUMINANCE → DRM_FORMAT_R8, GL_RG → DRM_FORMAT_GR88, GL_RGBA → DRM_FORMAT_ARGB8888</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes">Yes</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No">No</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes">Yes</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No">No</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:softisp-dmabuf-import-paths -->
+
+<p data-sdd-evidence='[["src/libcamera/egl.cpp:174", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/egl.cpp#L174\"><code>src/libcamera/egl.cpp:174</code></a>"]]' data-sdd-excerpts='{"src/libcamera/egl.cpp:174": ["#source-8cc12a6ba8b0dced"]}'>A format not handled by the <code>switch</code> in <code>createDMABufTexture2D()</code> goes to the <code>default</code> branch. This branch logs <code>unhandled GL format</code> at error level and returns <code>-ENODEV</code>. This branch contains no code that assigns a value to <code>dmabuf_import_failed_</code>.</p>
+<p data-sdd-evidence='[["src/libcamera/egl.cpp:174", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/egl.cpp#L174\"><code>src/libcamera/egl.cpp:174</code></a>"]]' data-sdd-excerpts='{"src/libcamera/egl.cpp:174": ["#source-8cc12a6ba8b0dced"]}'><code>createDMABufTexture2D()</code> logs <code>eglCreateImageKHR fail</code> at debug level if the result of <code>eglCreateImageKHR()</code> is <code>EGL_NO_IMAGE_KHR</code>. It then assigns <code>true</code> to <code>eglImage.dmabuf_import_failed_</code> and returns <code>-ENODEV</code>. <code>createInputDMABufTexture2D()</code> passes <code>false</code> as the last argument to <code>createDMABufTexture2D()</code>. <code>createOutputDMABufTexture2D()</code> passes <code>true</code> as the last argument.</p>
+<p data-sdd-evidence='[["src/libcamera/egl.cpp:174", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/egl.cpp#L174\"><code>src/libcamera/egl.cpp:174</code></a>"]]' data-sdd-excerpts='{"src/libcamera/egl.cpp:174": ["#source-8cc12a6ba8b0dced"]}'><code>createDMABufTexture2D()</code> returns <code>-ENODEV</code> early if the GL format cannot be handled or EGL image creation fails. On a path that does not return through these error branches, if <code>output</code> is true, it calls <code>attachTextureToFBO(eglImage)</code> to attach the texture to a framebuffer object and assigns the return value to <code>ret</code>. If <code>output</code> is false, <code>ret</code> retains its initial value of 0, and the function returns <code>ret</code> at the end.</p>
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>1</span></summary><ul><li><code>src/libcamera/egl.cpp</code><span class="evidence-lines"><a href="#source-8cc12a6ba8b0dced" aria-label="src/libcamera/egl.cpp:174 excerpt"><code>L174</code> excerpt</a> · <a aria-label="src/libcamera/egl.cpp:174" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/egl.cpp#L174">Full source <code>L174</code></a></span></li></ul></details><h2 id="소프트웨어-isp-셰이더의-렌즈-음영-보정">Lens shading correction in the software ISP shader</h2>
+<p data-sdd-evidence='[["src/libcamera/shaders/bayer_1x_packed.frag:237", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/shaders/bayer_1x_packed.frag#L237\"><code>src/libcamera/shaders/bayer_1x_packed.frag:237</code></a>"], ["src/libcamera/shaders/bayer_unpacked.frag:140", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/shaders/bayer_unpacked.frag#L140\"><code>src/libcamera/shaders/bayer_unpacked.frag:140</code></a>"]]' data-sdd-excerpts='{"src/libcamera/shaders/bayer_1x_packed.frag:237": ["#source-68d470282c445049"], "src/libcamera/shaders/bayer_unpacked.frag:140": ["#source-86d4a7688119bd37"]}'>In both shaders, <code>main</code> subtracts <code>blacklevel</code> from the constructed <code>rgb</code> and divides the result by <code>1.0 - blacklevel</code>. If <code>APPLY_LSC</code> is defined, it then multiplies the RGB values read from <code>lsc_tex</code> by <code>4.0</code> and applies them to <code>rgb</code>. The packed shader uses <code>textureOut</code> as the texture coordinates, while the unpacked shader uses <code>center.xy</code>; <code>4.0</code> is the scale factor for converting <code>UQ&lt;2, 6&gt;</code> values to floating point.</p>
+<!-- sdd:visual:softisp-lsc-shader-order -->
+<h3 id="셰이더의-렌즈-음영-보정-위치">Location of lens shading correction in the shaders</h3>
+<pre class="mermaid">flowchart TB
+
+  v_black["Normalize the black level"]
+  v_condition{"Is APPLY#95;LSC defined?"}
+  v_lsc["Apply lsc#95;tex RGB scaled by &lt;br/&gt;4.0"]
+  v_awb["Apply AWB gains and clamp"]
+  v_color["CCM, clamp, contrast, then &lt;br/&gt;gamma"]
+  v_black --&gt;|"After black-level correction"| v_condition
+  v_condition --&gt;|"Yes"| v_lsc
+  v_condition --&gt;|"No"| v_awb
+  v_lsc --&gt;|"After lens shading &lt;br/&gt;correction"| v_awb
+  v_awb --&gt;|"After AWB"| v_color</pre>
+<p><a href="../ipa-algorithms.softisp-lsc-shader-order.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>Under what condition do the two shaders correct lens shading, and what do they process before and after it?</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Normalize the black level">Normalize the black level</span></td>
+<td><a href="#source-68d470282c445049">src/libcamera/shaders/bayer_1x_packed.frag:237</a> · <a href="#source-86d4a7688119bd37">src/libcamera/shaders/bayer_unpacked.frag:140</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is APPLY_LSC defined?">Is APPLY_LSC defined?</span></td>
+<td><a href="#source-68d470282c445049">src/libcamera/shaders/bayer_1x_packed.frag:237</a> · <a href="#source-86d4a7688119bd37">src/libcamera/shaders/bayer_unpacked.frag:140</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Apply lsc_tex RGB scaled by 4.0">Apply lsc_tex RGB scaled by 4.0</span></td>
+<td><a href="#source-68d470282c445049">src/libcamera/shaders/bayer_1x_packed.frag:237</a> · <a href="#source-86d4a7688119bd37">src/libcamera/shaders/bayer_unpacked.frag:140</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Apply AWB gains and clamp">Apply AWB gains and clamp</span></td>
+<td><a href="#source-68d470282c445049">src/libcamera/shaders/bayer_1x_packed.frag:237</a> · <a href="#source-86d4a7688119bd37">src/libcamera/shaders/bayer_unpacked.frag:140</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="CCM, clamp, contrast, then gamma">CCM, clamp, contrast, then gamma</span></td>
+<td><a href="#source-68d470282c445049">src/libcamera/shaders/bayer_1x_packed.frag:237</a> · <a href="#source-86d4a7688119bd37">src/libcamera/shaders/bayer_unpacked.frag:140</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After black-level correction">After black-level correction</span></td>
+<td><a href="#source-68d470282c445049">src/libcamera/shaders/bayer_1x_packed.frag:237</a> · <a href="#source-86d4a7688119bd37">src/libcamera/shaders/bayer_unpacked.frag:140</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes">Yes</span></td>
+<td><a href="#source-68d470282c445049">src/libcamera/shaders/bayer_1x_packed.frag:237</a> · <a href="#source-86d4a7688119bd37">src/libcamera/shaders/bayer_unpacked.frag:140</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No">No</span></td>
+<td><a href="#source-68d470282c445049">src/libcamera/shaders/bayer_1x_packed.frag:237</a> · <a href="#source-86d4a7688119bd37">src/libcamera/shaders/bayer_unpacked.frag:140</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After lens shading correction">After lens shading correction</span></td>
+<td><a href="#source-68d470282c445049">src/libcamera/shaders/bayer_1x_packed.frag:237</a> · <a href="#source-86d4a7688119bd37">src/libcamera/shaders/bayer_unpacked.frag:140</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After AWB">After AWB</span></td>
+<td><a href="#source-68d470282c445049">src/libcamera/shaders/bayer_1x_packed.frag:237</a> · <a href="#source-86d4a7688119bd37">src/libcamera/shaders/bayer_unpacked.frag:140</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:softisp-lsc-shader-order -->
+
+<p data-sdd-evidence='[["src/libcamera/shaders/bayer_1x_packed.frag:237", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/shaders/bayer_1x_packed.frag#L237\"><code>src/libcamera/shaders/bayer_1x_packed.frag:237</code></a>"], ["src/libcamera/shaders/bayer_unpacked.frag:140", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/shaders/bayer_unpacked.frag#L140\"><code>src/libcamera/shaders/bayer_unpacked.frag:140</code></a>"], ["include/libcamera/ipa/softisp.mojom:1", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/ipa/softisp.mojom#L1\"><code>include/libcamera/ipa/softisp.mojom:1</code></a>"]]' data-sdd-excerpts='{"src/libcamera/shaders/bayer_1x_packed.frag:237": ["#source-68d470282c445049"], "src/libcamera/shaders/bayer_unpacked.frag:140": ["#source-86d4a7688119bd37"], "include/libcamera/ipa/softisp.mojom:1": ["#source-df8e8976167a0311"]}'>The <code>main</code> function in both shaders then multiplies by the <code>awb</code> gains, clamps each channel between 0 and 1, and applies <code>ccm</code> color correction. It then clamps the values between 0 and 1 again, applies <code>apply_contrast</code> to each channel, and raises the values to the <code>gamma</code> power. The <code>IPASoftIspInterface.init</code> declaration takes <code>fdStats</code> and <code>fdParams</code> as arguments and includes <code>lscEnabled</code> among its return values. The declaration does not specify a connection between these items and the shaders' <code>lsc_tex</code>.</p>
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>3</span></summary><ul><li><code>src/libcamera/shaders/bayer_1x_packed.frag</code><span class="evidence-lines"><a href="#source-68d470282c445049" aria-label="src/libcamera/shaders/bayer_1x_packed.frag:237 excerpt"><code>L237</code> excerpt</a> · <a aria-label="src/libcamera/shaders/bayer_1x_packed.frag:237" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/shaders/bayer_1x_packed.frag#L237">Full source <code>L237</code></a></span></li><li><code>src/libcamera/shaders/bayer_unpacked.frag</code><span class="evidence-lines"><a href="#source-86d4a7688119bd37" aria-label="src/libcamera/shaders/bayer_unpacked.frag:140 excerpt"><code>L140</code> excerpt</a> · <a aria-label="src/libcamera/shaders/bayer_unpacked.frag:140" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/shaders/bayer_unpacked.frag#L140">Full source <code>L140</code></a></span></li><li><code>include/libcamera/ipa/softisp.mojom</code><span class="evidence-lines"><a href="#source-df8e8976167a0311" aria-label="include/libcamera/ipa/softisp.mojom:1 excerpt"><code>L1</code> excerpt</a> · <a aria-label="include/libcamera/ipa/softisp.mojom:1" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/ipa/softisp.mojom#L1">Full source <code>L1</code></a></span></li></ul></details>
+<!-- sdd:class-diagram -->
+<h2 id="클래스-관계">Class relationships</h2>
+<p>Arrow labels show the extracted relationship, and dashed lines indicate inheritance. Arrows point to the referenced target or base class. They do not indicate call order.</p>
+<pre class="mermaid">flowchart LR
+  c0["IPAInterface"]:::context
+  c1["IPAManager"]
+  c2["IPAModule"]
+  c3["IPAProxy"]
+  c4["Loggable"]:::context
+  c5["ipa::ipu3::IPAIPU3"]
+  c6["ipa::ipu3::Module"]:::context
+  c7["ipa::rkisp1::IPARkISP1"]
+  c8["ipa::rkisp1::Module"]:::context
+  c1 --&gt;|field reference| c2
+  c2 -.-&gt;|inheritance| c4
+  c3 -.-&gt;|inheritance| c0
+  c3 --&gt;|field reference| c2
+  c5 -.-&gt;|inheritance| c6
+  c7 -.-&gt;|inheritance| c8
+  classDef context fill:#fafafa,stroke:#aaa,stroke-dasharray:4 3,color:#555</pre>
+<!-- /sdd:class-diagram -->
+
+<h2 id="소스-근거">Source evidence</h2>
+<details class="source-excerpts"><summary>Source excerpts: <span>11</span></summary>
+<p>Include each excerpt only once. Expand the needed original text and check it against the explanation.</p>
+<p><a id="source-a117437c7ec61db3"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/pipeline/rkisp1/rkisp1.cpp:406</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L406"><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp:406</code></a> to <code>408</code></p>
+<p>SHA-256: <code>5085c39368b264636b7bc7386979e019ea9cd60621335cc42d1e3ad28d810c6c</code></p>
+<div class="highlight"><pre><span></span><code>/* The IPA tuning file is made from the sensor name. */
+    std::string ipaTuningFile =
+        ipa_-&gt;configurationFile(sensor_-&gt;model() + ".yaml", "uncalibrated.yaml");
+</code></pre></div>
+</details>
+<p><a id="source-efc0c3fc5cf7acef"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/pipeline/mali-c55/mali-c55.cpp:468</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/mali-c55/mali-c55.cpp#L468"><code>src/libcamera/pipeline/mali-c55/mali-c55.cpp:468</code></a> to <code>469</code></p>
+<p>SHA-256: <code>226c3c21c4b760c25b2a3323369bce67c92f92db80b9fcef19589a44af6eaa2a</code></p>
+<div class="highlight"><pre><span></span><code>std::string ipaTuningFile = ipa_-&gt;configurationFile(sensor()-&gt;model() + ".yaml",
+                                "uncalibrated.yaml");
+</code></pre></div>
+</details>
+<p><a id="source-4000376c954f5327"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/ipa_proxy.cpp:174</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_proxy.cpp#L174"><code>src/libcamera/ipa_proxy.cpp:174</code></a> to <code>199</code></p>
+<p>SHA-256: <code>6c48d1f3994c22addbc1b338c87cf7b166f9fee0f9223ecf718a254be0aa93a8</code></p>
+<div class="highlight"><pre><span></span><code>std::string IPAProxy::configurationFile(const std::string &amp;name,
+                    const std::string &amp;fallbackName) const
+{
+    /*
+     * The IPA module name can be used as-is to build directory names as it
+     * has been validated when loading the module.
+     */
+    const std::string ipaName = ipam_-&gt;info().name;
+    std::string confPath = ipaConfigurationFile(ipaName, name, configPaths_);
+    if (!confPath.empty()) {
+        LOG(IPAProxy, Info) &lt;&lt; "Using tuning file " &lt;&lt; confPath;
+        return confPath;
+    }
+
+    if (fallbackName.empty()) {
+        LOG(IPAProxy, Error)
+            &lt;&lt; "Configuration file '" &lt;&lt; name
+            &lt;&lt; "' not found for IPA module '" &lt;&lt; ipaName &lt;&lt; "'";
+        return std::string();
+    }
+
+    confPath = ipaConfigurationFile(ipaName, fallbackName, configPaths_);
+    LOG(IPAProxy, Warning)
+        &lt;&lt; "Configuration file '" &lt;&lt; name
+        &lt;&lt; "' not found for IPA module '" &lt;&lt; ipaName
+        &lt;&lt; "', falling back to '" &lt;&lt; confPath &lt;&lt; "'";
+</code></pre></div>
+</details>
+<p><a id="source-c3d57577d02a4dc3"></a></p>
+<details class="note">
+<summary>Source evidence: src/ipa/rkisp1/data/uncalibrated.yaml:1</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/rkisp1/data/uncalibrated.yaml#L1"><code>src/ipa/rkisp1/data/uncalibrated.yaml:1</code></a> to <code>11</code></p>
+<p>SHA-256: <code>f3e8a3a6257b7fb82f16cf5c8239901d57bcc15023908c8994dcac3714e9e648</code></p>
+<div class="highlight"><pre><span></span><code># SPDX-License-Identifier: CC0-1.0
+%YAML 1.1
+---
+version: 1
+algorithms:
+  - Agc:
+  - Awb:
+  - BlackLevelCorrection:
+  - Ccm:
+  - GammaOutCorrection:
+...
+</code></pre></div>
+</details>
+<p><a id="source-ae07d96c1336aa7d"></a></p>
+<details class="note">
+<summary>Source evidence: src/ipa/rkisp1/data/imx219.yaml:1</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/rkisp1/data/imx219.yaml#L1"><code>src/ipa/rkisp1/data/imx219.yaml:1</code></a> to <code>115</code></p>
+<p>SHA-256: <code>481ce90625969b74388d6a4dfceb898e2595daa9a40ed271589fd7ae42c3f477</code></p>
+<div class="highlight"><pre><span></span><code># SPDX-License-Identifier: CC0-1.0
+%YAML 1.1
+---
+version: 1
+algorithms:
+  - Agc:
+  - Awb:
+  - BlackLevelCorrection:
+  - LensShadingCorrection:
+      x-size: [ 0.0625, 0.0625, 0.0625, 0.0625, 0.0625, 0.0625, 0.0625, 0.0625 ]
+      y-size: [ 0.0625, 0.0625, 0.0625, 0.0625, 0.0625, 0.0625, 0.0625, 0.0625 ]
+      sets:
+        - ct: 5800
+          r: [
+               1501, 1480, 1478, 1362, 1179, 1056, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1030, 1053, 1134, 1185, 1520, 1480, 1463, 1179, 1056, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1027, 1046, 1134, 1533, 1471, 1179, 1056, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1025, 1039, 1471,
+               1314, 1068, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1025, 1314, 1150, 1028, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1150, 1050, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1076, 1026,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1052, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1050, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1050, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1050, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1025, 1086, 1037, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1025, 1057, 1182, 1071, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1057, 1161,
+               1345, 1146, 1027, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1036, 1161, 1298, 1612, 1328, 1089, 1025, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1025, 1036, 1161, 1324, 1463, 1884, 1651, 1339, 1103, 1032,
+               1025, 1024, 1024, 1024, 1024, 1025, 1038, 1101, 1204, 1324, 1463, 1497, 1933,
+               1884, 1587, 1275, 1079, 1052, 1046, 1046, 1046, 1046, 1055, 1101, 1204, 1336,
+               1487, 1493, 1476,
+             ]
+          gr: [
+                1262, 1250, 1094, 1027, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1250, 1095, 1028, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1095, 1030, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1030,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1025, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1041, 1051, 1025, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1051, 1165, 1088,
+                1051, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1051, 1165, 1261,
+              ]
+          gb: [
+                1259, 1248, 1092, 1027, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1248, 1092, 1027, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1092, 1029, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1029,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1025, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1041, 1051, 1025, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1052, 1166, 1090,
+                1051, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1052, 1166, 1266,
+              ]
+          b: [
+               1380, 1378, 1377, 1247, 1080, 1025, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1030, 1406, 1378, 1284, 1092, 1027, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1406, 1338, 1129, 1029, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1338,
+               1205, 1043, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1205, 1094, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1116, 1039, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1070, 1025,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1052, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1052, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1052, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1052, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1070, 1025, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1025, 1109, 1036, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1025, 1057,
+               1175, 1082, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1057, 1176, 1293, 1172, 1036, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1054, 1185, 1334, 1438, 1294, 1099, 1025, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1054, 1185, 1334, 1334, 1462,
+               1438, 1226, 1059, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1025, 1054, 1185,
+               1326, 1334, 1334,
+             ]
+  - GammaOutCorrection:
+...
+</code></pre></div>
+</details>
+<p><a id="source-2aca0607eacef985"></a></p>
+<details class="note">
+<summary>Source evidence: src/ipa/mali-c55/data/uncalibrated.yaml:1</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/mali-c55/data/uncalibrated.yaml#L1"><code>src/ipa/mali-c55/data/uncalibrated.yaml:1</code></a> to <code>11</code></p>
+<p>SHA-256: <code>146853b0c8245c36b27863ac10c2edcaeed14bb5624c0eb523a0b75d226199e1</code></p>
+<div class="highlight"><pre><span></span><code># SPDX-License-Identifier: CC0-1.0
+%YAML 1.1
+---
+version: 1
+algorithms:
+  - Agc:
+  - Awb:
+  - BlackLevelCorrection:
+  - Ccm:
+  - Gamma:
+...
+</code></pre></div>
+</details>
+<p><a id="source-f8b760d0d191cbea"></a></p>
+<details class="note">
+<summary>Source evidence: src/ipa/mali-c55/algorithms/meson.build:1</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/mali-c55/algorithms/meson.build#L1"><code>src/ipa/mali-c55/algorithms/meson.build:1</code></a> to <code>10</code></p>
+<p>SHA-256: <code>3928a9bc4320438e89a6a3545559afe1f9b45195e24421219df8014c30f33778</code></p>
+<div class="highlight"><pre><span></span><code># SPDX-License-Identifier: CC0-1.0
+
+mali_c55_ipa_algorithms = files([
+    'agc.cpp',
+    'awb.cpp',
+    'blc.cpp',
+    'ccm.cpp',
+    'gamma.cpp',
+    'lsc.cpp',
+])
+</code></pre></div>
+</details>
+<p><a id="source-8cc12a6ba8b0dced"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/egl.cpp:174</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/egl.cpp#L174"><code>src/libcamera/egl.cpp:174</code></a> to <code>279</code></p>
+<p>SHA-256: <code>54972e6c423848da387112f756eb3670a3ac895a05f7cc8d3e7bb77f5cb6a570</code></p>
+<div class="highlight"><pre><span></span><code>int eGL::createDMABufTexture2D(eGLImage &amp;eglImage, int fd, bool output)
+{
+    EGLint drm_format;
+    int ret = 0;
+
+    assertThread();
+
+    switch (eglImage.format_) {
+    case GL_RED:
+    case GL_LUMINANCE:
+        drm_format = DRM_FORMAT_R8;
+        break;
+    case GL_RG:
+        drm_format = DRM_FORMAT_GR88;
+        break;
+    case GL_RGBA:
+        drm_format = DRM_FORMAT_ARGB8888;
+        break;
+    default:
+        LOG(eGL, Error) &lt;&lt; "unhandled GL format";
+        return -ENODEV;
+    }
+
+    // clang-format off
+    EGLint image_attrs[] = {
+        EGL_WIDTH, (EGLint)eglImage.width_,
+        EGL_HEIGHT, (EGLint)eglImage.height_,
+        EGL_LINUX_DRM_FOURCC_EXT, drm_format,
+        EGL_DMA_BUF_PLANE0_FD_EXT, fd,
+        EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
+        EGL_DMA_BUF_PLANE0_PITCH_EXT, (EGLint)eglImage.stride_,
+        EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT, 0,
+        EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT, 0,
+        EGL_NONE,
+    };
+    // clang-format on
+
+    EGLImageKHR image = vtable_.eglCreateImageKHR(display_, EGL_NO_CONTEXT,
+                              EGL_LINUX_DMA_BUF_EXT,
+                              NULL, image_attrs);
+
+    if (image == EGL_NO_IMAGE_KHR) {
+        LOG(eGL, Debug) &lt;&lt; "eglCreateImageKHR fail";
+        eglImage.dmabuf_import_failed_ = true;
+        return -ENODEV;
+    }
+
+    activateBindTexture(eglImage);
+
+    // Generate texture with filter semantics
+    vtable_.glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, image);
+    vtable_.eglDestroyImageKHR(display_, image);
+
+    // Nearest filtering
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    // Wrap to edge to avoid edge artifacts
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    if (output)
+        ret = attachTextureToFBO(eglImage);
+
+    return ret;
+}
+
+/**
+ * \brief Create an input DMA-BUF backed texture
+ * \param[in,out] eglImage EGL image to associate with the DMA-BUF
+ * \param[in] fd DMA-BUF file descriptor
+ *
+ * Creates an EGL image from a DMA-BUF file descriptor and binds it to
+ * a 2D texture for use as an input texture in shaders. The texture is
+ * configured with nearest filtering and clamp-to-edge wrapping.
+ *
+ * \return 0 on success, or -ENODEV on failure
+ */
+int eGL::createInputDMABufTexture2D(eGLImage &amp;eglImage, int fd)
+{
+    assertThread();
+
+    return createDMABufTexture2D(eglImage, fd, false);
+}
+
+/**
+ * \brief Create an output DMA-BUF backed texture
+ * \param[in,out] eglImage EGL image to associate with the DMA-BUF
+ * \param[in] fd DMA-BUF file descriptor
+ *
+ * Creates an EGL image from a DMA-BUF file descriptor and binds it to
+ * a 2D texture, then attaches it to a framebuffer object for use as a
+ * render target. This enables zero-copy rendering directly to the
+ * DMA-BUF.
+ *
+ * \return 0 on success, or -ENODEV on failure
+ */
+int eGL::createOutputDMABufTexture2D(eGLImage &amp;eglImage, int fd)
+{
+    assertThread();
+
+    return createDMABufTexture2D(eglImage, fd, true);
+}
+
+/**
+ * \brief Create a 2D texture from a memory buffer
+</code></pre></div>
+</details>
+<p><a id="source-68d470282c445049"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/shaders/bayer_1x_packed.frag:237</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/shaders/bayer_1x_packed.frag#L237"><code>src/libcamera/shaders/bayer_1x_packed.frag:237</code></a> to <code>270</code></p>
+<p>SHA-256: <code>84e5be2b8bbb1a1337af23df059b5d9270e16421c945a530a8c848709f302e6a</code></p>
+<div class="highlight"><pre><span></span><code>rgb = (rgb - blacklevel) / (1.0 - blacklevel);
+
+#if defined(APPLY_LSC)
+        /* Multiple by 4.0 for UQ&lt;2, 6&gt; -&gt; float conversion:
+         * texture2D(...) = original_float * 2^6 (quantization) * 1/2^8 (texture byte to float)
+         * =&gt; original_float = texture2D(...) / 2^6 * 2^8 = texture2D(...) * 2^2
+         */
+        rgb = rgb * (texture2D(lsc_tex, textureOut).rgb * 4.0);
+#endif
+
+    /* Apply AWB gains, and saturate each channel at sensor range */
+    rgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));
+
+    /* Colour Correction Matrix */
+    rgb = ccm * rgb;
+
+    /*
+     * Contrast
+     * contrastExp 0..2 contrast to 0..infinity; avoid actual infinity at tan(pi/2)
+     */
+    rgb = clamp(rgb, 0.0, 1.0);
+    rgb.r = apply_contrast(rgb.r);
+    rgb.g = apply_contrast(rgb.g);
+    rgb.b = apply_contrast(rgb.b);
+
+    /* Apply gamma after colour correction */
+    rgb = pow(rgb, vec3(gamma));
+
+#if defined (SWAP_BLUE)
+    gl_FragColor = vec4(rgb.bgr, 1.0);
+#else
+    gl_FragColor = vec4(rgb, 1.0);
+#endif
+}
+</code></pre></div>
+</details>
+<p><a id="source-86d4a7688119bd37"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/shaders/bayer_unpacked.frag:140</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/shaders/bayer_unpacked.frag#L140"><code>src/libcamera/shaders/bayer_unpacked.frag:140</code></a> to <code>169</code></p>
+<p>SHA-256: <code>5567b6548b078d7db847d9b57eefb1799e917214787288683110d5b41510573b</code></p>
+<div class="highlight"><pre><span></span><code>rgb = (rgb - blacklevel) / (1.0 - blacklevel);
+
+#if defined(APPLY_LSC)
+    /* Multiple by 4.0 for UQ&lt;2, 6&gt; -&gt; float conversion */
+    rgb = rgb * (texture2D(lsc_tex, center.xy).rgb * 4.0);
+#endif
+
+    /* Apply AWB gains, and saturate each channel at sensor range */
+    rgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));
+
+    /* Colour Correction Matrix */
+    rgb = ccm * rgb;
+
+    /*
+     * Contrast
+     */
+    rgb = clamp(rgb, 0.0, 1.0);
+    rgb.r = apply_contrast(rgb.r);
+    rgb.g = apply_contrast(rgb.g);
+    rgb.b = apply_contrast(rgb.b);
+
+    /* Apply gamma after colour correction */
+    rgb = pow(rgb, vec3(gamma));
+
+#if defined (SWAP_BLUE)
+    gl_FragColor = vec4(rgb.bgr, 1.0);
+#else
+    gl_FragColor = vec4(rgb, 1.0);
+#endif
+}
+</code></pre></div>
+</details>
+<p><a id="source-df8e8976167a0311"></a></p>
+<details class="note">
+<summary>Source evidence: include/libcamera/ipa/softisp.mojom:1</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/ipa/softisp.mojom#L1"><code>include/libcamera/ipa/softisp.mojom:1</code></a> to <code>40</code></p>
+<p>SHA-256: <code>dedbfb928f4f1cdb8e174d8104cb8cbd575fd543e9b620240984c3af4cddecdb</code></p>
+<div class="highlight"><pre><span></span><code>/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+/*
+ * \todo Document the interface and remove the related EXCLUDE_PATTERNS entry.
+ */
+
+module ipa.softisp;
+
+import "include/libcamera/ipa/core.mojom";
+
+struct IPAConfigInfo {
+    libcamera.ControlInfoMap sensorControls;
+};
+
+interface IPASoftIspInterface {
+    init(libcamera.IPASettings settings,
+         libcamera.SharedFD fdStats,
+         libcamera.SharedFD fdParams,
+         libcamera.IPACameraSensorInfo sensorInfo,
+         libcamera.ControlInfoMap sensorControls)
+        =&gt; (int32 ret,
+            libcamera.ControlInfoMap ipaControls,
+            bool ccmEnabled, bool lscEnabled);
+    start() =&gt; (int32 ret);
+    stop();
+    configure(IPAConfigInfo configInfo)
+        =&gt; (int32 ret, libcamera.ControlInfoMap ipaControls);
+
+    [async] queueRequest(uint32 frame, libcamera.ControlList sensorControls);
+    [async] computeParams(uint32 frame);
+    [async] processStats(uint32 frame,
+                 uint32 bufferId,
+                 libcamera.ControlList sensorControls);
+};
+
+interface IPASoftIspEventInterface {
+    setSensorControls(libcamera.ControlList sensorControls);
+    paramsComputed(uint32 frame);
+    metadataReady(uint32 frame, libcamera.ControlList metadata);
+};
+</code></pre></div>
+</details>
+</details>
+<h2 id="관련-클래스">Related classes</h2>
+<p>Check declarations, inheritance, and comments at each class link.</p><ul class="related-symbols"><li><a href="component-index.html#symbol-3238118080d7f2c1"><code>libcamera::IPAManager</code></a></li><li><a href="component-index.html#symbol-28df0a797b776dc1"><code>libcamera::IPAModule</code></a></li><li><a href="component-index.html#symbol-b21b6c7500228c50"><code>libcamera::IPAProxy</code></a></li><li><a href="component-index.html#symbol-5b59abd6ba8e81fe"><code>libcamera::ipa::ipu3::IPAIPU3</code></a></li><li><a href="component-index.html#symbol-6f72c63462844b08"><code>libcamera::ipa::rkisp1::IPARkISP1</code></a></li></ul>
+
+</article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>Document generation time</dt><dd><code>2026-11-20 17:45:00+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/ipa_module.h</code>, <code>include/libcamera/internal/ipa_proxy.h</code>, <code>include/libcamera/ipa/softisp.mojom</code>, <code>src/ipa/ipu3/ipu3.cpp</code>, <code>src/ipa/mali-c55/algorithms/meson.build</code>, <code>src/ipa/mali-c55/data/uncalibrated.yaml</code>, <code>src/ipa/rkisp1/data/imx219.yaml</code>, <code>src/ipa/rkisp1/data/uncalibrated.yaml</code>, <code>src/ipa/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/egl.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/ipa_module.cpp</code>, <code>src/libcamera/ipa_proxy.cpp</code>, <code>src/libcamera/pipeline/mali-c55/mali-c55.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/shaders/bayer_1x_packed.frag</code>, <code>src/libcamera/shaders/bayer_unpacked.frag</code></li><li>Evidence level: code verified (static analysis, simple_compdb configuration, commit <code>adfa719f8e</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded on: 2026-11-21 · Awaiting human review</li></ul></details><a href="../../ipa-algorithms.md">Markdown source ↗</a> <a href="../ipa-algorithms.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="../implementation.html"><small>Previous</small>IPA management and implementation entry points ←</a><a class="next" href="../implementation.html"><small>Next</small>IPU3 LSC and State Connection →</a></nav>
+<footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
+<aside class="page-toc"></aside></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find document</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search documents, sections, terms, and code elements</label><input id="search-input" type="search" autocomplete="off" placeholder="Example: Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Diagram element and function names"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Collapse">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to screen</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">Drag with a mouse or swipe with touch to move the diagram. "Fit to screen" shows an overview of the whole diagram.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="Zoomed diagram"><div id="diagram-canvas"></div></div></dialog>
+<script id="site-config" type="application/json">{"root": "../", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "10c7b0ad3c", "language": "en"}</script><script defer src="../../assets/site.js?v=dd3415510a"></script><script defer src="../../assets/reader-tools.js?v=dd3415510a"></script></body></html>

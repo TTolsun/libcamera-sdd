@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Device Integration and Verification · libcamera design document</title><link rel="stylesheet" href="../assets/reading.css?v=dd3415510a"><link rel="alternate" hreflang="ko" href="../device-integration.html"><link rel="alternate" hreflang="en" href="device-integration.html"></head>
+<body><a class="skip" href="#main">Go to body text</a>
+<header class="site-header"><a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera Design Document</a>
+<div class="header-actions"><details class="language-selector"><summary aria-label="Choose language">English ▾</summary><nav><a lang="ko" hreflang="ko" href="../device-integration.html">한국어</a><a lang="en" hreflang="en" href="device-integration.html" aria-current="true">English</a></nav></details><nav class="download-nav" aria-label="Download the whole document" style="display:flex"><details class="language-selector download-menu"><summary title="Download" aria-label="Download the whole document">⤓ ▾</summary><nav><a href="download/full.html?print">PDF</a><a href="download/full.md" download="libcamera-설계-문서.en.md">Markdown</a></nav></details></nav><button id="search-open" hidden>Find document <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button></div></header>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Document menu"><details class="nav-group" data-nav-id="group-cced28c6dc3f99c2396a5eaa" open><summary>Start Here</summary><a href="index.html">Start Here</a><a href="architecture.html">Architecture</a><a href="glossary.html">Glossary</a></details><details class="nav-group" data-nav-id="group-630ba09448af522154f38ef7" open><summary>ForVendor</summary><a href="for-vendor.html">ForVendor</a><a href="features-and-support.html">Features and Support</a><a href="device-integration.html" aria-current="page">Device Integration and Verification</a></details><details class="nav-group" data-nav-id="group-88fa0d759f845b47c044c2cd" open><summary>ForDeveloper</summary><a href="for-developer.html">ForDeveloper</a><a href="request-flow.html">Request Flow and Core Concepts</a><a href="implementation.html">Implementation and Extension Points</a><a href="troubleshooting.html">Caveats and Troubleshooting</a></details></nav><p class="sidebar-note">Extract the structure from the code and review it together with <br> evidence.</p></aside>
+<main id="main"><p class="breadcrumb">ForVendor <span>/</span> Device Integration and Verification</p><h1>Device Integration and Verification</h1><details class="mobile-toc"><summary>On this page</summary><div class="toc"><ul><li><a href="#integration-order">Integration order and responsibilities</a><ul><li><a href="#%ED%9A%8D%EB%93%9D%EB%B6%80%ED%84%B0-%ED%95%B4%EC%A0%9C%EA%B9%8C%EC%A7%80%EC%9D%98-%EC%97%B0%EB%8F%99-%EC%88%9C%EC%84%9C">Integration order from acquisition to release</a></li></ul></li><li><a href="#first-capture">Has the first capture on the customer board been validated?</a><ul><li><a href="#%EA%B0%80%EC%83%81-%EC%BA%A1%EC%B2%98-%EA%B4%80%EC%B8%A1%EA%B3%BC-%EA%B3%A0%EA%B0%9D-%EB%B3%B4%EB%93%9C-%EC%8B%9C%ED%97%98">Virtual capture observation and customer board testing</a></li></ul></li><li><a href="#virtual-reproduction">Reproduce the public WSL virtual camera first-capture trial</a><ul><li><a href="#%ED%99%98%EA%B2%BD-%ED%99%95%EC%9D%B8%EC%97%90%EC%84%9C-%EC%9E%AC%ED%98%84-%EC%8B%A4%ED%96%89%EA%B9%8C%EC%A7%80">From environment checks to running the reproduction</a></li></ul></li><li><a href="#stop-tests">Responsibility for stop and error handling</a><ul><li><a href="#%EC%9E%A5%EC%B9%98-%EC%A0%95%EC%A7%80%EC%99%80-%EB%8C%80%EA%B8%B0-%EC%9A%94%EC%B2%AD%EC%9D%98-%EB%B0%98%ED%99%98-%EC%88%9C%EC%84%9C">Order of stopping the device and returning waiting requests</a></li></ul></li><li><a href="#verification-limits">Buffer completion and request return</a><ul><li><a href="#%EB%B2%84%ED%8D%BC-%EC%99%84%EB%A3%8C%EC%97%90%EC%84%9C-%EC%9A%94%EC%B2%AD-%EB%B0%98%ED%99%98%EA%B9%8C%EC%A7%80">From normal buffer completion to request return</a></li></ul></li></ul></div></details><p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p>After integrating the device, test first capture and stopping with incomplete requests separately. Record observations from the public virtual camera separately from checks on the target board.</p><ul class="reader-edition-links"><li><a href="request-flow.html#stop-and-disconnect">Completion notifications and status checks after stop</a></li></ul><h2 id="integration-order">Integration order and responsibilities</h2>
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:771", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L771\"><code>src/libcamera/camera.cpp:771</code></a>"], ["src/libcamera/camera.cpp:777", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L777\"><code>src/libcamera/camera.cpp:777</code></a>"], ["src/libcamera/camera.cpp:780", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L780\"><code>src/libcamera/camera.cpp:780</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:771": ["reader-archive/vendor-integration.html#source-2683b4a5a1dbfee9"], "src/libcamera/camera.cpp:777": ["reader-archive/vendor-integration.html#source-948bd80fa1136291"], "src/libcamera/camera.cpp:780": ["reader-archive/vendor-integration.html#source-cc6c66b57cf028e6"]}'>To prepare for capture, the application must acquire and configure the camera. Once the camera is started, it can process requests until stopped, and the application must release it when finished using it. The application may start and stop the camera multiple times while it remains acquired, and may also reconfigure it. The <code>Camera</code> class generally does not synchronize functions that affect camera state with one another, so the caller must synchronize them when necessary.</p>
+<!-- sdd:visual:integration-stages -->
+<h3 id="획득부터-해제까지의-연동-순서">Integration order from acquisition to release</h3>
+<pre class="mermaid">flowchart TB
+
+  v_acquire["Acquire"]
+  v_configure["Configure"]
+  v_start["Start and process requests"]
+  v_stop["Stop"]
+  v_release["Release when finished"]
+  v_acquire --&gt;|"Prepare capture"| v_configure
+  v_configure --&gt;|"Start after preparation"| v_start
+  v_start --&gt;|"End capture session"| v_stop
+  v_stop --&gt;|"When finished using the &lt;br/&gt;camera"| v_release
+  v_stop --&gt;|"May restart before release"| v_start</pre>
+<p><a href="vendor-integration.integration-stages.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>This is the order of session preparation and teardown for the application. Start and stop may be repeated until the camera is released.</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Acquire">Acquire</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-2683b4a5a1dbfee9">src/libcamera/camera.cpp:771</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Configure">Configure</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-2683b4a5a1dbfee9">src/libcamera/camera.cpp:771</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Start and process requests">Start and process requests</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-2683b4a5a1dbfee9">src/libcamera/camera.cpp:771</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Stop">Stop</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-2683b4a5a1dbfee9">src/libcamera/camera.cpp:771</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Release when finished">Release when finished</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-2683b4a5a1dbfee9">src/libcamera/camera.cpp:771</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Prepare capture">Prepare capture</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-2683b4a5a1dbfee9">src/libcamera/camera.cpp:771</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Start after preparation">Start after preparation</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-2683b4a5a1dbfee9">src/libcamera/camera.cpp:771</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="End capture session">End capture session</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-2683b4a5a1dbfee9">src/libcamera/camera.cpp:771</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="When finished using the camera">When finished using the camera</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-2683b4a5a1dbfee9">src/libcamera/camera.cpp:771</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="May restart before release">May restart before release</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-948bd80fa1136291">src/libcamera/camera.cpp:777</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:integration-stages -->
+
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>4</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="reader-archive/vendor-integration.html#source-2683b4a5a1dbfee9" aria-label="src/libcamera/camera.cpp:771 excerpt"><code>L771</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:771" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L771">Full source <code>L771</code></a> · <a href="reader-archive/vendor-integration.html#source-948bd80fa1136291" aria-label="src/libcamera/camera.cpp:777 excerpt"><code>L777</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:777" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L777">Full source <code>L777</code></a> · <a href="reader-archive/vendor-integration.html#source-cc6c66b57cf028e6" aria-label="src/libcamera/camera.cpp:780 excerpt"><code>L780</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:780" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L780">Full source <code>L780</code></a> · <a aria-label="src/libcamera/camera.cpp:1032" href="reader-archive/vendor-integration.html#source-492118d913b10361"><code>L1032</code></a></span></li></ul></details><h2 id="first-capture">Has the first capture on the customer board been validated?</h2>
+
+<p data-sdd-evidence='[["product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1", "<a href=\"reader-archive/vendor-assurance.html#source-3c4ba1aba4901083\"><code>product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1</code></a>"], ["src/libcamera/pipeline/virtual/README.md:3", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/README.md#L3\"><code>src/libcamera/pipeline/virtual/README.md:3</code></a>"]]' data-sdd-excerpts='{"product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1": ["reader-archive/vendor-assurance.html#source-3c4ba1aba4901083"], "src/libcamera/pipeline/virtual/README.md:3": ["reader-archive/vendor-assurance.html#source-eb7d1ae4ac9df3f9"]}'>This record cannot be used to report that the first capture on the customer board has been validated. The WSL2 test configuration used the Virtual2 virtual camera instead of a physical sensor, and there is no record of a capture using the customer board's physical sensor.</p>
+<!-- sdd:visual:first-capture-boundary -->
+<h3 id="가상-캡처-관측과-고객-보드-시험">Virtual capture observation and customer board testing</h3>
+<pre class="mermaid">flowchart TB
+
+  v_decision["The first capture on the &lt;br/&gt;customer board has not yet &lt;br/&gt;been verified."]
+  v_observed["On the WSL2 trial kernel, &lt;br/&gt;the Virtual2 400×300 NV12 &lt;br/&gt;stream completed three &lt;br/&gt;frames in each of three &lt;br/&gt;independent runs."]
+  v_configure["On the customer board, &lt;br/&gt;check the physical sensor &lt;br/&gt;and the applied stream."]
+  v_complete["Check whether the first &lt;br/&gt;Request and FrameBuffer &lt;br/&gt;completed successfully."]
+  v_inspect["Save and inspect the sensor &lt;br/&gt;frames."]
+  v_decision --&gt;|"This is the past &lt;br/&gt;observation."| v_observed
+  v_decision --&gt;|"This is the customer-board &lt;br/&gt;test plan."| v_configure
+  v_configure --&gt;|"In the test plan, check &lt;br/&gt;completion next."| v_complete
+  v_complete --&gt;|"In the test plan, save and &lt;br/&gt;inspect the frames next."| v_inspect</pre>
+<p><a href="vendor-assurance.first-capture-boundary.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>What was verified in WSL2, and in what order is the first capture checked on the customer board?</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="The first capture on the customer board has not yet been verified.">The first capture on the customer board has not yet been verified.</span></td>
+<td><a href="reader-archive/vendor-assurance.html#source-3c4ba1aba4901083">product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="On the WSL2 trial kernel, the Virtual2 400×300 NV12 stream completed three frames in each of three independent runs.">On the WSL2 trial kernel, the Virtual2 400×300 NV12 stream completed three frames in each of three independent runs.</span></td>
+<td><a href="reader-archive/vendor-assurance.html#source-3c4ba1aba4901083">product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="On the customer board, check the physical sensor and the applied stream.">On the customer board, check the physical sensor and the applied stream.</span></td>
+<td><a href="reader-archive/vendor-assurance.html#source-3c4ba1aba4901083">product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1</a> · <a href="reader-archive/vendor-assurance.html#source-ce71f2f0de50caf3">README.rst:107</a> · <a href="reader-archive/vendor-assurance.html#source-aba605be681da98e">include/libcamera/camera.h:126</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether the first Request and FrameBuffer completed successfully.">Check whether the first Request and FrameBuffer completed successfully.</span></td>
+<td><a href="reader-archive/vendor-assurance.html#source-aba605be681da98e">include/libcamera/camera.h:126</a> · <a href="reader-archive/vendor-assurance.html#source-cb2be6f3ec7f91fc">include/libcamera/request.h:34</a> · <a href="reader-archive/vendor-assurance.html#source-094e6fd7ddda824a">include/libcamera/framebuffer.h:25</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Save and inspect the sensor frames.">Save and inspect the sensor frames.</span></td>
+<td><a href="reader-archive/vendor-assurance.html#source-aba605be681da98e">include/libcamera/camera.h:126</a> · <a href="reader-archive/vendor-assurance.html#source-ce71f2f0de50caf3">README.rst:107</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="This is the past observation.">This is the past observation.</span></td>
+<td><a href="reader-archive/vendor-assurance.html#source-3c4ba1aba4901083">product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="This is the customer-board test plan.">This is the customer-board test plan.</span></td>
+<td><a href="reader-archive/vendor-assurance.html#source-3c4ba1aba4901083">product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1</a> · <a href="reader-archive/vendor-assurance.html#source-ce71f2f0de50caf3">README.rst:107</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="In the test plan, check completion next.">In the test plan, check completion next.</span></td>
+<td><a href="reader-archive/vendor-assurance.html#source-aba605be681da98e">include/libcamera/camera.h:126</a> · <a href="reader-archive/vendor-assurance.html#source-ce71f2f0de50caf3">README.rst:107</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="In the test plan, save and inspect the frames next.">In the test plan, save and inspect the frames next.</span></td>
+<td><a href="reader-archive/vendor-assurance.html#source-aba605be681da98e">include/libcamera/camera.h:126</a> · <a href="reader-archive/vendor-assurance.html#source-ce71f2f0de50caf3">README.rst:107</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:first-capture-boundary -->
+
+<p data-sdd-evidence='[["src/libcamera/pipeline/virtual/README.md:3", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/README.md#L3\"><code>src/libcamera/pipeline/virtual/README.md:3</code></a>"], ["src/libcamera/pipeline/virtual/data/virtual.yaml:28", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/data/virtual.yaml#L28\"><code>src/libcamera/pipeline/virtual/data/virtual.yaml:28</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline/virtual/README.md:3": ["reader-archive/vendor-assurance.html#source-eb7d1ae4ac9df3f9"], "src/libcamera/pipeline/virtual/data/virtual.yaml:28": ["reader-archive/vendor-assurance.html#source-fb6397b1c5827be7"]}'>As far as can be confirmed from the official libcamera project documentation, the Virtual Pipeline Handler emulates a virtual external camera for testing. The example YAML specifies a 400×300 size and the <code>lines</code> test pattern for Virtual2.</p>
+<p data-sdd-evidence='[["product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1", "<a href=\"reader-archive/vendor-assurance.html#source-3c4ba1aba4901083\"><code>product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1</code></a>"]]' data-sdd-excerpts='{"product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1": ["reader-archive/vendor-assurance.html#source-3c4ba1aba4901083"]}'>The virtual capture test on October 31, 2026 used source commit 293d751a814e0d4c34e85ad457ccd9d5eefd1a61 and the WSL2 trial kernel 6.18.33.2-microsoft-standard-WSL2-issue211 with udmabuf built in. All three runs on Virtual2 at 400×300 NV12, each in a separate process, completed three frames each. This observation does not constitute validation of a physical camera or board DMA.</p>
+<p data-sdd-evidence='[["product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1", "<a href=\"reader-archive/vendor-assurance.html#source-3c4ba1aba4901083\"><code>product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1</code></a>"], ["include/libcamera/request.h:34", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/request.h#L34\"><code>include/libcamera/request.h:34</code></a>"], ["include/libcamera/framebuffer.h:25", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/framebuffer.h#L25\"><code>include/libcamera/framebuffer.h:25</code></a>"], ["README.rst:107", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/README.rst#L107\"><code>README.rst:107</code></a>"], ["include/libcamera/camera.h:126", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/camera.h#L126\"><code>include/libcamera/camera.h:126</code></a>"]]' data-sdd-excerpts='{"product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1": ["reader-archive/vendor-assurance.html#source-3c4ba1aba4901083"], "include/libcamera/request.h:34": ["reader-archive/vendor-assurance.html#source-cb2be6f3ec7f91fc"], "include/libcamera/framebuffer.h:25": ["reader-archive/vendor-assurance.html#source-094e6fd7ddda824a"], "README.rst:107": ["reader-archive/vendor-assurance.html#source-ce71f2f0de50caf3"], "include/libcamera/camera.h:126": ["reader-archive/vendor-assurance.html#source-aba605be681da98e"]}'>In the first capture test on the customer board, the board, physical sensor, kernel and driver, libcamera build, and target application are recorded, and the actual sensor is opened to check the applied stream format and size. The first request's RequestComplete and the buffer's FrameSuccess are checked, and frames from the sensor are saved and inspected. cam can be used as an example of a basic test tool's save functionality. Existing records are limited to a test configuration using udmabuf and Virtual2 on a WSL2 test kernel; the physical camera, physical DMA, and product application have not been validated.</p>
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>7</span></summary><ul><li><code>product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1" href="reader-archive/vendor-assurance.html#source-3c4ba1aba4901083"><code>L1</code></a></span></li><li><code>src/libcamera/pipeline/virtual/README.md</code><span class="evidence-lines"><a href="reader-archive/vendor-assurance.html#source-eb7d1ae4ac9df3f9" aria-label="src/libcamera/pipeline/virtual/README.md:3 excerpt"><code>L3</code> excerpt</a> · <a aria-label="src/libcamera/pipeline/virtual/README.md:3" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/README.md#L3">Full source <code>L3</code></a></span></li><li><code>src/libcamera/pipeline/virtual/data/virtual.yaml</code><span class="evidence-lines"><a href="reader-archive/vendor-assurance.html#source-fb6397b1c5827be7" aria-label="src/libcamera/pipeline/virtual/data/virtual.yaml:28 excerpt"><code>L28</code> excerpt</a> · <a aria-label="src/libcamera/pipeline/virtual/data/virtual.yaml:28" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/data/virtual.yaml#L28">Full source <code>L28</code></a></span></li><li><code>include/libcamera/request.h</code><span class="evidence-lines"><a href="reader-archive/vendor-assurance.html#source-cb2be6f3ec7f91fc" aria-label="include/libcamera/request.h:34 excerpt"><code>L34</code> excerpt</a> · <a aria-label="include/libcamera/request.h:34" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/request.h#L34">Full source <code>L34</code></a></span></li><li><code>include/libcamera/framebuffer.h</code><span class="evidence-lines"><a href="reader-archive/vendor-assurance.html#source-094e6fd7ddda824a" aria-label="include/libcamera/framebuffer.h:25 excerpt"><code>L25</code> excerpt</a> · <a aria-label="include/libcamera/framebuffer.h:25" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/framebuffer.h#L25">Full source <code>L25</code></a></span></li><li><code>README.rst</code><span class="evidence-lines"><a href="reader-archive/vendor-assurance.html#source-ce71f2f0de50caf3" aria-label="README.rst:107 excerpt"><code>L107</code> excerpt</a> · <a aria-label="README.rst:107" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/README.rst#L107">Full source <code>L107</code></a></span></li><li><code>include/libcamera/camera.h</code><span class="evidence-lines"><a href="reader-archive/vendor-assurance.html#source-aba605be681da98e" aria-label="include/libcamera/camera.h:126 excerpt"><code>L126</code> excerpt</a> · <a aria-label="include/libcamera/camera.h:126" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/camera.h#L126">Full source <code>L126</code></a></span></li></ul></details><h2 id="virtual-reproduction">Reproduce the public WSL virtual camera first-capture trial</h2>
+
+<ol>
+<li>
+<p data-sdd-evidence='[["product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1", "<a href=\"reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad\"><code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</code></a>"], ["product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1", "<a href=\"reader-archive/official-cam-validation.html#source-67134777ea4213e0\"><code>product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1</code></a>"]]' data-sdd-excerpts='{"product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1": ["reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad"], "product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1": ["reader-archive/official-cam-validation.html#source-67134777ea4213e0"]}'><strong>Preparation (1–3)</strong> Investigate the Kconfig and dependencies of the kernel to be used without changing the host state.</p>
+</li>
+<li>
+<p data-sdd-evidence='[["product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1", "<a href=\"reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad\"><code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</code></a>"], ["product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1", "<a href=\"reader-archive/official-cam-validation.html#source-e326d2b05d8f4ef8\"><code>product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1</code></a>"], ["product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1", "<a href=\"reader-archive/official-cam-validation.html#source-67134777ea4213e0\"><code>product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1</code></a>"]]' data-sdd-excerpts='{"product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1": ["reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad"], "product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1": ["reader-archive/official-cam-validation.html#source-e326d2b05d8f4ef8"], "product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1": ["reader-archive/official-cam-validation.html#source-67134777ea4213e0"]}'><strong>DMA-BUF allocator selection:</strong> Investigate the selected kernel's Kconfig, dependencies, actually available modules, and allocator candidates, and select one allocator suited to the results. Use udmabuf to reproduce the conditions in this record.</p>
+</li>
+<li>
+<p data-sdd-evidence='[["product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1", "<a href=\"reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad\"><code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</code></a>"], ["product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1", "<a href=\"reader-archive/official-cam-validation.html#source-e326d2b05d8f4ef8\"><code>product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1</code></a>"]]' data-sdd-excerpts='{"product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1": ["reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad"], "product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1": ["reader-archive/official-cam-validation.html#source-e326d2b05d8f4ef8"]}'>Investigate whether only the modules required by the selected kernel and allocator are installed and whether they match the kernel version. In the recorded udmabuf test, the driver was built in and no separate modules were installed.</p>
+</li>
+<li>
+<p data-sdd-evidence='[["product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1", "<a href=\"reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad\"><code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</code></a>"]]' data-sdd-excerpts='{"product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1": ["reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad"]}'><strong>Host changes (4–5)</strong> Obtain separate approval immediately before executing the host change plan, which includes the proposed changes, the kernel to boot and its image SHA-256, the impact, the exact backup path, and the boot and recovery procedures.</p>
+</li>
+<li>
+<p data-sdd-evidence='[["product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1", "<a href=\"reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad\"><code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</code></a>"]]' data-sdd-excerpts='{"product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1": ["reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad"]}'>Install and boot the trial kernel according to the approved plan.</p>
+</li>
+<li>
+<p data-sdd-evidence='[["product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1", "<a href=\"reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad\"><code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</code></a>"]]' data-sdd-excerpts='{"product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1": ["reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad"]}'><strong>Pre-execution checks (6–11)</strong> Verify that the running kernel version is <code>6.18.33.2-microsoft-standard-WSL2-issue211</code>.</p>
+</li>
+<li>
+<p data-sdd-evidence='[["product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1", "<a href=\"reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad\"><code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</code></a>"]]' data-sdd-excerpts='{"product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1": ["reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad"]}'>Check permission to open <code>/dev/udmabuf</code> in the WSL root child context.</p>
+</li>
+<li>
+<p data-sdd-evidence='[["src/libcamera/pipeline/virtual/data/virtual.yaml:28", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/data/virtual.yaml#L28\"><code>src/libcamera/pipeline/virtual/data/virtual.yaml:28</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline/virtual/data/virtual.yaml:28": ["reader-archive/official-cam-validation.html#source-9858e22e2225cc10"]}'>In the Virtual2 YAML to be used, verify the 400x300 size and the lines pattern value together as a single configuration combination.</p>
+</li>
+<li>
+<p data-sdd-evidence='[["product-evidence/libcamera-official-cam-trial/invocation-options.txt:1", "<a href=\"reader-archive/official-cam-validation.html#source-077dc6a73bad3108\"><code>product-evidence/libcamera-official-cam-trial/invocation-options.txt:1</code></a>"]]' data-sdd-excerpts='{"product-evidence/libcamera-official-cam-trial/invocation-options.txt:1": ["reader-archive/official-cam-validation.html#source-077dc6a73bad3108"]}'>Check that the camera selection argument in the cam command to be used is <code>Virtual2</code>.</p>
+</li>
+<li>
+<p data-sdd-evidence='[["product-evidence/libcamera-official-cam-trial/invocation-options.txt:1", "<a href=\"reader-archive/official-cam-validation.html#source-077dc6a73bad3108\"><code>product-evidence/libcamera-official-cam-trial/invocation-options.txt:1</code></a>"]]' data-sdd-excerpts='{"product-evidence/libcamera-official-cam-trial/invocation-options.txt:1": ["reader-archive/official-cam-validation.html#source-077dc6a73bad3108"]}'>Check that the cam stream argument to be used requests 400x300 NV12.</p>
+</li>
+<li>
+<p data-sdd-evidence='[["product-evidence/libcamera-official-cam-trial/invocation-options.txt:1", "<a href=\"reader-archive/official-cam-validation.html#source-077dc6a73bad3108\"><code>product-evidence/libcamera-official-cam-trial/invocation-options.txt:1</code></a>"]]' data-sdd-excerpts='{"product-evidence/libcamera-official-cam-trial/invocation-options.txt:1": ["reader-archive/official-cam-validation.html#source-077dc6a73bad3108"]}'>Check whether the official cam command to be run specifies the <code>--capture=3</code> argument requesting 3 frames.</p>
+</li>
+<li>
+<p data-sdd-evidence='[["product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1", "<a href=\"reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad\"><code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</code></a>"], ["product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1", "<a href=\"reader-archive/official-cam-validation.html#source-e326d2b05d8f4ef8\"><code>product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1</code></a>"]]' data-sdd-excerpts='{"product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1": ["reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad"], "product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1": ["reader-archive/official-cam-validation.html#source-e326d2b05d8f4ef8"]}'><strong>Execution and validation (12–13)</strong> Run the unmodified official cam in three independent processes according to the linked execution procedure.</p>
+</li>
+<li>
+<p data-sdd-evidence='[["product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1", "<a href=\"reader-archive/official-cam-validation.html#source-e326d2b05d8f4ef8\"><code>product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1</code></a>"], ["product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1", "<a href=\"reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad\"><code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</code></a>"]]' data-sdd-excerpts='{"product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1": ["reader-archive/official-cam-validation.html#source-e326d2b05d8f4ef8"], "product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1": ["reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad"]}'>Compare the evidence from the new run against the expected combination of camera Virtual2, an actually applied stream of 400x300 NV12, and successful processing of 3 frames and exit code 0 for each independent run.</p>
+</li>
+</ol>
+<!-- sdd:visual:reproduction-flow -->
+<h3 id="환경-확인에서-재현-실행까지">From environment checks to running the reproduction</h3>
+<pre class="mermaid">flowchart TB
+
+  v_survey["Start read-only in an &lt;br/&gt;isolated test environment. &lt;br/&gt;Check Kconfig support, &lt;br/&gt;dependencies, and available &lt;br/&gt;modules. Choose one DMA-BUF &lt;br/&gt;allocator."]
+  v_host{"Does the test require host &lt;br/&gt;changes?"}
+  v_approval["Document impact, backup &lt;br/&gt;path, kernel image and &lt;br/&gt;SHA-256, boot and recovery. &lt;br/&gt;Get separate approval"]
+  v_docker{"Does the plan require &lt;br/&gt;stopping Docker?"}
+  v_stop_docker["Stop Docker after approval"]
+  v_boot["Boot the approved test &lt;br/&gt;kernel"]
+  v_device{"Is the running kernel &lt;br/&gt;6.18.33.2-microsoft-standard&lt;br/&gt;-WSL2-issue211 and can root &lt;br/&gt;open /dev/udmabuf?"}
+  v_stop["Stop before capture"]
+  v_run["Run official cam in three &lt;br/&gt;independent processes"]
+  v_confirm["Compare each run with &lt;br/&gt;expected Virtual2 and &lt;br/&gt;400×300 NV12/SMPTE170M. &lt;br/&gt;Check sequences 0–2, &lt;br/&gt;request status 1, buffer &lt;br/&gt;status 0, and exit code 0."]
+  v_options["YAML uses 400×300 lines. &lt;br/&gt;Check cam arguments: &lt;br/&gt;--camera Virtual2 &lt;br/&gt;--capture#61;3 --stream &lt;br/&gt;role#61;video,width#61;400,height#61;&lt;br/&gt;300,pixelformat#61;NV12"]
+  v_build["Check unmodified 293d751a, &lt;br/&gt;its debug Meson build, the &lt;br/&gt;GDB tools prefix, and the &lt;br/&gt;compiled DMA-BUF probe"]
+  v_survey --&gt;|"Choose the test environment"| v_host
+  v_host --&gt;|"Required"| v_approval
+  v_host --&gt;|"No host change needed"| v_device
+  v_approval --&gt;|"Check the approved plan"| v_docker
+  v_docker --&gt;|"Required"| v_stop_docker
+  v_docker --&gt;|"Skip"| v_boot
+  v_stop_docker --&gt;|"Then boot"| v_boot
+  v_boot --&gt;|"Check the running &lt;br/&gt;environment"| v_device
+  v_device --&gt;|"Either check fails"| v_stop
+  v_device --&gt;|"Both checks pass"| v_options
+  v_run --&gt;|"Check each run in the new &lt;br/&gt;evidence directory"| v_confirm
+  v_options --&gt;|"Also check the test source &lt;br/&gt;and build"| v_build
+  v_build --&gt;|"Run after checking the &lt;br/&gt;pinned source and build"| v_run</pre>
+<p><a href="official-cam-validation.reproduction-flow.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>If a host change is required to install the test kernel recorded in the existing WSL, under what conditions does reproduction proceed after approval and pre-execution checks?</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Start read-only in an isolated test environment. Check Kconfig support, dependencies, and available modules. Choose one DMA-BUF allocator.">Start read-only in an isolated test environment. Check Kconfig support, dependencies, and available modules. Choose one DMA-BUF allocator.</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Does the test require host changes?">Does the test require host changes?</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Document impact, backup path, kernel image and SHA-256, boot and recovery. Get separate approval">Document impact, backup path, kernel image and SHA-256, boot and recovery. Get separate approval</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Does the plan require stopping Docker?">Does the plan require stopping Docker?</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Stop Docker after approval">Stop Docker after approval</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Boot the approved test kernel">Boot the approved test kernel</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is the running kernel 6.18.33.2-microsoft-standard-WSL2-issue211 and can root open /dev/udmabuf?">Is the running kernel 6.18.33.2-microsoft-standard-WSL2-issue211 and can root open /dev/udmabuf?</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Stop before capture">Stop before capture</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Run official cam in three independent processes">Run official cam in three independent processes</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Compare each run with expected Virtual2 and 400×300 NV12/SMPTE170M. Check sequences 0–2, request status 1, buffer status 0, and exit code 0.">Compare each run with expected Virtual2 and 400×300 NV12/SMPTE170M. Check sequences 0–2, request status 1, buffer status 0, and exit code 0.</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a> · <a href="reader-archive/official-cam-validation.html#source-e326d2b05d8f4ef8">product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1</a> · <a href="reader-archive/official-cam-validation.html#source-077dc6a73bad3108">product-evidence/libcamera-official-cam-trial/invocation-options.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="YAML uses 400×300 lines. Check cam arguments: --camera Virtual2 --capture=3 --stream role=video,width=400,height=300,pixelformat=NV12">YAML uses 400×300 lines. Check cam arguments: --camera Virtual2 --capture=3 --stream role=video,width=400,height=300,pixelformat=NV12</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-9858e22e2225cc10">src/libcamera/pipeline/virtual/data/virtual.yaml:28</a> · <a href="reader-archive/official-cam-validation.html#source-077dc6a73bad3108">product-evidence/libcamera-official-cam-trial/invocation-options.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check unmodified 293d751a, its debug Meson build, the GDB tools prefix, and the compiled DMA-BUF probe">Check unmodified 293d751a, its debug Meson build, the GDB tools prefix, and the compiled DMA-BUF probe</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Choose the test environment">Choose the test environment</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Required">Required</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No host change needed">No host change needed</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the approved plan">Check the approved plan</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Required">Required</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Skip">Skip</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Then boot">Then boot</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the running environment">Check the running environment</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Either check fails">Either check fails</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Both checks pass">Both checks pass</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a> · <a href="reader-archive/official-cam-validation.html#source-9858e22e2225cc10">src/libcamera/pipeline/virtual/data/virtual.yaml:28</a> · <a href="reader-archive/official-cam-validation.html#source-077dc6a73bad3108">product-evidence/libcamera-official-cam-trial/invocation-options.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check each run in the new evidence directory">Check each run in the new evidence directory</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Also check the test source and build">Also check the test source and build</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-9858e22e2225cc10">src/libcamera/pipeline/virtual/data/virtual.yaml:28</a> · <a href="reader-archive/official-cam-validation.html#source-077dc6a73bad3108">product-evidence/libcamera-official-cam-trial/invocation-options.txt:1</a> · <a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Run after checking the pinned source and build">Run after checking the pinned source and build</span></td>
+<td><a href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad">product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:reproduction-flow -->
+
+<p data-sdd-evidence='[["product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1", "<a href=\"reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad\"><code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1</code></a>"], ["product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1", "<a href=\"reader-archive/official-cam-validation.html#source-e326d2b05d8f4ef8\"><code>product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1</code></a>"]]' data-sdd-excerpts='{"product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1": ["reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad"], "product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1": ["reader-archive/official-cam-validation.html#source-e326d2b05d8f4ef8"]}'>Run verification items: These results apply only to the WSL virtual camera simulation configuration; physical DMA, physical camera, the product app, and the internal HAL were not validated. Because GDB affects timing, the callback return instruction and performance were not validated.</p>
+
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>5</span></summary><ul><li><code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt:1" href="reader-archive/official-cam-validation.html#source-5a006a90fe9f46ad"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt:1" href="reader-archive/official-cam-validation.html#source-67134777ea4213e0"><code>L1</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt:1" href="reader-archive/official-cam-validation.html#source-e326d2b05d8f4ef8"><code>L1</code></a></span></li><li><code>src/libcamera/pipeline/virtual/data/virtual.yaml</code><span class="evidence-lines"><a href="reader-archive/official-cam-validation.html#source-9858e22e2225cc10" aria-label="src/libcamera/pipeline/virtual/data/virtual.yaml:28 excerpt"><code>L28</code> excerpt</a> · <a aria-label="src/libcamera/pipeline/virtual/data/virtual.yaml:28" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/data/virtual.yaml#L28">Full source <code>L28</code></a></span></li><li><code>product-evidence/libcamera-official-cam-trial/invocation-options.txt</code><span class="evidence-lines"><a aria-label="product-evidence/libcamera-official-cam-trial/invocation-options.txt:1" href="reader-archive/official-cam-validation.html#source-077dc6a73bad3108"><code>L1</code></a></span></li></ul></details><details class="note scope-notices"><summary>Verification scope of the virtual test</summary><p><strong>This is a virtual test configuration. It must not be used as a support or performance claim for an actual product.</strong></p><ul><li><a href="reader-archive/official-cam-validation.html#할당기를-준비하자-공식-cam-캡처가-완료됐습니다">Once the allocator was prepared, the official cam capture finished.</a></li><li><a href="reader-archive/official-cam-validation.html#여러-초기-요청을-단일-스트림에-맞춰-준비합니다">Prepares multiple initial requests to match a single stream.</a></li><li><a href="reader-archive/official-cam-validation.html#준비된-초기-요청을-한도-안에서-제출합니다">Prepared initial requests are submitted within the limit.</a></li><li><a href="reader-archive/official-cam-validation.html#cam이-완료-알림을-받아-이벤트-루프에서-프레임을-처리합니다">cam receives the completion notification and processes the frame in the event loop.</a></li><li><a href="#virtual-reproduction">Reproduction is performed after the supported kernel and device access are checked.</a></li></ul></details>
+<h2 id="stop-tests">Responsibility for stop and error handling</h2>
+<p data-sdd-evidence='[["src/libcamera/pipeline_handler.cpp:367", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L367\"><code>src/libcamera/pipeline_handler.cpp:367</code></a>"], ["src/libcamera/pipeline_handler.cpp:370", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L370\"><code>src/libcamera/pipeline_handler.cpp:370</code></a>"], ["src/libcamera/pipeline_handler.cpp:405", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L405\"><code>src/libcamera/pipeline_handler.cpp:405</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline_handler.cpp:367": ["reader-archive/vendor-integration.html#source-1cc522721d2c5142", "reader-archive/vendor-integration.html#source-7097caa35d0e97c8"], "src/libcamera/pipeline_handler.cpp:370": ["reader-archive/vendor-integration.html#source-486f3f81acba3c1f"], "src/libcamera/pipeline_handler.cpp:405": ["reader-archive/vendor-integration.html#source-a1eeb263fc114d2f"]}'><code>PipelineHandler::stop()</code> first executes <code>waitingRequests.swap(data-&gt;waitingRequests_)</code> and then calls <code>stopDevice(camera)</code>. <code>PipelineHandler::stop()</code> moves the waiting requests aside so that they are not requeued when <code>completeRequest()</code> is called inside <code>stopDevice()</code>. The implementer of <code>stopDevice()</code> must immediately stop capture from all running streams and stop processing requests, and must cancel all pending requests for the device and complete them immediately in an error state.</p>
+<!-- sdd:visual:shutdown-device-and-waiting-requests -->
+<h3 id="장치-정지와-대기-요청의-반환-순서">Order of stopping the device and returning waiting requests</h3>
+<pre class="mermaid">flowchart TB
+
+  v_isolate["The common stop moves &lt;br/&gt;waitingRequests#95; to a local &lt;br/&gt;queue."]
+  v_device["The stopDevice implementer &lt;br/&gt;stops capture and completes &lt;br/&gt;pending device requests in &lt;br/&gt;error."]
+  v_waiting{"Is there another waiting &lt;br/&gt;request in the local queue?"}
+  v_cancel["Cancel the waiting request &lt;br/&gt;and send it through &lt;br/&gt;doQueueRequest to assign a &lt;br/&gt;sequence number and enter &lt;br/&gt;completion."]
+  v_reset["Assert both request queues &lt;br/&gt;are empty and reset &lt;br/&gt;requestSequence#95; to zero."]
+  v_isolate --&gt;|"Separate first to prevent &lt;br/&gt;requeue"| v_device
+  v_device --&gt;|"After the device stop call &lt;br/&gt;returns"| v_waiting
+  v_waiting --&gt;|"There is a waiting request."| v_cancel
+  v_cancel --&gt;|"Check the next waiting &lt;br/&gt;request."| v_waiting
+  v_waiting --&gt;|"The local queue is empty."| v_reset</pre>
+<p><a href="vendor-integration.shutdown-device-and-waiting-requests.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>Which requests do the common stop and stopDevice implementers each handle, and when?</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="The common stop moves waitingRequests_ to a local queue.">The common stop moves waitingRequests_ to a local queue.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1cc522721d2c5142">src/libcamera/pipeline_handler.cpp:367</a> · <a href="reader-archive/vendor-integration.html#source-486f3f81acba3c1f">src/libcamera/pipeline_handler.cpp:370</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The stopDevice implementer stops capture and completes pending device requests in error.">The stopDevice implementer stops capture and completes pending device requests in error.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-7097caa35d0e97c8">src/libcamera/pipeline_handler.cpp:367</a> · <a href="reader-archive/vendor-integration.html#source-a1eeb263fc114d2f">src/libcamera/pipeline_handler.cpp:405</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is there another waiting request in the local queue?">Is there another waiting request in the local queue?</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1cc522721d2c5142">src/libcamera/pipeline_handler.cpp:367</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Cancel the waiting request and send it through doQueueRequest to assign a sequence number and enter completion.">Cancel the waiting request and send it through doQueueRequest to assign a sequence number and enter completion.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1cc522721d2c5142">src/libcamera/pipeline_handler.cpp:367</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Assert both request queues are empty and reset requestSequence_ to zero.">Assert both request queues are empty and reset requestSequence_ to zero.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1cc522721d2c5142">src/libcamera/pipeline_handler.cpp:367</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Separate first to prevent requeue">Separate first to prevent requeue</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-486f3f81acba3c1f">src/libcamera/pipeline_handler.cpp:370</a> · <a href="reader-archive/vendor-integration.html#source-1cc522721d2c5142">src/libcamera/pipeline_handler.cpp:367</a> · <a href="reader-archive/vendor-integration.html#source-7097caa35d0e97c8">src/libcamera/pipeline_handler.cpp:367</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After the device stop call returns">After the device stop call returns</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-7097caa35d0e97c8">src/libcamera/pipeline_handler.cpp:367</a> · <a href="reader-archive/vendor-integration.html#source-1cc522721d2c5142">src/libcamera/pipeline_handler.cpp:367</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="There is a waiting request.">There is a waiting request.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1cc522721d2c5142">src/libcamera/pipeline_handler.cpp:367</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the next waiting request.">Check the next waiting request.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1cc522721d2c5142">src/libcamera/pipeline_handler.cpp:367</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The local queue is empty.">The local queue is empty.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1cc522721d2c5142">src/libcamera/pipeline_handler.cpp:367</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:shutdown-device-and-waiting-requests -->
+
+<p data-sdd-evidence='[["src/libcamera/pipeline_handler.cpp:367", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L367\"><code>src/libcamera/pipeline_handler.cpp:367</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline_handler.cpp:367": ["reader-archive/vendor-integration.html#source-1cc522721d2c5142", "reader-archive/vendor-integration.html#source-7097caa35d0e97c8"]}'><code>PipelineHandler::stop()</code> takes the waiting requests aside, then calls <code>stopDevice()</code>. After canceling each waiting request, it passes the request to <code>doQueueRequest()</code> so that it receives a sequence number and is temporarily added to <code>queuedRequests_</code> for completion in <code>completeRequest()</code>. After processing the waiting requests, <code>PipelineHandler::stop()</code> uses two <code>ASSERT</code> statements to check that <code>queuedRequests_</code> and <code>waitingRequests_</code> are empty, and stores <code>0</code> in <code>requestSequence_</code>.</p>
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>3</span></summary><ul><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/pipeline_handler.cpp:367" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L367"><code>L367</code></a> · <a href="reader-archive/vendor-integration.html#source-486f3f81acba3c1f" aria-label="src/libcamera/pipeline_handler.cpp:370 excerpt"><code>L370</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:370" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L370">Full source <code>L370</code></a> · <a href="reader-archive/vendor-integration.html#source-a1eeb263fc114d2f" aria-label="src/libcamera/pipeline_handler.cpp:405 excerpt"><code>L405</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:405" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L405">Full source <code>L405</code></a> · <a aria-label="src/libcamera/pipeline_handler.cpp:367" href="reader-archive/vendor-integration.html#source-1cc522721d2c5142"><code>L367</code></a> · <a aria-label="src/libcamera/pipeline_handler.cpp:367" href="reader-archive/vendor-integration.html#source-7097caa35d0e97c8"><code>L367</code></a></span></li></ul></details><h2 id="verification-limits">Buffer completion and request return</h2>
+<p class="reading-links">See also: <a href="troubleshooting.html#failure-location">When the last buffer has completed but no request completion notification arrives</a></p>
+
+<p data-sdd-evidence='[["src/libcamera/pipeline_handler.cpp:547", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L547\"><code>src/libcamera/pipeline_handler.cpp:547</code></a>"], ["src/libcamera/pipeline_handler.cpp:553", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L553\"><code>src/libcamera/pipeline_handler.cpp:553</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline_handler.cpp:547": ["reader-archive/pipeline-requests.html#source-01ad7c6605c3296a", "reader-archive/pipeline-requests.html#source-f389c6ca68ade3da"], "src/libcamera/pipeline_handler.cpp:553": ["reader-archive/pipeline-requests.html#source-5b0ae08604dff588"]}'>The pipeline handler must call completeBuffer in the normal buffer completion path to signal completion of a request's buffer. This function notifies the application of buffer completion and updates the request's internal buffer tracking information. The request is not completed automatically even when the last buffer completes, so the pipeline handler must explicitly complete the request with completeRequest(). In the normal completion path, the request is not completed automatically even after processing of the last buffer finishes, so the implementer must explicitly call completeRequest() to complete the request.</p>
+<!-- sdd:visual:buffer-request-completion -->
+<h3 id="버퍼-완료에서-요청-반환까지">From normal buffer completion to request return</h3>
+<pre class="mermaid">flowchart TB
+
+  v_buffer["completeBuffer#40;#41;"]
+  v_remaining["Update buffer completion &lt;br/&gt;tracking"]
+  v_request["Handlers may call &lt;br/&gt;completeRequest#40;#41; on any &lt;br/&gt;completed request in any &lt;br/&gt;order. It updates the &lt;br/&gt;supplied request status."]
+  v_application["Pop the head and notify the &lt;br/&gt;application in submission &lt;br/&gt;order."]
+  v_access-ends["After return, the handler &lt;br/&gt;must no longer access the &lt;br/&gt;request passed to &lt;br/&gt;completeRequest#40;#41;."]
+  v_head{"Is there a request at the &lt;br/&gt;queue head?"}
+  v_pending{"Is the head request still &lt;br/&gt;RequestPending?"}
+  v_dispatch["End the return loop and &lt;br/&gt;call &lt;br/&gt;doQueueRequests#40;camera#41;."]
+  v_buffer --&gt;|"Notify buffer completion"| v_remaining
+  v_remaining --&gt;|"All buffers complete → &lt;br/&gt;handler performs any &lt;br/&gt;remaining work if needed, &lt;br/&gt;then explicitly calls"| v_request
+  v_request --&gt;|"Check the queue after the &lt;br/&gt;status update."| v_head
+  v_head --&gt;|"The queue has a head &lt;br/&gt;request."| v_pending
+  v_head --&gt;|"The queue is empty."| v_dispatch
+  v_pending --&gt;|"A pending head blocks &lt;br/&gt;return from the queue."| v_dispatch
+  v_pending --&gt;|"Return the non-pending head &lt;br/&gt;request."| v_application
+  v_application --&gt;|"Check the next queue head."| v_head
+  v_dispatch --&gt;|"This applies when &lt;br/&gt;completeRequest#40;#41; returns."| v_access-ends</pre>
+<p><a href="pipeline-requests.buffer-request-completion.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>In what order are requests returned after buffers are completed, and when does the pipeline handler's access to a request end?</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="completeBuffer()">completeBuffer()</span></td>
+<td><a href="reader-archive/pipeline-requests.html#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Update buffer completion tracking">Update buffer completion tracking</span></td>
+<td><a href="reader-archive/pipeline-requests.html#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Handlers may call completeRequest() on any completed request in any order. It updates the supplied request status.">Handlers may call completeRequest() on any completed request in any order. It updates the supplied request status.</span></td>
+<td><a href="reader-archive/pipeline-requests.html#source-236c920e906cb6fd">src/libcamera/pipeline_handler.cpp:571</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Pop the head and notify the application in submission order.">Pop the head and notify the application in submission order.</span></td>
+<td><a href="reader-archive/pipeline-requests.html#source-236c920e906cb6fd">src/libcamera/pipeline_handler.cpp:571</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After return, the handler must no longer access the request passed to completeRequest().">After return, the handler must no longer access the request passed to completeRequest().</span></td>
+<td><a href="reader-archive/pipeline-requests.html#source-236c920e906cb6fd">src/libcamera/pipeline_handler.cpp:571</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is there a request at the queue head?">Is there a request at the queue head?</span></td>
+<td><a href="reader-archive/pipeline-requests.html#source-236c920e906cb6fd">src/libcamera/pipeline_handler.cpp:571</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is the head request still RequestPending?">Is the head request still RequestPending?</span></td>
+<td><a href="reader-archive/pipeline-requests.html#source-236c920e906cb6fd">src/libcamera/pipeline_handler.cpp:571</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="End the return loop and call doQueueRequests(camera).">End the return loop and call doQueueRequests(camera).</span></td>
+<td><a href="reader-archive/pipeline-requests.html#source-236c920e906cb6fd">src/libcamera/pipeline_handler.cpp:571</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Notify buffer completion">Notify buffer completion</span></td>
+<td><a href="reader-archive/pipeline-requests.html#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="All buffers complete → handler performs any remaining work if needed, then explicitly calls">All buffers complete → handler performs any remaining work if needed, then explicitly calls</span></td>
+<td><a href="reader-archive/pipeline-requests.html#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the queue after the status update.">Check the queue after the status update.</span></td>
+<td><a href="reader-archive/pipeline-requests.html#source-236c920e906cb6fd">src/libcamera/pipeline_handler.cpp:571</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The queue has a head request.">The queue has a head request.</span></td>
+<td><a href="reader-archive/pipeline-requests.html#source-236c920e906cb6fd">src/libcamera/pipeline_handler.cpp:571</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The queue is empty.">The queue is empty.</span></td>
+<td><a href="reader-archive/pipeline-requests.html#source-236c920e906cb6fd">src/libcamera/pipeline_handler.cpp:571</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="A pending head blocks return from the queue.">A pending head blocks return from the queue.</span></td>
+<td><a href="reader-archive/pipeline-requests.html#source-236c920e906cb6fd">src/libcamera/pipeline_handler.cpp:571</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return the non-pending head request.">Return the non-pending head request.</span></td>
+<td><a href="reader-archive/pipeline-requests.html#source-236c920e906cb6fd">src/libcamera/pipeline_handler.cpp:571</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the next queue head.">Check the next queue head.</span></td>
+<td><a href="reader-archive/pipeline-requests.html#source-236c920e906cb6fd">src/libcamera/pipeline_handler.cpp:571</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="This applies when completeRequest() returns.">This applies when completeRequest() returns.</span></td>
+<td><a href="reader-archive/pipeline-requests.html#source-236c920e906cb6fd">src/libcamera/pipeline_handler.cpp:571</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:buffer-request-completion -->
+
+<p data-sdd-evidence='[["src/libcamera/pipeline_handler.cpp:571", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L571\"><code>src/libcamera/pipeline_handler.cpp:571</code></a>"], ["src/libcamera/pipeline_handler.cpp:578", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L578\"><code>src/libcamera/pipeline_handler.cpp:578</code></a>"], ["src/libcamera/pipeline_handler.cpp:584", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L584\"><code>src/libcamera/pipeline_handler.cpp:584</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline_handler.cpp:571": ["reader-archive/pipeline-requests.html#source-236c920e906cb6fd"], "src/libcamera/pipeline_handler.cpp:578": ["reader-archive/pipeline-requests.html#source-16187edaf24c09f5"], "src/libcamera/pipeline_handler.cpp:584": ["reader-archive/pipeline-requests.html#source-b6dd86e931d905ed"]}'>After completeRequest returns, the pipeline handler must not access the request. completeRequest ensures that requests are returned to the application in submission order. The pipeline handler may call completeRequest on any completed request without ordering constraints. If the first request has RequestPending status, the while loop executes break to stop iterating.</p>
+<p data-sdd-evidence='[["src/libcamera/pipeline_handler.cpp:584", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L584\"><code>src/libcamera/pipeline_handler.cpp:584</code></a>"], ["src/libcamera/pipeline_handler.cpp:547", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L547\"><code>src/libcamera/pipeline_handler.cpp:547</code></a>"], ["src/libcamera/pipeline_handler.cpp:571", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L571\"><code>src/libcamera/pipeline_handler.cpp:571</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline_handler.cpp:584": ["reader-archive/pipeline-requests.html#source-b6dd86e931d905ed"], "src/libcamera/pipeline_handler.cpp:547": ["reader-archive/pipeline-requests.html#source-01ad7c6605c3296a", "reader-archive/pipeline-requests.html#source-f389c6ca68ade3da"], "src/libcamera/pipeline_handler.cpp:571": ["reader-archive/pipeline-requests.html#source-236c920e906cb6fd"]}'>completeRequest calls doQueueRequests(camera) at the end so that waiting requests can be queued to the pipeline. Both completeBuffer and completeRequest must be called from the <code>CameraManager</code> thread.</p>
+<p data-sdd-evidence='[["src/libcamera/pipeline_handler.cpp:607", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L607\"><code>src/libcamera/pipeline_handler.cpp:607</code></a>"], ["src/libcamera/request.cpp:139", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L139\"><code>src/libcamera/request.cpp:139</code></a>"], ["src/libcamera/pipeline_handler.cpp:571", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L571\"><code>src/libcamera/pipeline_handler.cpp:571</code></a>"], ["src/libcamera/request.cpp:125", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L125\"><code>src/libcamera/request.cpp:125</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline_handler.cpp:607": ["reader-archive/pipeline-requests.html#source-27cb6869fd89d13d"], "src/libcamera/request.cpp:139": ["reader-archive/pipeline-requests.html#source-906fe48d2b97450b", "reader-archive/pipeline-requests.html#source-c98dc1442538e903"], "src/libcamera/pipeline_handler.cpp:571": ["reader-archive/pipeline-requests.html#source-236c920e906cb6fd"], "src/libcamera/request.cpp:125": ["reader-archive/pipeline-requests.html#source-0626196def047e5c"]}'>cancelRequest calls the internal cancellation function, which cancels each pending buffer and emits a bufferCompleted signal for each buffer. After processing all pending buffers, the internal cancellation function sets <code>cancelled_</code> to true and clears the pending buffer list. When cancelRequest subsequently calls completeRequest, <code>Request::Private::complete()</code> assigns RequestCancelled to the request status according to the value of <code>cancelled_</code>.</p>
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>8</span></summary><ul><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/pipeline_handler.cpp:547" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L547"><code>L547</code></a> · <a href="reader-archive/pipeline-requests.html#source-5b0ae08604dff588" aria-label="src/libcamera/pipeline_handler.cpp:553 excerpt"><code>L553</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:553" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L553">Full source <code>L553</code></a> · <a href="reader-archive/pipeline-requests.html#source-236c920e906cb6fd" aria-label="src/libcamera/pipeline_handler.cpp:571 excerpt"><code>L571</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:571" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L571">Full source <code>L571</code></a> · <a href="reader-archive/pipeline-requests.html#source-16187edaf24c09f5" aria-label="src/libcamera/pipeline_handler.cpp:578 excerpt"><code>L578</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:578" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L578">Full source <code>L578</code></a> · <a href="reader-archive/pipeline-requests.html#source-b6dd86e931d905ed" aria-label="src/libcamera/pipeline_handler.cpp:584 excerpt"><code>L584</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:584" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L584">Full source <code>L584</code></a> · <a href="reader-archive/pipeline-requests.html#source-27cb6869fd89d13d" aria-label="src/libcamera/pipeline_handler.cpp:607 excerpt"><code>L607</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:607" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L607">Full source <code>L607</code></a> · <a aria-label="src/libcamera/pipeline_handler.cpp:547" href="reader-archive/pipeline-requests.html#source-01ad7c6605c3296a"><code>L547</code></a> · <a aria-label="src/libcamera/pipeline_handler.cpp:547" href="reader-archive/pipeline-requests.html#source-f389c6ca68ade3da"><code>L547</code></a></span></li><li><code>src/libcamera/request.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/request.cpp:139" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L139"><code>L139</code></a> · <a href="reader-archive/pipeline-requests.html#source-0626196def047e5c" aria-label="src/libcamera/request.cpp:125 excerpt"><code>L125</code> excerpt</a> · <a aria-label="src/libcamera/request.cpp:125" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L125">Full source <code>L125</code></a> · <a aria-label="src/libcamera/request.cpp:139" href="reader-archive/pipeline-requests.html#source-906fe48d2b97450b"><code>L139</code></a></span></li></ul></details></article><section class="evidence"><h2 id="page-evidence">Source manuscripts and review records</h2><details><summary>Integration guide</summary><section><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>Document generation time</dt><dd><code>2026-11-20 16:39:26+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>include/libcamera/camera.h</code>, <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/pipeline_handler.h</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/pipeline/ipu3/ipu3.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code></li><li>Evidence level: code verified (static analysis, simple_compdb configuration, commit <code>adfa719f8e</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded on: 2026-11-21 · Awaiting human review</li></ul></details><a href="../vendor-integration.md">Markdown source ↗</a> <a href="vendor-integration.mmd">Mermaid source ↗</a></section><p><a href="reader-archive/vendor-integration.html#page-evidence">Open earlier detail</a></p></details><details><summary>Support scope and validation</summary><section><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>Document generation time</dt><dd><code>2026-11-20 16:39:19+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd><dt>Enter product description</dt><dd><a href="../product-context.json">Scope, conditions, and sources</a></dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>Documentation/software-isp-benchmarking.rst</code>, <code>README.rst</code>, <code>include/libcamera/camera.h</code>, <code>include/libcamera/framebuffer.h</code>, <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/pipeline_handler.h</code>, <code>include/libcamera/request.h</code>, <code>product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/pipeline/ipu3/ipu3.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/pipeline/virtual/README.md</code>, <code>src/libcamera/pipeline/virtual/data/virtual.yaml</code>, <code>src/libcamera/pipeline_handler.cpp</code></li><li>Evidence level: code verified (static analysis, simple_compdb configuration, commit <code>adfa719f8e</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded on: 2026-11-21 · Awaiting human review</li></ul></details><a href="../vendor-assurance.md">Markdown source ↗</a> <a href="vendor-assurance.mmd">Mermaid source ↗</a></section><p><a href="reader-archive/vendor-assurance.html#page-evidence">Open earlier detail</a></p></details><details><summary>Verifying virtual capture with the official cam in WSL</summary><section><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>Document generation time</dt><dd><code>2026-11-20 20:07:34+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd><dt>Enter product description</dt><dd><a href="../product-context.json">Scope, conditions, and sources</a></dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>product-evidence/libcamera-official-cam-trial/execution-contract.txt</code>, <code>product-evidence/libcamera-official-cam-trial/invocation-execution-contract.txt</code>, <code>product-evidence/libcamera-official-cam-trial/invocation-official-cam-reader.txt</code>, <code>product-evidence/libcamera-official-cam-trial/invocation-options.txt</code>, <code>product-evidence/libcamera-official-cam-trial/invocation-reproduction-procedure.txt</code>, <code>product-evidence/libcamera-official-cam-trial/official-cam-reader.txt</code>, <code>product-evidence/libcamera-official-cam-trial/reproduction-procedure.txt</code>, <code>src/apps/cam/camera_session.cpp</code>, <code>src/apps/cam/camera_session.h</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/framebuffer_allocator.cpp</code>, <code>src/libcamera/pipeline/virtual/README.md</code>, <code>src/libcamera/pipeline/virtual/data/virtual.yaml</code>, <code>src/libcamera/pipeline/virtual/test_pattern_generator.cpp</code>, <code>src/libcamera/pipeline/virtual/virtual.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code>, <code>src/libcamera/request.cpp</code></li><li>Evidence level: code verified (static analysis, simple_compdb configuration, commit <code>adfa719f8e</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded on: 2026-11-21 · Awaiting human review</li></ul></details><a href="../official-cam-validation.md">Markdown source ↗</a></section><p><a href="reader-archive/official-cam-validation.html#page-evidence">Open earlier detail</a></p></details><details><summary>Pipeline Request Submission and Completion</summary><section><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>Document generation time</dt><dd><code>2026-11-20 17:39:07+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>include/libcamera/internal/pipeline_handler.h</code>, <code>src/libcamera/pipeline/imx8-isi/imx8-isi.cpp</code>, <code>src/libcamera/pipeline/ipu3/ipu3.cpp</code>, <code>src/libcamera/pipeline/mali-c55/mali-c55.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/pipeline/rpi/pisp/pisp.cpp</code>, <code>src/libcamera/pipeline/rpi/vc4/vc4.cpp</code>, <code>src/libcamera/pipeline/uvcvideo/uvcvideo.cpp</code>, <code>src/libcamera/pipeline/vimc/vimc.cpp</code>, <code>src/libcamera/pipeline/virtual/virtual.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code>, <code>src/libcamera/request.cpp</code></li><li>Evidence level: code verified (static analysis, simple_compdb configuration, commit <code>adfa719f8e</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded on: 2026-11-21 · Awaiting human review</li></ul></details><a href="../pipeline-requests.md">Markdown source ↗</a> <a href="pipeline-requests.mmd">Mermaid source ↗</a></section><p><a href="reader-archive/pipeline-requests.html#page-evidence">Open earlier detail</a></p></details></section><p><a href="device-integration.md" download>Download page Markdown</a> · <a href="../reader-edition.json">Reader edition source map</a></p><nav class="pagination" aria-label="Previous and next pages"><a class="previous" href="features-and-support.html"><small>Previous</small>Features and Support ←</a><a class="next" href="for-developer.html"><small>Next</small>ForDeveloper →</a></nav><footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
+<aside class="page-toc"><nav aria-label="On this page"><p>On this page</p><div class="toc"><ul><li><a href="#integration-order">Integration order and responsibilities</a><ul><li><a href="#%ED%9A%8D%EB%93%9D%EB%B6%80%ED%84%B0-%ED%95%B4%EC%A0%9C%EA%B9%8C%EC%A7%80%EC%9D%98-%EC%97%B0%EB%8F%99-%EC%88%9C%EC%84%9C">Integration order from acquisition to release</a></li></ul></li><li><a href="#first-capture">Has the first capture on the customer board been validated?</a><ul><li><a href="#%EA%B0%80%EC%83%81-%EC%BA%A1%EC%B2%98-%EA%B4%80%EC%B8%A1%EA%B3%BC-%EA%B3%A0%EA%B0%9D-%EB%B3%B4%EB%93%9C-%EC%8B%9C%ED%97%98">Virtual capture observation and customer board testing</a></li></ul></li><li><a href="#virtual-reproduction">Reproduce the public WSL virtual camera first-capture trial</a><ul><li><a href="#%ED%99%98%EA%B2%BD-%ED%99%95%EC%9D%B8%EC%97%90%EC%84%9C-%EC%9E%AC%ED%98%84-%EC%8B%A4%ED%96%89%EA%B9%8C%EC%A7%80">From environment checks to running the reproduction</a></li></ul></li><li><a href="#stop-tests">Responsibility for stop and error handling</a><ul><li><a href="#%EC%9E%A5%EC%B9%98-%EC%A0%95%EC%A7%80%EC%99%80-%EB%8C%80%EA%B8%B0-%EC%9A%94%EC%B2%AD%EC%9D%98-%EB%B0%98%ED%99%98-%EC%88%9C%EC%84%9C">Order of stopping the device and returning waiting requests</a></li></ul></li><li><a href="#verification-limits">Buffer completion and request return</a><ul><li><a href="#%EB%B2%84%ED%8D%BC-%EC%99%84%EB%A3%8C%EC%97%90%EC%84%9C-%EC%9A%94%EC%B2%AD-%EB%B0%98%ED%99%98%EA%B9%8C%EC%A7%80">From normal buffer completion to request return</a></li></ul></li></ul></div></nav></aside></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find document</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search documents, sections, terms, and code elements</label><input id="search-input" type="search" autocomplete="off" placeholder="Example: Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Diagram element and function names"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Collapse">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to screen</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">Drag with a mouse or swipe with touch to move the diagram. "Fit to screen" shows an overview of the whole diagram.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="Zoomed diagram"><div id="diagram-canvas"></div></div></dialog>
+<script id="site-config" type="application/json">{"root": "./", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "10c7b0ad3c", "language": "en"}</script><script defer src="../assets/site.js?v=dd3415510a"></script><script defer src="../assets/reader-tools.js?v=dd3415510a"></script></body></html>

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>libcamera design document · libcamera design document</title><link rel="stylesheet" href="../../assets/reading.css?v=dd3415510a"><meta name="robots" content="noindex"><link rel="alternate" hreflang="ko" href="../../reader-archive/index.html"><link rel="alternate" hreflang="en" href="index.html"></head>
+<body><a class="skip" href="#main">Go to body text</a>
+<header class="site-header"><a class="brand" href="../index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera Design Document</a>
+<div class="header-actions"><details class="language-selector"><summary aria-label="Choose language">English ▾</summary><nav><a lang="ko" hreflang="ko" href="../../reader-archive/index.html">한국어</a><a lang="en" hreflang="en" href="index.html" aria-current="true">English</a></nav></details><button id="search-open" hidden>Find document <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button></div></header>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Document menu"></nav><p class="sidebar-note">Extract the structure from the code and review it together with <br> evidence.</p></aside>
+<main id="main"><p class="breadcrumb">Get started <span>/</span> libcamera design document</p><h1>libcamera design document</h1><div class="page-state"><span class="review-state">Review document</span></div>
+<p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><p class="translation-note">Source material linked by earlier addresses · <a href="../index.html">Reader edition</a></p><article><p>libcamera brings device-specific controls for Linux cameras together under a common API. This document connects the design rationale to the code.</p>
+<h2 id="어디서-시작할까요">Where should we start?</h2>
+<div class="reader-start">
+<section>
+<h3 id="for-vendor">For Vendor</h3>
+<a href="../for-vendor.html#adoption-check">What should we verify on our device?</a>
+</section>
+<section>
+<h3 id="for-developer">For Developer</h3>
+<a href="../for-developer.html#cancellation-entry">Where in the code is the cancellation state checked?</a>
+</section>
+</div>
+
+<nav aria-label="Table of contents for this page"></nav>
+
+<details class="page-terms">
+<summary>Terms in this document: Pipeline Handler, IPA, IPU3, LSC, and 5 others</summary>
+<ul>
+<li><strong>Pipeline Handler</strong>: A libcamera component that finds the media device of a specific hardware platform (IPU3, RKISP1, etc.), creates cameras, passes requests to the device, and returns their completion. There is one per platform.</li>
+<li><strong>IPA</strong> (Image Processing Algorithms): A separate module (.so) that contains image quality algorithms. It reads the statistics sent by the ISP and calculates the ISP settings to use for the next frame. It is separated from the libcamera core so that manufacturers can provide it without publishing its source.</li>
+<li><strong>IPU3</strong> (Intel Image Processing Unit 3): A camera ISP included in some Intel laptop processors. libcamera has a Pipeline Handler and an IPA for this device.</li>
+<li><strong>LSC</strong> (Lens Shading Correction): Processing that corrects lens shading, the phenomenon in which the edges of an image are darker than the center or colors are distorted due to lens characteristics. It is applied by multiplying by a correction table that divides the image into a grid.</li>
+<li><strong>RKISP1</strong> (Rockchip Image Signal Processor 1): A camera ISP included in Rockchip SoCs, the NXP i.MX8MP, and others. libcamera has a Pipeline Handler and an IPA for this device.</li>
+<li><strong>Distortion correction</strong>: A process that straightens an image bent by the lens. The RKISP1 pipeline performs it by supplying a vertex map to the DW100 device.</li>
+<li><strong>Software ISP</strong>: A libcamera component that performs ISP processing on the CPU or GPU in place of a hardware ISP on devices without one. In the source, it is named software_isp or softisp.</li>
+<li><strong>ISP</strong> (Image Signal Processor): A processing unit that converts raw (Bayer) data output by the sensor into an image that can be displayed on screen. It performs operations such as black level correction, lens shading correction, white balance, and debayering.</li>
+<li><strong>WSL</strong> (Windows Subsystem for Linux): A Windows feature that lets you run a Linux environment on a Windows computer.</li>
+</ul>
+<p>Other terms can be found in <a href="../glossary.html">Glossary</a>.</p>
+</details>
+<p id="카메라-스택의-네-계층"><a href="../architecture.html#camera-stack">Four layers of the camera stack</a></p><p id="vendor가-먼저-확인할-내용"><a href="../for-vendor.html#adoption-check">Items to check on the device</a></p><p id="처음-읽는-개발자의-순서"><a href="../for-developer.html#cancellation-entry">Code to check the cancellation state</a></p><h2 id="지금-필요한-문서">Documents needed now</h2>
+<div class="table-scroll reading-routes" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>What you want to do</th>
+<th>Documents to start with</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Readers understand what this project takes in and what it produces.</td>
+<td><a href="../index.html">What this project does</a></td>
+</tr>
+<tr>
+<td>Run the camera directly and read the design rationale.</td>
+<td><a href="../for-developer.html">Run it and read the design rationale</a></td>
+</tr>
+<tr>
+<td>Narrows down the cause of configuration failures.</td>
+<td><a href="../troubleshooting.html#configuration-failure">Order for narrowing down configuration failures</a></td>
+</tr>
+<tr>
+<td>Implements pipeline configuration, completion, and stopping.</td>
+<td><a href="../implementation.html">Pipeline Handler</a></td>
+</tr>
+<tr>
+<td>Modify module selection and the algorithm interface.</td>
+<td><a href="../implementation.html">IPA management and implementation entry points</a></td>
+</tr>
+<tr>
+<td>Check object lifetime and state transitions.</td>
+<td><a href="../request-flow.html">Camera and request model</a></td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="기준-설명-찾기">Find reference description</h2>
+<p>Request and buffer ownership and reuse rules are maintained in <strong><a href="../request-flow.html">Request object and buffer lifetime</a></strong>, while implementation rules for the device queue and completion order are maintained in <strong><a href="../implementation.html">Pipeline Request Submission and Completion</a></strong>. The diagnostic document links these contracts and guides the order of checks for each symptom.</p>
+<p>To follow the algorithm, open <a href="../implementation.html">IPU3 LSC Configuration and Frame Processing</a>. Camera-specific tuning and kernel support conditions are confirmed in <a href="../implementation.html">RKISP1 Per-Camera Distortion Correction</a>.</p>
+<p id="문서를-읽는-방법"><a href="../index.html#read-evidence">How to read this document</a></p><h2 id="문서-목록">Document verification status</h2>
+<details class="note">
+<summary><span>Automated check passed</span> · <span>Before human review</span> (<span>29</span>)</summary>
+<ul>
+<li><a href="../for-vendor.html">libcamera product overview</a></li>
+<li><a href="../features-and-support.html">Support scope and validation</a></li>
+<li><a href="../device-integration.html">Integration guide</a></li>
+<li><a href="../implementation.html">Pipeline Handler</a></li>
+<li><a href="../implementation.html">Pipeline Request Submission and Completion</a></li>
+<li><a href="../implementation.html">IPA management and implementation entry points</a></li>
+<li><a href="../implementation.html">IPA Tuning and Software ISP</a></li>
+<li><a href="../implementation.html">IPU3 LSC Configuration and Frame Processing</a></li>
+<li><a href="../implementation.html">IPU3 Lens Correction Table Preparation</a></li>
+<li><a href="../implementation.html">RKISP1 Per-Camera Distortion Correction</a></li>
+<li><a href="../index.html">What this project does</a></li>
+<li><a href="../architecture.html">System overview</a></li>
+<li><a href="../for-developer.html">Run it and read the design rationale</a></li>
+<li><a href="../request-flow.html">Camera and request model</a></li>
+<li><a href="../request-flow.html">Request object and buffer lifetime</a></li>
+<li><a href="../request-flow.html">Request handling and problem diagnosis</a></li>
+<li><a href="../troubleshooting.html">Investigation of configuration and request errors</a></li>
+<li><a href="../architecture.html">Key scenario</a></li>
+<li><a href="../for-developer.html">Camera discovery</a></li>
+<li><a href="../for-developer.html">Stream configuration</a></li>
+<li><a href="../for-developer.html">Capture start</a></li>
+<li><a href="../request-flow.html">Request submission</a></li>
+<li><a href="../request-flow.html">Request completion notification</a></li>
+<li><a href="../request-flow.html">Request to end capture</a></li>
+<li><a href="../troubleshooting.html">IPA module information check and missing signature file</a></li>
+<li><a href="../troubleshooting.html">FrameBufferAllocator Failures and Reference Lifetime</a></li>
+<li><a href="../device-integration.html">Verifying virtual capture with the official cam in WSL</a></li>
+<li><a href="../implementation.html">Component index</a></li>
+<li><a href="../implementation.html">IPU3 LSC and State Connection</a></li>
+</ul>
+</details></article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Contracts between documents</dt><dd><a href="../../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl></section><nav class="pagination" aria-label="Previous and next documents"><a class="next" href="../glossary.html"><small>Next</small> glossary →</a></nav>
+<footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
+<aside class="page-toc"></aside></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find document</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search documents, sections, terms, and code elements</label><input id="search-input" type="search" autocomplete="off" placeholder="Example: Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Diagram element and function names"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Collapse">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to screen</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">Drag with a mouse or swipe with touch to move the diagram. "Fit to screen" shows an overview of the whole diagram.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="Zoomed diagram"><div id="diagram-canvas"></div></div></dialog>
+<script id="site-config" type="application/json">{"root": "../", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "10c7b0ad3c", "language": "en"}</script><script defer src="../../assets/site.js?v=dd3415510a"></script><script defer src="../../assets/reader-tools.js?v=dd3415510a"></script></body></html>

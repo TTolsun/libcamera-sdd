@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Support scope and validation · libcamera design document</title><link rel="stylesheet" href="../../assets/reading.css?v=dd3415510a"><meta name="robots" content="noindex"><link rel="alternate" hreflang="ko" href="../../reader-archive/vendor-assurance.html"><link rel="alternate" hreflang="en" href="vendor-assurance.html"></head>
+<body><a class="skip" href="#main">Go to body text</a>
+<header class="site-header"><a class="brand" href="../index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera Design Document</a>
+<div class="header-actions"><details class="language-selector"><summary aria-label="Choose language">English ▾</summary><nav><a lang="ko" hreflang="ko" href="../../reader-archive/vendor-assurance.html">한국어</a><a lang="en" hreflang="en" href="vendor-assurance.html" aria-current="true">English</a></nav></details><button id="search-open" hidden>Find document <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button></div></header>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Document menu"></nav><p class="sidebar-note">Extract the structure from the code and review it together with <br> evidence.</p></aside>
+<main id="main"><p class="breadcrumb">For Vendor <span>/</span> Supported Scope and Validation</p><h1>Support scope and validation</h1><div class="page-state"><span class="review-state">Before human review</span><span>Automated check passed</span><span class="generation-method">Authored: extracted structure and draft written by the model</span><a class="state-help" href="#page-evidence">State description ↓</a></div>
+<p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><p class="translation-note">Source material linked by earlier addresses · <a href="../features-and-support.html">Reader edition</a></p><article><p><strong>Read the WSL2 virtual capture record and determine the remaining first capture test on the customer board. The commit currently analyzed is listed in the document generation and review information at the bottom of the page.</strong></p><details class="note scope-notices">
+<summary>Design questions and validation scope</summary>
+<p>The answers to each question and their evidence links were checked. The meaning and execution results require human review.</p>
+<ul class="coverage-links"><li><p>Can this record be used to report that the first capture on the customer board has been validated?</p><p><a href="../device-integration.html#first-capture">Has the first capture on the customer board been validated?</a></p></li><li><p>What are the support prerequisites and constraints, and what items require separate validation?</p><p><a href="../features-and-support.html#configuration-constraints">Support conditions and constraints</a></p></li><li><p>What scope does the reference benchmark measure, and what scope is covered by separate product validation?</p><p><a href="../features-and-support.html#measurement">Criteria for reading performance evidence</a></p></li></ul><p><span>Verification scope</span>: <span>Linking code evidence to explanations</span></p>
+</details>
+<details class="page-terms">
+<summary>Terms in this document: WSL2, Pipeline Handler, NV12, DMA, and 3 others</summary>
+<ul>
+<li><strong>WSL2</strong> (Windows Subsystem for Linux 2): An environment for running Linux on Windows. This site is built from the results of building and extracting libcamera on WSL2.</li>
+<li><strong>Pipeline Handler</strong>: A libcamera component that finds the media device of a specific hardware platform (IPU3, RKISP1, etc.), creates cameras, passes requests to the device, and returns their completion. There is one per platform.</li>
+<li><strong>NV12</strong> (NV12): A 4:2:0 format that uses 8 bits per component. The first plane is luminance (Y). The second plane contains interleaved chroma data, in which Cb and Cr values are stored alternately, one each. The whole layout is placed in linearly contiguous memory.</li>
+<li><strong>DMA</strong> (Direct Memory Access): DMA (Direct Memory Access) is a term for a method in which an I/O device reads from or writes to system memory directly.</li>
+<li><strong>Debayer</strong>: A process that interpolates the missing colors of each pixel from neighboring pixels in bayer raw data to create an RGB image. Also called demosaicing.</li>
+<li><strong>bayer</strong>: A color filter array in which each pixel of the sensor records only one color among R, G, and B. Raw data in this format must go through demosaicing before each pixel has RGB values.</li>
+<li><strong>ISP</strong> (Image Signal Processor): A processing unit that converts raw (Bayer) data output by the sensor into an image that can be displayed on screen. It performs operations such as black level correction, lens shading correction, white balance, and debayering.</li>
+</ul>
+<p>Other terms can be found in <a href="../glossary.html">Glossary</a>.</p>
+</details>
+
+<p id="고객-보드의-첫-촬영을-검증했습니까"><a href="../device-integration.html#first-capture">Has the first capture on the customer board been validated?</a></p><p id="가상-캡처-관측과-고객-보드-시험"><a href="../device-integration.html#%EA%B0%80%EC%83%81-%EC%BA%A1%EC%B2%98-%EA%B4%80%EC%B8%A1%EA%B3%BC-%EA%B3%A0%EA%B0%9D-%EB%B3%B4%EB%93%9C-%EC%8B%9C%ED%97%98">Virtual capture observation and customer board testing</a></p><p id="지원-조건과-제약"><a href="../features-and-support.html#configuration-constraints">Support conditions and constraints</a></p><p id="validate-결과별-호출자의-책임"><a href="../features-and-support.html#validate-%EA%B2%B0%EA%B3%BC%EB%B3%84-%ED%98%B8%EC%B6%9C%EC%9E%90%EC%9D%98-%EC%B1%85%EC%9E%84">Caller responsibilities by validate() result.</a></p><!-- sdd:visual:configuration-contract-validity -->
+<h3 id="역할-기반-구성-생성의-반환-계약">Return contract for role-based configuration generation</h3>
+<pre class="mermaid">flowchart TB
+
+  v_request["The caller must populate &lt;br/&gt;roles with the intended use &lt;br/&gt;cases; &lt;br/&gt;PipelineHandler::&lt;br/&gt;generateConfiguration is &lt;br/&gt;asked to generate a default &lt;br/&gt;configuration for the &lt;br/&gt;camera."]
+  v_valid["If the requested roles can &lt;br/&gt;be satisfied, it returns a &lt;br/&gt;valid CameraConfiguration."]
+  v_null["If the requested roles &lt;br/&gt;cannot be satisfied, it &lt;br/&gt;returns a null pointer."]
+  v_request --&gt;|"It returns this if the &lt;br/&gt;requested roles can be &lt;br/&gt;satisfied."| v_valid
+  v_request --&gt;|"It returns this if the &lt;br/&gt;requested roles cannot be &lt;br/&gt;satisfied."| v_null</pre>
+<p><a href="../vendor-assurance.configuration-contract-validity.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>What does PipelineHandler::generateConfiguration return when it can and cannot satisfy the requested roles?</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="The caller must populate roles with the intended use cases; PipelineHandler::generateConfiguration is asked to generate a default configuration for the camera.">The caller must populate roles with the intended use cases; PipelineHandler::generateConfiguration is asked to generate a default configuration for the camera.</span></td>
+<td><a href="#source-23ff032cd1152d56">src/libcamera/pipeline_handler.cpp:271</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the requested roles can be satisfied, it returns a valid CameraConfiguration.">If the requested roles can be satisfied, it returns a valid CameraConfiguration.</span></td>
+<td><a href="#source-23ff032cd1152d56">src/libcamera/pipeline_handler.cpp:271</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the requested roles cannot be satisfied, it returns a null pointer.">If the requested roles cannot be satisfied, it returns a null pointer.</span></td>
+<td><a href="#source-23ff032cd1152d56">src/libcamera/pipeline_handler.cpp:271</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It returns this if the requested roles can be satisfied.">It returns this if the requested roles can be satisfied.</span></td>
+<td><a href="#source-23ff032cd1152d56">src/libcamera/pipeline_handler.cpp:271</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It returns this if the requested roles cannot be satisfied.">It returns this if the requested roles cannot be satisfied.</span></td>
+<td><a href="#source-23ff032cd1152d56">src/libcamera/pipeline_handler.cpp:271</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:configuration-contract-validity -->
+
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:323", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L323\"><code>src/libcamera/camera.cpp:323</code></a>"], ["src/libcamera/pipeline_handler.cpp:271", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L271\"><code>src/libcamera/pipeline_handler.cpp:271</code></a>"], ["src/libcamera/pipeline_handler.cpp:304", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L304\"><code>src/libcamera/pipeline_handler.cpp:304</code></a>"], ["src/libcamera/pipeline_handler.cpp:313", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L313\"><code>src/libcamera/pipeline_handler.cpp:313</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:323": ["#source-2b31e92e3fb3f083"], "src/libcamera/pipeline_handler.cpp:271": ["#source-23ff032cd1152d56"], "src/libcamera/pipeline_handler.cpp:304": ["#source-31c5407347b4d0d8"], "src/libcamera/pipeline_handler.cpp:313": ["#source-f87ceb096b9f931d"]}'>If <code>CameraConfiguration::validate()</code> returns <code>CameraConfiguration::Valid</code>, the original configuration was already valid and has not been adjusted. <code>PipelineHandler::generateConfiguration()</code> takes <code>roles</code>, a list of stream roles, and returns a valid <code>CameraConfiguration</code> if the requested roles can be satisfied, or a <code>null</code> pointer otherwise. The configuration passed to <code>PipelineHandler::configure()</code> is guaranteed to have been validated by <code>CameraConfiguration::validate()</code>, and pipeline handler implementers must not perform additional validation. The implementer of <code>PipelineHandler::configure()</code> must return <code>0</code> if configuration succeeds and a negative error code if it fails.</p>
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>9</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="#source-60ab47044c6107c5" aria-label="src/libcamera/camera.cpp:338 excerpt"><code>L338</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:338" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L338">Full source <code>L338</code></a> · <a href="#source-8b6aa81367245db5" aria-label="src/libcamera/camera.cpp:341 excerpt"><code>L341</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:341" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L341">Full source <code>L341</code></a> · <a href="#source-e13fede0aa40ada1" aria-label="src/libcamera/camera.cpp:342 excerpt"><code>L342</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:342" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L342">Full source <code>L342</code></a> · <a href="#source-e5758fc43bf244cd" aria-label="src/libcamera/camera.cpp:343 excerpt"><code>L343</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:343" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L343">Full source <code>L343</code></a> · <a href="#source-2b31e92e3fb3f083" aria-label="src/libcamera/camera.cpp:323 excerpt"><code>L323</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:323" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L323">Full source <code>L323</code></a></span></li><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="#source-23ff032cd1152d56" aria-label="src/libcamera/pipeline_handler.cpp:271 excerpt"><code>L271</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:271" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L271">Full source <code>L271</code></a> · <a href="#source-31c5407347b4d0d8" aria-label="src/libcamera/pipeline_handler.cpp:304 excerpt"><code>L304</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:304" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L304">Full source <code>L304</code></a> · <a href="#source-f87ceb096b9f931d" aria-label="src/libcamera/pipeline_handler.cpp:313 excerpt"><code>L313</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:313" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L313">Full source <code>L313</code></a> · <a aria-label="src/libcamera/pipeline_handler.cpp:289" href="#source-4abbe39594a1bd27"><code>L289</code></a></span></li></ul></details><p id="성능-근거를-읽는-기준"><a href="../features-and-support.html#measurement">Criteria for reading performance evidence</a></p><!-- sdd:class-diagram -->
+<h2 id="클래스-관계">Class relationships</h2>
+<p>Arrow labels show the extracted relationship, and dashed lines indicate inheritance. Arrows point to the referenced target or base class. They do not indicate call order.</p>
+<pre class="mermaid">flowchart LR
+  c0["Camera"]
+  c1["Extensible"]:::context
+  c2["IPAManager"]
+  c3["Object"]:::context
+  c4["PipelineHandler"]
+  c5["PipelineHandlerIPU3"]
+  c6["PipelineHandlerRkISP1"]
+  c0 -.-&gt;|inheritance| c1
+  c0 -.-&gt;|inheritance| c3
+  c4 --&gt;|field reference| c0
+  c4 -.-&gt;|inheritance| c3
+  c5 -.-&gt;|inheritance| c4
+  c6 --&gt;|field reference| c0
+  c6 -.-&gt;|inheritance| c4
+  classDef context fill:#fafafa,stroke:#aaa,stroke-dasharray:4 3,color:#555</pre>
+<!-- /sdd:class-diagram -->
+
+<details class="note scope-notices"><summary>Verification scope of the virtual test</summary><p><strong>This is a virtual test configuration. It must not be used as a support or performance claim for an actual product.</strong></p><ul><li><a href="../device-integration.html#first-capture">Has the first capture on the customer board been validated?</a></li></ul></details>
+<h2 id="소스-근거">Source evidence</h2>
+<details class="source-excerpts"><summary>Source excerpts: <span>17</span></summary>
+<p>Include each excerpt only once. Expand the needed original text and check it against the explanation.</p>
+<p><a id="source-eb7d1ae4ac9df3f9"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/pipeline/virtual/README.md:3</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/README.md#L3"><code>src/libcamera/pipeline/virtual/README.md:3</code></a> to <code>5</code></p>
+<p>SHA-256: <code>493f7417e35aff44c5d8402be054cedfa0cf3d5cfa6007789c2a3bbc1d359491</code></p>
+<div class="highlight"><pre><span></span><code># Virtual Pipeline Handler
+
+Virtual pipeline handler emulates fake external camera(s) for testing.
+</code></pre></div>
+</details>
+<p><a id="source-fb6397b1c5827be7"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/pipeline/virtual/data/virtual.yaml:28</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/virtual/data/virtual.yaml#L28"><code>src/libcamera/pipeline/virtual/data/virtual.yaml:28</code></a> to <code>34</code></p>
+<p>SHA-256: <code>4b1c7d6a7ad0a5de6e033d508a6a85e6e166dcabdca7866b1b61b23657d91c8d</code></p>
+<div class="highlight"><pre><span></span><code>"Virtual2":
+  supported_formats:
+  - width: 400
+    height: 300
+  test_pattern: "lines"
+  location: "Front"
+  model: "Virtual Video Device2"
+</code></pre></div>
+</details>
+<p><a id="source-aba605be681da98e"></a></p>
+<details class="note">
+<summary>Source evidence: include/libcamera/camera.h:126</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/camera.h#L126"><code>include/libcamera/camera.h:126</code></a> to <code>153</code></p>
+<p>SHA-256: <code>5c3c69878cf992146820a6ecf3d639f1b4d9cf15b6626a6adf39fbaa15fa8a87</code></p>
+<div class="highlight"><pre><span></span><code>Signal&lt;Request *, FrameBuffer *&gt; bufferCompleted;
+    Signal&lt;Request *&gt; requestCompleted;
+    Signal&lt;&gt; disconnected;
+
+    int acquire();
+    int release();
+
+    const ControlInfoMap &amp;controls() const;
+    const ControlList &amp;properties() const;
+
+    const std::set&lt;Stream *&gt; &amp;streams() const;
+
+    std::unique_ptr&lt;CameraConfiguration&gt;
+    generateConfiguration(std::span&lt;const StreamRole&gt; roles = {});
+
+    std::unique_ptr&lt;CameraConfiguration&gt;
+    generateConfiguration(std::initializer_list&lt;StreamRole&gt; roles)
+    {
+        return generateConfiguration(std::span(roles.begin(), roles.end()));
+    }
+
+    int configure(CameraConfiguration *config);
+
+    std::unique_ptr&lt;Request&gt; createRequest(uint64_t cookie = 0);
+    int queueRequest(Request *request);
+
+    int start(const ControlList *controls = nullptr);
+    int stop();
+</code></pre></div>
+</details>
+<p><a id="source-cb2be6f3ec7f91fc"></a></p>
+<details class="note">
+<summary>Source evidence: include/libcamera/request.h:34</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/request.h#L34"><code>include/libcamera/request.h:34</code></a> to <code>37</code></p>
+<p>SHA-256: <code>eaa5d321971fa026c205d6687465279a50cccbeec286ccbaecd1a8ff149652f0</code></p>
+<div class="highlight"><pre><span></span><code>enum Status {
+        RequestPending,
+        RequestComplete,
+        RequestCancelled,
+</code></pre></div>
+</details>
+<p><a id="source-094e6fd7ddda824a"></a></p>
+<details class="note">
+<summary>Source evidence: include/libcamera/framebuffer.h:25</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/framebuffer.h#L25"><code>include/libcamera/framebuffer.h:25</code></a> to <code>28</code></p>
+<p>SHA-256: <code>dc2d776d3644c8251b2b5c814b24afbe1669453df099ff38f2948283af83b987</code></p>
+<div class="highlight"><pre><span></span><code>enum Status {
+        FrameSuccess,
+        FrameError,
+        FrameCancelled,
+</code></pre></div>
+</details>
+<p><a id="source-ce71f2f0de50caf3"></a></p>
+<details class="note">
+<summary>Source evidence: README.rst:107</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/README.rst#L107"><code>README.rst:107</code></a> to <code>110</code></p>
+<p>SHA-256: <code>ef4dcb6f295c819bccc9abda78c8416492644df33013d7602ab5f5bb170c4b05</code></p>
+<div class="highlight"><pre><span></span><code>The ``cam`` utility can be used for basic testing. You can list the cameras
+detected on the system with ``cam -l``, and capture ten frames from the first
+camera and save them to disk with ``cam -c 1 --capture=10 --file``. See
+``cam -h`` for more information about the ``cam`` tool.
+</code></pre></div>
+</details>
+<p><a id="source-3c4ba1aba4901083"></a></p>
+<details class="note">
+<summary>Product evidence: product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1</summary>
+<p>This material is provided separately from the source. Check the provider, version, and scope of application in the record below. Automatic checks are not human approval.</p>
+<p>Excerpt range: <code>product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt:1</code> to <code>49</code></p>
+<p>SHA-256: <code>2284397098a8a2871f76f695264af00a36c57a8fc324630367a26e598ee165e8</code></p>
+<div class="highlight"><pre><span></span><code>{
+  "archive": "https://github.com/TTolsun/camera-hal-sdd-generator/tree/6adb29515c6a250d05e06ad0cf3b047205380be9/examples/libcamera/validation/issue211/runs/20261031-wsl-cam-3",
+  "date": "2026-10-31",
+  "source_commit": "293d751a814e0d4c34e85ad457ccd9d5eefd1a61",
+  "source_tracked_clean": true,
+  "kernel": "6.18.33.2-microsoft-standard-WSL2-issue211",
+  "allocator": "udmabuf (built into the WSL2 trial kernel, CONFIG_UDMABUF=y)",
+  "camera": "Virtual2",
+  "requested_stream": "role=video,width=400,height=300,pixelformat=NV12",
+  "runs": [
+    {
+      "pid": 434,
+      "completed_frames": 3,
+      "successful_buffer_sequences": [
+        0,
+        1,
+        2
+      ],
+      "exit_code": 0
+    },
+    {
+      "pid": 449,
+      "completed_frames": 3,
+      "successful_buffer_sequences": [
+        0,
+        1,
+        2
+      ],
+      "exit_code": 0
+    },
+    {
+      "pid": 464,
+      "completed_frames": 3,
+      "successful_buffer_sequences": [
+        0,
+        1,
+        2
+      ],
+      "exit_code": 0
+    }
+  ],
+  "physical_camera": "not-run",
+  "physical_dma": "not-validated",
+  "production_application": "not-run",
+  "internal_hal": "not-run",
+  "applied_stream": "(0) 400x300-NV12/SMPTE170M",
+  "kernel_evidence": "https://github.com/TTolsun/camera-hal-sdd-generator/blob/6adb29515c6a250d05e06ad0cf3b047205380be9/examples/libcamera/validation/issue211/runs/20261031-after-kernel-inventory/stdout"
+}
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"measurement"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"supplier"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Public official cam trial archive, selected run fields"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-31"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"date"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-31"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"valid_until"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-31"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"product"</span><span class="p">:</span><span class="w"> </span><span class="s2">"libcamera-first-capture-trial"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"release"</span><span class="p">:</span><span class="w"> </span><span class="s2">"293d751a814e0d4c34e85ad457ccd9d5eefd1a61"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"configuration"</span><span class="p">:</span><span class="w"> </span><span class="s2">"wsl2-virtual2-official-cam-udmabuf"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"feature"</span><span class="p">:</span><span class="w"> </span><span class="s2">"virtual-first-capture"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"conditions"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="s2">"WSL2 trial kernel with built-in udmabuf"</span><span class="p">,</span>
+<span class="w">    </span><span class="s2">"Unmodified official cam at the recorded source commit"</span><span class="p">,</span>
+<span class="w">    </span><span class="s2">"Virtual2, 400x300 NV12"</span>
+<span class="w">  </span><span class="p">],</span>
+<span class="w">  </span><span class="nt">"sha256"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2284397098a8a2871f76f695264af00a36c57a8fc324630367a26e598ee165e8"</span>
+<span class="p">}</span>
+</code></pre></div>
+</details>
+<p><a id="source-60ab47044c6107c5"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/camera.cpp:338</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L338"><code>src/libcamera/camera.cpp:338</code></a> to <code>340</code></p>
+<p>SHA-256: <code>2247db4a7b9353362f9df6c84aaa5c2810dec4eaaae4b3b36d19c57e427f5790</code></p>
+<div class="highlight"><pre><span></span><code>\retval CameraConfiguration::Invalid The configuration is invalid and can't
+ * be adjusted. This may only occur in extreme cases such as when the
+ * configuration is empty.
+</code></pre></div>
+</details>
+<p><a id="source-e5758fc43bf244cd"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/camera.cpp:343</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L343"><code>src/libcamera/camera.cpp:343</code></a> to <code>344</code></p>
+<p>SHA-256: <code>f2efdb13d4f1bd8dd432fb0badb987eab0cc484fe8ecb30b7ea9d47c0126590c</code></p>
+<div class="highlight"><pre><span></span><code>The caller shall check the
+ * configuration carefully.
+</code></pre></div>
+</details>
+<p><a id="source-2b31e92e3fb3f083"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/camera.cpp:323</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L323"><code>src/libcamera/camera.cpp:323</code></a> to <code>346</code></p>
+<p>SHA-256: <code>86bf9109257512866bf70a5d42cd3da29c70d851d871f0e496058141ba377623</code></p>
+<div class="highlight"><pre><span></span><code>\fn CameraConfiguration::validate()
+ * \brief Validate and possibly adjust the camera configuration
+ *
+ * This function adjusts the camera configuration to the closest valid
+ * configuration and returns the validation status.
+ *
+ * \todo Define exactly when to return each status code. Should stream
+ * parameters set to 0 by the caller be adjusted without returning Adjusted ?
+ * This would potentially be useful for applications but would get in the way
+ * in Camera::configure(). Do we need an extra status code to signal this ?
+ *
+ * \todo Handle validation of buffers count when refactoring the buffers API.
+ *
+ * \return A CameraConfiguration::Status value that describes the validation
+ * status.
+ * \retval CameraConfiguration::Invalid The configuration is invalid and can't
+ * be adjusted. This may only occur in extreme cases such as when the
+ * configuration is empty.
+ * \retval CameraConfiguration::Adjusted The configuration has been adjusted
+ * and is now valid. Parameters may have changed for any stream, and stream
+ * configurations may have been removed. The caller shall check the
+ * configuration carefully.
+ * \retval CameraConfiguration::Valid The configuration was already valid and
+ * hasn't been adjusted.
+</code></pre></div>
+</details>
+<p><a id="source-4abbe39594a1bd27"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/pipeline_handler.cpp:289</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L289"><code>src/libcamera/pipeline_handler.cpp:289</code></a> to <code>290</code></p>
+<p>SHA-256: <code>b86c8678b02e96936d80626cefebf3811b6a991b459074e51c9f0e08457ff369</code></p>
+<div class="highlight"><pre><span></span><code>\return A valid CameraConfiguration if the requested roles can be satisfied,
+ * or a null pointer otherwise.
+</code></pre></div>
+</details>
+<p><a id="source-31c5407347b4d0d8"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/pipeline_handler.cpp:304</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L304"><code>src/libcamera/pipeline_handler.cpp:304</code></a> to <code>306</code></p>
+<p>SHA-256: <code>625bd787da81f9407ba9e746d4939d93b7172a26642429bcfd3300aa6187675f</code></p>
+<div class="highlight"><pre><span></span><code>The configuration is guaranteed to have been validated with
+ * CameraConfiguration::validate(). The pipeline handler implementation shall
+ * not perform further validation
+</code></pre></div>
+</details>
+<p><a id="source-f87ceb096b9f931d"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/pipeline_handler.cpp:313</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L313"><code>src/libcamera/pipeline_handler.cpp:313</code></a> to <code>315</code></p>
+<p>SHA-256: <code>6e139b3c50660a7111d84bd00cfd17078b8b45d4a07688fa64b2d8af9ce52a22</code></p>
+<div class="highlight"><pre><span></span><code>\context This function is called from the CameraManager thread.
+ *
+ * \return 0 on success or a negative error code otherwise
+</code></pre></div>
+</details>
+<p><a id="source-8b6aa81367245db5"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/camera.cpp:341</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L341"><code>src/libcamera/camera.cpp:341</code></a> to <code>342</code></p>
+<p>SHA-256: <code>bc530fdf77cefda77bfd8ae1cadf7df4edea81ddfce01bef24867681b29655f6</code></p>
+<div class="highlight"><pre><span></span><code>\retval CameraConfiguration::Adjusted The configuration has been adjusted
+ * and is now valid.
+</code></pre></div>
+</details>
+<p><a id="source-e13fede0aa40ada1"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/camera.cpp:342</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L342"><code>src/libcamera/camera.cpp:342</code></a> to <code>343</code></p>
+<p>SHA-256: <code>7c0debb896b6072c0bc59cf3589fbc49b607f915d96f30182d4e02038b94c156</code></p>
+<div class="highlight"><pre><span></span><code>Parameters may have changed for any stream, and stream
+ * configurations may have been removed.
+</code></pre></div>
+</details>
+<p><a id="source-23ff032cd1152d56"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/pipeline_handler.cpp:271</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L271"><code>src/libcamera/pipeline_handler.cpp:271</code></a> to <code>291</code></p>
+<p>SHA-256: <code>c1f4cc7aeedfc57e2bc5ebd6825a77f605173b44f7fde564aebc01bb013119cf</code></p>
+<div class="highlight"><pre><span></span><code>\fn PipelineHandler::generateConfiguration()
+ * \brief Generate a camera configuration for a specified camera
+ * \param[in] camera The camera to generate a default configuration for
+ * \param[in] roles A list of stream roles
+ *
+ * Generate a default configuration for the \a camera for a specified list of
+ * stream roles. The caller shall populate the \a roles with the use-cases it
+ * wishes to fetch the default configuration for. The returned configuration
+ * can then be examined by the caller to learn about the selected streams and
+ * their default parameters.
+ *
+ * The intended companion to this is \a configure() which can be used to change
+ * the group of streams parameters.
+ *
+ * \context This function may be called from any thread and shall be
+ * \threadsafe. It shall not modify the state of the \a camera in the pipeline
+ * handler.
+ *
+ * \return A valid CameraConfiguration if the requested roles can be satisfied,
+ * or a null pointer otherwise.
+ */
+</code></pre></div>
+</details>
+<p><a id="source-551d2b5944a36d19"></a></p>
+<details class="note">
+<summary>Source evidence: Documentation/software-isp-benchmarking.rst:15</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/software-isp-benchmarking.rst#L15"><code>Documentation/software-isp-benchmarking.rst:15</code></a> to <code>20</code></p>
+<p>SHA-256: <code>907d979f60258b4572a0557b6054ec814990084ca3e69a291317855a3b27084d</code></p>
+<div class="highlight"><pre><span></span><code>The DebayerCpu class has a builtin benchmark. This benchmark measures the time
+spent on processing (collecting statistics and debayering) only, it does not
+measure the time spent on capturing or outputting the frames.
+
+The builtin benchmark always runs. So this can be used by simply running "cam"
+or "qcam" with a pipeline using the Software ISP.
+</code></pre></div>
+</details>
+</details>
+
+</article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>Document generation time</dt><dd><code>2026-11-20 16:39:19+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../../contract-consistency.json">Automated comparison report</a> · Before human review</dd><dt>Enter product description</dt><dd><a href="../../product-context.json">Scope, conditions, and sources</a></dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>Documentation/software-isp-benchmarking.rst</code>, <code>README.rst</code>, <code>include/libcamera/camera.h</code>, <code>include/libcamera/framebuffer.h</code>, <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/pipeline_handler.h</code>, <code>include/libcamera/request.h</code>, <code>product-evidence/libcamera-first-capture-trial/virtual-first-capture-run.txt</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/pipeline/ipu3/ipu3.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/pipeline/virtual/README.md</code>, <code>src/libcamera/pipeline/virtual/data/virtual.yaml</code>, <code>src/libcamera/pipeline_handler.cpp</code></li><li>Evidence level: code verified (static analysis, simple_compdb configuration, commit <code>adfa719f8e</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded on: 2026-11-21 · Awaiting human review</li></ul></details><a href="../../vendor-assurance.md">Markdown source ↗</a> <a href="../vendor-assurance.mmd">Mermaid source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="../for-vendor.html"><small>Previous</small>libcamera Product Overview ←</a><a class="next" href="../request-flow.html"><small>Next</small> request handling and problem diagnosis →</a></nav>
+<footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
+<aside class="page-toc"></aside></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find document</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search documents, sections, terms, and code elements</label><input id="search-input" type="search" autocomplete="off" placeholder="Example: Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Diagram element and function names"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Collapse">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to screen</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">Drag with a mouse or swipe with touch to move the diagram. "Fit to screen" shows an overview of the whole diagram.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="Zoomed diagram"><div id="diagram-canvas"></div></div></dialog>
+<script id="site-config" type="application/json">{"root": "../", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "10c7b0ad3c", "language": "en"}</script><script defer src="../../assets/site.js?v=dd3415510a"></script><script defer src="../../assets/reader-tools.js?v=dd3415510a"></script></body></html>

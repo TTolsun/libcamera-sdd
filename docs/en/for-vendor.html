@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ForVendor · libcamera design document</title><link rel="stylesheet" href="../assets/reading.css?v=dd3415510a"><link rel="alternate" hreflang="ko" href="../for-vendor.html"><link rel="alternate" hreflang="en" href="for-vendor.html"></head>
+<body><a class="skip" href="#main">Go to body text</a>
+<header class="site-header"><a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera Design Document</a>
+<div class="header-actions"><details class="language-selector"><summary aria-label="Choose language">English ▾</summary><nav><a lang="ko" hreflang="ko" href="../for-vendor.html">한국어</a><a lang="en" hreflang="en" href="for-vendor.html" aria-current="true">English</a></nav></details><nav class="download-nav" aria-label="Download the whole document" style="display:flex"><details class="language-selector download-menu"><summary title="Download" aria-label="Download the whole document">⤓ ▾</summary><nav><a href="download/full.html?print">PDF</a><a href="download/full.md" download="libcamera-설계-문서.en.md">Markdown</a></nav></details></nav><button id="search-open" hidden>Find document <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button></div></header>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Document menu"><details class="nav-group" data-nav-id="group-cced28c6dc3f99c2396a5eaa" open><summary>Start Here</summary><a href="index.html">Start Here</a><a href="architecture.html">Architecture</a><a href="glossary.html">Glossary</a></details><details class="nav-group" data-nav-id="group-630ba09448af522154f38ef7" open><summary>ForVendor</summary><a href="for-vendor.html" aria-current="page">ForVendor</a><a href="features-and-support.html">Features and Support</a><a href="device-integration.html">Device Integration and Verification</a></details><details class="nav-group" data-nav-id="group-88fa0d759f845b47c044c2cd" open><summary>ForDeveloper</summary><a href="for-developer.html">ForDeveloper</a><a href="request-flow.html">Request Flow and Core Concepts</a><a href="implementation.html">Implementation and Extension Points</a><a href="troubleshooting.html">Caveats and Troubleshooting</a></details></nav><p class="sidebar-note">Extract the structure from the code and review it together with <br> evidence.</p></aside>
+<main id="main"><p class="breadcrumb">ForVendor <span>/</span> ForVendor</p><h1>ForVendor</h1><details class="mobile-toc"><summary>On this page</summary><div class="toc"><ul><li><a href="#adoption-check">Items to check on the device</a></li><li><a href="#vendor-responsibilities">Boundary between hardware and the common layer</a><ul><li><a href="#%EC%9E%A5%EC%B9%98-%EB%A7%A4%EC%B9%AD%EC%9D%98-%ED%99%95%EB%B3%B4%EB%93%B1%EB%A1%9D%EA%B3%BC-%EC%8B%A4%ED%8C%A8-%EC%A0%95%EB%A6%AC">Acquisition and registration for device matching and cleanup on failure</a></li></ul></li></ul></div></details><p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p>Applications use the common Camera API to configure devices and capture images. A device-specific PipelineHandler implementation matches the required media devices with devices in the system and configures the hardware pipeline according to the stream configuration. To evaluate adoption, check the hardware and build conditions, then test first capture and stopping on the target board.</p><ul class="reader-edition-links"><li><a href="features-and-support.html">Check platform and build support</a></li><li><a href="device-integration.html">Plan first capture and stop tests</a></li></ul><h2 id="adoption-check">Items to check on the device</h2>
+<p>On the target device, test normal capture and stopping with incomplete requests separately. For each submission, record the number of completion callbacks, the request status, and the status of each buffer. Determine separately whether the request was canceled and whether capture succeeded for each frame. Check <a href="request-flow.html#stop-and-disconnect">Contract and evidence for completion notification after stopping</a>.</p>
+<p>Compare <a href="reader-archive/vendor-overview.html#%EC%9E%A5%EC%B9%98-%EA%B5%AC%ED%98%84%EC%9E%90%EA%B0%80-%EA%B3%B5%ED%86%B5-%EA%B3%84%EC%B8%B5%EC%97%90%EC%84%9C-%EC%96%BB%EB%8A%94-%EA%B2%83">Benefits of adopting a common API</a> and <a href="features-and-support.html#platform-support">Hardware and build conditions</a>, then check the device-specific implementation responsibilities in <a href="device-integration.html">Integration guide</a>. <a href="features-and-support.html">Support scope and validation</a> covers the first capture on a customer board, configuration constraints, and performance evidence.</p>
+<h2 id="vendor-responsibilities">Boundary between hardware and the common layer</h2>
+<p data-sdd-evidence='[["src/libcamera/pipeline_handler.cpp:91", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L91\"><code>src/libcamera/pipeline_handler.cpp:91</code></a>"], ["src/libcamera/pipeline_handler.cpp:97", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L97\"><code>src/libcamera/pipeline_handler.cpp:97</code></a>"], ["src/libcamera/pipeline_handler.cpp:109", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L109\"><code>src/libcamera/pipeline_handler.cpp:109</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline_handler.cpp:91": ["reader-archive/vendor-integration.html#source-5109302527925a6a"], "src/libcamera/pipeline_handler.cpp:97": ["reader-archive/vendor-integration.html#source-293bf5d4775550d0"], "src/libcamera/pipeline_handler.cpp:109": ["reader-archive/vendor-integration.html#source-1afff120b5d66b3c"]}'>When all media devices needed for a single pipeline are found, the implementer of <code>PipelineHandler::match()</code> must call <code>MediaDevice::acquire()</code> to acquire each device, then create one or more corresponding <code>Camera</code> instances, store them internally, register them with the camera manager, and return <code>true</code>. When not all required media devices are found, the implementer of <code>PipelineHandler::match()</code> must not acquire any devices if none have yet been acquired; if some have already been acquired, the implementer must call <code>MediaDevice::release()</code> to release all acquired devices and return <code>false</code>. <code>PipelineHandler::match()</code> is called on the <code>CameraManager</code> thread and, if it returns <code>true</code>, a new <code>PipelineHandler</code> instance is created and that instance's <code>match()</code> is called.</p>
+<!-- sdd:visual:item-boundary -->
+<h3 id="장치-매칭의-확보등록과-실패-정리">Acquisition and registration for device matching and cleanup on failure</h3>
+<pre class="mermaid">flowchart TB
+
+  v_call["CameraManager calls match &lt;br/&gt;with the enumerator."]
+  v_found{"Were all media devices &lt;br/&gt;required for this pipeline &lt;br/&gt;found?"}
+  v_acquire["Acquire all devices &lt;br/&gt;required for this pipeline."]
+  v_register["Create and store the &lt;br/&gt;cameras, register them with &lt;br/&gt;CameraManager, then return &lt;br/&gt;true."]
+  v_repeat["Create a new handler &lt;br/&gt;instance and call match &lt;br/&gt;again."]
+  v_failure["Acquire no devices, or &lt;br/&gt;release all devices already &lt;br/&gt;acquired, then return false."]
+  v_call --&gt;|"The match implementation &lt;br/&gt;checks the devices."| v_found
+  v_found --&gt;|"All required devices were &lt;br/&gt;found."| v_acquire
+  v_found --&gt;|"A required device is &lt;br/&gt;missing."| v_failure
+  v_acquire --&gt;|"Register the cameras after &lt;br/&gt;acquisition."| v_register
+  v_register --&gt;|"The call returned true."| v_repeat</pre>
+<p><a href="vendor-integration.item-boundary.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>Who matches devices and registers cameras, and how are the acquired devices handled depending on the match result?</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="CameraManager calls match with the enumerator.">CameraManager calls match with the enumerator.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-5109302527925a6a">src/libcamera/pipeline_handler.cpp:91</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Were all media devices required for this pipeline found?">Were all media devices required for this pipeline found?</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-5109302527925a6a">src/libcamera/pipeline_handler.cpp:91</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Acquire all devices required for this pipeline.">Acquire all devices required for this pipeline.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-5109302527925a6a">src/libcamera/pipeline_handler.cpp:91</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Create and store the cameras, register them with CameraManager, then return true.">Create and store the cameras, register them with CameraManager, then return true.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-5109302527925a6a">src/libcamera/pipeline_handler.cpp:91</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Create a new handler instance and call match again.">Create a new handler instance and call match again.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1afff120b5d66b3c">src/libcamera/pipeline_handler.cpp:109</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Acquire no devices, or release all devices already acquired, then return false.">Acquire no devices, or release all devices already acquired, then return false.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-293bf5d4775550d0">src/libcamera/pipeline_handler.cpp:97</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The match implementation checks the devices.">The match implementation checks the devices.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-5109302527925a6a">src/libcamera/pipeline_handler.cpp:91</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="All required devices were found.">All required devices were found.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-5109302527925a6a">src/libcamera/pipeline_handler.cpp:91</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="A required device is missing.">A required device is missing.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-5109302527925a6a">src/libcamera/pipeline_handler.cpp:91</a> · <a href="reader-archive/vendor-integration.html#source-293bf5d4775550d0">src/libcamera/pipeline_handler.cpp:97</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Register the cameras after acquisition.">Register the cameras after acquisition.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-5109302527925a6a">src/libcamera/pipeline_handler.cpp:91</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The call returned true.">The call returned true.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-5109302527925a6a">src/libcamera/pipeline_handler.cpp:91</a> · <a href="reader-archive/vendor-integration.html#source-1afff120b5d66b3c">src/libcamera/pipeline_handler.cpp:109</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:item-boundary -->
+
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>3</span></summary><ul><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="reader-archive/vendor-integration.html#source-5109302527925a6a" aria-label="src/libcamera/pipeline_handler.cpp:91 excerpt"><code>L91</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:91" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L91">Full source <code>L91</code></a> · <a href="reader-archive/vendor-integration.html#source-293bf5d4775550d0" aria-label="src/libcamera/pipeline_handler.cpp:97 excerpt"><code>L97</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:97" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L97">Full source <code>L97</code></a> · <a href="reader-archive/vendor-integration.html#source-1afff120b5d66b3c" aria-label="src/libcamera/pipeline_handler.cpp:109 excerpt"><code>L109</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:109" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L109">Full source <code>L109</code></a></span></li></ul></details></article><section class="evidence"><h2 id="page-evidence">Source manuscripts and review records</h2><details><summary>libcamera design document</summary><section><dl><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl></section><p><a href="reader-archive/index.html#page-evidence">Open earlier detail</a></p></details><details><summary>Integration guide</summary><section><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>Document generation time</dt><dd><code>2026-11-20 16:39:26+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>include/libcamera/camera.h</code>, <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/pipeline_handler.h</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/pipeline/ipu3/ipu3.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code></li><li>Evidence level: code verified (static analysis, simple_compdb configuration, commit <code>adfa719f8e</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded on: 2026-11-21 · Awaiting human review</li></ul></details><a href="../vendor-integration.md">Markdown source ↗</a> <a href="vendor-integration.mmd">Mermaid source ↗</a></section><p><a href="reader-archive/vendor-integration.html#page-evidence">Open earlier detail</a></p></details></section><p><a href="for-vendor.md" download>Download page Markdown</a> · <a href="../reader-edition.json">Reader edition source map</a></p><nav class="pagination" aria-label="Previous and next pages"><a class="previous" href="glossary.html"><small>Previous</small>Glossary ←</a><a class="next" href="features-and-support.html"><small>Next</small>Features and Support →</a></nav><footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
+<aside class="page-toc"><nav aria-label="On this page"><p>On this page</p><div class="toc"><ul><li><a href="#adoption-check">Items to check on the device</a></li><li><a href="#vendor-responsibilities">Boundary between hardware and the common layer</a><ul><li><a href="#%EC%9E%A5%EC%B9%98-%EB%A7%A4%EC%B9%AD%EC%9D%98-%ED%99%95%EB%B3%B4%EB%93%B1%EB%A1%9D%EA%B3%BC-%EC%8B%A4%ED%8C%A8-%EC%A0%95%EB%A6%AC">Acquisition and registration for device matching and cleanup on failure</a></li></ul></li></ul></div></nav></aside></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find document</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search documents, sections, terms, and code elements</label><input id="search-input" type="search" autocomplete="off" placeholder="Example: Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Diagram element and function names"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Collapse">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to screen</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">Drag with a mouse or swipe with touch to move the diagram. "Fit to screen" shows an overview of the whole diagram.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="Zoomed diagram"><div id="diagram-canvas"></div></div></dialog>
+<script id="site-config" type="application/json">{"root": "./", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "10c7b0ad3c", "language": "en"}</script><script defer src="../assets/site.js?v=dd3415510a"></script><script defer src="../assets/reader-tools.js?v=dd3415510a"></script></body></html>
