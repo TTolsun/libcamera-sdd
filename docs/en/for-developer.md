@@ -18,7 +18,7 @@ Use `cam -l` to list the cameras detected on the system, and use `cam -c 1 --cap
 
 ## When to start discovery and use the camera
 
-`CameraManager::start()` starts the camera manager and enumerates all devices in the system. Once startup is confirmed, the user can list the cameras in the system and interact with them until the manager is stopped or the camera is disconnected from the system.
+When you call `CameraManager::start()`, the camera manager starts up and enumerates every device on the system. Once you’ve confirmed the manager is running, you can list the available cameras. You can use each camera until it’s disconnected or the manager stops.
 
 <details open>
 <summary>Section-wide evidence: 1</summary>
