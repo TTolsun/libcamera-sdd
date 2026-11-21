@@ -6,23 +6,36 @@
 <div class="header-actions"><details class="language-selector"><summary aria-label="Choose language">English ▾</summary><nav><a lang="ko" hreflang="ko" href="../index.html">한국어</a><a lang="en" hreflang="en" href="index.html" aria-current="true">English</a></nav></details><nav class="download-nav" aria-label="Download the whole document" style="display:flex"><details class="language-selector download-menu"><summary title="Download" aria-label="Download the whole document">⤓ ▾</summary><nav><a href="download/full.html?print">PDF</a><a href="download/full.md" download="libcamera-설계-문서.en.md">Markdown</a></nav></details></nav><button id="search-open" hidden>Find document <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button></div></header>
 <div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Document menu"><details class="nav-group" data-nav-id="group-eb5fc4597bcab08dd609eb65" open><summary>Get started</summary><a href="index.html" aria-current="page">Document guide</a><a href="glossary.html">Glossary</a></details><details class="nav-group" data-nav-id="group-d671e203b93701cc4b6e3099" open><summary>For Vendor</summary><details class="nav-section" data-nav-id="task-d6e030e93c998b7019a15936"><summary>Adoption decision</summary><a href="vendor-overview.html">libcamera product overview</a><a href="vendor-assurance.html">Support scope and validation</a></details><details class="nav-section" data-nav-id="task-3e788d9bf0a3e06fa9605fc7"><summary>Integration implementation</summary><a href="vendor-integration.html">Integration guide</a><a href="pipeline-handler.html">Pipeline Handler</a><a href="pipeline-requests.html">Pipeline Request Submission and Completion</a><a href="ipa.html">IPA management and implementation entry points</a><a href="ipa-algorithms.html">IPA Tuning and Software ISP</a></details><details class="nav-section" data-nav-id="task-4e6bf6a82fb4765e60a97382"><summary>Per-device feature implementation</summary><a href="ipu3-lsc-flow.html">IPU3 LSC Configuration and Frame Processing</a><a href="ipu3-lsc-prepare.html">IPU3 Lens Correction Table Preparation</a><a href="rkisp1-dewarp.html">RKISP1 Per-Camera Distortion Correction</a></details></details><details class="nav-group" data-nav-id="group-8c6df661e792ad45c78bb2ef" open><summary>For Developer</summary><details class="nav-section" data-nav-id="task-99be7fb5d49c7ce6147f371a"><summary>Structural understanding</summary><a href="team-overview.html">What this project does</a><a href="overview.html">System overview</a><a href="onboarding.html">Run it and read the design rationale</a><a href="camera-model.html">Camera and request model</a><a href="camera-requests.html">Request object and buffer lifetime</a></details><details class="nav-section" data-nav-id="task-1fd1cf94625ce3af7bee3dfe"><summary>Behavior Tracing and Problem Diagnosis</summary><a href="request-lifecycle.html">Request handling and problem diagnosis</a><a href="request-diagnosis.html">Investigation of configuration and request errors</a><a href="scenarios/index.html">Key scenario</a><details class="nav-branch" data-nav-id="branch-6cdafc2d5a06483de679705c"><summary>6 sub-documents</summary><a class="nav-sub" href="scenarios/manager_start.html">Camera discovery</a><a class="nav-sub" href="scenarios/configure.html">Stream configuration</a><a class="nav-sub" href="scenarios/camera_start.html">Capture start</a><a class="nav-sub" href="scenarios/queue_request.html">Request submission</a><a class="nav-sub" href="scenarios/complete_request.html">Request completion notification</a><a class="nav-sub" href="scenarios/camera_stop.html">Request to end capture</a></details><a href="ipa-module-validation.html">IPA module information check and missing signature file</a><a href="framebuffer-allocator.html">FrameBufferAllocator Failures and Reference Lifetime</a><a href="official-cam-validation.html">Verifying virtual capture with the official cam in WSL</a></details><details class="nav-section" data-nav-id="task-832d04faf930a39f3dde0065"><summary>Code exploration</summary><a href="component-index.html">Component index</a><a href="ipu3-lsc.html">IPU3 LSC and State Connection</a></details></details></nav><p class="sidebar-note">Extract the structure from the code and review it together with <br> evidence.</p></aside>
 <main id="main"><p class="breadcrumb">Get started <span>/</span> libcamera design document</p><h1>libcamera design document</h1><div class="page-state"><span class="review-state">Review document</span></div>
-<details class="mobile-toc"><summary>Table of contents of this page</summary><div class="toc">
+<p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p>libcamera brings device-specific controls for Linux cameras together under a common API. This document connects the design rationale to the code.</p>
+<h2 id="어디서-시작할까요">Where should we start?</h2>
+<div class="reader-start">
+<section>
+<h3 id="for-vendor">For Vendor</h3>
+<a href="#vendor가-먼저-확인할-내용">What should we verify on our device?</a>
+</section>
+<section>
+<h3 id="for-developer">For Developer</h3>
+<a href="#처음-읽는-개발자의-순서">Where in the code is the cancellation state checked?</a>
+</section>
+</div>
+
+<nav aria-label="Table of contents for this page"><details class="mobile-toc"><summary>Table of contents of this page</summary><div class="toc">
 <ul>
 <li><a href="#어디서-시작할까요">Where should we start?</a></li>
 <li><a href="#카메라-스택의-네-계층">Four layers of the camera stack</a></li>
-<li><a href="#vendor가-먼저-확인할-내용">What the vendor checks first</a></li>
-<li><a href="#처음-읽는-개발자의-순서">Reading order for first-time developers</a></li>
+<li><a href="#vendor가-먼저-확인할-내용">Items to check on the device</a></li>
+<li><a href="#처음-읽는-개발자의-순서">Code to check the cancellation state</a></li>
 <li><a href="#지금-필요한-문서">Documents needed now</a></li>
 <li><a href="#기준-설명-찾기">Find reference description</a></li>
 <li><a href="#문서를-읽는-방법">How to read this document</a></li>
 <li><a href="#문서-목록">Document verification status</a></li>
 </ul>
 </div>
-</details><p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p><strong>To assess features, strengths, and integration conditions, start with For Vendor. To learn the structure for the first time or to modify another team's code, start with For Developer.</strong></p>
+</details></nav>
+
 <details class="page-terms">
-<summary>Terms in this document: HAL, Pipeline Handler, IPA, IPU3, and 6 others</summary>
+<summary>Terms in this document: Pipeline Handler, IPA, IPU3, LSC, and 5 others</summary>
 <ul>
-<li><strong>HAL</strong> (Hardware Abstraction Layer): A layer that lets the operating system handle hardware that differs by manufacturer through the same interface. The final deployment target of this project is the in-house Android Camera HAL.</li>
 <li><strong>Pipeline Handler</strong>: A libcamera component that finds the media device of a specific hardware platform (IPU3, RKISP1, etc.), creates cameras, passes requests to the device, and returns their completion. There is one per platform.</li>
 <li><strong>IPA</strong> (Image Processing Algorithms): A separate module (.so) that contains image quality algorithms. It reads the statistics sent by the ISP and calculates the ISP settings to use for the next frame. It is separated from the libcamera core so that manufacturers can provide it without publishing its source.</li>
 <li><strong>IPU3</strong> (Intel Image Processing Unit 3): A camera ISP included in some Intel laptop processors. libcamera has a Pipeline Handler and an IPA for this device.</li>
@@ -35,20 +48,6 @@
 </ul>
 <p>Other terms can be found in <a href="glossary.html">Glossary</a>.</p>
 </details>
-<h2 id="어디서-시작할까요">Where should we start?</h2>
-<div class="reader-start">
-<section>
-<h3 id="for-vendor">For Vendor</h3>
-<p>Confirm features and support conditions, and define the integration and implementation scope.</p>
-<a href="vendor-overview.html">Read from product overview →</a>
-</section>
-<section>
-<h3 id="for-developer">For Developer</h3>
-<p>The overall structure is covered first, and then the request processing flow is traced.</p>
-<a href="overview.html">Read from system overview →</a>
-</section>
-</div>
-
 <!-- sdd:visual:camera-stack -->
 <h2 id="카메라-스택의-네-계층">Four layers of the camera stack</h2>
 <pre class="mermaid">flowchart TB
@@ -111,21 +110,12 @@
 </details>
 <!-- /sdd:visual:camera-stack -->
 
-<p>The left menu follows the order <strong>Reader → task to perform → document</strong>. For Vendor, please select adoption decisions, integration implementation, and device-specific feature implementation. For Developer, please select structure understanding, behavior tracing and problem diagnosis, and code exploration.</p>
-<h2 id="vendor가-먼저-확인할-내용">What the vendor checks first</h2>
-<ol>
-<li>The problems solved, provided features, and strengths of the shared design are reviewed in <a href="vendor-overview.html">libcamera product overview</a>.</li>
-<li><a href="vendor-integration.html">Integration guide</a> defines the integration order and the responsibilities of the providing side and implementers.</li>
-<li>In <a href="vendor-assurance.html">Support scope and validation</a>, the scope of configuration constraints and performance evidence is checked.</li>
-</ol>
-<p>This guidance is a public libcamera example. It does not indicate in-house HAL functionality or the performance or support scope of company products.</p>
-<h2 id="처음-읽는-개발자의-순서">Reading order for first-time developers</h2>
-<ol>
-<li>In <a href="overview.html#%ED%83%90%EC%83%89%EA%B3%BC-%ED%8C%8C%EC%9D%B4%ED%94%84%EB%9D%BC%EC%9D%B8-%EC%84%A0%ED%83%9D">System overview</a>, the CameraManager entry point and camera discovery of <code>src/libcamera/camera_manager.cpp</code> are checked. Expanding the evidence shows the files and functions to read.</li>
-<li><a href="overview.html#%EC%9A%94%EC%B2%AD-%EC%A0%9C%EC%B6%9C%EA%B3%BC-%EC%99%84%EB%A3%8C">Request submission and completion</a> traces where a request moves and which signal ends it. Unfamiliar terms are looked up in <a href="glossary.html">Glossary</a>.</li>
-<li><a href="request-lifecycle.html">Request handling and problem diagnosis</a> moves from symptoms to the matching code. Before a change, <a href="overview.html#%EC%BA%A1%EC%B2%98-%EC%84%B8%EC%85%98%EC%9D%98-%EC%83%81%ED%83%9C%EC%99%80-%EC%9E%90%EC%9B%90">State and resources</a> and <a href="overview.html#%EC%8A%A4%EB%A0%88%EB%93%9C-%EA%B2%BD%EA%B3%84%EC%99%80-%EB%8F%99%EA%B8%B0%ED%99%94">Synchronization responsibility</a> are reviewed.</li>
-</ol>
-<p>The For Developer path is intended for new developers and developers from other teams. You do not need to memorize every class first. Follow one request through, then go to the detailed documents needed for your task.</p>
+<h2 id="vendor가-먼저-확인할-내용">Items to check on the device</h2>
+<p>On the target device, test normal capture and stopping with incomplete requests separately. For each submission, record the number of completion callbacks, the request status, and the status of each buffer. Determine separately whether the request was canceled and whether capture succeeded for each frame. Check <a href="request-lifecycle.html#%EC%A0%95%EC%A7%80%EC%99%80-%EC%97%B0%EA%B2%B0-%ED%95%B4%EC%A0%9C%EB%A5%BC-%EA%B5%AC%EB%B6%84%ED%95%98%EA%B8%B0">Contract and evidence for completion notification after stopping</a>.</p>
+<p>Compare <a href="vendor-overview.html#%EC%9E%A5%EC%B9%98-%EA%B5%AC%ED%98%84%EC%9E%90%EA%B0%80-%EA%B3%B5%ED%86%B5-%EA%B3%84%EC%B8%B5%EC%97%90%EC%84%9C-%EC%96%BB%EB%8A%94-%EA%B2%83">Benefits of adopting a common API</a> and <a href="vendor-overview.html#%EC%A7%80%EC%9B%90%ED%95%98%EB%8A%94-%ED%95%98%EB%93%9C%EC%9B%A8%EC%96%B4%EC%99%80-%EB%B9%8C%EB%93%9C-%EC%84%A0%ED%83%9D">Hardware and build conditions</a>, then check the device-specific implementation responsibilities in <a href="vendor-integration.html">Integration guide</a>. <a href="vendor-assurance.html">Support scope and validation</a> covers the first capture on a customer board, configuration constraints, and performance evidence.</p>
+<h2 id="처음-읽는-개발자의-순서">Code to check the cancellation state</h2>
+<p>Open the callback connected to <code>Camera::requestCompleted</code> in the app and find the branch that reads <code>Request::status()</code> and handles <code>RequestCancelled</code>. Before using the image, check that each <code>FrameBuffer::metadata().status</code> is <code>FrameSuccess</code>. Follow <a href="request-lifecycle.html#%EC%A0%95%EC%A7%80%EC%99%80-%EC%97%B0%EA%B2%B0-%ED%95%B4%EC%A0%9C%EB%A5%BC-%EA%B5%AC%EB%B6%84%ED%95%98%EA%B8%B0">Status determination and code for completion notification after stopping</a>.</p>
+<p>In <a href="overview.html#%ED%83%90%EC%83%89%EA%B3%BC-%ED%8C%8C%EC%9D%B4%ED%94%84%EB%9D%BC%EC%9D%B8-%EC%84%A0%ED%83%9D">System overview</a>, you can find CameraManager's discovery entry point and the role of each component. Before modifying callback or request-processing code, check <a href="overview.html#%EC%9A%94%EC%B2%AD-%EC%A0%9C%EC%B6%9C%EA%B3%BC-%EC%99%84%EB%A3%8C">Request submission and completion</a>, <a href="overview.html#%EC%BA%A1%EC%B2%98-%EC%84%B8%EC%85%98%EC%9D%98-%EC%83%81%ED%83%9C%EC%99%80-%EC%9E%90%EC%9B%90">Session state and resources</a>, and <a href="overview.html#%EC%8A%A4%EB%A0%88%EB%93%9C-%EA%B2%BD%EA%B3%84%EC%99%80-%EB%8F%99%EA%B8%B0%ED%99%94">Thread boundaries</a>.</p>
 <h2 id="지금-필요한-문서">Documents needed now</h2>
 <div class="table-scroll reading-routes" tabindex="0" role="region" aria-label="Table"><table>
 <thead>
@@ -140,20 +130,12 @@
 <td><a href="team-overview.html">What this project does</a></td>
 </tr>
 <tr>
-<td>Defines the implementation scope and responsibilities of hardware support.</td>
-<td><a href="vendor-overview.html">libcamera product overview</a></td>
-</tr>
-<tr>
 <td>Run the camera directly and read the design rationale.</td>
 <td><a href="onboarding.html">Run it and read the design rationale</a></td>
 </tr>
 <tr>
-<td>Covers integrating requests or diagnosing completion delays.</td>
-<td><a href="request-lifecycle.html">Request handling and problem diagnosis</a></td>
-</tr>
-<tr>
 <td>Narrows down the cause of configuration failures.</td>
-<td><a href="request-lifecycle.html#%EA%B5%AC%EC%84%B1-%EC%8B%A4%ED%8C%A8%EB%A5%BC-%EC%A2%81%ED%9E%88%EB%8A%94-%EC%88%9C%EC%84%9C">Order for narrowing down configuration failures</a></td>
+<td><a href="request-diagnosis.html#%EA%B5%AC%EC%84%B1-%EC%8B%A4%ED%8C%A8%EB%A5%BC-%EC%A2%81%ED%9E%88%EB%8A%94-%EC%88%9C%EC%84%9C">Order for narrowing down configuration failures</a></td>
 </tr>
 <tr>
 <td>Implements pipeline configuration, completion, and stopping.</td>
@@ -164,26 +146,16 @@
 <td><a href="ipa.html">IPA management and implementation entry points</a></td>
 </tr>
 <tr>
-<td>Learns the structure first and finds the code to modify.</td>
-<td><a href="overview.html">System overview</a></td>
-</tr>
-<tr>
 <td>Check object lifetime and state transitions.</td>
 <td><a href="camera-model.html">Camera and request model</a></td>
 </tr>
 </tbody>
 </table></div>
-<p>If you add hardware support or change the pipeline or algorithms, start by reading <strong><a href="vendor-overview.html">libcamera product overview</a></strong>. After you confirm the implementation boundary and contract, you can move to the detailed document for each task.</p>
 <h2 id="기준-설명-찾기">Find reference description</h2>
-<p>Ownership and reuse rules for requests and buffers are managed in <strong>Camera and request model</strong>, and implementation rules for the device queue and completion order are managed in <strong>Pipeline Handler</strong>. The diagnostic document connects this contract and guides the check order for each symptom.</p>
+<p>Request and buffer ownership and reuse rules are maintained in <strong><a href="camera-requests.html">Request object and buffer lifetime</a></strong>, while implementation rules for the device queue and completion order are maintained in <strong><a href="pipeline-requests.html">Pipeline Request Submission and Completion</a></strong>. The diagnostic document links these contracts and guides the order of checks for each symptom.</p>
 <p>To follow the algorithm, open <a href="ipu3-lsc-flow.html">IPU3 LSC Configuration and Frame Processing</a>. Camera-specific tuning and kernel support conditions are confirmed in <a href="rkisp1-dewarp.html">RKISP1 Per-Camera Distortion Correction</a>.</p>
-<p>If an abbreviation is unfamiliar, check the term explanations at the top of each document or the <a href="glossary.html">Glossary</a>.</p>
 <h2 id="문서를-읽는-방법">How to read this document</h2>
-<ol>
-<li>The reader selects the items to check now from the page's opening sentence and navigation guidance.</li>
-<li>Clicking <strong>Excerpt</strong> in the paragraph evidence expands the original text within this document. <strong>Full source</strong> moves to the code repository at the corresponding commit.</li>
-<li>The execution check items are moved to the verification plan for the target device.</li>
-</ol>
+<p>Clicking <strong>Excerpt</strong> in the section-wide evidence expands the original text in the document. Clicking <strong>Full source</strong> takes you to the file and line in the analyzed commit. See <a href="glossary.html">Glossary</a> for terminology.</p>
 <p>Clicking a diagram lets you zoom in and search for elements. Relationship diagrams and static call tracing do not guarantee the actual execution order. All classes are in <a href="component-index.html">Component index</a>, and main calls and trace boundaries are in <a href="scenarios/index.html">Key scenario</a>.</p>
 <details class="note">
 <summary>Validation scope and document status</summary>
@@ -236,8 +208,8 @@
 <ul>
 <li><a href="#어디서-시작할까요">Where should we start?</a></li>
 <li><a href="#카메라-스택의-네-계층">Four layers of the camera stack</a></li>
-<li><a href="#vendor가-먼저-확인할-내용">What the vendor checks first</a></li>
-<li><a href="#처음-읽는-개발자의-순서">Reading order for first-time developers</a></li>
+<li><a href="#vendor가-먼저-확인할-내용">Items to check on the device</a></li>
+<li><a href="#처음-읽는-개발자의-순서">Code to check the cancellation state</a></li>
 <li><a href="#지금-필요한-문서">Documents needed now</a></li>
 <li><a href="#기준-설명-찾기">Find reference description</a></li>
 <li><a href="#문서를-읽는-방법">How to read this document</a></li>

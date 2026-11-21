@@ -57,12 +57,21 @@ Review document
 
 English translation · human review pending. Review states below refer to the Korean source.
 
-**To assess features, strengths, and integration conditions, start with For Vendor. To learn the structure for the first time or to modify another team's code, start with For Developer.**
+libcamera brings device-specific controls for Linux cameras together under a common API. This document connects the design rationale to the code.
+
+## Where should we start?
+
+### For Vendor
+
+[What should we verify on our device?](#d1-vendor가-먼저-확인할-내용)
+
+### For Developer
+
+[Where in the code is the cancellation state checked?](#d1-처음-읽는-개발자의-순서)
 
 <details open>
-<summary>Terms in this document: HAL, Pipeline Handler, IPA, IPU3, and 6 others</summary>
+<summary>Terms in this document: Pipeline Handler, IPA, IPU3, LSC, and 5 others</summary>
 
-- **HAL** (Hardware Abstraction Layer): A layer that lets the operating system handle hardware that differs by manufacturer through the same interface. The final deployment target of this project is the in-house Android Camera HAL.
 - **Pipeline Handler**: A libcamera component that finds the media device of a specific hardware platform (IPU3, RKISP1, etc.), creates cameras, passes requests to the device, and returns their completion. There is one per platform.
 - **IPA** (Image Processing Algorithms): A separate module (.so) that contains image quality algorithms. It reads the statistics sent by the ISP and calculates the ISP settings to use for the next frame. It is separated from the libcamera core so that manufacturers can provide it without publishing its source.
 - **IPU3** (Intel Image Processing Unit 3): A camera ISP included in some Intel laptop processors. libcamera has a Pipeline Handler and an IPA for this device.
@@ -76,20 +85,6 @@ English translation · human review pending. Review states below refer to the Ko
 Other terms can be found in [Glossary](#doc-2).
 
 </details>
-
-## Where should we start?
-
-### For Vendor
-
-Confirm features and support conditions, and define the integration and implementation scope.
-
-[Read from product overview →](#doc-3)
-
-### For Developer
-
-The overall structure is covered first, and then the request processing flow is traced.
-
-[Read from system overview →](#doc-14)
 
 ## Four layers of the camera stack
 
@@ -128,53 +123,38 @@ Source-linked interpretation · automatic link check only · meaning and device 
 
 </details>
 
-The left menu follows the order **Reader → task to perform → document**. For Vendor, please select adoption decisions, integration implementation, and device-specific feature implementation. For Developer, please select structure understanding, behavior tracing and problem diagnosis, and code exploration.
+## <a id="d1-vendor가-먼저-확인할-내용"></a>Items to check on the device
 
-## What the vendor checks first
+On the target device, test normal capture and stopping with incomplete requests separately. For each submission, record the number of completion callbacks, the request status, and the status of each buffer. Determine separately whether the request was canceled and whether capture succeeded for each frame. Check [Contract and evidence for completion notification after stopping](#d18-%EC%A0%95%EC%A7%80%EC%99%80-%EC%97%B0%EA%B2%B0-%ED%95%B4%EC%A0%9C%EB%A5%BC-%EA%B5%AC%EB%B6%84%ED%95%98%EA%B8%B0).
 
-1. The problems solved, provided features, and strengths of the shared design are reviewed in [libcamera product overview](#doc-3).
-2. [Integration guide](#doc-5) defines the integration order and the responsibilities of the providing side and implementers.
-3. In [Support scope and validation](#doc-4), the scope of configuration constraints and performance evidence is checked.
+Compare [Benefits of adopting a common API](#d3-%EC%9E%A5%EC%B9%98-%EA%B5%AC%ED%98%84%EC%9E%90%EA%B0%80-%EA%B3%B5%ED%86%B5-%EA%B3%84%EC%B8%B5%EC%97%90%EC%84%9C-%EC%96%BB%EB%8A%94-%EA%B2%83) and [Hardware and build conditions](#d3-%EC%A7%80%EC%9B%90%ED%95%98%EB%8A%94-%ED%95%98%EB%93%9C%EC%9B%A8%EC%96%B4%EC%99%80-%EB%B9%8C%EB%93%9C-%EC%84%A0%ED%83%9D), then check the device-specific implementation responsibilities in [Integration guide](#doc-5). [Support scope and validation](#doc-4) covers the first capture on a customer board, configuration constraints, and performance evidence.
 
-This guidance is a public libcamera example. It does not indicate in-house HAL functionality or the performance or support scope of company products.
+## <a id="d1-처음-읽는-개발자의-순서"></a>Code to check the cancellation state
 
-## Reading order for first-time developers
+Open the callback connected to `Camera::requestCompleted` in the app and find the branch that reads `Request::status()` and handles `RequestCancelled`. Before using the image, check that each `FrameBuffer::metadata().status` is `FrameSuccess`. Follow [Status determination and code for completion notification after stopping](#d18-%EC%A0%95%EC%A7%80%EC%99%80-%EC%97%B0%EA%B2%B0-%ED%95%B4%EC%A0%9C%EB%A5%BC-%EA%B5%AC%EB%B6%84%ED%95%98%EA%B8%B0).
 
-1. In [System overview](#d14-%ED%83%90%EC%83%89%EA%B3%BC-%ED%8C%8C%EC%9D%B4%ED%94%84%EB%9D%BC%EC%9D%B8-%EC%84%A0%ED%83%9D), the CameraManager entry point and camera discovery of `src/libcamera/camera_manager.cpp` are checked. Expanding the evidence shows the files and functions to read.
-2. [Request submission and completion](#d14-%EC%9A%94%EC%B2%AD-%EC%A0%9C%EC%B6%9C%EA%B3%BC-%EC%99%84%EB%A3%8C) traces where a request moves and which signal ends it. Unfamiliar terms are looked up in [Glossary](#doc-2).
-3. [Request handling and problem diagnosis](#doc-18) moves from symptoms to the matching code. Before a change, [State and resources](#d14-%EC%BA%A1%EC%B2%98-%EC%84%B8%EC%85%98%EC%9D%98-%EC%83%81%ED%83%9C%EC%99%80-%EC%9E%90%EC%9B%90) and [Synchronization responsibility](#d14-%EC%8A%A4%EB%A0%88%EB%93%9C-%EA%B2%BD%EA%B3%84%EC%99%80-%EB%8F%99%EA%B8%B0%ED%99%94) are reviewed.
-
-The For Developer path is intended for new developers and developers from other teams. You do not need to memorize every class first. Follow one request through, then go to the detailed documents needed for your task.
+In [System overview](#d14-%ED%83%90%EC%83%89%EA%B3%BC-%ED%8C%8C%EC%9D%B4%ED%94%84%EB%9D%BC%EC%9D%B8-%EC%84%A0%ED%83%9D), you can find CameraManager's discovery entry point and the role of each component. Before modifying callback or request-processing code, check [Request submission and completion](#d14-%EC%9A%94%EC%B2%AD-%EC%A0%9C%EC%B6%9C%EA%B3%BC-%EC%99%84%EB%A3%8C), [Session state and resources](#d14-%EC%BA%A1%EC%B2%98-%EC%84%B8%EC%85%98%EC%9D%98-%EC%83%81%ED%83%9C%EC%99%80-%EC%9E%90%EC%9B%90), and [Thread boundaries](#d14-%EC%8A%A4%EB%A0%88%EB%93%9C-%EA%B2%BD%EA%B3%84%EC%99%80-%EB%8F%99%EA%B8%B0%ED%99%94).
 
 ## Documents needed now
 
 | What you want to do | Documents to start with |
 | --- | --- |
 | Readers understand what this project takes in and what it produces. | [What this project does](#doc-13) |
-| Defines the implementation scope and responsibilities of hardware support. | [libcamera product overview](#doc-3) |
 | Run the camera directly and read the design rationale. | [Run it and read the design rationale](#doc-15) |
-| Covers integrating requests or diagnosing completion delays. | [Request handling and problem diagnosis](#doc-18) |
-| Narrows down the cause of configuration failures. | [Order for narrowing down configuration failures](#d18-%EA%B5%AC%EC%84%B1-%EC%8B%A4%ED%8C%A8%EB%A5%BC-%EC%A2%81%ED%9E%88%EB%8A%94-%EC%88%9C%EC%84%9C) |
+| Narrows down the cause of configuration failures. | [Order for narrowing down configuration failures](#d19-%EA%B5%AC%EC%84%B1-%EC%8B%A4%ED%8C%A8%EB%A5%BC-%EC%A2%81%ED%9E%88%EB%8A%94-%EC%88%9C%EC%84%9C) |
 | Implements pipeline configuration, completion, and stopping. | [Pipeline Handler](#doc-6) |
 | Modify module selection and the algorithm interface. | [IPA management and implementation entry points](#doc-8) |
-| Learns the structure first and finds the code to modify. | [System overview](#doc-14) |
 | Check object lifetime and state transitions. | [Camera and request model](#doc-16) |
-
-If you add hardware support or change the pipeline or algorithms, start by reading **[libcamera product overview](#doc-3)**. After you confirm the implementation boundary and contract, you can move to the detailed document for each task.
 
 ## Find reference description
 
-Ownership and reuse rules for requests and buffers are managed in **Camera and request model**, and implementation rules for the device queue and completion order are managed in **Pipeline Handler**. The diagnostic document connects this contract and guides the check order for each symptom.
+Request and buffer ownership and reuse rules are maintained in **[Request object and buffer lifetime](#doc-17)**, while implementation rules for the device queue and completion order are maintained in **[Pipeline Request Submission and Completion](#doc-7)**. The diagnostic document links these contracts and guides the order of checks for each symptom.
 
 To follow the algorithm, open [IPU3 LSC Configuration and Frame Processing](#doc-10). Camera-specific tuning and kernel support conditions are confirmed in [RKISP1 Per-Camera Distortion Correction](#doc-12).
 
-If an abbreviation is unfamiliar, check the term explanations at the top of each document or the [Glossary](#doc-2).
-
 ## How to read this document
 
-1. The reader selects the items to check now from the page's opening sentence and navigation guidance.
-2. Clicking **Excerpt** in the paragraph evidence expands the original text within this document. **Full source** moves to the code repository at the corresponding commit.
-3. The execution check items are moved to the verification plan for the target device.
+Clicking **Excerpt** in the section-wide evidence expands the original text in the document. Clicking **Full source** takes you to the file and line in the analyzed commit. See [Glossary](#doc-2) for terminology.
 
 Clicking a diagram lets you zoom in and search for elements. Relationship diagrams and static call tracing do not guarantee the actual execution order. All classes are in [Component index](#doc-30), and main calls and trace boundaries are in [Key scenario](#doc-20).
 
@@ -15750,8 +15730,6 @@ Verification scope: Linking code evidence to explanations
 Other terms can be found in [Glossary](#doc-2).
 
 </details>
-
-<a id="d18-구성-실패를-좁히는-순서"></a>
 
 Destination of the previous link
 
