@@ -1,6 +1,6 @@
 # Start Here
 
-If you’re integrating a device for the first time, use ForVendor to test the first capture and test stopping capture. If completion notifications arrive after you stop capture, follow the code in ForDeveloper that checks the request’s cancellation status.
+If you’re integrating a device for the first time, ForVendor walks you through testing your first capture and checking that capture stops as expected. If completion notifications arrive after you stop capture, follow the code in ForDeveloper that checks the request’s cancellation status.
 
 ForVendor
 
