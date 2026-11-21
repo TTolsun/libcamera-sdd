@@ -1,7 +1,5 @@
 # libcamera SDD
 
-- [요청을 보내고 완료 알림을 받기까지](https://ttolsun.github.io/libcamera-sdd/validation/reader-first-prose/capture.html) · 미리보기와 저장 버퍼가 함께 있는 촬영 요청을 세 문단으로 설명합니다.
-
 - [공개 시작 화면](https://ttolsun.github.io/libcamera-sdd/) · [English](https://ttolsun.github.io/libcamera-sdd/en/) · [장치 검증과 취소 코드 경로](publication/issue347-reader-entries/README.md)
 
 - [실제 UVC 장치에서 요청을 대조하는 절차](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.html#실제-uvc-장치에서-같은-요청의-완료-기록을-대조하는-절차) · [English field procedure](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.html#실제-uvc-장치에서-같은-요청의-완료-기록을-대조하는-절차) · [검증 기록](publication/uvc-device-request-observation/README.md)
@@ -29,6 +27,8 @@ The earlier contract review used analysis source `be7e83e91348250c015aad6d6f59f1
 - [Issue243: causal repair, native evidence and publication checkpoint](publication/issue243/README.md)
 
 - [Reader task and resumption study — human evaluation pending](publication/issue248/README.md)
+
+- [요청을 보내고 완료 알림을 받기까지](https://ttolsun.github.io/libcamera-sdd/validation/reader-first-prose/capture.html) · 미리보기와 저장 버퍼가 함께 있는 촬영 요청을 세 문단으로 설명합니다.
 
 공통 근거에서 작업·의사결정을 찾는 공개 사례와 대리 평가·사람 평가의 경계는 [#250 검증 기록](publication/issue250/README.md)에 있습니다.
 
