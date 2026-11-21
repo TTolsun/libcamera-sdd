@@ -1,5 +1,7 @@
 # libcamera SDD
 
+- [요청을 보내고 완료 알림을 받기까지](https://ttolsun.github.io/libcamera-sdd/validation/reader-first-prose/capture.html) · 미리보기와 저장 버퍼가 함께 있는 촬영 요청을 세 문단으로 설명합니다.
+
 - [공개 시작 화면](https://ttolsun.github.io/libcamera-sdd/) · [English](https://ttolsun.github.io/libcamera-sdd/en/) · [장치 검증과 취소 코드 경로](publication/issue347-reader-entries/README.md)
 
 - [실제 UVC 장치에서 요청을 대조하는 절차](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.html#실제-uvc-장치에서-같은-요청의-완료-기록을-대조하는-절차) · [English field procedure](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.html#실제-uvc-장치에서-같은-요청의-완료-기록을-대조하는-절차) · [검증 기록](publication/uvc-device-request-observation/README.md)
