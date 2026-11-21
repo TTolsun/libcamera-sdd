@@ -2158,7 +2158,7 @@ Implementers of `PipelineHandler::generateConfiguration()` must not change the s
 
 ## <a id="d5-요청을-장치에-전달하고-반환하기"></a>Passing a request to the device and returning it
 
-See also: [When the last buffer has completed but no request completion notification arrives](#d19-%EC%8B%A4%ED%8C%A8-%EC%9C%84%EC%B9%98%EB%B3%84-%ED%99%95%EC%9D%B8-%EC%88%9C%EC%84%9C) · [Thread calling completeRequest and prohibition on accessing the request after the function returns](#d5-%EA%B5%AC%ED%98%84-%EB%92%A4-%ED%99%95%EC%9D%B8%ED%95%A0-%EA%B3%84%EC%95%BD%EA%B3%BC-%EC%8B%A4%ED%96%89-%ED%95%9C%EA%B3%84)
+See also: [When the last buffer has completed but no request completion notification arrives](#d19-%EC%8B%A4%ED%8C%A8-%EC%9C%84%EC%B9%98%EB%B3%84-%ED%99%95%EC%9D%B8-%EC%88%9C%EC%84%9C) · [Completion notifications and device verification when capture stops](#d18-%EC%A0%95%EC%A7%80%EC%99%80-%EC%97%B0%EA%B2%B0-%ED%95%B4%EC%A0%9C%EB%A5%BC-%EA%B5%AC%EB%B6%84%ED%95%98%EA%B8%B0) · [Thread calling completeRequest and prohibition on accessing the request after the function returns](#d5-%EA%B5%AC%ED%98%84-%EB%92%A4-%ED%99%95%EC%9D%B8%ED%95%A0-%EA%B3%84%EC%95%BD%EA%B3%BC-%EC%8B%A4%ED%96%89-%ED%95%9C%EA%B3%84)
 
 The request contains a set of buffers, which are associated with streams. The request also contains a set of parameters. The `queueRequestDevice` implementer must program the device so that the parameters are applied to the frames captured in the buffers provided in the request. The `queueRequestDevice` implementer must return `0` on success and a negative error code on failure.
 
@@ -17051,7 +17051,74 @@ As a source-based investigation plan, record each dispatch's `type` and `receive
 
 ## <a id="d18-정지와-연결-해제를-구분하기"></a>Distinguishing stop and disconnect
 
-The documented contract for `PipelineHandler::stop` requires that all outstanding requests be cancelled and completed immediately in an error state on stop. Handling pending requests when disconnected while running is a TODO. In the selected UVC implementation, buffer release is still called even if stopping streaming fails before device buffers are returned, so it cannot be guaranteed that all requests are returned or that the contract is automatically satisfied.
+Normal UVC buffer returns and cancellation of remaining buffers when STREAMOFF succeeds may both lead from `imageBufferReady` through `completeBuffer` and `completeRequest` to the same `requestCompleted` notification. In this slot, the Developer must distinguish between `RequestComplete` and `RequestCancelled` and use each buffer's `FrameSuccess` to determine whether to use the image; `RequestComplete` may also have `FrameError`, and cancelled buffers are `FrameCancelled`. The Vendor's device validation plan is to capture normally on the first run, call `stop()` with incomplete requests remaining on the second run, and process the receive loop to record the number of notifications for each submission, whether any were not received, and the request and buffer states. Slots queued on another thread may execute even after `stop()` returns.
+
+### Why does a completion notification arrive after capture has been stopped?
+
+```mermaid
+flowchart TB
+
+  v_app-stop["App calls Camera::stop#40;#41;"]
+  v_camera-stop["Camera API enters <br/>CameraStopping"]
+  v_pipe-stop["Pipeline Handler detaches <br/>the waiting queue and stops <br/>the device"]
+  v_device-frame["Buffer dequeued during UVC <br/>capture: FrameSuccess or <br/>FrameError"]
+  v_streamoff-error["Return an error before the <br/>device-buffer return loop"]
+  v_device-cancel["During UVC stop, return <br/>buffers still queued on the <br/>device as FrameCancelled"]
+  v_uvc-ready["UVC handler explicitly <br/>completes the request after <br/>completing the buffer"]
+  v_waiting-cancel["Common handler cancels and <br/>completes the detached <br/>waiting requests"]
+  v_request-result["cancelled#95; selects <br/>RequestCancelled or <br/>RequestComplete"]
+  v_camera-notify["Camera API: emit <br/>requestCompleted in Running <br/>or Stopping"]
+  v_app-result["App checks request status <br/>and whether each buffer <br/>reports FrameSuccess"]
+  v_app-stop -->|"Running and access check <br/>passes"| v_camera-stop
+  v_camera-stop -->|"Blocking invocation"| v_pipe-stop
+  v_pipe-stop -->|"VIDIOC#95;STREAMOFF succeeds <br/>in UVC"| v_device-cancel
+  v_pipe-stop -->|"After the device stop call <br/>returns"| v_waiting-cancel
+  v_pipe-stop -->|"VIDIOC#95;STREAMOFF fails in <br/>UVC"| v_streamoff-error
+  v_device-frame -->|"bufferReady → <br/>imageBufferReady"| v_uvc-ready
+  v_device-cancel -->|"Same bufferReady signal"| v_uvc-ready
+  v_uvc-ready -->|"Apply the buffer status, <br/>then complete the request"| v_request-result
+  v_waiting-cancel -->|"Complete in the software <br/>queue after marking <br/>cancelled"| v_request-result
+  v_request-result -->|"Return in submission order; <br/>wait if the head is pending"| v_camera-notify
+  v_camera-notify -->|"A queued slot may run after <br/>stop#40;#41; returns"| v_app-result
+```
+
+The completion state check allows a disconnected camera. A state outside Running and Stopping triggers the Fatal log path. [`camera.cpp:1483`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1483) · [`camera.cpp:1486`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1486)
+
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.stop-notification-boundary.mmd)
+
+<details open>
+<summary>Diagram evidence and verification scope</summary>
+
+What paths do normal capture and cancellation during stopping take to reach the app as the same completion signal?
+
+Source-linked interpretation · automatic link check only · meaning and device execution not yet verified
+
+| Elements and transitions | Source evidence |
+| --- | --- |
+| App calls Camera::stop() | [src/libcamera/camera.cpp:1431](#d18-source-e09324743def3f09) |
+| Camera API enters CameraStopping | [src/libcamera/camera.cpp:1431](#d18-source-e09324743def3f09) |
+| Pipeline Handler detaches the waiting queue and stops the device | [src/libcamera/pipeline_handler.cpp:359](#d18-source-eefd1bbecb1aad0a) |
+| Buffer dequeued during UVC capture: FrameSuccess or FrameError | [src/libcamera/v4l2_videodevice.cpp:1814](#d18-source-c75cbbe9c0bd5f96) |
+| Return an error before the device-buffer return loop | [src/libcamera/v4l2_videodevice.cpp:2023](#d18-source-660c24600a4d45c9) |
+| During UVC stop, return buffers still queued on the device as FrameCancelled | [src/libcamera/v4l2_videodevice.cpp:2023](#d18-source-660c24600a4d45c9) · [include/libcamera/internal/framebuffer.h:36](#d18-source-6700ac41898c0548) |
+| UVC handler explicitly completes the request after completing the buffer | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:893](#d18-source-bfa0db3a4bc7970d) |
+| Common handler cancels and completes the detached waiting requests | [src/libcamera/pipeline_handler.cpp:359](#d18-source-eefd1bbecb1aad0a) · [src/libcamera/pipeline_handler.cpp:483](#d18-source-8bf901f3faef18e5) |
+| cancelled\_ selects RequestCancelled or RequestComplete | [src/libcamera/request.cpp:103](#d18-source-db7f21585c4c2708) |
+| Camera API: emit requestCompleted in Running or Stopping | [src/libcamera/camera.cpp:1481](#d18-source-d53c87090347ce81) |
+| App checks request status and whether each buffer reports FrameSuccess | [src/libcamera/camera.cpp:1481](#d18-source-d53c87090347ce81) · [src/libcamera/request.cpp:103](#d18-source-db7f21585c4c2708) · [src/libcamera/framebuffer.cpp:40](#d18-source-50aa8a55cc04062e) |
+| Running and access check passes | [src/libcamera/camera.cpp:1431](#d18-source-e09324743def3f09) |
+| Blocking invocation | [src/libcamera/camera.cpp:1462](#d18-source-6191f91df6cbffa2) |
+| VIDIOC_STREAMOFF succeeds in UVC | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:320](#d18-source-36920038ed2e6053) · [src/libcamera/v4l2_videodevice.cpp:2023](#d18-source-660c24600a4d45c9) |
+| After the device stop call returns | [src/libcamera/pipeline_handler.cpp:359](#d18-source-eefd1bbecb1aad0a) |
+| VIDIOC_STREAMOFF fails in UVC | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:320](#d18-source-36920038ed2e6053) · [src/libcamera/v4l2_videodevice.cpp:2023](#d18-source-660c24600a4d45c9) |
+| bufferReady → imageBufferReady | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:535](#d18-source-f9929d36ff1c1b93) |
+| Same bufferReady signal | [src/libcamera/v4l2_videodevice.cpp:2023](#d18-source-660c24600a4d45c9) · [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:535](#d18-source-f9929d36ff1c1b93) |
+| Apply the buffer status, then complete the request | [src/libcamera/request.cpp:103](#d18-source-db7f21585c4c2708) · [src/libcamera/pipeline_handler.cpp:547](#d18-source-01ad7c6605c3296a) |
+| Complete in the software queue after marking cancelled | [src/libcamera/pipeline_handler.cpp:483](#d18-source-8bf901f3faef18e5) |
+| Return in submission order; wait if the head is pending | [src/libcamera/pipeline_handler.cpp:547](#d18-source-01ad7c6605c3296a) |
+| A queued slot may run after stop() returns | [src/libcamera/camera.cpp:1481](#d18-source-d53c87090347ce81) · [src/libcamera/base/bound_method.cpp:68](#d18-source-0470759dc8387e9a) · [src/libcamera/camera.cpp:1462](#d18-source-6191f91df6cbffa2) |
+
+</details>
 
 ### Order for handling waiting requests when stopping
 
@@ -17315,6 +17382,8 @@ Source-linked interpretation · automatic link check only · meaning and device 
 
 </details>
 
+The documented contract for `PipelineHandler::stop` requires that all outstanding requests be cancelled and completed immediately in an error state on stop. Handling pending requests when disconnected while running is a TODO. In the selected UVC implementation, buffer release is still called even if stopping streaming fails before device buffers are returned, so it cannot be guaranteed that all requests are returned or that the contract is automatically satisfied.
+
 The investigation of `Camera::stop` checks the branches that return `0` if the camera is not running and return the value unchanged if `isAccessAllowed` returns a negative value on the running path. On the path that passes the access check, it observes the setting of the `CameraStopping` state and the entry and return of `PipelineHandler::stop`, called using `ConnectionTypeBlocking`. After the call, it checks, in order, the `ASSERT` that there are no pending requests, the setting of the `CameraConfigured` state, and the return of `0`.
 
 The investigation plan is to confirm that the common contract of `stopDevice` is to immediately stop capture from all running streams and request processing, cancel all pending requests, and complete them immediately in an error state. The plan will then identify the target device's `PipelineHandler` and examine the path that cancels and completes in-progress requests in the corresponding `stopDevice` implementation. It will separately observe and compare the point where `waitingRequests_` is detached in `PipelineHandler::stop`, the point immediately before the `stopDevice` call, entry into the actual implementation, and its return. A marker immediately before the call alone does not establish that the device stopped internally, and the cause of a return not being observed within the selected observation window remains undetermined. The plan will record the `request` values passed to `doQueueRequest(request)` by the cancellation loop in `PipelineHandler::stop()` during the existing execution.
@@ -17326,12 +17395,15 @@ Runtime verification item: This is an investigation plan. Check records showing 
 `Camera::disconnect()` calls `_d()->disconnect()` on the internal object and then emits a notification through `disconnected.emit()`. The TODO in `Camera::disconnect()` leaves pending requests to be handled when the camera is disconnected while running.
 
 <details open>
-<summary>Section-wide evidence: 13</summary>
+<summary>Section-wide evidence: 21</summary>
 
-- `src/libcamera/pipeline_handler.cpp`[`L359` excerpt](#d18-source-eefd1bbecb1aad0a) · [Full source `L359`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L359) · [`L394` excerpt](#d18-source-fd5daba4aa44adfd) · [Full source `L394`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L394) · [`L547`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L547) · [`L398` excerpt](#d18-source-5e7914238ff81605) · [Full source `L398`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L398) · [`L547`](#d18-source-01ad7c6605c3296a)
-- `src/libcamera/camera.cpp`[`L952` excerpt](#d18-source-1d583253fc11ef1c) · [Full source `L952`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L952) · [`L1462` excerpt](#d18-source-6191f91df6cbffa2) · [Full source `L1462`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1462) · [`L1431` excerpt](#d18-source-e09324743def3f09) · [Full source `L1431`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1431) · [`L944`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L944) · [`L959`](#d18-source-56494d0aedf70c2d) · [`L960`](#d18-source-7d48ce2e18c8877c) · [`L944`](#d18-source-2758e9ddd31ad41d) · [`L944`](#d18-source-839140c350119dd1)
-- `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp`[`L320` excerpt](#d18-source-36920038ed2e6053) · [Full source `L320`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L320)
-- `src/libcamera/v4l2_videodevice.cpp`[`L2023` excerpt](#d18-source-660c24600a4d45c9) · [Full source `L2023`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2023)
+- `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp`[`L893` excerpt](#d18-source-bfa0db3a4bc7970d) · [Full source `L893`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L893) · [`L535` excerpt](#d18-source-f9929d36ff1c1b93) · [Full source `L535`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L535) · [`L320` excerpt](#d18-source-36920038ed2e6053) · [Full source `L320`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L320)
+- `src/libcamera/v4l2_videodevice.cpp`[`L1814` excerpt](#d18-source-c75cbbe9c0bd5f96) · [Full source `L1814`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1814) · [`L2023` excerpt](#d18-source-660c24600a4d45c9) · [Full source `L2023`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2023)
+- `include/libcamera/internal/framebuffer.h`[`L36`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/framebuffer.h#L36) · [`L36`](#d18-source-6700ac41898c0548)
+- `src/libcamera/pipeline_handler.cpp`[`L547`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L547) · [`L359` excerpt](#d18-source-eefd1bbecb1aad0a) · [Full source `L359`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L359) · [`L394` excerpt](#d18-source-fd5daba4aa44adfd) · [Full source `L394`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L394) · [`L398` excerpt](#d18-source-5e7914238ff81605) · [Full source `L398`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L398) · [`L547`](#d18-source-01ad7c6605c3296a) · [`L483`](#d18-source-8bf901f3faef18e5)
+- `src/libcamera/camera.cpp`[`L1481`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1481) · [`L1431` excerpt](#d18-source-e09324743def3f09) · [Full source `L1431`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1431) · [`L952` excerpt](#d18-source-1d583253fc11ef1c) · [Full source `L952`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L952) · [`L1462` excerpt](#d18-source-6191f91df6cbffa2) · [Full source `L1462`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1462) · [`L944`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L944) · [`L959`](#d18-source-56494d0aedf70c2d) · [`L960`](#d18-source-7d48ce2e18c8877c) · [`L944`](#d18-source-2758e9ddd31ad41d) · [`L944`](#d18-source-839140c350119dd1) · [`L1481`](#d18-source-d53c87090347ce81)
+- `src/libcamera/request.cpp`[`L103` excerpt](#d18-source-db7f21585c4c2708) · [Full source `L103`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L103)
+- `src/libcamera/framebuffer.cpp`[`L40` excerpt](#d18-source-50aa8a55cc04062e) · [Full source `L40`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/framebuffer.cpp#L40)
 - `src/libcamera/base/bound_method.cpp`[`L68` excerpt](#d18-source-0470759dc8387e9a) · [Full source `L68`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/bound_method.cpp#L68)
 
 </details>
@@ -17685,7 +17757,7 @@ A new serialized `Camera::start()` call after disconnection returns `-ENODEV` at
 - `src/libcamera/pipeline_handler.cpp`[`L359` excerpt](#d18-source-eefd1bbecb1aad0a) · [Full source `L359`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L359) · [`L483`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L483) · [`L435` excerpt](#d18-source-f905d5de57d1030f) · [Full source `L435`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L435) · [`L483`](#d18-source-8bf901f3faef18e5)
 - `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp`[`L320` excerpt](#d18-source-36920038ed2e6053) · [Full source `L320`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L320) · [`L893` excerpt](#d18-source-bfa0db3a4bc7970d) · [Full source `L893`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L893)
 - `src/libcamera/v4l2_videodevice.cpp`[`L2023` excerpt](#d18-source-660c24600a4d45c9) · [Full source `L2023`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2023) · [`L1616` excerpt](#d18-source-538955a1660f2ce9) · [Full source `L1616`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1616) · [`L1814` excerpt](#d18-source-c75cbbe9c0bd5f96) · [Full source `L1814`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1814)
-- `src/libcamera/camera.cpp`[`L1431` excerpt](#d18-source-e09324743def3f09) · [Full source `L1431`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1431) · [`L732` excerpt](#d18-source-713261c291a53906) · [Full source `L732`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L732) · [`L1481` excerpt](#d18-source-655b027df7d08524) · [Full source `L1481`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1481) · [`L709` excerpt](#d18-source-1e64f4ece8808997) · [Full source `L709`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L709) · [`L1045` excerpt](#d18-source-faa3431e5efcf672) · [Full source `L1045`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1045) · [`L1400` excerpt](#d18-source-505ef16ce682b3d8) · [Full source `L1400`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1400) · [`L690` excerpt](#d18-source-0c42c645a5fc60a3) · [Full source `L690`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L690)
+- `src/libcamera/camera.cpp`[`L1431` excerpt](#d18-source-e09324743def3f09) · [Full source `L1431`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1431) · [`L732` excerpt](#d18-source-713261c291a53906) · [Full source `L732`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L732) · [`L1481`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1481) · [`L709` excerpt](#d18-source-1e64f4ece8808997) · [Full source `L709`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L709) · [`L1045` excerpt](#d18-source-faa3431e5efcf672) · [Full source `L1045`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1045) · [`L1400` excerpt](#d18-source-505ef16ce682b3d8) · [Full source `L1400`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1400) · [`L690` excerpt](#d18-source-0c42c645a5fc60a3) · [Full source `L690`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L690) · [`L1481`](#d18-source-655b027df7d08524)
 - `include/libcamera/internal/camera.h`[`L49` excerpt](#d18-source-a46d382d4070001c) · [Full source `L49`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/camera.h#L49) · [`L59` excerpt](#d18-source-c0ab3b94a184909f) · [Full source `L59`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/camera.h#L59)
 - `src/libcamera/framebuffer.cpp`[`L40` excerpt](#d18-source-50aa8a55cc04062e) · [Full source `L40`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/framebuffer.cpp#L40)
 
@@ -18004,7 +18076,7 @@ The near-return marker is recorded before returned.`fetch_add`(1) and local obje
 ## Source evidence
 
 <details open>
-<summary>Source excerpts: 92</summary>
+<summary>Source excerpts: 94</summary>
 
 Include each excerpt only once. Expand the needed original text and check it against the explanation.
 
@@ -22365,6 +22437,43 @@ int V4L2VideoDevice::streamOff()
 
 </details>
 
+<a id="d18-source-d53c87090347ce81"></a>
+
+<details open>
+<summary>Source evidence: src/libcamera/camera.cpp:1481</summary>
+
+Excerpt range: [`src/libcamera/camera.cpp:1481`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1481) to `1488`
+
+SHA-256: `b8dfbcf8a903847aa98db2793e682faae22e8fb4fd0d2eba3d80a00ffd4b835c`
+
+```
+void Camera::requestComplete(Request *request)
+{
+    /* Disconnected cameras are still able to complete requests. */
+    if (_d()->isAccessAllowed(Private::CameraStopping, Private::CameraRunning,
+                  true))
+        LOG(Camera, Fatal) << "Trying to complete a request when stopped";
+
+    requestCompleted.emit(request);
+```
+
+</details>
+
+<a id="d18-source-6700ac41898c0548"></a>
+
+<details open>
+<summary>Source evidence: include/libcamera/internal/framebuffer.h:36</summary>
+
+Excerpt range: [`include/libcamera/internal/framebuffer.h:36`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/framebuffer.h#L36) to `36`
+
+SHA-256: `4ee32fcaa773d545e62f29b6655ab3874f73ea267af1d307e6b08c32a9af821c`
+
+```
+void cancel() { metadata_.status = FrameMetadata::FrameCancelled;
+```
+
+</details>
+
 <a id="d18-source-538955a1660f2ce9"></a>
 
 <details open>
@@ -22902,7 +23011,7 @@ SHA-256: `f78e369710f01e2740a79e5b32a9035d66792ac52f51bdbea9050bb5ebafca8c`
 - **Automated check**: Passed (`ok`). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.
 - **Human review**: Before human review
 - **Analysis baseline commit**: `adfa719f8ed67d18fd8a0739fc088a1f8b9e7252`
-- **Document generation time**: `2026-11-19 18:15:19+00:00`
+- **Document generation time**: `2026-11-21 13:28:40+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
 - **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
 - **Enter product description**: [Scope, conditions, and sources](https://ttolsun.github.io/libcamera-sdd/product-context.json)
@@ -22912,10 +23021,10 @@ SHA-256: `f78e369710f01e2740a79e5b32a9035d66792ac52f51bdbea9050bb5ebafca8c`
 
 This is a record saved in the manuscript as of that time. It may differ from the current document's standards.
 
-- Evidence files: `include/libcamera/base/bound_method.h`, `include/libcamera/base/object.h`, `include/libcamera/base/signal.h`, `include/libcamera/base/utils.h`, `include/libcamera/camera.h`, `include/libcamera/internal/camera.h`, `include/libcamera/internal/framebuffer.h`, `include/libcamera/internal/pipeline_handler.h`, `include/libcamera/internal/request.h`, `include/libcamera/request.h`, `product-evidence/libcamera-callback-probe/callback-run.txt`, `src/libcamera/base/bound_method.cpp`, `src/libcamera/base/event_dispatcher_poll.cpp`, `src/libcamera/base/message.cpp`, `src/libcamera/base/object.cpp`, `src/libcamera/base/signal.cpp`, `src/libcamera/base/thread.cpp`, `src/libcamera/base/timer.cpp`, `src/libcamera/camera.cpp`, `src/libcamera/framebuffer.cpp`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp`, `src/libcamera/pipeline_handler.cpp`, `src/libcamera/request.cpp`, `src/libcamera/v4l2_device.cpp`, `src/libcamera/v4l2_videodevice.cpp`
-- Evidence level: code verified (static analysis, simple_compdb configuration, commit `da6a6ed33e`)
+- Evidence files: `Documentation/thread-safety.dox`, `include/libcamera/base/bound_method.h`, `include/libcamera/base/object.h`, `include/libcamera/base/signal.h`, `include/libcamera/base/utils.h`, `include/libcamera/camera.h`, `include/libcamera/internal/camera.h`, `include/libcamera/internal/framebuffer.h`, `include/libcamera/internal/pipeline_handler.h`, `include/libcamera/internal/request.h`, `include/libcamera/request.h`, `product-evidence/libcamera-callback-probe/callback-run.txt`, `src/libcamera/base/bound_method.cpp`, `src/libcamera/base/event_dispatcher_poll.cpp`, `src/libcamera/base/message.cpp`, `src/libcamera/base/object.cpp`, `src/libcamera/base/signal.cpp`, `src/libcamera/base/thread.cpp`, `src/libcamera/base/timer.cpp`, `src/libcamera/camera.cpp`, `src/libcamera/framebuffer.cpp`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp`, `src/libcamera/pipeline_handler.cpp`, `src/libcamera/request.cpp`, `src/libcamera/v4l2_device.cpp`, `src/libcamera/v4l2_videodevice.cpp`
+- Evidence level: code verified (static analysis, simple_compdb configuration, commit `adfa719f8e`)
 - Automated check (citation, sentence, and configured structure checks): passed
-- Review status recorded on: 2026-11-20 · Before human review
+- Review status recorded on: 2026-11-21 · Awaiting human review
 
 </details>
 

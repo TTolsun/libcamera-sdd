@@ -2148,7 +2148,7 @@ LLM 그림 초안 · 사람 검토 전
 
 ## <a id="d5-요청을-장치에-전달하고-반환하기"></a>요청을 장치에 전달하고 반환하기
 
-함께 확인: [마지막 버퍼가 끝났는데 요청 완료 통지가 오지 않을 때](#d19-%EC%8B%A4%ED%8C%A8-%EC%9C%84%EC%B9%98%EB%B3%84-%ED%99%95%EC%9D%B8-%EC%88%9C%EC%84%9C) · [completeRequest 호출 스레드와 함수 반환 후 요청 접근 금지](#d5-%EA%B5%AC%ED%98%84-%EB%92%A4-%ED%99%95%EC%9D%B8%ED%95%A0-%EA%B3%84%EC%95%BD%EA%B3%BC-%EC%8B%A4%ED%96%89-%ED%95%9C%EA%B3%84)
+함께 확인: [마지막 버퍼가 끝났는데 요청 완료 통지가 오지 않을 때](#d19-%EC%8B%A4%ED%8C%A8-%EC%9C%84%EC%B9%98%EB%B3%84-%ED%99%95%EC%9D%B8-%EC%88%9C%EC%84%9C) · [촬영 중단 시 완료 알림과 장치 검증](#d18-%EC%A0%95%EC%A7%80%EC%99%80-%EC%97%B0%EA%B2%B0-%ED%95%B4%EC%A0%9C%EB%A5%BC-%EA%B5%AC%EB%B6%84%ED%95%98%EA%B8%B0) · [completeRequest 호출 스레드와 함수 반환 후 요청 접근 금지](#d5-%EA%B5%AC%ED%98%84-%EB%92%A4-%ED%99%95%EC%9D%B8%ED%95%A0-%EA%B3%84%EC%95%BD%EA%B3%BC-%EC%8B%A4%ED%96%89-%ED%95%9C%EA%B3%84)
 
 요청에는 버퍼 집합이 들어 있으며, 이 버퍼들은 스트림에 연결됩니다. 요청에는 파라미터 집합도 들어 있습니다. `queueRequestDevice` 구현자는 요청에서 제공한 버퍼에 캡처되는 프레임에 해당 파라미터가 적용되도록 장치를 프로그래밍해야 합니다. `queueRequestDevice` 구현자는 성공하면 `0`을, 실패하면 음수 오류 코드를 반환해야 합니다.
 
@@ -17015,7 +17015,74 @@ LLM 그림 초안 · 사람 검토 전
 
 ## <a id="d18-정지와-연결-해제를-구분하기"></a>정지와 연결 해제를 구분하기
 
-`PipelineHandler::stop`의 문서 계약은 정지 시 모든 미완료 요청을 취소하고 즉시 오류 상태로 완료하도록 요구합니다. 실행 중 연결 해제될 때 대기 요청을 처리하는 일은 TODO이며, 선택된 UVC 구현에서는 장치 버퍼 반환 전에 스트리밍 정지가 실패해도 버퍼 해제를 계속 호출하므로 모든 요청이 반환되거나 계약이 자동으로 충족된다고 보장할 수 없습니다.
+UVC의 정상 버퍼 반환과 STREAMOFF 성공 시 남은 버퍼 취소는 `imageBufferReady`에서 `completeBuffer`와 `completeRequest`를 거쳐 같은 `requestCompleted` 알림으로 이어질 수 있습니다. Developer는 이 슬롯에서 `RequestComplete`와 `RequestCancelled`를 구별하고 버퍼별 `FrameSuccess`로 영상 사용 여부를 판단해야 하며, `RequestComplete`에도 `FrameError`가 있을 수 있고 취소된 버퍼는 `FrameCancelled`입니다. Vendor의 장치 검증 계획은 첫 실행에서 정상 촬영하고 둘째 실행에서 미완료 요청을 남긴 채 `stop()`을 호출하며, 수신 루프를 처리해 제출별 알림 횟수와 미수신 여부, 요청과 버퍼 상태를 기록하는 것입니다. 다른 스레드에 큐잉된 슬롯은 `stop()` 반환 뒤에도 실행될 수 있습니다.
+
+### 촬영을 멈췄는데 왜 완료 알림이 오는가?
+
+```mermaid
+flowchart TB
+%% sdd:translations {"Camera API: Running 또는 <br/>Stopping에서 <br/>requestCompleted 발행": "Camera API: emit <br/>requestCompleted in Running <br/>or Stopping", "Camera API가 <br/>CameraStopping으로 전환": "Camera API enters <br/>CameraStopping", "Pipeline Handler가 대기열을 <br/>분리하고 장치를 정지": "Pipeline Handler detaches <br/>the waiting queue and stops <br/>the device", "UVC 정지 중 장치에 남은 <br/>버퍼를 FrameCancelled로 반환": "During UVC stop, return <br/>buffers still queued on the <br/>device as FrameCancelled", "UVC 촬영 중 회수한 버퍼: <br/>FrameSuccess 또는 FrameError": "Buffer dequeued during UVC <br/>capture: FrameSuccess or <br/>FrameError", "UVC 핸들러가 버퍼 완료 뒤 <br/>요청 완료를 명시적으로 호출": "UVC handler explicitly <br/>completes the request after <br/>completing the buffer", "UVC의 VIDIOC#95;STREAMOFF 성공": "VIDIOC#95;STREAMOFF succeeds <br/>in UVC", "UVC의 VIDIOC#95;STREAMOFF 실패": "VIDIOC#95;STREAMOFF fails in <br/>UVC", "bufferReady → <br/>imageBufferReady": "bufferReady → <br/>imageBufferReady", "cancelled#95;에 따라 <br/>RequestCancelled 또는 <br/>RequestComplete": "cancelled#95; selects <br/>RequestCancelled or <br/>RequestComplete", "같은 bufferReady 신호": "Same bufferReady signal", "공통 핸들러가 분리했던 대기 <br/>요청을 취소해 완료": "Common handler cancels and <br/>completes the detached <br/>waiting requests", "버퍼 상태를 반영한 뒤 요청 <br/>완료": "Apply the buffer status, <br/>then complete the request", "블로킹 호출": "Blocking invocation", "실행 중이고 접근 검사 통과": "Running and access check <br/>passes", "앱에서 Camera::stop#40;#41; 호출": "App calls Camera::stop#40;#41;", "앱이 요청 상태와 버퍼별 <br/>FrameSuccess 여부를 확인": "App checks request status <br/>and whether each buffer <br/>reports FrameSuccess", "장치 버퍼 반환 루프를 <br/>건너뛰고 오류 반환": "Return an error before the <br/>device-buffer return loop", "장치 정지 호출이 반환한 뒤": "After the device stop call <br/>returns", "제출 순서대로 반환, 선두가 <br/>Pending이면 대기": "Return in submission order; <br/>wait if the head is pending", "취소 표시 후 소프트웨어 <br/>큐에서 완료": "Complete in the software <br/>queue after marking <br/>cancelled", "큐에 들어간 슬롯은 stop#40;#41; <br/>반환 뒤에도 실행 가능": "A queued slot may run after <br/>stop#40;#41; returns"}
+  v_app-stop["앱에서 Camera::stop#40;#41; 호출"]
+  v_camera-stop["Camera API가 <br/>CameraStopping으로 전환"]
+  v_pipe-stop["Pipeline Handler가 대기열을 <br/>분리하고 장치를 정지"]
+  v_device-frame["UVC 촬영 중 회수한 버퍼: <br/>FrameSuccess 또는 FrameError"]
+  v_streamoff-error["장치 버퍼 반환 루프를 <br/>건너뛰고 오류 반환"]
+  v_device-cancel["UVC 정지 중 장치에 남은 <br/>버퍼를 FrameCancelled로 반환"]
+  v_uvc-ready["UVC 핸들러가 버퍼 완료 뒤 <br/>요청 완료를 명시적으로 호출"]
+  v_waiting-cancel["공통 핸들러가 분리했던 대기 <br/>요청을 취소해 완료"]
+  v_request-result["cancelled#95;에 따라 <br/>RequestCancelled 또는 <br/>RequestComplete"]
+  v_camera-notify["Camera API: Running 또는 <br/>Stopping에서 <br/>requestCompleted 발행"]
+  v_app-result["앱이 요청 상태와 버퍼별 <br/>FrameSuccess 여부를 확인"]
+  v_app-stop -->|"실행 중이고 접근 검사 통과"| v_camera-stop
+  v_camera-stop -->|"블로킹 호출"| v_pipe-stop
+  v_pipe-stop -->|"UVC의 VIDIOC#95;STREAMOFF 성공"| v_device-cancel
+  v_pipe-stop -->|"장치 정지 호출이 반환한 뒤"| v_waiting-cancel
+  v_pipe-stop -->|"UVC의 VIDIOC#95;STREAMOFF 실패"| v_streamoff-error
+  v_device-frame -->|"bufferReady → <br/>imageBufferReady"| v_uvc-ready
+  v_device-cancel -->|"같은 bufferReady 신호"| v_uvc-ready
+  v_uvc-ready -->|"버퍼 상태를 반영한 뒤 요청 <br/>완료"| v_request-result
+  v_waiting-cancel -->|"취소 표시 후 소프트웨어 <br/>큐에서 완료"| v_request-result
+  v_request-result -->|"제출 순서대로 반환, 선두가 <br/>Pending이면 대기"| v_camera-notify
+  v_camera-notify -->|"큐에 들어간 슬롯은 stop#40;#41; <br/>반환 뒤에도 실행 가능"| v_app-result
+```
+
+완료 시 상태 검사는 연결 해제도 허용합니다. Running과 Stopping 범위를 벗어나면 Fatal 로그 경로에 들어갑니다. [`camera.cpp:1483`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1483) · [`camera.cpp:1486`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1486)
+
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.stop-notification-boundary.mmd)
+
+<details open>
+<summary>그림 근거와 확인 범위</summary>
+
+정상 촬영과 정지 중 취소가 어떤 경로를 거쳐 같은 완료 신호로 앱에 전달됩니까?
+
+소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전
+
+| 요소·전이 | 소스 근거 |
+| --- | --- |
+| 앱에서 Camera::stop() 호출 | [src/libcamera/camera.cpp:1431](#d18-source-e09324743def3f09) |
+| Camera API가 CameraStopping으로 전환 | [src/libcamera/camera.cpp:1431](#d18-source-e09324743def3f09) |
+| Pipeline Handler가 대기열을 분리하고 장치를 정지 | [src/libcamera/pipeline_handler.cpp:359](#d18-source-eefd1bbecb1aad0a) |
+| UVC 촬영 중 회수한 버퍼: FrameSuccess 또는 FrameError | [src/libcamera/v4l2_videodevice.cpp:1814](#d18-source-c75cbbe9c0bd5f96) |
+| 장치 버퍼 반환 루프를 건너뛰고 오류 반환 | [src/libcamera/v4l2_videodevice.cpp:2023](#d18-source-660c24600a4d45c9) |
+| UVC 정지 중 장치에 남은 버퍼를 FrameCancelled로 반환 | [src/libcamera/v4l2_videodevice.cpp:2023](#d18-source-660c24600a4d45c9) · [include/libcamera/internal/framebuffer.h:36](#d18-source-6700ac41898c0548) |
+| UVC 핸들러가 버퍼 완료 뒤 요청 완료를 명시적으로 호출 | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:893](#d18-source-bfa0db3a4bc7970d) |
+| 공통 핸들러가 분리했던 대기 요청을 취소해 완료 | [src/libcamera/pipeline_handler.cpp:359](#d18-source-eefd1bbecb1aad0a) · [src/libcamera/pipeline_handler.cpp:483](#d18-source-8bf901f3faef18e5) |
+| cancelled\_에 따라 RequestCancelled 또는 RequestComplete | [src/libcamera/request.cpp:103](#d18-source-db7f21585c4c2708) |
+| Camera API: Running 또는 Stopping에서 requestCompleted 발행 | [src/libcamera/camera.cpp:1481](#d18-source-d53c87090347ce81) |
+| 앱이 요청 상태와 버퍼별 FrameSuccess 여부를 확인 | [src/libcamera/camera.cpp:1481](#d18-source-d53c87090347ce81) · [src/libcamera/request.cpp:103](#d18-source-db7f21585c4c2708) · [src/libcamera/framebuffer.cpp:40](#d18-source-50aa8a55cc04062e) |
+| 실행 중이고 접근 검사 통과 | [src/libcamera/camera.cpp:1431](#d18-source-e09324743def3f09) |
+| 블로킹 호출 | [src/libcamera/camera.cpp:1462](#d18-source-6191f91df6cbffa2) |
+| UVC의 VIDIOC\_STREAMOFF 성공 | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:320](#d18-source-36920038ed2e6053) · [src/libcamera/v4l2_videodevice.cpp:2023](#d18-source-660c24600a4d45c9) |
+| 장치 정지 호출이 반환한 뒤 | [src/libcamera/pipeline_handler.cpp:359](#d18-source-eefd1bbecb1aad0a) |
+| UVC의 VIDIOC\_STREAMOFF 실패 | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:320](#d18-source-36920038ed2e6053) · [src/libcamera/v4l2_videodevice.cpp:2023](#d18-source-660c24600a4d45c9) |
+| bufferReady → imageBufferReady | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:535](#d18-source-f9929d36ff1c1b93) |
+| 같은 bufferReady 신호 | [src/libcamera/v4l2_videodevice.cpp:2023](#d18-source-660c24600a4d45c9) · [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:535](#d18-source-f9929d36ff1c1b93) |
+| 버퍼 상태를 반영한 뒤 요청 완료 | [src/libcamera/request.cpp:103](#d18-source-db7f21585c4c2708) · [src/libcamera/pipeline_handler.cpp:547](#d18-source-01ad7c6605c3296a) |
+| 취소 표시 후 소프트웨어 큐에서 완료 | [src/libcamera/pipeline_handler.cpp:483](#d18-source-8bf901f3faef18e5) |
+| 제출 순서대로 반환, 선두가 Pending이면 대기 | [src/libcamera/pipeline_handler.cpp:547](#d18-source-01ad7c6605c3296a) |
+| 큐에 들어간 슬롯은 stop() 반환 뒤에도 실행 가능 | [src/libcamera/camera.cpp:1481](#d18-source-d53c87090347ce81) · [src/libcamera/base/bound_method.cpp:68](#d18-source-0470759dc8387e9a) · [src/libcamera/camera.cpp:1462](#d18-source-6191f91df6cbffa2) |
+
+</details>
 
 ### 정지할 때 대기 요청을 처리하는 순서
 
@@ -17279,6 +17346,8 @@ completeRequest 진입과 requestComplete 통지 호출은 별도 기록으로 �
 
 </details>
 
+`PipelineHandler::stop`의 문서 계약은 정지 시 모든 미완료 요청을 취소하고 즉시 오류 상태로 완료하도록 요구합니다. 실행 중 연결 해제될 때 대기 요청을 처리하는 일은 TODO이며, 선택된 UVC 구현에서는 장치 버퍼 반환 전에 스트리밍 정지가 실패해도 버퍼 해제를 계속 호출하므로 모든 요청이 반환되거나 계약이 자동으로 충족된다고 보장할 수 없습니다.
+
 `Camera::stop` 조사에서는 카메라가 실행 중이 아니면 `0`을 반환하고, 실행 중인 경로에서 `isAccessAllowed`가 음수를 반환하면 그 값을 그대로 반환하는 분기를 확인합니다. 접근 검사를 통과한 경로에서는 `CameraStopping` 상태 설정과 `ConnectionTypeBlocking` 방식으로 호출되는 `PipelineHandler::stop`의 진입 및 복귀를 관찰합니다. 호출 뒤에는 pending 요청이 없다는 `ASSERT`, `CameraConfigured` 상태 설정, `0` 반환을 순서대로 확인합니다.
 
 조사 계획으로, `stopDevice`의 공통 계약은 진행 중인 모든 스트림의 캡처와 요청 처리를 즉시 중지하고 대기 중인 모든 요청을 취소해 오류 상태로 즉시 완료하는 것임을 확인한 뒤, 대상 장치의 `PipelineHandler`를 식별하고 해당 `stopDevice` 구현에서 진행 중인 요청을 취소하고 완료하는 경로를 검토합니다. 조사 계획으로 `PipelineHandler::stop`에서 `waitingRequests_`를 분리하는 지점과 `stopDevice` 호출 직전, 실제 구현 진입 및 복귀를 각각 관찰해 비교합니다. 호출 직전 표시만으로 장치 내부 정지를 확정하지 않으며, 선택한 관찰 창에서 복귀가 관찰되지 않은 원인은 미확정으로 둡니다. 조사 계획으로 기존 실행에서 `PipelineHandler::stop()`의 취소 반복문이 `doQueueRequest(request)`에 전달하는 `request` 값을 기록합니다.
@@ -17290,12 +17359,15 @@ completeRequest 진입과 requestComplete 통지 호출은 별도 기록으로 �
 `Camera::disconnect()`는 내부 객체의 `_d()->disconnect()`를 호출한 뒤 `disconnected.emit()`으로 알림을 발행합니다. `Camera::disconnect()`의 TODO는 카메라가 실행 중 연결 해제될 때 대기 중인 요청을 처리할 대상으로 남겨 둡니다.
 
 <details open>
-<summary>절 전체 근거 13개</summary>
+<summary>절 전체 근거 21개</summary>
 
-- `src/libcamera/pipeline_handler.cpp`[`L359` 발췌](#d18-source-eefd1bbecb1aad0a) · [전체 소스 `L359`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L359) · [`L394` 발췌](#d18-source-fd5daba4aa44adfd) · [전체 소스 `L394`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L394) · [`L547`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L547) · [`L398` 발췌](#d18-source-5e7914238ff81605) · [전체 소스 `L398`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L398) · [`L547`](#d18-source-01ad7c6605c3296a)
-- `src/libcamera/camera.cpp`[`L952` 발췌](#d18-source-1d583253fc11ef1c) · [전체 소스 `L952`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L952) · [`L1462` 발췌](#d18-source-6191f91df6cbffa2) · [전체 소스 `L1462`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1462) · [`L1431` 발췌](#d18-source-e09324743def3f09) · [전체 소스 `L1431`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1431) · [`L944`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L944) · [`L959`](#d18-source-56494d0aedf70c2d) · [`L960`](#d18-source-7d48ce2e18c8877c) · [`L944`](#d18-source-2758e9ddd31ad41d) · [`L944`](#d18-source-839140c350119dd1)
-- `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp`[`L320` 발췌](#d18-source-36920038ed2e6053) · [전체 소스 `L320`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L320)
-- `src/libcamera/v4l2_videodevice.cpp`[`L2023` 발췌](#d18-source-660c24600a4d45c9) · [전체 소스 `L2023`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2023)
+- `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp`[`L893` 발췌](#d18-source-bfa0db3a4bc7970d) · [전체 소스 `L893`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L893) · [`L535` 발췌](#d18-source-f9929d36ff1c1b93) · [전체 소스 `L535`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L535) · [`L320` 발췌](#d18-source-36920038ed2e6053) · [전체 소스 `L320`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L320)
+- `src/libcamera/v4l2_videodevice.cpp`[`L1814` 발췌](#d18-source-c75cbbe9c0bd5f96) · [전체 소스 `L1814`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1814) · [`L2023` 발췌](#d18-source-660c24600a4d45c9) · [전체 소스 `L2023`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2023)
+- `include/libcamera/internal/framebuffer.h`[`L36`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/framebuffer.h#L36) · [`L36`](#d18-source-6700ac41898c0548)
+- `src/libcamera/pipeline_handler.cpp`[`L547`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L547) · [`L359` 발췌](#d18-source-eefd1bbecb1aad0a) · [전체 소스 `L359`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L359) · [`L394` 발췌](#d18-source-fd5daba4aa44adfd) · [전체 소스 `L394`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L394) · [`L398` 발췌](#d18-source-5e7914238ff81605) · [전체 소스 `L398`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L398) · [`L547`](#d18-source-01ad7c6605c3296a) · [`L483`](#d18-source-8bf901f3faef18e5)
+- `src/libcamera/camera.cpp`[`L1481`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1481) · [`L1431` 발췌](#d18-source-e09324743def3f09) · [전체 소스 `L1431`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1431) · [`L952` 발췌](#d18-source-1d583253fc11ef1c) · [전체 소스 `L952`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L952) · [`L1462` 발췌](#d18-source-6191f91df6cbffa2) · [전체 소스 `L1462`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1462) · [`L944`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L944) · [`L959`](#d18-source-56494d0aedf70c2d) · [`L960`](#d18-source-7d48ce2e18c8877c) · [`L944`](#d18-source-2758e9ddd31ad41d) · [`L944`](#d18-source-839140c350119dd1) · [`L1481`](#d18-source-d53c87090347ce81)
+- `src/libcamera/request.cpp`[`L103` 발췌](#d18-source-db7f21585c4c2708) · [전체 소스 `L103`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L103)
+- `src/libcamera/framebuffer.cpp`[`L40` 발췌](#d18-source-50aa8a55cc04062e) · [전체 소스 `L40`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/framebuffer.cpp#L40)
 - `src/libcamera/base/bound_method.cpp`[`L68` 발췌](#d18-source-0470759dc8387e9a) · [전체 소스 `L68`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/bound_method.cpp#L68)
 
 </details>
@@ -17649,7 +17721,7 @@ UVC의 `PipelineHandlerUVC::stopDevice()`는 `streamOff()`의 반환값을 확�
 - `src/libcamera/pipeline_handler.cpp`[`L359` 발췌](#d18-source-eefd1bbecb1aad0a) · [전체 소스 `L359`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L359) · [`L483`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L483) · [`L435` 발췌](#d18-source-f905d5de57d1030f) · [전체 소스 `L435`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L435) · [`L483`](#d18-source-8bf901f3faef18e5)
 - `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp`[`L320` 발췌](#d18-source-36920038ed2e6053) · [전체 소스 `L320`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L320) · [`L893` 발췌](#d18-source-bfa0db3a4bc7970d) · [전체 소스 `L893`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L893)
 - `src/libcamera/v4l2_videodevice.cpp`[`L2023` 발췌](#d18-source-660c24600a4d45c9) · [전체 소스 `L2023`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2023) · [`L1616` 발췌](#d18-source-538955a1660f2ce9) · [전체 소스 `L1616`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1616) · [`L1814` 발췌](#d18-source-c75cbbe9c0bd5f96) · [전체 소스 `L1814`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1814)
-- `src/libcamera/camera.cpp`[`L1431` 발췌](#d18-source-e09324743def3f09) · [전체 소스 `L1431`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1431) · [`L732` 발췌](#d18-source-713261c291a53906) · [전체 소스 `L732`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L732) · [`L1481` 발췌](#d18-source-655b027df7d08524) · [전체 소스 `L1481`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1481) · [`L709` 발췌](#d18-source-1e64f4ece8808997) · [전체 소스 `L709`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L709) · [`L1045` 발췌](#d18-source-faa3431e5efcf672) · [전체 소스 `L1045`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1045) · [`L1400` 발췌](#d18-source-505ef16ce682b3d8) · [전체 소스 `L1400`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1400) · [`L690` 발췌](#d18-source-0c42c645a5fc60a3) · [전체 소스 `L690`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L690)
+- `src/libcamera/camera.cpp`[`L1431` 발췌](#d18-source-e09324743def3f09) · [전체 소스 `L1431`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1431) · [`L732` 발췌](#d18-source-713261c291a53906) · [전체 소스 `L732`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L732) · [`L1481`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1481) · [`L709` 발췌](#d18-source-1e64f4ece8808997) · [전체 소스 `L709`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L709) · [`L1045` 발췌](#d18-source-faa3431e5efcf672) · [전체 소스 `L1045`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1045) · [`L1400` 발췌](#d18-source-505ef16ce682b3d8) · [전체 소스 `L1400`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1400) · [`L690` 발췌](#d18-source-0c42c645a5fc60a3) · [전체 소스 `L690`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L690) · [`L1481`](#d18-source-655b027df7d08524)
 - `include/libcamera/internal/camera.h`[`L49` 발췌](#d18-source-a46d382d4070001c) · [전체 소스 `L49`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/camera.h#L49) · [`L59` 발췌](#d18-source-c0ab3b94a184909f) · [전체 소스 `L59`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/camera.h#L59)
 - `src/libcamera/framebuffer.cpp`[`L40` 발췌](#d18-source-50aa8a55cc04062e) · [전체 소스 `L40`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/framebuffer.cpp#L40)
 
@@ -17968,7 +18040,7 @@ callback-return 표시는 어떤 후속 작업보다 앞서며, 무엇의 완료
 ## 소스 근거
 
 <details open>
-<summary>소스 발췌 92개</summary>
+<summary>소스 발췌 94개</summary>
 
 같은 발췌는 한 번만 싣습니다. 필요한 원문을 펼쳐 설명과 대조하세요.
 
@@ -22329,6 +22401,43 @@ int V4L2VideoDevice::streamOff()
 
 </details>
 
+<a id="d18-source-d53c87090347ce81"></a>
+
+<details open>
+<summary>소스 근거: src/libcamera/camera.cpp:1481</summary>
+
+발췌 범위: [`src/libcamera/camera.cpp:1481`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1481) \~ `1488`
+
+SHA-256: `b8dfbcf8a903847aa98db2793e682faae22e8fb4fd0d2eba3d80a00ffd4b835c`
+
+```
+void Camera::requestComplete(Request *request)
+{
+    /* Disconnected cameras are still able to complete requests. */
+    if (_d()->isAccessAllowed(Private::CameraStopping, Private::CameraRunning,
+                  true))
+        LOG(Camera, Fatal) << "Trying to complete a request when stopped";
+
+    requestCompleted.emit(request);
+```
+
+</details>
+
+<a id="d18-source-6700ac41898c0548"></a>
+
+<details open>
+<summary>소스 근거: include/libcamera/internal/framebuffer.h:36</summary>
+
+발췌 범위: [`include/libcamera/internal/framebuffer.h:36`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/framebuffer.h#L36) \~ `36`
+
+SHA-256: `4ee32fcaa773d545e62f29b6655ab3874f73ea267af1d307e6b08c32a9af821c`
+
+```
+void cancel() { metadata_.status = FrameMetadata::FrameCancelled;
+```
+
+</details>
+
 <a id="d18-source-538955a1660f2ce9"></a>
 
 <details open>
@@ -22866,7 +22975,7 @@ SHA-256: `f78e369710f01e2740a79e5b32a9035d66792ac52f51bdbea9050bb5ebafca8c`
 - **자동 검사**: 통과 (`ok`). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.
 - **사람 검토**: 사람 검토 전
 - **분석 기준 커밋**: `adfa719f8ed67d18fd8a0739fc088a1f8b9e7252`
-- **문서 생성 시각**: `2026-11-19 18:15:19+00:00`
+- **문서 생성 시각**: `2026-11-21 13:28:40+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
 - **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 - **제품 설명 입력**: [적용 범위·조건·자료](https://ttolsun.github.io/libcamera-sdd/product-context.json)
@@ -22876,10 +22985,10 @@ SHA-256: `f78e369710f01e2740a79e5b32a9035d66792ac52f51bdbea9050bb5ebafca8c`
 
 원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.
 
-- 근거 파일: `include/libcamera/base/bound_method.h`, `include/libcamera/base/object.h`, `include/libcamera/base/signal.h`, `include/libcamera/base/utils.h`, `include/libcamera/camera.h`, `include/libcamera/internal/camera.h`, `include/libcamera/internal/framebuffer.h`, `include/libcamera/internal/pipeline_handler.h`, `include/libcamera/internal/request.h`, `include/libcamera/request.h`, `product-evidence/libcamera-callback-probe/callback-run.txt`, `src/libcamera/base/bound_method.cpp`, `src/libcamera/base/event_dispatcher_poll.cpp`, `src/libcamera/base/message.cpp`, `src/libcamera/base/object.cpp`, `src/libcamera/base/signal.cpp`, `src/libcamera/base/thread.cpp`, `src/libcamera/base/timer.cpp`, `src/libcamera/camera.cpp`, `src/libcamera/framebuffer.cpp`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp`, `src/libcamera/pipeline_handler.cpp`, `src/libcamera/request.cpp`, `src/libcamera/v4l2_device.cpp`, `src/libcamera/v4l2_videodevice.cpp`
-- 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `da6a6ed33e`)
+- 근거 파일: `Documentation/thread-safety.dox`, `include/libcamera/base/bound_method.h`, `include/libcamera/base/object.h`, `include/libcamera/base/signal.h`, `include/libcamera/base/utils.h`, `include/libcamera/camera.h`, `include/libcamera/internal/camera.h`, `include/libcamera/internal/framebuffer.h`, `include/libcamera/internal/pipeline_handler.h`, `include/libcamera/internal/request.h`, `include/libcamera/request.h`, `product-evidence/libcamera-callback-probe/callback-run.txt`, `src/libcamera/base/bound_method.cpp`, `src/libcamera/base/event_dispatcher_poll.cpp`, `src/libcamera/base/message.cpp`, `src/libcamera/base/object.cpp`, `src/libcamera/base/signal.cpp`, `src/libcamera/base/thread.cpp`, `src/libcamera/base/timer.cpp`, `src/libcamera/camera.cpp`, `src/libcamera/framebuffer.cpp`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp`, `src/libcamera/pipeline_handler.cpp`, `src/libcamera/request.cpp`, `src/libcamera/v4l2_device.cpp`, `src/libcamera/v4l2_videodevice.cpp`
+- 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `adfa719f8e`)
 - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-- 검토 상태 기록일: 2026-11-20 · 사람 검토 전
+- 검토 상태 기록일: 2026-11-21 · 사람 검토 전
 
 </details>
 
