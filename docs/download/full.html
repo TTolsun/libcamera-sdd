@@ -458,7 +458,107 @@
 </ul></article><section class="evidence"><h2 id="d3-page-evidence">원고와 검토 기록</h2><details open><summary>용어집</summary><section><dl><dt>문서 간 계약</dt><dd><a href="../contract-consistency.json">자동 대조 보고서</a> · 사람 검토 전</dd></dl></section><p><a href="../reader-archive/glossary.html#page-evidence">이전 주소의 상세 내용 열기</a></p></details></section><p><a href="../glossary.md" download>이 페이지 Markdown 받기</a> · <a href="../reader-edition.json">독자용 문서의 원본 위치</a></p></section><section class="full-page" id="doc-4"><p class="breadcrumb">ForVendor</p><h1>ForVendor</h1><article><p>애플리케이션은 공통 Camera API로 장치를 구성하고 이미지를 촬영합니다. 장치별 PipelineHandler 구현은 필요한 미디어 장치를 시스템의 장치와 대응시키고 스트림 구성에 따라 하드웨어 파이프라인을 구성합니다. 도입을 검토할 때는 하드웨어와 빌드 조건을 확인하고 대상 보드에서 첫 촬영과 정지를 시험하세요.</p><ul class="reader-edition-links"><li><a href="#doc-5">플랫폼과 빌드 조건 확인</a></li><li><a href="#doc-6">첫 촬영과 정지 시험 준비</a></li></ul><h2 id="d4-adoption-check">장치에서 확인할 항목</h2>
 <p>대상 장치에서 정상 촬영과 미완료 요청이 있는 상태에서의 정지를 각각 시험하세요. 제출 회차별로 완료 콜백 횟수, 요청 상태, 각 버퍼의 상태를 기록하세요. 요청이 취소됐는지와 각 프레임의 촬영이 성공했는지를 따로 판정하세요. <a href="#d8-stop-and-disconnect">정지 뒤 완료 알림의 계약과 근거</a>를 확인하세요.</p>
 <p><a href="../reader-archive/vendor-overview.html#%EC%9E%A5%EC%B9%98-%EA%B5%AC%ED%98%84%EC%9E%90%EA%B0%80-%EA%B3%B5%ED%86%B5-%EA%B3%84%EC%B8%B5%EC%97%90%EC%84%9C-%EC%96%BB%EB%8A%94-%EA%B2%83">공통 API의 도입 이점</a>과 <a href="#d5-platform-support">하드웨어·빌드 조건</a>을 대조한 뒤 <a href="#doc-6">연동 가이드</a>에서 장치별 구현 책임을 확인하세요. <a href="#doc-5">지원 범위와 검증</a>은 고객 보드의 첫 촬영, 구성 제약과 성능 근거를 다룹니다.</p>
-<h2 id="d4-vendor-responsibilities">하드웨어와 공통 계층의 경계</h2>
+<!-- sdd:visual:stop-notification-boundary-vendor -->
+<h3 id="d4-대상-보드에서-첫-캡처와-정지-시험">대상 보드에서 첫 캡처와 정지 시험</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"Camera API: Running 또는 &lt;br/&gt;Stopping에서 &lt;br/&gt;requestCompleted 발행": "Camera API: emit &lt;br/&gt;requestCompleted in Running &lt;br/&gt;or Stopping", "cancelled#95;에 따라 &lt;br/&gt;RequestCancelled 또는 &lt;br/&gt;RequestComplete": "cancelled#95; selects &lt;br/&gt;RequestCancelled or &lt;br/&gt;RequestComplete", "관찰한 요청 상태로 취소 &lt;br/&gt;여부를 판단한다": "Judge cancellation from &lt;br/&gt;observed request status", "대상 보드에서 두 가지 시험 &lt;br/&gt;계획": "Plan two tests on the &lt;br/&gt;target board", "두 번째 시험": "Second test", "두 번째 시험: 미완료 요청을 &lt;br/&gt;남긴 상태로 준비": "Second test: leave a &lt;br/&gt;request incomplete", "버퍼 상태 확인": "Check buffer statuses", "앱에서 Camera::stop#40;#41; 호출": "App calls Camera::stop#40;#41;", "앱이 요청 상태와 버퍼별 &lt;br/&gt;FrameSuccess 여부를 확인": "App checks request status &lt;br/&gt;and whether each buffer &lt;br/&gt;reports FrameSuccess", "제출마다 수신한 콜백 &lt;br/&gt;수#40;없으면 0#41;, 관찰된 요청 &lt;br/&gt;상태와 각 버퍼 상태 기록": "For each submission, record &lt;br/&gt;the received callback count &lt;br/&gt;#40;zero if none observed#41;, &lt;br/&gt;the observed request &lt;br/&gt;status, and each buffer’s &lt;br/&gt;observed status", "제출별 결과 기록": "Record results per &lt;br/&gt;submission", "중단 호출": "Call stop", "첫 번째 시험": "First test", "첫 시험: 정상 캡처 후 &lt;br/&gt;프레임 결과 확인": "First test: capture &lt;br/&gt;normally and check the &lt;br/&gt;frame result", "콜백을 받으면 횟수를 센다": "Count callbacks if received"}
+  v_app-stop["앱에서 Camera::stop#40;#41; 호출"]
+  v_request-result["cancelled#95;에 따라 &lt;br/&gt;RequestCancelled 또는 &lt;br/&gt;RequestComplete"]
+  v_camera-notify["Camera API: Running 또는 &lt;br/&gt;Stopping에서 &lt;br/&gt;requestCompleted 발행"]
+  v_app-result["앱이 요청 상태와 버퍼별 &lt;br/&gt;FrameSuccess 여부를 확인"]
+  v_vendor-board["대상 보드에서 두 가지 시험 &lt;br/&gt;계획"]
+  v_vendor-capture["첫 시험: 정상 캡처 후 &lt;br/&gt;프레임 결과 확인"]
+  v_vendor-pending["두 번째 시험: 미완료 요청을 &lt;br/&gt;남긴 상태로 준비"]
+  v_vendor-record["제출마다 수신한 콜백 &lt;br/&gt;수#40;없으면 0#41;, 관찰된 요청 &lt;br/&gt;상태와 각 버퍼 상태 기록"]
+  v_vendor-board --&gt;|"첫 번째 시험"| v_vendor-capture
+  v_vendor-board --&gt;|"두 번째 시험"| v_vendor-pending
+  v_vendor-capture --&gt;|"제출별 결과 기록"| v_vendor-record
+  v_vendor-pending --&gt;|"중단 호출"| v_app-stop
+  v_app-stop --&gt;|"제출별 결과 기록"| v_vendor-record
+  v_camera-notify --&gt;|"콜백을 받으면 횟수를 센다"| v_vendor-record
+  v_vendor-record --&gt;|"관찰한 요청 상태로 취소 &lt;br/&gt;여부를 판단한다"| v_request-result
+  v_vendor-record --&gt;|"버퍼 상태 확인"| v_app-result</pre>
+<p><a href="../request-lifecycle.stop-notification-boundary-vendor.mmd">Mermaid 원문</a></p>
+<details open class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>대상 보드에서 정상 캡처와 미완료 요청의 중단을 어떻게 확인할까?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="App calls Camera::stop()">앱에서 Camera::stop() 호출</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="cancelled_ selects RequestCancelled or RequestComplete">cancelled_에 따라 RequestCancelled 또는 RequestComplete</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-db7f21585c4c2708">src/libcamera/request.cpp:103</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera API: emit requestCompleted in Running or Stopping">Camera API: Running 또는 Stopping에서 requestCompleted 발행</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-d53c87090347ce81">src/libcamera/camera.cpp:1481</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="App checks request status and whether each buffer reports FrameSuccess">앱이 요청 상태와 버퍼별 FrameSuccess 여부를 확인</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-d53c87090347ce81">src/libcamera/camera.cpp:1481</a> · <a href="../reader-archive/request-lifecycle.html#source-db7f21585c4c2708">src/libcamera/request.cpp:103</a> · <a href="../reader-archive/request-lifecycle.html#source-50aa8a55cc04062e">src/libcamera/framebuffer.cpp:40</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Plan two tests on the target board">대상 보드에서 두 가지 시험 계획</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a> · <a href="../reader-archive/request-lifecycle.html#source-50aa8a55cc04062e">src/libcamera/framebuffer.cpp:40</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="First test: capture normally and check the frame result">첫 시험: 정상 캡처 후 프레임 결과 확인</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-50aa8a55cc04062e">src/libcamera/framebuffer.cpp:40</a> · <a href="../reader-archive/request-lifecycle.html#source-d53c87090347ce81">src/libcamera/camera.cpp:1481</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Second test: leave a request incomplete">두 번째 시험: 미완료 요청을 남긴 상태로 준비</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a> · <a href="../reader-archive/request-lifecycle.html#source-eefd1bbecb1aad0a">src/libcamera/pipeline_handler.cpp:359</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="For each submission, record the received callback count (zero if none observed), the observed request status, and each buffer’s observed status">제출마다 수신한 콜백 수(없으면 0), 관찰된 요청 상태와 각 버퍼 상태 기록</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-d53c87090347ce81">src/libcamera/camera.cpp:1481</a> · <a href="../reader-archive/request-lifecycle.html#source-db7f21585c4c2708">src/libcamera/request.cpp:103</a> · <a href="../reader-archive/request-lifecycle.html#source-50aa8a55cc04062e">src/libcamera/framebuffer.cpp:40</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="First test">첫 번째 시험</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-50aa8a55cc04062e">src/libcamera/framebuffer.cpp:40</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Second test">두 번째 시험</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a> · <a href="../reader-archive/request-lifecycle.html#source-eefd1bbecb1aad0a">src/libcamera/pipeline_handler.cpp:359</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Record results per submission">제출별 결과 기록</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-d53c87090347ce81">src/libcamera/camera.cpp:1481</a> · <a href="../reader-archive/request-lifecycle.html#source-50aa8a55cc04062e">src/libcamera/framebuffer.cpp:40</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call stop">중단 호출</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Record results per submission">제출별 결과 기록</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a> · <a href="../reader-archive/request-lifecycle.html#source-d53c87090347ce81">src/libcamera/camera.cpp:1481</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Count callbacks if received">콜백을 받으면 횟수를 센다</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-d53c87090347ce81">src/libcamera/camera.cpp:1481</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Judge cancellation from observed request status">관찰한 요청 상태로 취소 여부를 판단한다</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-db7f21585c4c2708">src/libcamera/request.cpp:103</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check buffer statuses">버퍼 상태 확인</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-db7f21585c4c2708">src/libcamera/request.cpp:103</a> · <a href="../reader-archive/request-lifecycle.html#source-50aa8a55cc04062e">src/libcamera/framebuffer.cpp:40</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:stop-notification-boundary-vendor --><h2 id="d4-vendor-responsibilities">하드웨어와 공통 계층의 경계</h2>
 <p data-sdd-evidence='[["src/libcamera/pipeline_handler.cpp:91", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L91\"><code>src/libcamera/pipeline_handler.cpp:91</code></a>"], ["src/libcamera/pipeline_handler.cpp:97", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L97\"><code>src/libcamera/pipeline_handler.cpp:97</code></a>"], ["src/libcamera/pipeline_handler.cpp:109", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L109\"><code>src/libcamera/pipeline_handler.cpp:109</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline_handler.cpp:91": ["reader-archive/vendor-integration.html#source-5109302527925a6a"], "src/libcamera/pipeline_handler.cpp:97": ["reader-archive/vendor-integration.html#source-293bf5d4775550d0"], "src/libcamera/pipeline_handler.cpp:109": ["reader-archive/vendor-integration.html#source-1afff120b5d66b3c"]}'><code>PipelineHandler::match()</code> 구현자는 단일 파이프라인에 필요한 미디어 장치를 모두 찾으면 각 장치에 대해 <code>MediaDevice::acquire()</code>를 호출해 확보한 다음, 해당 <code>Camera</code> 인스턴스를 하나 이상 생성하고 내부에 저장하며 카메라 매니저에 등록한 뒤 <code>true</code>를 반환해야 합니다. <code>PipelineHandler::match()</code> 구현자는 필요한 미디어 장치를 모두 찾지 못했을 때 아직 장치를 확보하지 않았다면 어떤 장치도 확보해서는 안 되며, 이미 일부를 확보했다면 <code>MediaDevice::release()</code>를 호출해 확보한 장치를 모두 해제하고 <code>false</code>를 반환해야 합니다. <code>PipelineHandler::match()</code>는 <code>CameraManager</code> 스레드에서 호출되며, <code>true</code>를 반환하면 새로운 <code>PipelineHandler</code> 인스턴스가 생성되고 그 인스턴스의 <code>match()</code>가 호출됩니다.</p>
 <!-- sdd:visual:item-boundary -->
 <h3 id="d4-장치-매칭의-확보등록과-실패-정리">장치 매칭의 확보·등록과 실패 정리</h3>

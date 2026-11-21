@@ -546,6 +546,59 @@ ForVendor
 
 [공통 API의 도입 이점](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-overview.html#%EC%9E%A5%EC%B9%98-%EA%B5%AC%ED%98%84%EC%9E%90%EA%B0%80-%EA%B3%B5%ED%86%B5-%EA%B3%84%EC%B8%B5%EC%97%90%EC%84%9C-%EC%96%BB%EB%8A%94-%EA%B2%83)과 [하드웨어·빌드 조건](#d5-platform-support)을 대조한 뒤 [연동 가이드](#doc-6)에서 장치별 구현 책임을 확인하세요. [지원 범위와 검증](#doc-5)은 고객 보드의 첫 촬영, 구성 제약과 성능 근거를 다룹니다.
 
+### 대상 보드에서 첫 캡처와 정지 시험
+
+```mermaid
+flowchart TB
+%% sdd:translations {"Camera API: Running 또는 <br/>Stopping에서 <br/>requestCompleted 발행": "Camera API: emit <br/>requestCompleted in Running <br/>or Stopping", "cancelled#95;에 따라 <br/>RequestCancelled 또는 <br/>RequestComplete": "cancelled#95; selects <br/>RequestCancelled or <br/>RequestComplete", "관찰한 요청 상태로 취소 <br/>여부를 판단한다": "Judge cancellation from <br/>observed request status", "대상 보드에서 두 가지 시험 <br/>계획": "Plan two tests on the <br/>target board", "두 번째 시험": "Second test", "두 번째 시험: 미완료 요청을 <br/>남긴 상태로 준비": "Second test: leave a <br/>request incomplete", "버퍼 상태 확인": "Check buffer statuses", "앱에서 Camera::stop#40;#41; 호출": "App calls Camera::stop#40;#41;", "앱이 요청 상태와 버퍼별 <br/>FrameSuccess 여부를 확인": "App checks request status <br/>and whether each buffer <br/>reports FrameSuccess", "제출마다 수신한 콜백 <br/>수#40;없으면 0#41;, 관찰된 요청 <br/>상태와 각 버퍼 상태 기록": "For each submission, record <br/>the received callback count <br/>#40;zero if none observed#41;, <br/>the observed request <br/>status, and each buffer’s <br/>observed status", "제출별 결과 기록": "Record results per <br/>submission", "중단 호출": "Call stop", "첫 번째 시험": "First test", "첫 시험: 정상 캡처 후 <br/>프레임 결과 확인": "First test: capture <br/>normally and check the <br/>frame result", "콜백을 받으면 횟수를 센다": "Count callbacks if received"}
+  v_app-stop["앱에서 Camera::stop#40;#41; 호출"]
+  v_request-result["cancelled#95;에 따라 <br/>RequestCancelled 또는 <br/>RequestComplete"]
+  v_camera-notify["Camera API: Running 또는 <br/>Stopping에서 <br/>requestCompleted 발행"]
+  v_app-result["앱이 요청 상태와 버퍼별 <br/>FrameSuccess 여부를 확인"]
+  v_vendor-board["대상 보드에서 두 가지 시험 <br/>계획"]
+  v_vendor-capture["첫 시험: 정상 캡처 후 <br/>프레임 결과 확인"]
+  v_vendor-pending["두 번째 시험: 미완료 요청을 <br/>남긴 상태로 준비"]
+  v_vendor-record["제출마다 수신한 콜백 <br/>수#40;없으면 0#41;, 관찰된 요청 <br/>상태와 각 버퍼 상태 기록"]
+  v_vendor-board -->|"첫 번째 시험"| v_vendor-capture
+  v_vendor-board -->|"두 번째 시험"| v_vendor-pending
+  v_vendor-capture -->|"제출별 결과 기록"| v_vendor-record
+  v_vendor-pending -->|"중단 호출"| v_app-stop
+  v_app-stop -->|"제출별 결과 기록"| v_vendor-record
+  v_camera-notify -->|"콜백을 받으면 횟수를 센다"| v_vendor-record
+  v_vendor-record -->|"관찰한 요청 상태로 취소 <br/>여부를 판단한다"| v_request-result
+  v_vendor-record -->|"버퍼 상태 확인"| v_app-result
+```
+
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.stop-notification-boundary-vendor.mmd)
+
+<details open>
+<summary>그림 근거와 확인 범위</summary>
+
+대상 보드에서 정상 캡처와 미완료 요청의 중단을 어떻게 확인할까?
+
+소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전
+
+| 요소·전이 | 소스 근거 |
+| --- | --- |
+| 앱에서 Camera::stop() 호출 | [src/libcamera/camera.cpp:1431](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-e09324743def3f09) |
+| cancelled\_에 따라 RequestCancelled 또는 RequestComplete | [src/libcamera/request.cpp:103](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-db7f21585c4c2708) |
+| Camera API: Running 또는 Stopping에서 requestCompleted 발행 | [src/libcamera/camera.cpp:1481](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-d53c87090347ce81) |
+| 앱이 요청 상태와 버퍼별 FrameSuccess 여부를 확인 | [src/libcamera/camera.cpp:1481](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-d53c87090347ce81) · [src/libcamera/request.cpp:103](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-db7f21585c4c2708) · [src/libcamera/framebuffer.cpp:40](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-50aa8a55cc04062e) |
+| 대상 보드에서 두 가지 시험 계획 | [src/libcamera/camera.cpp:1431](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-e09324743def3f09) · [src/libcamera/framebuffer.cpp:40](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-50aa8a55cc04062e) |
+| 첫 시험: 정상 캡처 후 프레임 결과 확인 | [src/libcamera/framebuffer.cpp:40](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-50aa8a55cc04062e) · [src/libcamera/camera.cpp:1481](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-d53c87090347ce81) |
+| 두 번째 시험: 미완료 요청을 남긴 상태로 준비 | [src/libcamera/camera.cpp:1431](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-e09324743def3f09) · [src/libcamera/pipeline_handler.cpp:359](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-eefd1bbecb1aad0a) |
+| 제출마다 수신한 콜백 수(없으면 0), 관찰된 요청 상태와 각 버퍼 상태 기록 | [src/libcamera/camera.cpp:1481](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-d53c87090347ce81) · [src/libcamera/request.cpp:103](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-db7f21585c4c2708) · [src/libcamera/framebuffer.cpp:40](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-50aa8a55cc04062e) |
+| 첫 번째 시험 | [src/libcamera/framebuffer.cpp:40](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-50aa8a55cc04062e) |
+| 두 번째 시험 | [src/libcamera/camera.cpp:1431](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-e09324743def3f09) · [src/libcamera/pipeline_handler.cpp:359](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-eefd1bbecb1aad0a) |
+| 제출별 결과 기록 | [src/libcamera/camera.cpp:1481](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-d53c87090347ce81) · [src/libcamera/framebuffer.cpp:40](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-50aa8a55cc04062e) |
+| 중단 호출 | [src/libcamera/camera.cpp:1431](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-e09324743def3f09) |
+| 제출별 결과 기록 | [src/libcamera/camera.cpp:1431](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-e09324743def3f09) · [src/libcamera/camera.cpp:1481](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-d53c87090347ce81) |
+| 콜백을 받으면 횟수를 센다 | [src/libcamera/camera.cpp:1481](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-d53c87090347ce81) |
+| 관찰한 요청 상태로 취소 여부를 판단한다 | [src/libcamera/request.cpp:103](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-db7f21585c4c2708) |
+| 버퍼 상태 확인 | [src/libcamera/request.cpp:103](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-db7f21585c4c2708) · [src/libcamera/framebuffer.cpp:40](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#source-50aa8a55cc04062e) |
+
+</details>
+
 ## 하드웨어와 공통 계층의 경계
 
 `PipelineHandler::match()` 구현자는 단일 파이프라인에 필요한 미디어 장치를 모두 찾으면 각 장치에 대해 `MediaDevice::acquire()`를 호출해 확보한 다음, 해당 `Camera` 인스턴스를 하나 이상 생성하고 내부에 저장하며 카메라 매니저에 등록한 뒤 `true`를 반환해야 합니다. `PipelineHandler::match()` 구현자는 필요한 미디어 장치를 모두 찾지 못했을 때 아직 장치를 확보하지 않았다면 어떤 장치도 확보해서는 안 되며, 이미 일부를 확보했다면 `MediaDevice::release()`를 호출해 확보한 장치를 모두 해제하고 `false`를 반환해야 합니다. `PipelineHandler::match()`는 `CameraManager` 스레드에서 호출되며, `true`를 반환하면 새로운 `PipelineHandler` 인스턴스가 생성되고 그 인스턴스의 `match()`가 호출됩니다.

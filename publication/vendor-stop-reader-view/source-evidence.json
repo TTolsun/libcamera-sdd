@@ -1,0 +1,265 @@
+{
+  "source_commit": "adfa719f8ed67d18fd8a0739fc088a1f8b9e7252",
+  "evidence": {
+    "request-lifecycle/stopping/app-notice": {
+      "commit": "adfa719f8ed67d18fd8a0739fc088a1f8b9e7252",
+      "selector": {
+        "id": "app-notice",
+        "file": "src/libcamera/camera.cpp",
+        "start": "void Camera::requestComplete(Request *request)",
+        "end": "requestCompleted.emit(request);"
+      },
+      "status": "available",
+      "file": "src/libcamera/camera.cpp",
+      "line": 1481,
+      "end_line": 1488,
+      "text": "void Camera::requestComplete(Request *request)\n{\n\t/* Disconnected cameras are still able to complete requests. */\n\tif (_d()->isAccessAllowed(Private::CameraStopping, Private::CameraRunning,\n\t\t\t\t  true))\n\t\tLOG(Camera, Fatal) << \"Trying to complete a request when stopped\";\n\n\trequestCompleted.emit(request);",
+      "sha256": "b8dfbcf8a903847aa98db2793e682faae22e8fb4fd0d2eba3d80a00ffd4b835c",
+      "whole_file": false
+    },
+    "request-lifecycle/stopping/completion": {
+      "commit": "adfa719f8ed67d18fd8a0739fc088a1f8b9e7252",
+      "selector": {
+        "id": "completion",
+        "file": "src/libcamera/pipeline_handler.cpp",
+        "start": "\\brief Complete a buffer for a request",
+        "end": "\\brief Retrieve the absolute path to a platform configuration file"
+      },
+      "status": "available",
+      "file": "src/libcamera/pipeline_handler.cpp",
+      "line": 547,
+      "end_line": 620,
+      "text": "\\brief Complete a buffer for a request\n * \\param[in] request The request the buffer belongs to\n * \\param[in] buffer The buffer that has completed\n *\n * This function shall be called by pipeline handlers to signal completion of\n * the \\a buffer part of the \\a request. It notifies applications of buffer\n * completion and updates the request's internal buffer tracking. The request\n * is not completed automatically when the last buffer completes to give\n * pipeline handlers a chance to perform any operation that may still be\n * needed. They shall complete requests explicitly with completeRequest().\n *\n * \\context This function shall be called from the CameraManager thread.\n *\n * \\return True if all buffers contained in the request have completed, false\n * otherwise\n */\nbool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)\n{\n\tCamera *camera = request->_d()->camera();\n\tcamera->bufferCompleted.emit(request, buffer);\n\treturn request->_d()->completeBuffer(buffer);\n}\n\n/**\n * \\brief Signal request completion\n * \\param[in] request The request that has completed\n *\n * The pipeline handler shall call this function to notify the \\a camera that\n * the request has completed. The request is no longer managed by the pipeline\n * handler and shall not be accessed once this function returns.\n *\n * This function ensures that requests will be returned to the application in\n * submission order, the pipeline handler may call it on any complete request\n * without any ordering constraint.\n *\n * \\context This function shall be called from the CameraManager thread.\n */\nvoid PipelineHandler::completeRequest(Request *request)\n{\n\tCamera *camera = request->_d()->camera();\n\n\trequest->_d()->complete();\n\n\tCamera::Private *data = camera->_d();\n\n\twhile (!data->queuedRequests_.empty()) {\n\t\tRequest *req = data->queuedRequests_.front();\n\t\tif (req->status() == Request::RequestPending)\n\t\t\tbreak;\n\n\t\tASSERT(!req->hasPendingBuffers());\n\t\tdata->queuedRequests_.pop_front();\n\t\tcamera->requestComplete(req);\n\t}\n\n\t/* Allow any waiting requests to be queued to the pipeline. */\n\tdoQueueRequests(camera);\n}\n\n/**\n * \\brief Cancel request and signal its completion\n * \\param[in] request The request to cancel\n *\n * This function cancels and completes the request. The same rules as for\n * completeRequest() apply.\n */\nvoid PipelineHandler::cancelRequest(Request *request)\n{\n\trequest->_d()->cancel();\n\tcompleteRequest(request);\n}\n\n/**\n * \\brief Retrieve the absolute path to a platform configuration file",
+      "sha256": "514288cc958de9ff5fd19d46393cec3bb3088f4f08486528d4559071138638c9",
+      "whole_file": false
+    },
+    "request-lifecycle/stopping/dequeue-notice": {
+      "commit": "adfa719f8ed67d18fd8a0739fc088a1f8b9e7252",
+      "selector": {
+        "id": "dequeue-notice",
+        "file": "src/libcamera/v4l2_videodevice.cpp",
+        "start": "void V4L2VideoDevice::bufferAvailable()",
+        "end": "\\brief Start the video stream"
+      },
+      "status": "available",
+      "file": "src/libcamera/v4l2_videodevice.cpp",
+      "line": 1814,
+      "end_line": 1987,
+      "text": "void V4L2VideoDevice::bufferAvailable()\n{\n\tFrameBuffer *buffer = dequeueBuffer();\n\tif (!buffer)\n\t\treturn;\n\n\t/* Notify anyone listening to the device. */\n\tbufferReady.emit(buffer);\n}\n\n/**\n * \\brief Dequeue the next available buffer from the video device\n *\n * This function dequeues the next available buffer from the device. If no\n * buffer is available to be dequeued it will return nullptr immediately.\n *\n * \\return A pointer to the dequeued buffer on success, or nullptr otherwise\n */\nFrameBuffer *V4L2VideoDevice::dequeueBuffer()\n{\n\tstruct v4l2_buffer buf = {};\n\tstruct v4l2_plane planes[VIDEO_MAX_PLANES] = {};\n\tint ret;\n\n\tbuf.type = bufferType_;\n\tbuf.memory = memoryType_;\n\n\tbool multiPlanar = V4L2_TYPE_IS_MULTIPLANAR(buf.type);\n\n\tif (multiPlanar) {\n\t\tbuf.length = VIDEO_MAX_PLANES;\n\t\tbuf.m.planes = planes;\n\t}\n\n\tret = ioctl(VIDIOC_DQBUF, &buf);\n\tif (ret < 0) {\n\t\tLOG(V4L2, Error)\n\t\t\t<< \"Failed to dequeue buffer: \" << strerror(-ret);\n\t\treturn nullptr;\n\t}\n\n\tLOG(V4L2, Debug) << \"Dequeuing buffer \" << buf.index;\n\n\t/*\n\t * If the video node fails to stream-on successfully (which can occur\n\t * when queuing a buffer), a vb2 kernel bug can lead to the buffer which\n\t * returns a failure upon queuing being mistakenly kept in the kernel.\n\t * This leads to the kernel notifying us that a buffer is available to\n\t * dequeue, which we have no awareness of being queued, and thus we will\n\t * not find it in the queuedBuffers_ list.\n\t *\n\t * Whilst this kernel bug has been fixed in mainline, ensure that we\n\t * safely ignore buffers which are unexpected to prevent crashes on\n\t * older kernels.\n\t */\n\tauto it = queuedBuffers_.find(buf.index);\n\tif (it == queuedBuffers_.end()) {\n\t\tLOG(V4L2, Error)\n\t\t\t<< \"Dequeued unexpected buffer index \" << buf.index;\n\n\t\treturn nullptr;\n\t}\n\n\tcache_->put(buf.index);\n\n\tFrameBuffer *buffer = it->second;\n\tqueuedBuffers_.erase(it);\n\n\tif (queuedBuffers_.empty()) {\n\t\tfdBufferNotifier_->setEnabled(false);\n\t\twatchdog_.stop();\n\t} else if (watchdogDuration_) {\n\t\t/*\n\t\t * Restart the watchdog timer if there are buffers still queued\n\t\t * in the device.\n\t\t */\n\t\twatchdog_.start(std::chrono::duration_cast<std::chrono::milliseconds>(watchdogDuration_));\n\t}\n\n\tFrameMetadata &metadata = buffer->_d()->metadata();\n\n\tmetadata.status = buf.flags & V4L2_BUF_FLAG_ERROR\n\t\t\t? FrameMetadata::FrameError\n\t\t\t: FrameMetadata::FrameSuccess;\n\tmetadata.sequence = buf.sequence;\n\tmetadata.timestamp = buf.timestamp.tv_sec * 1000000000ULL\n\t\t\t   + buf.timestamp.tv_usec * 1000ULL;\n\n\tif (V4L2_TYPE_IS_OUTPUT(buf.type))\n\t\treturn buffer;\n\n\t/*\n\t * Detect kernel drivers which do not reset the sequence number to zero\n\t * on stream start.\n\t */\n\tif (!firstFrame_.has_value()) {\n\t\tif (buf.sequence)\n\t\t\tLOG(V4L2, Info)\n\t\t\t\t<< \"Zero sequence expected for first frame (got \"\n\t\t\t\t<< buf.sequence << \")\";\n\t\tfirstFrame_ = buf.sequence;\n\t}\n\tmetadata.sequence -= firstFrame_.value();\n\n\tstd::span<const FrameBuffer::Plane> framebufferPlanes = buffer->planes();\n\tunsigned int numV4l2Planes = multiPlanar ? buf.length : 1;\n\n\tif (numV4l2Planes != framebufferPlanes.size()) {\n\t\t/*\n\t\t * If we have a multi-planar buffer with a V4L2\n\t\t * single-planar format, split the V4L2 buffer across\n\t\t * the buffer planes. Only the last plane may have less\n\t\t * bytes used than its length.\n\t\t */\n\t\tif (numV4l2Planes != 1) {\n\t\t\tLOG(V4L2, Error)\n\t\t\t\t<< \"Invalid number of planes (\" << numV4l2Planes\n\t\t\t\t<< \" != \" << framebufferPlanes.size() << \")\";\n\n\t\t\tmetadata.status = FrameMetadata::FrameError;\n\t\t\treturn buffer;\n\t\t}\n\n\t\t/*\n\t\t * With a V4L2 single-planar format, all the data is stored in\n\t\t * a single memory plane. The number of bytes used is conveyed\n\t\t * through that plane when using the V4L2 multi-planar API, or\n\t\t * set directly in the buffer when using the V4L2 single-planar\n\t\t * API.\n\t\t */\n\t\tunsigned int bytesused = multiPlanar ? planes[0].bytesused\n\t\t\t\t       : buf.bytesused;\n\t\tunsigned int remaining = bytesused;\n\n\t\tfor (auto [i, plane] : utils::enumerate(framebufferPlanes)) {\n\t\t\tif (!remaining) {\n\t\t\t\tLOG(V4L2, Error)\n\t\t\t\t\t<< \"Dequeued buffer (\" << bytesused\n\t\t\t\t\t<< \" bytes) too small for plane lengths \"\n\t\t\t\t\t<< utils::join(framebufferPlanes, \"/\",\n\t\t\t\t\t\t       [](const FrameBuffer::Plane &p) {\n\t\t\t\t\t\t\t       return p.length;\n\t\t\t\t\t\t       });\n\n\t\t\t\tmetadata.status = FrameMetadata::FrameError;\n\t\t\t\treturn buffer;\n\t\t\t}\n\n\t\t\tmetadata.planes()[i].bytesused =\n\t\t\t\tstd::min(plane.length, remaining);\n\t\t\tremaining -= metadata.planes()[i].bytesused;\n\t\t}\n\t} else if (multiPlanar) {\n\t\t/*\n\t\t * If we use the multi-planar API, fill in the planes.\n\t\t * The number of planes in the frame buffer and in the\n\t\t * V4L2 buffer is guaranteed to be equal at this point.\n\t\t */\n\t\tfor (unsigned int i = 0; i < numV4l2Planes; ++i)\n\t\t\tmetadata.planes()[i].bytesused = planes[i].bytesused;\n\t} else {\n\t\tmetadata.planes()[0].bytesused = buf.bytesused;\n\t}\n\n\treturn buffer;\n}\n\n/**\n * \\var V4L2VideoDevice::bufferReady\n * \\brief A Signal emitted when a framebuffer completes\n */\n\n/**\n * \\brief Start the video stream",
+      "sha256": "b49fbd6c74b10d8d7e28d44854068de9100ea0dc6058d86d24a3f3a4f85f1fff",
+      "whole_file": false
+    },
+    "request-lifecycle/stopping/device-stop": {
+      "commit": "adfa719f8ed67d18fd8a0739fc088a1f8b9e7252",
+      "selector": {
+        "id": "device-stop",
+        "file": "src/libcamera/pipeline_handler.cpp",
+        "start": "\\brief Stop capturing from all running streams and cancel pending requests",
+        "end": "\\brief Determine if the camera has any requests pending"
+      },
+      "status": "available",
+      "file": "src/libcamera/pipeline_handler.cpp",
+      "line": 359,
+      "end_line": 414,
+      "text": "\\brief Stop capturing from all running streams and cancel pending requests\n * \\param[in] camera The camera to stop\n *\n * This function stops capturing and processing requests immediately. All\n * pending requests are cancelled and complete immediately in an error state.\n *\n * \\context This function is called from the CameraManager thread.\n */\nvoid PipelineHandler::stop(Camera *camera)\n{\n\t/*\n\t * Take all waiting requests so that they are not requeued in response\n\t * to completeRequest() being called inside stopDevice(). Cancel them\n\t * after the device to keep them in order.\n\t */\n\tCamera::Private *data = camera->_d();\n\tstd::queue<Request *> waitingRequests;\n\twaitingRequests.swap(data->waitingRequests_);\n\n\t/* Stop the pipeline handler and let the queued requests complete. */\n\tstopDevice(camera);\n\n\t/* Cancel and signal as complete all waiting requests. */\n\twhile (!waitingRequests.empty()) {\n\t\tRequest *request = waitingRequests.front();\n\t\twaitingRequests.pop();\n\n\t\t/*\n\t\t * Cancel all requests by marking them as cancelled and calling\n\t\t * doQueueRequest() instead of cancelRequest(). This ensures\n\t\t * that the requests get a sequence number and are temporarily\n\t\t * added to queuedRequests_ so they can be properly completed in\n\t\t * completeRequest().\n\t\t */\n\t\trequest->_d()->cancel();\n\t\tdoQueueRequest(request);\n\t}\n\n\t/* Make sure no requests are pending. */\n\tASSERT(data->queuedRequests_.empty());\n\tASSERT(data->waitingRequests_.empty());\n\n\tdata->requestSequence_ = 0;\n}\n\n/**\n * \\fn PipelineHandler::stopDevice()\n * \\brief Stop capturing from all running streams\n * \\param[in] camera The camera to stop\n *\n * This function stops capturing and processing requests immediately. All\n * pending requests are cancelled and complete immediately in an error state.\n */\n\n/**\n * \\brief Determine if the camera has any requests pending",
+      "sha256": "108b1bea5a8314ba57213d15c1e3ba01abe2b3f8a9e0e1e1281864b5492c7304",
+      "whole_file": false
+    },
+    "request-lifecycle/stopping/frame-cancel": {
+      "commit": "adfa719f8ed67d18fd8a0739fc088a1f8b9e7252",
+      "selector": {
+        "id": "frame-cancel",
+        "file": "include/libcamera/internal/framebuffer.h",
+        "start": "void cancel() {",
+        "end": "metadata_.status = FrameMetadata::FrameCancelled;"
+      },
+      "status": "available",
+      "file": "include/libcamera/internal/framebuffer.h",
+      "line": 36,
+      "end_line": 36,
+      "text": "void cancel() { metadata_.status = FrameMetadata::FrameCancelled;",
+      "sha256": "4ee32fcaa773d545e62f29b6655ab3874f73ea267af1d307e6b08c32a9af821c",
+      "whole_file": false
+    },
+    "request-lifecycle/stopping/frame-result": {
+      "commit": "adfa719f8ed67d18fd8a0739fc088a1f8b9e7252",
+      "selector": {
+        "id": "frame-result",
+        "file": "src/libcamera/framebuffer.cpp",
+        "start": "\\enum FrameMetadata::Status",
+        "end": "\n */"
+      },
+      "status": "available",
+      "file": "src/libcamera/framebuffer.cpp",
+      "line": 40,
+      "end_line": 59,
+      "text": "\\enum FrameMetadata::Status\n * \\brief Define the frame completion status\n * \\var FrameMetadata::FrameSuccess\n * The frame has been captured with success and contains valid data. All fields\n * of the FrameMetadata structure are valid.\n * \\var FrameMetadata::FrameError\n * The frame data is partly or fully corrupted, missing or otherwise invalid.\n * This can for instance indicate a hardware transmission error, or invalid data\n * produced by the sensor during its startup phase. The sequence and timestamp\n * fields of the FrameMetadata structure is valid, all the other fields may be\n * invalid.\n * \\var FrameMetadata::FrameCancelled\n * Capture stopped before the frame completed. The frame data is not valid. All\n * fields of the FrameMetadata structure but the status field are invalid.\n * \\var FrameMetadata::FrameStartup\n * The frame has been successfully captured. However, the IPA is in a\n * cold-start or reset phase and will result in image quality parameters\n * producing unusable images. Applications are recommended to not consume these\n * frames. All other fields of the FrameMetadata structure are valid.\n */",
+      "sha256": "6679cce34a559d862713d4c73b36414ab8102397dd0356dd9beb32d683a9d2aa",
+      "whole_file": false
+    },
+    "request-lifecycle/stopping/queued-connection": {
+      "commit": "adfa719f8ed67d18fd8a0739fc088a1f8b9e7252",
+      "selector": {
+        "id": "queued-connection",
+        "file": "src/libcamera/base/bound_method.cpp",
+        "start": "bool BoundMethodBase::activatePack(",
+        "end": "\n}",
+        "scope": {
+          "start": "\\enum ConnectionType",
+          "end": "\n}"
+        }
+      },
+      "status": "available",
+      "file": "src/libcamera/base/bound_method.cpp",
+      "line": 68,
+      "end_line": 108,
+      "text": "bool BoundMethodBase::activatePack(std::shared_ptr<BoundMethodPackBase> pack,\n\t\t\t\t   bool deleteMethod)\n{\n\tConnectionType type = connectionType_;\n\tif (type == ConnectionTypeAuto) {\n\t\tif (Thread::current() == object_->thread())\n\t\t\ttype = ConnectionTypeDirect;\n\t\telse\n\t\t\ttype = ConnectionTypeQueued;\n\t} else if (type == ConnectionTypeBlocking) {\n\t\tif (Thread::current() == object_->thread())\n\t\t\ttype = ConnectionTypeDirect;\n\t}\n\n\tswitch (type) {\n\tcase ConnectionTypeDirect:\n\tdefault:\n\t\tinvokePack(pack.get());\n\t\tif (deleteMethod)\n\t\t\tdelete this;\n\t\treturn true;\n\n\tcase ConnectionTypeQueued: {\n\t\tstd::unique_ptr<Message> msg =\n\t\t\tstd::make_unique<InvokeMessage>(this, pack, nullptr, deleteMethod);\n\t\tobject_->postMessage(std::move(msg));\n\t\treturn false;\n\t}\n\n\tcase ConnectionTypeBlocking: {\n\t\tSemaphore semaphore;\n\n\t\tstd::unique_ptr<Message> msg =\n\t\t\tstd::make_unique<InvokeMessage>(this, pack, &semaphore, deleteMethod);\n\t\tobject_->postMessage(std::move(msg));\n\n\t\tsemaphore.acquire();\n\t\treturn true;\n\t}\n\t}\n}",
+      "sha256": "9d139a7558500489b81d2ef8b83d3b1a3b143d252992c91f56331bc1e6d1b327",
+      "whole_file": false,
+      "context": {
+        "text": "\\enum ConnectionType\n * \\brief Connection type for asynchronous communication\n *\n * This enumeration describes the possible types of asynchronous communication\n * between a sender and a receiver. It applies to Signal::emit() and\n * Object::invokeMethod().\n *\n * \\var ConnectionTypeAuto\n * \\brief If the sender and the receiver live in the same thread,\n * ConnectionTypeDirect is used. Otherwise ConnectionTypeQueued is used.\n *\n * \\var ConnectionTypeDirect\n * \\brief The receiver is invoked immediately and synchronously in the sender's\n * thread.\n *\n * \\var ConnectionTypeQueued\n * \\brief The receiver is invoked asynchronously\n *\n * Invoke the receiver asynchronously in its thread when control returns to the\n * thread's event loop. The sender proceeds without waiting for the invocation\n * to complete.\n *\n * \\var ConnectionTypeBlocking\n * \\brief The receiver is invoked synchronously\n *\n * If the sender and the receiver live in the same thread, this is equivalent to\n * ConnectionTypeDirect. Otherwise, the receiver is invoked asynchronously in\n * its thread when control returns to the thread's event loop. The sender\n * blocks until the receiver signals the completion of the invocation.\n */\n\n/**\n * \\brief Invoke the bound method with packed arguments\n * \\param[in] pack Packed arguments\n * \\param[in] deleteMethod True to delete \\a this bound method instance when\n * method invocation completes\n *\n * The bound method stores its return value, if any, in the arguments \\a pack.\n * For direct and blocking invocations, this is performed synchronously, and\n * the return value contained in the pack may be used. For queued invocations,\n * the return value is stored at an undefined point of time and shall thus not\n * be used by the caller.\n *\n * \\return True if the return value contained in the \\a pack may be used by the\n * caller, false otherwise\n */\nbool BoundMethodBase::activatePack(std::shared_ptr<BoundMethodPackBase> pack,\n\t\t\t\t   bool deleteMethod)\n{\n\tConnectionType type = connectionType_;\n\tif (type == ConnectionTypeAuto) {\n\t\tif (Thread::current() == object_->thread())\n\t\t\ttype = ConnectionTypeDirect;\n\t\telse\n\t\t\ttype = ConnectionTypeQueued;\n\t} else if (type == ConnectionTypeBlocking) {\n\t\tif (Thread::current() == object_->thread())\n\t\t\ttype = ConnectionTypeDirect;\n\t}\n\n\tswitch (type) {\n\tcase ConnectionTypeDirect:\n\tdefault:\n\t\tinvokePack(pack.get());\n\t\tif (deleteMethod)\n\t\t\tdelete this;\n\t\treturn true;\n\n\tcase ConnectionTypeQueued: {\n\t\tstd::unique_ptr<Message> msg =\n\t\t\tstd::make_unique<InvokeMessage>(this, pack, nullptr, deleteMethod);\n\t\tobject_->postMessage(std::move(msg));\n\t\treturn false;\n\t}\n\n\tcase ConnectionTypeBlocking: {\n\t\tSemaphore semaphore;\n\n\t\tstd::unique_ptr<Message> msg =\n\t\t\tstd::make_unique<InvokeMessage>(this, pack, &semaphore, deleteMethod);\n\t\tobject_->postMessage(std::move(msg));\n\n\t\tsemaphore.acquire();\n\t\treturn true;\n\t}\n\t}\n}",
+        "sha256": "3f4cdedea77a04c5861338b3051e7635cb0940059081bd235d09c8d9acb098d5",
+        "line": 22,
+        "end_line": 108
+      }
+    },
+    "request-lifecycle/stopping/request-result": {
+      "commit": "adfa719f8ed67d18fd8a0739fc088a1f8b9e7252",
+      "selector": {
+        "id": "request-result",
+        "file": "src/libcamera/request.cpp",
+        "start": "bool Request::Private::completeBuffer(FrameBuffer *buffer)",
+        "end": "void Request::Private::doCancelRequest()"
+      },
+      "status": "available",
+      "file": "src/libcamera/request.cpp",
+      "line": 103,
+      "end_line": 139,
+      "text": "bool Request::Private::completeBuffer(FrameBuffer *buffer)\n{\n\tLIBCAMERA_TRACEPOINT(request_complete_buffer, this, buffer);\n\n\tint ret = pending_.erase(buffer);\n\tASSERT(ret == 1);\n\n\tbuffer->_d()->setRequest(nullptr);\n\n\tif (buffer->metadata().status == FrameMetadata::FrameCancelled)\n\t\tcancelled_ = true;\n\n\treturn !hasPendingBuffers();\n}\n\n/**\n * \\brief Complete a queued request\n *\n * Mark the request as complete by updating its status to RequestComplete,\n * unless buffers have been cancelled in which case the status is set to\n * RequestCancelled.\n */\nvoid Request::Private::complete()\n{\n\tRequest *request = _o<Request>();\n\n\tASSERT(request->status() == RequestPending);\n\tASSERT(!hasPendingBuffers());\n\n\trequest->status_ = cancelled_ ? RequestCancelled : RequestComplete;\n\n\tLOG(Request, Debug) << request->toString();\n\n\tLIBCAMERA_TRACEPOINT(request_complete, this);\n}\n\nvoid Request::Private::doCancelRequest()",
+      "sha256": "6b0b27fb1f87e0e0aa24009726a62d6220f07ebab0756d7330f73f5b3c3a4b26",
+      "whole_file": false
+    },
+    "request-lifecycle/stopping/stop": {
+      "commit": "adfa719f8ed67d18fd8a0739fc088a1f8b9e7252",
+      "selector": {
+        "id": "stop",
+        "file": "src/libcamera/camera.cpp",
+        "start": "\\brief Stop capture from camera",
+        "end": "\\brief Handle request completion and notify application"
+      },
+      "status": "available",
+      "file": "src/libcamera/camera.cpp",
+      "line": 1431,
+      "end_line": 1475,
+      "text": "\\brief Stop capture from camera\n *\n * This function stops capturing and processing requests immediately. All\n * pending requests are cancelled and complete synchronously in an error state.\n *\n * \\context This function may be called in any camera state as defined in \\ref\n * camera_operation, and shall be synchronized by the caller with other\n * functions that affect the camera state. If called when the camera isn't\n * running, it is a no-op.\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not running so can't be stopped\n */\nint Camera::stop()\n{\n\tPrivate *const d = _d();\n\n\t/*\n\t * \\todo Make calling stop() when not in 'Running' part of the state\n\t * machine rather than take this shortcut\n\t */\n\tif (!d->isRunning())\n\t\treturn 0;\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\tif (ret < 0)\n\t\treturn ret;\n\n\tLOG(Camera, Debug) << \"Stopping capture\";\n\n\td->setState(Private::CameraStopping);\n\n\td->pipe_->invokeMethod(&PipelineHandler::stop, ConnectionTypeBlocking,\n\t\t\t       this);\n\n\tASSERT(!d->pipe_->hasPendingRequests(this));\n\n\td->setState(Private::CameraConfigured);\n\n\treturn 0;\n}\n\n/**\n * \\brief Handle request completion and notify application",
+      "sha256": "0009c665993b995489738e48affc81643a7159d82b5326e5f182e30fe11e4901",
+      "whole_file": false
+    },
+    "request-lifecycle/stopping/stopping-call": {
+      "commit": "adfa719f8ed67d18fd8a0739fc088a1f8b9e7252",
+      "selector": {
+        "id": "stopping-call",
+        "file": "src/libcamera/camera.cpp",
+        "start": "d->setState(Private::CameraStopping);",
+        "end": "this);",
+        "scope": {
+          "start": "int Camera::stop()",
+          "end": "\n}"
+        }
+      },
+      "status": "available",
+      "file": "src/libcamera/camera.cpp",
+      "line": 1462,
+      "end_line": 1465,
+      "text": "d->setState(Private::CameraStopping);\n\n\td->pipe_->invokeMethod(&PipelineHandler::stop, ConnectionTypeBlocking,\n\t\t\t       this);",
+      "sha256": "a75876cfb66d256185fe7085444cbe91f726b87bdceca83cb6b243514f03c1ed",
+      "whole_file": false,
+      "context": {
+        "text": "int Camera::stop()\n{\n\tPrivate *const d = _d();\n\n\t/*\n\t * \\todo Make calling stop() when not in 'Running' part of the state\n\t * machine rather than take this shortcut\n\t */\n\tif (!d->isRunning())\n\t\treturn 0;\n\n\tint ret = d->isAccessAllowed(Private::CameraRunning);\n\tif (ret < 0)\n\t\treturn ret;\n\n\tLOG(Camera, Debug) << \"Stopping capture\";\n\n\td->setState(Private::CameraStopping);\n\n\td->pipe_->invokeMethod(&PipelineHandler::stop, ConnectionTypeBlocking,\n\t\t\t       this);\n\n\tASSERT(!d->pipe_->hasPendingRequests(this));\n\n\td->setState(Private::CameraConfigured);\n\n\treturn 0;\n}",
+        "sha256": "8a1acdc0c0263c5453e024b1fc0c119960d8c291dc3ff6dffa38f38ff37af63d",
+        "line": 1445,
+        "end_line": 1472
+      }
+    },
+    "request-lifecycle/stopping/streamoff-implementation": {
+      "commit": "adfa719f8ed67d18fd8a0739fc088a1f8b9e7252",
+      "selector": {
+        "id": "streamoff-implementation",
+        "file": "src/libcamera/v4l2_videodevice.cpp",
+        "start": "int V4L2VideoDevice::streamOff()",
+        "end": "\\brief Set the dequeue timeout value"
+      },
+      "status": "available",
+      "file": "src/libcamera/v4l2_videodevice.cpp",
+      "line": 2023,
+      "end_line": 2059,
+      "text": "int V4L2VideoDevice::streamOff()\n{\n\tint ret;\n\n\tif (state_ != State::Streaming && queuedBuffers_.empty())\n\t\treturn 0;\n\n\tif (watchdogDuration_.count())\n\t\twatchdog_.stop();\n\n\tret = ioctl(VIDIOC_STREAMOFF, &bufferType_);\n\tif (ret < 0) {\n\t\tLOG(V4L2, Error)\n\t\t\t<< \"Failed to stop streaming: \" << strerror(-ret);\n\t\treturn ret;\n\t}\n\n\tstate_ = State::Stopping;\n\n\t/* Send back all queued buffers. */\n\tfor (const auto &[id, buffer] : queuedBuffers_) {\n\t\tcache_->put(id);\n\t\tbuffer->_d()->cancel();\n\t\tbufferReady.emit(buffer);\n\t}\n\n\tASSERT(cache_->isEmpty());\n\n\tqueuedBuffers_.clear();\n\tfdBufferNotifier_->setEnabled(false);\n\tstate_ = State::Stopped;\n\n\treturn 0;\n}\n\n/**\n * \\brief Set the dequeue timeout value",
+      "sha256": "9ff153d1c6299f3ef69456e6b777236497df9a87683f125d287017317a9a954e",
+      "whole_file": false
+    },
+    "request-lifecycle/stopping/uvc-ready": {
+      "commit": "adfa719f8ed67d18fd8a0739fc088a1f8b9e7252",
+      "selector": {
+        "id": "uvc-ready",
+        "file": "src/libcamera/pipeline/uvcvideo/uvcvideo.cpp",
+        "start": "void UVCCameraData::imageBufferReady(FrameBuffer *buffer)",
+        "end": "REGISTER_PIPELINE_HANDLER"
+      },
+      "status": "available",
+      "file": "src/libcamera/pipeline/uvcvideo/uvcvideo.cpp",
+      "line": 893,
+      "end_line": 905,
+      "text": "void UVCCameraData::imageBufferReady(FrameBuffer *buffer)\n{\n\tRequest *request = buffer->request();\n\n\t/* \\todo Use the UVC metadata to calculate a more precise timestamp */\n\trequest->_d()->metadata().set(controls::SensorTimestamp,\n\t\t\t\t      buffer->metadata().timestamp);\n\n\tpipe()->completeBuffer(request, buffer);\n\tpipe()->completeRequest(request);\n}\n\nREGISTER_PIPELINE_HANDLER",
+      "sha256": "06b7f1bab454d0e7271e6f145d0d1807416e4a44ef4f17b8ca2dc5c5266b4343",
+      "whole_file": false
+    },
+    "request-lifecycle/stopping/uvc-signal": {
+      "commit": "adfa719f8ed67d18fd8a0739fc088a1f8b9e7252",
+      "selector": {
+        "id": "uvc-signal",
+        "file": "src/libcamera/pipeline/uvcvideo/uvcvideo.cpp",
+        "start": "video_->bufferReady.connect(this, &UVCCameraData::imageBufferReady);",
+        "end": "/* Generate the camera ID. */"
+      },
+      "status": "available",
+      "file": "src/libcamera/pipeline/uvcvideo/uvcvideo.cpp",
+      "line": 535,
+      "end_line": 537,
+      "text": "video_->bufferReady.connect(this, &UVCCameraData::imageBufferReady);\n\n\t/* Generate the camera ID. */",
+      "sha256": "191e90296f7e7b99ab596be4720ec7fe1d44a882b4955e7a55bb23f822e331b1",
+      "whole_file": false
+    },
+    "request-lifecycle/stopping/uvc-stop-implementation": {
+      "commit": "adfa719f8ed67d18fd8a0739fc088a1f8b9e7252",
+      "selector": {
+        "id": "uvc-stop-implementation",
+        "file": "src/libcamera/pipeline/uvcvideo/uvcvideo.cpp",
+        "start": "void PipelineHandlerUVC::stopDevice(Camera *camera)",
+        "end": "int PipelineHandlerUVC::processControl("
+      },
+      "status": "available",
+      "file": "src/libcamera/pipeline/uvcvideo/uvcvideo.cpp",
+      "line": 320,
+      "end_line": 327,
+      "text": "void PipelineHandlerUVC::stopDevice(Camera *camera)\n{\n\tUVCCameraData *data = cameraData(camera);\n\tdata->video_->streamOff();\n\tdata->video_->releaseBuffers();\n}\n\nint PipelineHandlerUVC::processControl(",
+      "sha256": "971783f2897a5dd1f91787a28332f2603720ad6144c039c0deb2fd5463e087b2",
+      "whole_file": false
+    },
+    "request-lifecycle/stopping/waiting-completion": {
+      "commit": "adfa719f8ed67d18fd8a0739fc088a1f8b9e7252",
+      "selector": {
+        "id": "waiting-completion",
+        "file": "src/libcamera/pipeline_handler.cpp",
+        "start": "void PipelineHandler::doQueueRequest(Request *request)",
+        "end": "\\brief Queue prepared requests to the device"
+      },
+      "status": "available",
+      "file": "src/libcamera/pipeline_handler.cpp",
+      "line": 483,
+      "end_line": 504,
+      "text": "void PipelineHandler::doQueueRequest(Request *request)\n{\n\tLIBCAMERA_TRACEPOINT(request_device_queue, request);\n\n\tCamera *camera = request->_d()->camera();\n\tCamera::Private *data = camera->_d();\n\tdata->queuedRequests_.push_back(request);\n\n\trequest->_d()->sequence_ = data->requestSequence_++;\n\n\tif (request->_d()->cancelled_) {\n\t\tcompleteRequest(request);\n\t\treturn;\n\t}\n\n\tint ret = queueRequestDevice(camera, request);\n\tif (ret)\n\t\tcancelRequest(request);\n}\n\n/**\n * \\brief Queue prepared requests to the device",
+      "sha256": "6c0fefadbc69b9bb9371953979a07a38024dc18cb648266d81168f15d8e9e4fb",
+      "whole_file": false
+    }
+  }
+}

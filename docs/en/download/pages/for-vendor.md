@@ -9,9 +9,62 @@ Applications use the common Camera API to configure devices and capture images. 
 
 ## Items to check on the device
 
-On the target device, test normal capture and stopping with incomplete requests separately. For each submission, record the number of completion callbacks, the request status, and the status of each buffer. Determine separately whether the request was canceled and whether capture succeeded for each frame. Check [Contract and evidence for completion notification after stopping](https://ttolsun.github.io/libcamera-sdd/en/request-flow.html#stop-and-disconnect).
+First, test normal capture on your target device. In a separate test, stop capture while requests are still pending. For each request you submit, count its completion callbacks and record that count along with the request status and the status of each buffer. Check whether the request was canceled. Then check each frame to see whether it was captured successfully. See [what completion notifications to expect after capture stops and why](https://ttolsun.github.io/libcamera-sdd/en/request-flow.html#stop-and-disconnect).
 
 Compare [Benefits of adopting a common API](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/vendor-overview.html#%EC%9E%A5%EC%B9%98-%EA%B5%AC%ED%98%84%EC%9E%90%EA%B0%80-%EA%B3%B5%ED%86%B5-%EA%B3%84%EC%B8%B5%EC%97%90%EC%84%9C-%EC%96%BB%EB%8A%94-%EA%B2%83) and [Hardware and build conditions](https://ttolsun.github.io/libcamera-sdd/en/features-and-support.html#platform-support), then check the device-specific implementation responsibilities in [Integration guide](https://ttolsun.github.io/libcamera-sdd/en/device-integration.html). [Support scope and validation](https://ttolsun.github.io/libcamera-sdd/en/features-and-support.html) covers the first capture on a customer board, configuration constraints, and performance evidence.
+
+### Test first capture and stopping on the target board
+
+```mermaid
+flowchart TB
+
+  v_app-stop["App calls Camera::stop#40;#41;"]
+  v_request-result["cancelled#95; selects <br/>RequestCancelled or <br/>RequestComplete"]
+  v_camera-notify["Camera API: emit <br/>requestCompleted in Running <br/>or Stopping"]
+  v_app-result["App checks request status <br/>and whether each buffer <br/>reports FrameSuccess"]
+  v_vendor-board["Plan two tests on the <br/>target board"]
+  v_vendor-capture["First test: capture <br/>normally and check the <br/>frame result"]
+  v_vendor-pending["Second test: leave a <br/>request incomplete"]
+  v_vendor-record["For each submission, record <br/>the received callback count <br/>#40;zero if none observed#41;, <br/>the observed request <br/>status, and each buffer’s <br/>observed status"]
+  v_vendor-board -->|"First test"| v_vendor-capture
+  v_vendor-board -->|"Second test"| v_vendor-pending
+  v_vendor-capture -->|"Record results per <br/>submission"| v_vendor-record
+  v_vendor-pending -->|"Call stop"| v_app-stop
+  v_app-stop -->|"Record results per <br/>submission"| v_vendor-record
+  v_camera-notify -->|"Count callbacks if received"| v_vendor-record
+  v_vendor-record -->|"Judge cancellation from <br/>observed request status"| v_request-result
+  v_vendor-record -->|"Check buffer statuses"| v_app-result
+```
+
+[Mermaid source](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.stop-notification-boundary-vendor.mmd)
+
+<details open>
+<summary>Diagram evidence and verification scope</summary>
+
+How can we check normal capture and stopping with an incomplete request on the target board?
+
+Source-linked interpretation · automatic link check only · meaning and device execution not yet verified
+
+| Elements and transitions | Source evidence |
+| --- | --- |
+| App calls Camera::stop() | [src/libcamera/camera.cpp:1431](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-e09324743def3f09) |
+| cancelled\_ selects RequestCancelled or RequestComplete | [src/libcamera/request.cpp:103](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-db7f21585c4c2708) |
+| Camera API: emit requestCompleted in Running or Stopping | [src/libcamera/camera.cpp:1481](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-d53c87090347ce81) |
+| App checks request status and whether each buffer reports FrameSuccess | [src/libcamera/camera.cpp:1481](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-d53c87090347ce81) · [src/libcamera/request.cpp:103](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-db7f21585c4c2708) · [src/libcamera/framebuffer.cpp:40](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-50aa8a55cc04062e) |
+| Plan two tests on the target board | [src/libcamera/camera.cpp:1431](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-e09324743def3f09) · [src/libcamera/framebuffer.cpp:40](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-50aa8a55cc04062e) |
+| First test: capture normally and check the frame result | [src/libcamera/framebuffer.cpp:40](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-50aa8a55cc04062e) · [src/libcamera/camera.cpp:1481](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-d53c87090347ce81) |
+| Second test: leave a request incomplete | [src/libcamera/camera.cpp:1431](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-e09324743def3f09) · [src/libcamera/pipeline_handler.cpp:359](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-eefd1bbecb1aad0a) |
+| For each submission, record the received callback count (zero if none observed), the observed request status, and each buffer’s observed status | [src/libcamera/camera.cpp:1481](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-d53c87090347ce81) · [src/libcamera/request.cpp:103](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-db7f21585c4c2708) · [src/libcamera/framebuffer.cpp:40](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-50aa8a55cc04062e) |
+| First test | [src/libcamera/framebuffer.cpp:40](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-50aa8a55cc04062e) |
+| Second test | [src/libcamera/camera.cpp:1431](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-e09324743def3f09) · [src/libcamera/pipeline_handler.cpp:359](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-eefd1bbecb1aad0a) |
+| Record results per submission | [src/libcamera/camera.cpp:1481](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-d53c87090347ce81) · [src/libcamera/framebuffer.cpp:40](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-50aa8a55cc04062e) |
+| Call stop | [src/libcamera/camera.cpp:1431](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-e09324743def3f09) |
+| Record results per submission | [src/libcamera/camera.cpp:1431](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-e09324743def3f09) · [src/libcamera/camera.cpp:1481](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-d53c87090347ce81) |
+| Count callbacks if received | [src/libcamera/camera.cpp:1481](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-d53c87090347ce81) |
+| Judge cancellation from observed request status | [src/libcamera/request.cpp:103](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-db7f21585c4c2708) |
+| Check buffer statuses | [src/libcamera/request.cpp:103](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-db7f21585c4c2708) · [src/libcamera/framebuffer.cpp:40](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#source-50aa8a55cc04062e) |
+
+</details>
 
 ## Boundary between hardware and the common layer
 
