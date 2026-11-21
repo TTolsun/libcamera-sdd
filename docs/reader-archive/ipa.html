@@ -1,0 +1,2039 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IPA 관리와 구현 진입점 · libcamera 설계 문서</title><link rel="stylesheet" href="../assets/reading.css?v=dd3415510a"><meta name="robots" content="noindex"><link rel="alternate" hreflang="ko" href="ipa.html"><link rel="alternate" hreflang="en" href="../en/reader-archive/ipa.html"></head>
+<body><a class="skip" href="#main">본문으로 이동</a>
+<header class="site-header"><a class="brand" href="../index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera 설계 문서</a>
+<div class="header-actions"><details class="language-selector"><summary aria-label="언어 선택">한국어 ▾</summary><nav><a lang="ko" hreflang="ko" href="ipa.html" aria-current="true">한국어</a><a lang="en" hreflang="en" href="../en/reader-archive/ipa.html">English</a></nav></details><button id="search-open" hidden>문서 찾기 <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>메뉴</button></div></header>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="문서 메뉴"></nav><p class="sidebar-note">코드에서 구조를 추출하고<br>근거와 함께 검토합니다.</p></aside>
+<main id="main"><p class="breadcrumb">For Vendor <span>/</span> IPA 관리와 구현 진입점</p><h1>IPA 관리와 구현 진입점</h1><div class="page-state"><span class="review-state">사람 검토 전</span><span>자동 검사 통과</span><span class="generation-method">작성: 추출한 구조와 모델이 쓴 초안</span><a class="state-help" href="#page-evidence">상태 설명 ↓</a></div>
+<p class="translation-note">이전 주소에서 연결하는 원본 자료 · <a href="../implementation.html">독자용 문서로 이동</a></p><article><p><strong>IPA 모듈 선택, 스레드·프로세스 경계와 요청·결과 인터페이스를 구현 근거로 확인하세요.</strong></p><details class="note scope-notices">
+<summary>설계 질문과 검증 범위</summary>
+<p>질문별 답변과 근거 연결을 검사했습니다. 의미와 실행 결과는 사람 검토가 필요합니다.</p>
+<ul class="coverage-links"><li><p>어떤 IPA 모듈과 실행 방식이 선택됩니까?</p><p><a href="#모듈-탐색과-격리-조건">모듈 탐색과 격리 조건</a></p></li><li><p>동기 호출과 비동기 호출은 어디에서 실행됩니까?</p><p><a href="#스레드와-프로세스-경계">스레드와 프로세스 경계</a></p></li><li><p>파이프라인과 알고리즘은 어떤 입력과 결과를 주고받습니까?</p><p><a href="../implementation.html#ipa-frame-interface">프레임 입력과 결과 인터페이스</a></p></li><li><p>인터페이스를 만들고 비동기 처리를 끝내는 계약은 무엇입니까?</p><p><a href="#ipa-객체와-종료-순서">IPA 객체와 종료 순서</a></p></li><li><p>모듈 생성과 IPC 오류는 어떻게 관찰됩니까?</p><p><a href="#생성과-ipc-실패">생성과 IPC 실패</a></p></li></ul><p><span>확인 범위</span>: <span>코드 근거와 설명 연결</span></p>
+</details>
+<details class="page-terms">
+<summary>이 문서의 용어: IPA, IPC, 튜닝 파일, 소프트웨어 ISP 외 6개</summary>
+<ul>
+<li><strong>IPA</strong> (Image Processing Algorithms): 화질 알고리즘을 담은 별도 모듈(.so)입니다. ISP가 보낸 통계를 보고 다음 프레임에 쓸 ISP 설정값을 계산합니다. 제조사가 소스를 공개하지 않고 제공할 수 있도록 libcamera 본체와 분리되어 있습니다.</li>
+<li><strong>IPC</strong> (Inter-Process Communication): 서로 다른 프로세스가 메시지를 주고받는 방식입니다. 서명이 없는 IPA 모듈은 별도 프로세스에서 실행되므로 libcamera가 IPC로 호출합니다.</li>
+<li><strong>튜닝 파일</strong>: 센서와 플랫폼별 알고리즘 매개변수(보정 표, 색 행렬 등)를 담은 YAML 파일입니다. IPA가 시작할 때 읽습니다.</li>
+<li><strong>소프트웨어 ISP</strong>: 하드웨어 ISP가 없는 장치에서 CPU나 GPU로 ISP 처리를 대신하는 libcamera 구성 요소입니다. 소스에서는 software_isp, softisp라는 이름을 씁니다.</li>
+<li><strong>ISP</strong> (Image Signal Processor): 센서가 출력한 원시(bayer) 데이터를 화면에 쓸 수 있는 영상으로 바꾸는 처리 장치입니다. 블랙 레벨 보정, 렌즈 음영 보정, 화이트 밸런스, 디베이어 등을 수행합니다.</li>
+<li><strong>셰이더</strong>: GPU에서 실행되는 작은 프로그램입니다. 소프트웨어 ISP는 디베이어와 색 보정을 GPU 셰이더로 수행할 수 있습니다.</li>
+<li><strong>LSC</strong> (Lens Shading Correction): 렌즈 특성 때문에 영상 가장자리가 중앙보다 어둡거나 색이 틀어지는 현상(렌즈 음영)을 보정하는 처리입니다. 화면을 격자로 나눈 보정 표를 곱해서 적용합니다.</li>
+<li><strong>프록시</strong>: IPA 모듈을 직접 부르지 않고, 같은 인터페이스로 호출을 받아 IPA 스레드나 별도 프로세스로 전달하는 대리 객체입니다. 빌드할 때 mojom 정의에서 자동 생성됩니다.</li>
+<li><strong>RKISP1</strong> (Rockchip Image Signal Processor 1): Rockchip SoC와 NXP i.MX8MP 등에 들어 있는 카메라 ISP입니다. libcamera에는 이 장치용 Pipeline Handler와 IPA가 있습니다.</li>
+<li><strong>IPU3</strong> (Intel Image Processing Unit 3): 일부 Intel 노트북 프로세서에 들어 있는 카메라 ISP입니다. libcamera에는 이 장치용 Pipeline Handler와 IPA가 있습니다.</li>
+</ul>
+<p>다른 용어는 <a href="../glossary.html">용어집</a>에서 찾을 수 있습니다.</p>
+</details>
+<div class="previous-route" id="보정-전-튜닝-파일"><p>이전 링크의 목적지</p><a href="ipa-algorithms.html#%EB%B3%B4%EC%A0%95-%EC%A0%84-%ED%8A%9C%EB%8B%9D-%ED%8C%8C%EC%9D%BC">IPA 튜닝과 소프트웨어 ISP</a></div>
+<div class="previous-route" id="소프트웨어-isp-입력-버퍼의-텍스처-형식"><p>이전 링크의 목적지</p><a href="ipa-algorithms.html#%EC%86%8C%ED%94%84%ED%8A%B8%EC%9B%A8%EC%96%B4-isp-%EC%9E%85%EB%A0%A5-%EB%B2%84%ED%8D%BC%EC%9D%98-%ED%85%8D%EC%8A%A4%EC%B2%98-%ED%98%95%EC%8B%9D">IPA 튜닝과 소프트웨어 ISP</a></div>
+<div class="previous-route" id="소프트웨어-isp-셰이더의-렌즈-음영-보정"><p>이전 링크의 목적지</p><a href="ipa-algorithms.html#%EC%86%8C%ED%94%84%ED%8A%B8%EC%9B%A8%EC%96%B4-isp-%EC%85%B0%EC%9D%B4%EB%8D%94%EC%9D%98-%EB%A0%8C%EC%A6%88-%EC%9D%8C%EC%98%81-%EB%B3%B4%EC%A0%95">IPA 튜닝과 소프트웨어 ISP</a></div>
+<h2 id="모듈-탐색과-격리-조건">모듈 탐색과 격리 조건</h2>
+<p data-sdd-evidence='[["src/libcamera/ipa_manager.cpp:107", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_manager.cpp#L107\"><code>src/libcamera/ipa_manager.cpp:107</code></a>"]]' data-sdd-excerpts='{"src/libcamera/ipa_manager.cpp:107": ["#source-7603cbafe8eef490"]}'><code>IPAManager::IPAManager</code>는 사용자가 지정한 <code>ipa.module_paths</code>를 우선 검색하며, 빈 경로는 건너뛰고 나머지 경로마다 <code>addDir()</code>을 호출합니다. 지정된 경로 목록이 비어 있지 않지만 IPA를 하나도 찾지 못하면 경고를 기록합니다. 이어서 <code>utils::libcameraBuildPath()</code>가 빈 문자열이 아니면 그 경로에 <code>src/ipa</code>를 붙여 최대 깊이 2로 <code>addDir()</code>을 호출합니다. 마지막으로 설치된 시스템 경로 <code>IPA_MODULE_DIR</code>에 <code>addDir()</code>을 호출하고, 전체 검색에서 IPA를 하나도 찾지 못하면 경고를 기록합니다.</p>
+<!-- sdd:visual:proxy-selection -->
+<h3 id="ipa-모듈-선택과-실행-경계">IPA 모듈 선택과 실행 경계</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"Isolated 프록시": "Isolated proxy", "Threaded 프록시": "Threaded proxy", "false": "false", "isSignatureValid#40;m#41;?": "isSignatureValid#40;m#41;?", "nullptr: 생성 실패": "nullptr: creation failed", "true": "true", "생성 후 검사": "Check after construction", "아니오": "No", "예": "Yes", "이름·버전의 모듈이 있는가?": "Module matching name and &lt;br/&gt;version?", "프록시 반환": "Return proxy", "프록시가 유효한가?": "Is the proxy valid?"}
+  v_module{"이름·버전의 모듈이 있는가?"}
+  v_signature{"isSignatureValid#40;m#41;?"}
+  v_threaded["Threaded 프록시"]
+  v_isolated["Isolated 프록시"]
+  v_valid{"프록시가 유효한가?"}
+  v_failure["nullptr: 생성 실패"]
+  v_success["프록시 반환"]
+  v_module --&gt;|"아니오"| v_failure
+  v_module --&gt;|"예"| v_signature
+  v_signature --&gt;|"true"| v_threaded
+  v_signature --&gt;|"false"| v_isolated
+  v_threaded --&gt;|"생성 후 검사"| v_valid
+  v_isolated --&gt;|"생성 후 검사"| v_valid
+  v_valid --&gt;|"아니오"| v_failure
+  v_valid --&gt;|"예"| v_success</pre>
+<p><a href="../ipa.proxy-selection.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>모듈 선택, 서명 판정, 프록시 유효성의 분기를 구분하세요. 서명 판정의 구성 조건은 이어지는 설명에서 확인합니다.</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Module matching name and version?">이름·버전의 모듈이 있는가?</span></td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="isSignatureValid(m)?">isSignatureValid(m)?</span></td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Threaded proxy">Threaded 프록시</span></td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Isolated proxy">Isolated 프록시</span></td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is the proxy valid?">프록시가 유효한가?</span></td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="nullptr: creation failed">nullptr: 생성 실패</span></td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return proxy">프록시 반환</span></td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No">아니오</span></td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes">예</span></td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="true">true</span></td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="false">false</span></td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check after construction">생성 후 검사</span></td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check after construction">생성 후 검사</span></td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No">아니오</span></td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes">예</span></td>
+<td><a href="#source-2a1bbbc8623a516f">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:proxy-selection -->
+
+<p data-sdd-evidence='[["src/libcamera/ipa_module.cpp:460", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_module.cpp#L460\"><code>src/libcamera/ipa_module.cpp:460</code></a>"]]' data-sdd-excerpts='{"src/libcamera/ipa_module.cpp:460": ["#source-6e1525c1fc1aa55e"]}'><code>IPAModule::match</code>는 <code>info_.pipelineVersion</code>이 <code>minVersion</code> 이상이고 <code>maxVersion</code> 이하이며, <code>info_.name</code>과 <code>name</code>을 비교한 <code>strcmp</code>의 결과가 0이면 <code>true</code>를 반환합니다. 이 조건 중 하나라도 만족하지 않으면 <code>false</code>를 반환합니다.</p>
+<p data-sdd-evidence='[["include/libcamera/internal/ipa_manager.h:35", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/ipa_manager.h#L35\"><code>include/libcamera/internal/ipa_manager.h:35</code></a>"]]' data-sdd-excerpts='{"include/libcamera/internal/ipa_manager.h:35": ["#source-2a1bbbc8623a516f"]}'><code>createIPA</code>는 먼저 <code>module(name, minVersion, maxVersion)</code>으로 모듈을 검색하고, 모듈이 없으면 <code>nullptr</code>을 반환합니다. 모듈이 있으면 <code>isSignatureValid(m)</code>이 참일 때 <code>T::Threaded</code> 프록시를, 거짓일 때 <code>T::Isolated</code> 프록시를 생성합니다. 생성한 프록시의 <code>isValid()</code>가 거짓이면 오류를 기록하고 <code>nullptr</code>을 반환하며, 참이면 프록시를 반환합니다.</p>
+<p data-sdd-evidence='[["src/libcamera/ipa_manager.cpp:289", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_manager.cpp#L289\"><code>src/libcamera/ipa_manager.cpp:289</code></a>"]]' data-sdd-excerpts='{"src/libcamera/ipa_manager.cpp:289": ["#source-532f8ffa194bd319"]}'><code>IPAManager::isSignatureValid</code>는 <code>HAVE_IPA_PUBKEY</code>가 활성화되지 않으면 <code>false</code>를 반환합니다. 활성화된 경우 <code>forceIsolation_</code>이 참이면 <code>false</code>를 반환하고, 그렇지 않으면 IPA 모듈 파일을 읽기 전용으로 엽니다. 파일을 열지 못하거나 파일 매핑 결과가 비어 있으면 <code>false</code>를 반환합니다. 두 단계를 통과하면 매핑된 데이터와 IPA 서명을 <code>pubKey_.verify</code>에 전달하고, 검사 결과를 로그에 기록한 뒤 그 결과를 반환합니다.</p>
+
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>4</span>개</summary><ul><li><code>src/libcamera/ipa_manager.cpp</code><span class="evidence-lines"><a href="#source-7603cbafe8eef490" aria-label="src/libcamera/ipa_manager.cpp:107 발췌"><code>L107</code> 발췌</a> · <a aria-label="src/libcamera/ipa_manager.cpp:107" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_manager.cpp#L107">전체 소스 <code>L107</code></a> · <a href="#source-532f8ffa194bd319" aria-label="src/libcamera/ipa_manager.cpp:289 발췌"><code>L289</code> 발췌</a> · <a aria-label="src/libcamera/ipa_manager.cpp:289" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_manager.cpp#L289">전체 소스 <code>L289</code></a></span></li><li><code>src/libcamera/ipa_module.cpp</code><span class="evidence-lines"><a href="#source-6e1525c1fc1aa55e" aria-label="src/libcamera/ipa_module.cpp:460 발췌"><code>L460</code> 발췌</a> · <a aria-label="src/libcamera/ipa_module.cpp:460" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_module.cpp#L460">전체 소스 <code>L460</code></a></span></li><li><code>include/libcamera/internal/ipa_manager.h</code><span class="evidence-lines"><a href="#source-2a1bbbc8623a516f" aria-label="include/libcamera/internal/ipa_manager.h:35 발췌"><code>L35</code> 발췌</a> · <a aria-label="include/libcamera/internal/ipa_manager.h:35" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/ipa_manager.h#L35">전체 소스 <code>L35</code></a></span></li></ul></details><h2 id="스레드와-프로세스-경계">스레드와 프로세스 경계</h2>
+<p data-sdd-evidence='[["utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:82", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L82\"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:82</code></a>"]]' data-sdd-excerpts='{"utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:82": ["#source-9d9c3049e90e4238"]}'>Threaded <code>init</code> 템플릿은 전달된 매개변수로 <code>ipa_-&gt;init()</code>을 직접 호출합니다. 반환형이 <code>void</code>가 아니면 호출 결과를 <code>_ret</code>에 저장하고 반환하며, <code>void</code>이면 값을 반환하지 않습니다. <code>init</code> 분기에서는 IPA 메서드를 호출한 뒤 <code>proxy_.moveToThread</code>에 스레드 객체 <code>thread_</code>의 주소를 전달합니다.</p>
+<!-- sdd:visual:threaded-init-start -->
+<h3 id="threaded-init와-start의-호출-맥락">Threaded init와 start의 호출 맥락</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"Threaded 템플릿은 &lt;br/&gt;인터페이스에 해당 메서드가 &lt;br/&gt;있으면 init과 start를 &lt;br/&gt;각각의 분기로 생성합니다.": "The Threaded template &lt;br/&gt;generates separate init and &lt;br/&gt;start branches when those &lt;br/&gt;methods exist in the &lt;br/&gt;interface.", "init은 ipa#95;의 init 메서드를 &lt;br/&gt;직접 호출합니다.": "init directly calls the &lt;br/&gt;init method on ipa#95;.", "invokeMethod가 정상 &lt;br/&gt;복귀하면 그 결과를 &lt;br/&gt;반환합니다.": "It returns the result after &lt;br/&gt;invokeMethod returns &lt;br/&gt;normally.", "proxy#95;.moveToThread#40;#38;thread#95;&lt;br/&gt;#41;를 호출합니다.": "Call &lt;br/&gt;proxy#95;.moveToThread#40;#38;thread#95;&lt;br/&gt;#41;.", "proxy#95;의 invokeMethod가 &lt;br/&gt;ThreadProxy::start를 &lt;br/&gt;ConnectionTypeBlocking으로 &lt;br/&gt;호출합니다.": "invokeMethod on proxy#95; &lt;br/&gt;calls ThreadProxy::start &lt;br/&gt;with ConnectionTypeBlocking.", "start는 invokeMethod의 &lt;br/&gt;결과를 반환합니다.": "start returns the result of &lt;br/&gt;invokeMethod.", "start는 state#95;에 &lt;br/&gt;ProxyRunning을 저장합니다.": "start stores ProxyRunning &lt;br/&gt;in state#95;.", "start는 먼저 상태를 &lt;br/&gt;저장합니다.": "start first stores the &lt;br/&gt;state.", "start는 별도의 시작 경로를 &lt;br/&gt;실행합니다.": "start runs a separate &lt;br/&gt;startup path.", "thread#95;.start#40;#41;를 &lt;br/&gt;호출합니다.": "Call thread#95;.start#40;#41;.", "thread#95;.start가 정상 &lt;br/&gt;복귀하면 Blocking 호출을 &lt;br/&gt;수행합니다.": "After thread#95;.start returns &lt;br/&gt;normally, it makes the &lt;br/&gt;Blocking call.", "반환형이 void가 아니면 직접 &lt;br/&gt;호출한 결과를 반환하고, &lt;br/&gt;void이면 값 없이 반환합니다.": "It returns the direct call &lt;br/&gt;result for a non-void &lt;br/&gt;return type, or returns &lt;br/&gt;without a value for void.", "상태를 저장한 뒤 호출합니다.": "Make the call after storing &lt;br/&gt;the state.", "이동 호출이 정상 복귀하면 &lt;br/&gt;반환합니다.": "It returns after the move &lt;br/&gt;call returns normally.", "직접 호출이 정상 복귀하면 &lt;br/&gt;다음 호출로 이어집니다.": "Continue after the direct &lt;br/&gt;call returns normally.", "해당 메서드가 있으면 init &lt;br/&gt;분기를 생성합니다.": "It generates the init &lt;br/&gt;branch when the method &lt;br/&gt;exists.", "해당 메서드가 있으면 start &lt;br/&gt;분기를 생성합니다.": "It generates the start &lt;br/&gt;branch when the method &lt;br/&gt;exists."}
+  v_threaded["Threaded 템플릿은 &lt;br/&gt;인터페이스에 해당 메서드가 &lt;br/&gt;있으면 init과 start를 &lt;br/&gt;각각의 분기로 생성합니다."]
+  v_init["init은 ipa#95;의 init 메서드를 &lt;br/&gt;직접 호출합니다."]
+  v_move["proxy#95;.moveToThread#40;#38;thread#95;&lt;br/&gt;#41;를 호출합니다."]
+  v_init_return["반환형이 void가 아니면 직접 &lt;br/&gt;호출한 결과를 반환하고, &lt;br/&gt;void이면 값 없이 반환합니다."]
+  v_start["start는 별도의 시작 경로를 &lt;br/&gt;실행합니다."]
+  v_state["start는 state#95;에 &lt;br/&gt;ProxyRunning을 저장합니다."]
+  v_thread["thread#95;.start#40;#41;를 &lt;br/&gt;호출합니다."]
+  v_invoke["proxy#95;의 invokeMethod가 &lt;br/&gt;ThreadProxy::start를 &lt;br/&gt;ConnectionTypeBlocking으로 &lt;br/&gt;호출합니다."]
+  v_start_return["start는 invokeMethod의 &lt;br/&gt;결과를 반환합니다."]
+  v_threaded --&gt;|"해당 메서드가 있으면 init &lt;br/&gt;분기를 생성합니다."| v_init
+  v_threaded --&gt;|"해당 메서드가 있으면 start &lt;br/&gt;분기를 생성합니다."| v_start
+  v_init --&gt;|"직접 호출이 정상 복귀하면 &lt;br/&gt;다음 호출로 이어집니다."| v_move
+  v_move --&gt;|"이동 호출이 정상 복귀하면 &lt;br/&gt;반환합니다."| v_init_return
+  v_start --&gt;|"start는 먼저 상태를 &lt;br/&gt;저장합니다."| v_state
+  v_state --&gt;|"상태를 저장한 뒤 호출합니다."| v_thread
+  v_thread --&gt;|"thread#95;.start가 정상 &lt;br/&gt;복귀하면 Blocking 호출을 &lt;br/&gt;수행합니다."| v_invoke
+  v_invoke --&gt;|"invokeMethod가 정상 &lt;br/&gt;복귀하면 그 결과를 &lt;br/&gt;반환합니다."| v_start_return</pre>
+<p><a href="../ipa.threaded-init-start.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>Threaded init와 start는 각각 직접 호출·스레드 이동·작업 스레드 시작·Blocking 호출과 반환을 어떻게 구성합니까?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="The Threaded template generates separate init and start branches when those methods exist in the interface.">Threaded 템플릿은 인터페이스에 해당 메서드가 있으면 init과 start를 각각의 분기로 생성합니다.</span></td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="init directly calls the init method on ipa_.">init은 ipa_의 init 메서드를 직접 호출합니다.</span></td>
+<td><a href="#source-9d9c3049e90e4238">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:82</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call proxy_.moveToThread(&amp;thread_).">proxy_.moveToThread(&amp;thread_)를 호출합니다.</span></td>
+<td><a href="#source-9d9c3049e90e4238">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:82</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It returns the direct call result for a non-void return type, or returns without a value for void.">반환형이 void가 아니면 직접 호출한 결과를 반환하고, void이면 값 없이 반환합니다.</span></td>
+<td><a href="#source-9d9c3049e90e4238">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:82</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="start runs a separate startup path.">start는 별도의 시작 경로를 실행합니다.</span></td>
+<td><a href="#source-7670edf527118b0e">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:93</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="start stores ProxyRunning in state_.">start는 state_에 ProxyRunning을 저장합니다.</span></td>
+<td><a href="#source-7670edf527118b0e">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:93</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call thread_.start().">thread_.start()를 호출합니다.</span></td>
+<td><a href="#source-7670edf527118b0e">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:93</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="invokeMethod on proxy_ calls ThreadProxy::start with ConnectionTypeBlocking.">proxy_의 invokeMethod가 ThreadProxy::start를 ConnectionTypeBlocking으로 호출합니다.</span></td>
+<td><a href="#source-7670edf527118b0e">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:93</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="start returns the result of invokeMethod.">start는 invokeMethod의 결과를 반환합니다.</span></td>
+<td><a href="#source-7670edf527118b0e">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:93</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It generates the init branch when the method exists.">해당 메서드가 있으면 init 분기를 생성합니다.</span></td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a> · <a href="#source-9d9c3049e90e4238">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:82</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It generates the start branch when the method exists.">해당 메서드가 있으면 start 분기를 생성합니다.</span></td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a> · <a href="#source-7670edf527118b0e">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:93</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Continue after the direct call returns normally.">직접 호출이 정상 복귀하면 다음 호출로 이어집니다.</span></td>
+<td><a href="#source-9d9c3049e90e4238">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:82</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It returns after the move call returns normally.">이동 호출이 정상 복귀하면 반환합니다.</span></td>
+<td><a href="#source-9d9c3049e90e4238">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:82</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="start first stores the state.">start는 먼저 상태를 저장합니다.</span></td>
+<td><a href="#source-7670edf527118b0e">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:93</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Make the call after storing the state.">상태를 저장한 뒤 호출합니다.</span></td>
+<td><a href="#source-7670edf527118b0e">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:93</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After thread_.start returns normally, it makes the Blocking call.">thread_.start가 정상 복귀하면 Blocking 호출을 수행합니다.</span></td>
+<td><a href="#source-7670edf527118b0e">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:93</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It returns the result after invokeMethod returns normally.">invokeMethod가 정상 복귀하면 그 결과를 반환합니다.</span></td>
+<td><a href="#source-7670edf527118b0e">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:93</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:threaded-init-start -->
+
+<!-- sdd:visual:interface-creation-outcomes -->
+<h3 id="threaded-생성자의-인터페이스-유지">Threaded 생성자의 인터페이스 유지</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"ipa#95;가 변환한 인터페이스를 &lt;br/&gt;std::unique#95;ptr로 &lt;br/&gt;소유합니다.": "ipa#95; owns the cast &lt;br/&gt;interface through a &lt;br/&gt;std::unique#95;ptr.", "setIPA가 정상적으로 &lt;br/&gt;반환하면 각 이벤트를 &lt;br/&gt;연결합니다.": "After setIPA returns &lt;br/&gt;normally, the constructor &lt;br/&gt;connects each event.", "생성자가 createInterface를 &lt;br/&gt;호출하고 ipai를 확인합니다.": "The constructor calls &lt;br/&gt;createInterface and checks &lt;br/&gt;ipai.", "생성자가 ipa#95;.get#40;#41;의 &lt;br/&gt;포인터를 proxy#95;.setIPA에 &lt;br/&gt;넘깁니다.": "The constructor passes the &lt;br/&gt;pointer from ipa#95;.get#40;#41; to &lt;br/&gt;proxy#95;.setIPA.", "생성자가 ipam의 load를 &lt;br/&gt;호출하고 결과를 확인합니다.": "The constructor calls load &lt;br/&gt;on ipam and checks the &lt;br/&gt;result.", "생성자가 valid#95;에 true를 &lt;br/&gt;저장하고 정상적으로 &lt;br/&gt;마칩니다.": "The constructor stores true &lt;br/&gt;in valid#95; and finishes &lt;br/&gt;normally.", "생성자가 각 인터페이스 &lt;br/&gt;이벤트를 this의 해당 &lt;br/&gt;Handler에 connect로 &lt;br/&gt;연결합니다.": "The constructor uses &lt;br/&gt;connect to link each &lt;br/&gt;interface event to its &lt;br/&gt;corresponding Handler on &lt;br/&gt;this.", "생성자가 오류를 기록하고 &lt;br/&gt;반환합니다.": "The constructor logs an &lt;br/&gt;error and returns.", "생성자가 즉시 반환합니다.": "The constructor returns &lt;br/&gt;immediately.", "소유한 인터페이스의 &lt;br/&gt;포인터를 setIPA에 넘깁니다.": "The constructor passes a &lt;br/&gt;pointer to the owned &lt;br/&gt;interface to setIPA.", "이벤트 연결을 마치면 &lt;br/&gt;valid#95;에 true를 저장합니다.": "After connecting the &lt;br/&gt;events, the constructor &lt;br/&gt;stores true in valid#95;.", "조건이 거짓이면 &lt;br/&gt;createInterface를 &lt;br/&gt;호출합니다. · #33;ipam-#62;load#40;#41; &lt;br/&gt;#91;false#93;": "If the condition is false, &lt;br/&gt;the constructor calls &lt;br/&gt;createInterface. · &lt;br/&gt;#33;ipam-#62;load#40;#41; #91;false#93;", "조건이 거짓이면 ipa#95;가 &lt;br/&gt;인터페이스를 소유합니다. · &lt;br/&gt;#33;ipai #91;false#93;": "If the condition is false, &lt;br/&gt;ipa#95; owns the interface. · &lt;br/&gt;#33;ipai #91;false#93;", "조건이 참이면 오류를 &lt;br/&gt;기록하고 반환합니다. · &lt;br/&gt;#33;ipai #91;true#93;": "If the condition is true, &lt;br/&gt;the constructor logs an &lt;br/&gt;error and returns. · #33;ipai &lt;br/&gt;#91;true#93;", "조건이 참이면 즉시 &lt;br/&gt;반환합니다. · #33;ipam-#62;load#40;#41; &lt;br/&gt;#91;true#93;": "If the condition is true, &lt;br/&gt;the constructor returns &lt;br/&gt;immediately. · &lt;br/&gt;#33;ipam-#62;load#40;#41; #91;true#93;"}
+  v_load{"생성자가 ipam의 load를 &lt;br/&gt;호출하고 결과를 확인합니다."}
+  v_load_return["생성자가 즉시 반환합니다."]
+  v_interface{"생성자가 createInterface를 &lt;br/&gt;호출하고 ipai를 확인합니다."}
+  v_error_return["생성자가 오류를 기록하고 &lt;br/&gt;반환합니다."]
+  v_own["ipa#95;가 변환한 인터페이스를 &lt;br/&gt;std::unique#95;ptr로 &lt;br/&gt;소유합니다."]
+  v_pointer["생성자가 ipa#95;.get#40;#41;의 &lt;br/&gt;포인터를 proxy#95;.setIPA에 &lt;br/&gt;넘깁니다."]
+  v_events["생성자가 각 인터페이스 &lt;br/&gt;이벤트를 this의 해당 &lt;br/&gt;Handler에 connect로 &lt;br/&gt;연결합니다."]
+  v_valid["생성자가 valid#95;에 true를 &lt;br/&gt;저장하고 정상적으로 &lt;br/&gt;마칩니다."]
+  v_load --&gt;|"조건이 참이면 즉시 &lt;br/&gt;반환합니다. · #33;ipam-#62;load#40;#41; &lt;br/&gt;#91;true#93;"| v_load_return
+  v_load --&gt;|"조건이 거짓이면 &lt;br/&gt;createInterface를 &lt;br/&gt;호출합니다. · #33;ipam-#62;load#40;#41; &lt;br/&gt;#91;false#93;"| v_interface
+  v_interface --&gt;|"조건이 참이면 오류를 &lt;br/&gt;기록하고 반환합니다. · &lt;br/&gt;#33;ipai #91;true#93;"| v_error_return
+  v_interface --&gt;|"조건이 거짓이면 ipa#95;가 &lt;br/&gt;인터페이스를 소유합니다. · &lt;br/&gt;#33;ipai #91;false#93;"| v_own
+  v_own --&gt;|"소유한 인터페이스의 &lt;br/&gt;포인터를 setIPA에 넘깁니다."| v_pointer
+  v_pointer --&gt;|"setIPA가 정상적으로 &lt;br/&gt;반환하면 각 이벤트를 &lt;br/&gt;연결합니다."| v_events
+  v_events --&gt;|"이벤트 연결을 마치면 &lt;br/&gt;valid#95;에 true를 저장합니다."| v_valid</pre>
+<p><a href="../ipa.interface-creation-outcomes.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>Threaded 생성자는 load와 createInterface 결과에 따라 언제 반환하며 인터페이스를 어떻게 보유·연결합니까?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<p>LLM 그림 초안 · 사람 검토 전</p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="The constructor calls load on ipam and checks the result.">생성자가 ipam의 load를 호출하고 결과를 확인합니다.</span></td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The constructor returns immediately.">생성자가 즉시 반환합니다.</span></td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The constructor calls createInterface and checks ipai.">생성자가 createInterface를 호출하고 ipai를 확인합니다.</span></td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The constructor logs an error and returns.">생성자가 오류를 기록하고 반환합니다.</span></td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="ipa_ owns the cast interface through a std::unique_ptr.">ipa_가 변환한 인터페이스를 std::unique_ptr로 소유합니다.</span></td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The constructor passes the pointer from ipa_.get() to proxy_.setIPA.">생성자가 ipa_.get()의 포인터를 proxy_.setIPA에 넘깁니다.</span></td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The constructor uses connect to link each interface event to its corresponding Handler on this.">생성자가 각 인터페이스 이벤트를 this의 해당 Handler에 connect로 연결합니다.</span></td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The constructor stores true in valid_ and finishes normally.">생성자가 valid_에 true를 저장하고 정상적으로 마칩니다.</span></td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is true, the constructor returns immediately. · !ipam->load() [true]">조건이 참이면 즉시 반환합니다. · !ipam-&gt;load() [true]</span></td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is false, the constructor calls createInterface. · !ipam->load() [false]">조건이 거짓이면 createInterface를 호출합니다. · !ipam-&gt;load() [false]</span></td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is true, the constructor logs an error and returns. · !ipai [true]">조건이 참이면 오류를 기록하고 반환합니다. · !ipai [true]</span></td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is false, ipa_ owns the interface. · !ipai [false]">조건이 거짓이면 ipa_가 인터페이스를 소유합니다. · !ipai [false]</span></td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The constructor passes a pointer to the owned interface to setIPA.">소유한 인터페이스의 포인터를 setIPA에 넘깁니다.</span></td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After setIPA returns normally, the constructor connects each event.">setIPA가 정상적으로 반환하면 각 이벤트를 연결합니다.</span></td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After connecting the events, the constructor stores true in valid_.">이벤트 연결을 마치면 valid_에 true를 저장합니다.</span></td>
+<td><a href="#source-c7fd6e52f2c537b5">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:interface-creation-outcomes -->
+
+<!-- sdd:visual:isolated-constructor-connection -->
+<h3 id="격리-ipa-프록시의-연결-분기와-ipc-소유권">격리 IPA 프록시의 연결 분기와 IPC 소유권</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"IPCPipeUnixSocket에 모듈 &lt;br/&gt;경로와 worker 경로를 &lt;br/&gt;전달합니다.": "Pass the module path and &lt;br/&gt;worker path to &lt;br/&gt;IPCPipeUnixSocket.", "IPCPipe를 만들지 못했다는 &lt;br/&gt;별도의 오류 로그를 남기고 &lt;br/&gt;반환합니다.": "Log a separate error for &lt;br/&gt;the failure to create &lt;br/&gt;IPCPipe and return.", "isConnected로 연결 여부를 &lt;br/&gt;검사합니다.": "Check the connection with &lt;br/&gt;isConnected.", "proxyWorkerPath가 비었는지 &lt;br/&gt;검사합니다.": "Check whether &lt;br/&gt;proxyWorkerPath is empty.", "recv.connect에 this와 &lt;br/&gt;#38;{{proxy#95;name}}Isolated::&lt;br/&gt;recvMessage를 연결합니다.": "Connect recv using this and &lt;br/&gt;#38;{{proxy#95;name}}Isolated::&lt;br/&gt;recvMessage.", "resolvePath에 &lt;br/&gt;#34;{{module#95;name}}#95;ipa#95;proxy#34;&lt;br/&gt;를 전달해 worker 경로를 &lt;br/&gt;찾습니다.": "Pass &lt;br/&gt;#34;{{module#95;name}}#95;ipa#95;proxy#34; &lt;br/&gt;to resolvePath to find the &lt;br/&gt;worker path.", "std::move#40;ipc#41;로 연결의 &lt;br/&gt;소유권을 ipc#95;에 옮깁니다.": "Transfer ownership of the &lt;br/&gt;connection to ipc#95; with &lt;br/&gt;std::move#40;ipc#41;.", "valid#95;에 true를 저장합니다.": "Store true in valid#95;.", "worker 경로를 찾지 못했다는 &lt;br/&gt;오류 로그를 남기고 &lt;br/&gt;반환합니다.": "Log the failure to get the &lt;br/&gt;worker path and return.", "경로가 비어 있으면 오류를 &lt;br/&gt;처리합니다. · &lt;br/&gt;proxyWorkerPath.empty#40;#41; &lt;br/&gt;#91;true#93;": "Handle the error if the &lt;br/&gt;path is empty. · &lt;br/&gt;proxyWorkerPath.empty#40;#41; &lt;br/&gt;#91;true#93;", "경로가 비어 있지 않으면 &lt;br/&gt;IPCPipeUnixSocket을 &lt;br/&gt;만듭니다. · &lt;br/&gt;proxyWorkerPath.empty#40;#41; &lt;br/&gt;#91;false#93;": "Create IPCPipeUnixSocket if &lt;br/&gt;the path is not empty. · &lt;br/&gt;proxyWorkerPath.empty#40;#41; &lt;br/&gt;#91;false#93;", "생성한 ipc의 연결 여부를 &lt;br/&gt;검사합니다.": "Check the connection of the &lt;br/&gt;created ipc.", "소유권을 옮긴 뒤 valid#95;를 &lt;br/&gt;설정합니다.": "Set valid#95; after &lt;br/&gt;transferring ownership.", "수신 핸들러를 연결한 뒤 &lt;br/&gt;소유권을 옮깁니다.": "Transfer ownership after &lt;br/&gt;connecting the receive &lt;br/&gt;handler.", "연결되지 않았으면 오류를 &lt;br/&gt;처리합니다. · &lt;br/&gt;#33;ipc-#62;isConnected#40;#41; #91;true#93;": "Handle the error if it is &lt;br/&gt;not connected. · &lt;br/&gt;#33;ipc-#62;isConnected#40;#41; #91;true#93;", "연결된 것으로 검사되면 수신 &lt;br/&gt;핸들러를 연결합니다. · &lt;br/&gt;#33;ipc-#62;isConnected#40;#41; #91;false#93;": "Connect the receive handler &lt;br/&gt;if the check reports a &lt;br/&gt;connection. · &lt;br/&gt;#33;ipc-#62;isConnected#40;#41; #91;false#93;", "찾은 경로를 검사합니다.": "Check the resolved path."}
+  v_resolve["resolvePath에 &lt;br/&gt;#34;{{module#95;name}}#95;ipa#95;proxy#34;&lt;br/&gt;를 전달해 worker 경로를 &lt;br/&gt;찾습니다."]
+  v_path_check{"proxyWorkerPath가 비었는지 &lt;br/&gt;검사합니다."}
+  v_path_failure["worker 경로를 찾지 못했다는 &lt;br/&gt;오류 로그를 남기고 &lt;br/&gt;반환합니다."]
+  v_create["IPCPipeUnixSocket에 모듈 &lt;br/&gt;경로와 worker 경로를 &lt;br/&gt;전달합니다."]
+  v_connection_check{"isConnected로 연결 여부를 &lt;br/&gt;검사합니다."}
+  v_connection_failure["IPCPipe를 만들지 못했다는 &lt;br/&gt;별도의 오류 로그를 남기고 &lt;br/&gt;반환합니다."]
+  v_connect["recv.connect에 this와 &lt;br/&gt;#38;{{proxy#95;name}}Isolated::&lt;br/&gt;recvMessage를 연결합니다."]
+  v_transfer["std::move#40;ipc#41;로 연결의 &lt;br/&gt;소유권을 ipc#95;에 옮깁니다."]
+  v_valid["valid#95;에 true를 저장합니다."]
+  v_resolve --&gt;|"찾은 경로를 검사합니다."| v_path_check
+  v_path_check --&gt;|"경로가 비어 있으면 오류를 &lt;br/&gt;처리합니다. · &lt;br/&gt;proxyWorkerPath.empty#40;#41; &lt;br/&gt;#91;true#93;"| v_path_failure
+  v_path_check --&gt;|"경로가 비어 있지 않으면 &lt;br/&gt;IPCPipeUnixSocket을 &lt;br/&gt;만듭니다. · &lt;br/&gt;proxyWorkerPath.empty#40;#41; &lt;br/&gt;#91;false#93;"| v_create
+  v_create --&gt;|"생성한 ipc의 연결 여부를 &lt;br/&gt;검사합니다."| v_connection_check
+  v_connection_check --&gt;|"연결되지 않았으면 오류를 &lt;br/&gt;처리합니다. · &lt;br/&gt;#33;ipc-#62;isConnected#40;#41; #91;true#93;"| v_connection_failure
+  v_connection_check --&gt;|"연결된 것으로 검사되면 수신 &lt;br/&gt;핸들러를 연결합니다. · &lt;br/&gt;#33;ipc-#62;isConnected#40;#41; #91;false#93;"| v_connect
+  v_connect --&gt;|"수신 핸들러를 연결한 뒤 &lt;br/&gt;소유권을 옮깁니다."| v_transfer
+  v_transfer --&gt;|"소유권을 옮긴 뒤 valid#95;를 &lt;br/&gt;설정합니다."| v_valid</pre>
+<p><a href="../ipa.isolated-constructor-connection.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>Isolated 생성자는 worker 경로와 IPC 연결의 실패를 어떻게 처리하고, 성공한 연결의 소유권을 어떻게 옮깁니까?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<p>LLM 그림 초안 · 사람 검토 전</p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en='Pass "{{module_name}}_ipa_proxy" to resolvePath to find the worker path.'>resolvePath에 "{{module_name}}_ipa_proxy"를 전달해 worker 경로를 찾습니다.</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether proxyWorkerPath is empty.">proxyWorkerPath가 비었는지 검사합니다.</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Log the failure to get the worker path and return.">worker 경로를 찾지 못했다는 오류 로그를 남기고 반환합니다.</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Pass the module path and worker path to IPCPipeUnixSocket.">IPCPipeUnixSocket에 모듈 경로와 worker 경로를 전달합니다.</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the connection with isConnected.">isConnected로 연결 여부를 검사합니다.</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Log a separate error for the failure to create IPCPipe and return.">IPCPipe를 만들지 못했다는 별도의 오류 로그를 남기고 반환합니다.</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Connect recv using this and &amp;{{proxy_name}}Isolated::recvMessage.">recv.connect에 this와 &amp;{{proxy_name}}Isolated::recvMessage를 연결합니다.</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Transfer ownership of the connection to ipc_ with std::move(ipc).">std::move(ipc)로 연결의 소유권을 ipc_에 옮깁니다.</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Store true in valid_.">valid_에 true를 저장합니다.</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the resolved path.">찾은 경로를 검사합니다.</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Handle the error if the path is empty. · proxyWorkerPath.empty() [true]">경로가 비어 있으면 오류를 처리합니다. · proxyWorkerPath.empty() [true]</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Create IPCPipeUnixSocket if the path is not empty. · proxyWorkerPath.empty() [false]">경로가 비어 있지 않으면 IPCPipeUnixSocket을 만듭니다. · proxyWorkerPath.empty() [false]</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the connection of the created ipc.">생성한 ipc의 연결 여부를 검사합니다.</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Handle the error if it is not connected. · !ipc->isConnected() [true]">연결되지 않았으면 오류를 처리합니다. · !ipc-&gt;isConnected() [true]</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Connect the receive handler if the check reports a connection. · !ipc->isConnected() [false]">연결된 것으로 검사되면 수신 핸들러를 연결합니다. · !ipc-&gt;isConnected() [false]</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Transfer ownership after connecting the receive handler.">수신 핸들러를 연결한 뒤 소유권을 옮깁니다.</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Set valid_ after transferring ownership.">소유권을 옮긴 뒤 valid_를 설정합니다.</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:isolated-constructor-connection -->
+
+<!-- sdd:visual:ordinary-proxy-call-paths -->
+<h3 id="일반-ipa-메서드의-호출-경로">일반 IPA 메서드의 호출 경로</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"IPA 메서드를 직접 호출": "Call the IPA method directly", "Isolated": "Isolated", "ProxyRunning 확인 후 작업 &lt;br/&gt;큐에 전달": "Check ProxyRunning and &lt;br/&gt;enqueue the call", "Threaded": "Threaded", "Threaded 호출이 비동기인가?": "Is the Threaded method &lt;br/&gt;asynchronous?", "sendAsync로 전달. 동기 &lt;br/&gt;응답을 기다리지 않습니다.": "sendAsync sends without &lt;br/&gt;waiting for a sync reply.", "void 분기에서 종료": "Finish the void branch", "void 호출은 값을 돌려주지 &lt;br/&gt;않음": "A void call returns without &lt;br/&gt;a value", "동기": "Synchronous", "동기 sendSync. 필요할 때 &lt;br/&gt;응답 사용": "Sync: sendSync. Use a &lt;br/&gt;response when needed.", "동기 송신 결과가 음수인가요?": "Did the synchronous send &lt;br/&gt;return an error?", "반환값 다음에 출력 인자를 &lt;br/&gt;처리": "Decode output arguments &lt;br/&gt;after the return value", "비-void 반환값을 돌려줌": "Return the decoded non-void &lt;br/&gt;value", "비-void 분기에서 반환": "Return from the non-void &lt;br/&gt;branch", "비-void 응답의 반환값부터 &lt;br/&gt;역직렬화": "Decode the non-void return &lt;br/&gt;value first", "비-void는 오류를 캐스트, &lt;br/&gt;void는 값 없이 반환": "Non-void: cast error. Void: &lt;br/&gt;return.", "비동기": "Asynchronous", "비동기 경로": "Async branch", "아니요. void와 출력 없음": "No. Void with no outputs", "아니요. void와 출력 인자": "No. Void with output &lt;br/&gt;arguments", "아니요. 비-void 응답": "No. Non-void response", "예": "Yes", "일반 IPA 메서드의 두 프록시": "Two proxies for ordinary &lt;br/&gt;IPA methods", "입력을 직렬화합니다. 비동기 &lt;br/&gt;호출인가요?": "Serialize inputs. Is this &lt;br/&gt;an async call?", "출력 인자가 있으면 역직렬화": "Decode output arguments &lt;br/&gt;when present"}
+  v_calls["일반 IPA 메서드의 두 프록시"]
+  v_threaded{"Threaded 호출이 비동기인가?"}
+  v_direct["IPA 메서드를 직접 호출"]
+  v_queued["ProxyRunning 확인 후 작업 &lt;br/&gt;큐에 전달"]
+  v_isolated{"입력을 직렬화합니다. 비동기 &lt;br/&gt;호출인가요?"}
+  v_transfer{"동기 송신 결과가 음수인가요?"}
+  v_error["비-void는 오류를 캐스트, &lt;br/&gt;void는 값 없이 반환"]
+  v_value["비-void 응답의 반환값부터 &lt;br/&gt;역직렬화"]
+  v_outputs["출력 인자가 있으면 역직렬화"]
+  v_done["비-void 반환값을 돌려줌"]
+  v_done_void["void 호출은 값을 돌려주지 &lt;br/&gt;않음"]
+  v_async_done["sendAsync로 전달. 동기 &lt;br/&gt;응답을 기다리지 않습니다."]
+  v_calls --&gt;|"Threaded"| v_threaded
+  v_threaded --&gt;|"동기"| v_direct
+  v_threaded --&gt;|"비동기"| v_queued
+  v_calls --&gt;|"Isolated"| v_isolated
+  v_isolated --&gt;|"동기 sendSync. 필요할 때 &lt;br/&gt;응답 사용"| v_transfer
+  v_transfer --&gt;|"예"| v_error
+  v_transfer --&gt;|"아니요. 비-void 응답"| v_value
+  v_transfer --&gt;|"아니요. void와 출력 인자"| v_outputs
+  v_transfer --&gt;|"아니요. void와 출력 없음"| v_done_void
+  v_value --&gt;|"반환값 다음에 출력 인자를 &lt;br/&gt;처리"| v_outputs
+  v_outputs --&gt;|"비-void 분기에서 반환"| v_done
+  v_outputs --&gt;|"void 분기에서 종료"| v_done_void
+  v_isolated --&gt;|"비동기 경로"| v_async_done</pre>
+<p><a href="../ipa.ordinary-proxy-call-paths.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>일반 IPA 메서드에서 두 프록시가 동기와 비동기 호출을 전달하고 Isolated 응답의 결과를 처리하는 순서는 무엇입니까?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Two proxies for ordinary IPA methods">일반 IPA 메서드의 두 프록시</span></td>
+<td><a href="#source-542f7efc12af7917">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:75</a> · <a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is the Threaded method asynchronous?">Threaded 호출이 비동기인가?</span></td>
+<td><a href="#source-542f7efc12af7917">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:75</a> · <a href="#source-f6afc431ed47a72a">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:109</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call the IPA method directly">IPA 메서드를 직접 호출</span></td>
+<td><a href="#source-542f7efc12af7917">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:75</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check ProxyRunning and enqueue the call">ProxyRunning 확인 후 작업 큐에 전달</span></td>
+<td><a href="#source-f6afc431ed47a72a">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:109</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Serialize inputs. Is this an async call?">입력을 직렬화합니다. 비동기 호출인가요?</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Did the synchronous send return an error?">동기 송신 결과가 음수인가요?</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Non-void: cast error. Void: return.">비-void는 오류를 캐스트, void는 값 없이 반환</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Decode the non-void return value first">비-void 응답의 반환값부터 역직렬화</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Decode output arguments when present">출력 인자가 있으면 역직렬화</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return the decoded non-void value">비-void 반환값을 돌려줌</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="A void call returns without a value">void 호출은 값을 돌려주지 않음</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="sendAsync sends without waiting for a sync reply.">sendAsync로 전달. 동기 응답을 기다리지 않습니다.</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a> · <a href="#source-6fafe97ae651cb83">src/libcamera/ipc_pipe_unixsocket.cpp:73</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Threaded">Threaded</span></td>
+<td><a href="#source-542f7efc12af7917">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:75</a> · <a href="#source-f6afc431ed47a72a">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:109</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Synchronous">동기</span></td>
+<td><a href="#source-542f7efc12af7917">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:75</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Asynchronous">비동기</span></td>
+<td><a href="#source-f6afc431ed47a72a">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:109</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Isolated">Isolated</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Sync: sendSync. Use a response when needed.">동기 sendSync. 필요할 때 응답 사용</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes">예</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No. Non-void response">아니요. 비-void 응답</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No. Void with output arguments">아니요. void와 출력 인자</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No. Void with no outputs">아니요. void와 출력 없음</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Decode output arguments after the return value">반환값 다음에 출력 인자를 처리</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return from the non-void branch">비-void 분기에서 반환</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Finish the void branch">void 분기에서 종료</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Async branch">비동기 경로</span></td>
+<td><a href="#source-9ff6047b0a70ce66">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</a> · <a href="#source-6fafe97ae651cb83">src/libcamera/ipc_pipe_unixsocket.cpp:73</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:ordinary-proxy-call-paths -->
+
+<p data-sdd-evidence='[["utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:93", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L93\"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:93</code></a>"], ["utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:75", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L75\"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:75</code></a>"]]' data-sdd-excerpts='{"utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:93": ["#source-7670edf527118b0e"], "utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:75": ["#source-542f7efc12af7917"]}'>Threaded <code>start</code> 템플릿 분기는 <code>state_</code>를 <code>ProxyRunning</code>으로 설정한 뒤 <code>thread_.start()</code>를 호출해 worker 스레드를 시작합니다. 이어서 <code>proxy_.invokeMethod()</code>로 <code>ThreadProxy::start</code>를 <code>ConnectionTypeBlocking</code> 연결 유형과 생성된 매개변수로 호출하고 그 반환값을 반환합니다. <code>{{proxy_name}}Threaded</code>의 메서드에서 <code>init</code>, <code>start</code>, <code>stop</code>을 제외한 일반 동기 분기는 전달받은 인자로 <code>ipa_</code>의 같은 이름의 메서드를 직접 호출하고 그 반환값을 반환합니다.</p>
+<p data-sdd-evidence='[["utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:109", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L109\"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:109</code></a>"], ["src/libcamera/base/log.cpp:1044", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/log.cpp#L1044\"><code>src/libcamera/base/log.cpp:1044</code></a>"]]' data-sdd-excerpts='{"utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:109": ["#source-f6afc431ed47a72a"], "src/libcamera/base/log.cpp:1044": ["#source-bae93ab8b66697ce"]}'>비동기 메서드 분기는 <code>ASSERT</code> 매크로에 검사식 <code>state_ == ProxyRunning</code>을 전달합니다. 검사식이 거짓이면 <code>ASSERT</code>는 <code>Fatal</code> 수준의 오류 메시지를 기록하고 프로그램 실행을 중단합니다. <code>log.h</code>를 포함하기 전에 <code>NDEBUG</code>가 정의되어 있으면 <code>ASSERT</code>는 코드를 생성하지 않습니다. Threaded 비동기 분기에서 <code>proxy_.invokeMethod</code>는 <code>ThreadProxy</code> 메서드를 전달할 때 연결 유형으로 <code>ConnectionTypeQueued</code>를 사용합니다.</p>
+<p data-sdd-evidence='[["utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:55", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L55\"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:55</code></a>"]]' data-sdd-excerpts='{"utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:55": ["#source-60c70cd011db2353"]}'><code>{{proxy_name}}Threaded</code> 생성자는 <code>ipam-&gt;load()</code>를 호출합니다. <code>load()</code>가 거짓을 반환하면 생성자에서 즉시 반환합니다.</p>
+<p data-sdd-evidence='[["utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L48\"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</code></a>"]]' data-sdd-excerpts='{"utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48": ["#source-c7fd6e52f2c537b5"]}'><code>Threaded</code> 생성자는 <code>load()</code>가 성공한 경우에만 <code>createInterface()</code>를 호출합니다. 반환된 포인터가 없으면 <code>ipam-&gt;path()</code>를 포함한 오류를 기록하고 반환합니다. 포인터가 있으면 인터페이스를 <code>unique_ptr</code>로 소유하고 <code>proxy_.setIPA(ipa_.get())</code>에 포인터를 넘깁니다. 이어서 각 이벤트를 수신 객체 <code>this</code>의 해당 <code>Handler</code> 메서드에 <code>connect</code>하고 <code>valid_</code>를 <code>true</code>로 설정합니다.</p>
+<p data-sdd-evidence='[["utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130\"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</code></a>"]]' data-sdd-excerpts='{"utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130": ["#source-9ff6047b0a70ce66"]}'><code>{{proxy_name}}Isolated</code> 생성자는 <code>resolvePath("{{module_name}}_ipa_proxy")</code>로 워커 경로를 찾고, 경로가 비어 있으면 오류를 기록하고 반환합니다. 이어서 <code>IPCPipeUnixSocket</code>을 <code>ipam-&gt;path().c_str()</code>와 <code>proxyWorkerPath.c_str()</code> 인자로 생성하며, <code>isConnected()</code>가 거짓이면 오류를 기록하고 반환합니다. 연결에 성공하면 <code>recv.connect</code>에 수신 객체 <code>this</code>와 콜백 <code>&amp;{{proxy_name}}Isolated::recvMessage</code>를 연결하고, <code>std::move</code>로 <code>ipc</code>의 소유권을 <code>ipc_</code>에 옮긴 뒤 <code>valid_</code>에 <code>true</code>를 저장합니다.</p>
+<p data-sdd-evidence='[["src/libcamera/ipa_proxy.cpp:204", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_proxy.cpp#L204\"><code>src/libcamera/ipa_proxy.cpp:204</code></a>"]]' data-sdd-excerpts='{"src/libcamera/ipa_proxy.cpp:204": ["#source-59a673fb7c43c0e0"]}'><code>IPAProxy::resolvePath</code>는 먼저 <code>execPaths_</code>를 순서대로 살펴보며 빈 디렉터리는 건너뛰고, <code>file</code>을 붙인 경로에 실행 권한이 있으면 그 경로를 반환합니다. 이후 <code>utils::libcameraBuildPath()</code>가 빈 문자열이 아니면 빌드 디렉터리의 <code>src/libcamera/proxy/worker</code>를 확인하고, 빈 문자열이면 설치 디렉터리 <code>IPA_PROXY_DIR</code>을 확인합니다. 선택한 디렉터리에서 실행 권한이 있는 경로를 찾으면 그 경로를 반환하고, 찾지 못하면 빈 문자열을 반환합니다.</p>
+<p data-sdd-evidence='[["src/libcamera/ipc_pipe_unixsocket.cpp:84", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipc_pipe_unixsocket.cpp#L84\"><code>src/libcamera/ipc_pipe_unixsocket.cpp:84</code></a>"]]' data-sdd-excerpts='{"src/libcamera/ipc_pipe_unixsocket.cpp:84": ["#source-7f9e84d5315c5882"]}'><code>readyRead</code>는 소켓에서 페이로드를 수신하다가 오류가 나면 로그를 남기고 반환합니다. 수신한 데이터가 <code>IPCMessage::Header</code>보다 짧아도 로그를 남기고 반환합니다. 그다음 메시지의 <code>cookie</code>로 <code>callData_</code>에서 대기 항목을 찾고, 일치하는 항목이 있으면 페이로드를 응답으로 이동한 뒤 <code>done</code>을 <code>true</code>로 설정하고 반환합니다.</p>
+<p data-sdd-evidence='[["src/libcamera/ipc_pipe_unixsocket.cpp:73", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipc_pipe_unixsocket.cpp#L73\"><code>src/libcamera/ipc_pipe_unixsocket.cpp:73</code></a>"]]' data-sdd-excerpts='{"src/libcamera/ipc_pipe_unixsocket.cpp:73": ["#source-6fafe97ae651cb83"]}'><code>IPCPipeUnixSocket::sendAsync</code>는 <code>data.payload()</code>를 <code>socket_-&gt;send</code>로 전송하고 반환값을 <code>ret</code>에 저장합니다. <code>ret</code>이 0이 아니면 오류를 기록하고 <code>ret</code>을 반환합니다. 그렇지 않으면 0을 반환합니다.</p>
+
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>12</span>개</summary><ul><li><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl</code><span class="evidence-lines"><a href="#source-9d9c3049e90e4238" aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:82 발췌"><code>L82</code> 발췌</a> · <a aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:82" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L82">전체 소스 <code>L82</code></a> · <a href="#source-7670edf527118b0e" aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:93 발췌"><code>L93</code> 발췌</a> · <a aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:93" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L93">전체 소스 <code>L93</code></a> · <a href="#source-542f7efc12af7917" aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:75 발췌"><code>L75</code> 발췌</a> · <a aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:75" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L75">전체 소스 <code>L75</code></a> · <a href="#source-f6afc431ed47a72a" aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:109 발췌"><code>L109</code> 발췌</a> · <a aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:109" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L109">전체 소스 <code>L109</code></a> · <a href="#source-60c70cd011db2353" aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:55 발췌"><code>L55</code> 발췌</a> · <a aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:55" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L55">전체 소스 <code>L55</code></a> · <a href="#source-c7fd6e52f2c537b5" aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48 발췌"><code>L48</code> 발췌</a> · <a aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L48">전체 소스 <code>L48</code></a> · <a href="#source-9ff6047b0a70ce66" aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130 발췌"><code>L130</code> 발췌</a> · <a aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130">전체 소스 <code>L130</code></a></span></li><li><code>src/libcamera/base/log.cpp</code><span class="evidence-lines"><a href="#source-bae93ab8b66697ce" aria-label="src/libcamera/base/log.cpp:1044 발췌"><code>L1044</code> 발췌</a> · <a aria-label="src/libcamera/base/log.cpp:1044" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/log.cpp#L1044">전체 소스 <code>L1044</code></a></span></li><li><code>src/libcamera/ipa_proxy.cpp</code><span class="evidence-lines"><a href="#source-59a673fb7c43c0e0" aria-label="src/libcamera/ipa_proxy.cpp:204 발췌"><code>L204</code> 발췌</a> · <a aria-label="src/libcamera/ipa_proxy.cpp:204" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_proxy.cpp#L204">전체 소스 <code>L204</code></a></span></li><li><code>src/libcamera/ipc_pipe_unixsocket.cpp</code><span class="evidence-lines"><a href="#source-7f9e84d5315c5882" aria-label="src/libcamera/ipc_pipe_unixsocket.cpp:84 발췌"><code>L84</code> 발췌</a> · <a aria-label="src/libcamera/ipc_pipe_unixsocket.cpp:84" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipc_pipe_unixsocket.cpp#L84">전체 소스 <code>L84</code></a> · <a href="#source-6fafe97ae651cb83" aria-label="src/libcamera/ipc_pipe_unixsocket.cpp:73 발췌"><code>L73</code> 발췌</a> · <a aria-label="src/libcamera/ipc_pipe_unixsocket.cpp:73" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipc_pipe_unixsocket.cpp#L73">전체 소스 <code>L73</code></a> · <a aria-label="src/libcamera/ipc_pipe_unixsocket.cpp:27" href="#source-f0268126d3f8c2bc"><code>L27</code></a></span></li></ul></details><p id="프레임-입력과-결과-인터페이스"><a href="../implementation.html#ipa-frame-interface">프레임 입력과 결과 인터페이스</a></p><h2 id="ipa-객체와-종료-순서">IPA 객체와 종료 순서</h2>
+<p data-sdd-evidence='[["src/libcamera/ipa_module.cpp:390", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_module.cpp#L390\"><code>src/libcamera/ipa_module.cpp:390</code></a>"], ["utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl#L25\"><code>utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</code></a>"], ["utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L48\"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</code></a>"]]' data-sdd-excerpts='{"src/libcamera/ipa_module.cpp:390": ["#source-fadefbb962b2fc44"], "utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25": ["#source-eb8f57d7452822da"], "utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48": ["#source-c7fd6e52f2c537b5"]}'>호출자는 유효한 모듈에서 <code>load()</code>를 한 번 성공한 뒤 필요한 <code>IPAInterface</code> 인스턴스 수만큼 <code>createInterface()</code>를 호출할 수 있습니다. Threaded 프록시의 <code>stop</code>은 먼저 상태가 <code>ProxyStopping</code>이 아닌지 단언하고, <code>ProxyRunning</code>이 아니면 반환합니다. 실행 중이면 상태를 <code>ProxyStopping</code>으로 바꾸고 <code>ThreadProxy::stop</code>을 <code>ConnectionTypeBlocking</code>으로 호출한 다음 <code>thread_.exit()</code>와 <code>thread_.wait()</code>를 순서대로 호출합니다. 이어 현재 스레드에서 이 프록시의 <code>InvokeMessage</code>를 디스패치하고 상태를 <code>ProxyStopped</code>로 바꿉니다.</p>
+<!-- sdd:visual:threaded-stop-order -->
+<h3 id="threaded-정지의-상태와-순서">Threaded 정지의 상태와 순서</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"ASSERT 뒤에 별도의 상태 &lt;br/&gt;검사가 나옵니다.": "A separate state check &lt;br/&gt;follows ASSERT.", "ASSERT 뒤에서 state#95;가 &lt;br/&gt;ProxyRunning이 아닌지 &lt;br/&gt;검사합니다.": "After ASSERT, check whether &lt;br/&gt;state#95; is not ProxyRunning.", "dispatchMessages가 정상 &lt;br/&gt;반환하면 state#95;를 &lt;br/&gt;ProxyStopped로 갱신합니다.": "When dispatchMessages &lt;br/&gt;returns normally, update &lt;br/&gt;state#95; to ProxyStopped.", "exit가 정상 반환하면 wait를 &lt;br/&gt;호출합니다.": "When exit returns normally, &lt;br/&gt;call wait.", "proxy#95;의 invokeMethod로 &lt;br/&gt;ThreadProxy::stop을 &lt;br/&gt;ConnectionTypeBlocking으로 &lt;br/&gt;동기 호출합니다.": "Call ThreadProxy::stop &lt;br/&gt;synchronously through &lt;br/&gt;proxy#95;#39;s invokeMethod with &lt;br/&gt;ConnectionTypeBlocking.", "thread#95;의 wait를 호출해 &lt;br/&gt;스레드 종료를 기다립니다.": "Call wait on thread#95; to &lt;br/&gt;wait for the thread to &lt;br/&gt;finish.", "wait가 정상 반환하면 &lt;br/&gt;메시지를 처리합니다.": "When wait returns normally, &lt;br/&gt;dispatch messages.", "동기 호출이 정상 반환하면 &lt;br/&gt;thread#95;의 exit를 호출합니다.": "When the synchronous call &lt;br/&gt;returns normally, call exit &lt;br/&gt;on thread#95;.", "먼저 ASSERT로 state#95;가 &lt;br/&gt;ProxyStopping이 아닌지 &lt;br/&gt;확인합니다.": "First, ASSERT checks that &lt;br/&gt;state#95; is not ProxyStopping.", "메시지 처리가 정상 반환하면 &lt;br/&gt;상태를 갱신합니다.": "When message dispatch &lt;br/&gt;returns normally, update &lt;br/&gt;the state.", "상태를 설정한 뒤 동기 &lt;br/&gt;호출합니다.": "After setting the state, &lt;br/&gt;make the synchronous call.", "조건이 거짓이면 state#95;를 &lt;br/&gt;ProxyStopping으로 &lt;br/&gt;설정합니다.": "If the condition is false, &lt;br/&gt;set state#95; to ProxyStopping.", "조건이 거짓이면 정지를 &lt;br/&gt;진행합니다. · state#95; #33;#61; &lt;br/&gt;ProxyRunning #91;false#93;": "If the condition is false, &lt;br/&gt;proceed with stopping. · &lt;br/&gt;state#95; #33;#61; ProxyRunning &lt;br/&gt;#91;false#93;", "조건이 참이면 즉시 &lt;br/&gt;반환합니다.": "If the condition is true, &lt;br/&gt;return immediately.", "조건이 참이면 즉시 &lt;br/&gt;반환합니다. · state#95; #33;#61; &lt;br/&gt;ProxyRunning #91;true#93;": "If the condition is true, &lt;br/&gt;return immediately. · &lt;br/&gt;state#95; #33;#61; ProxyRunning &lt;br/&gt;#91;true#93;", "현재 스레드에서 &lt;br/&gt;dispatchMessages를 호출해 &lt;br/&gt;this와 &lt;br/&gt;Message::Type::&lt;br/&gt;InvokeMessage를 대상으로 &lt;br/&gt;메시지를 처리합니다.": "Call dispatchMessages on &lt;br/&gt;the current thread to &lt;br/&gt;process messages for this &lt;br/&gt;and &lt;br/&gt;Message::Type::&lt;br/&gt;InvokeMessage.", "호출이 정상 반환하면 exit를 &lt;br/&gt;호출합니다.": "When the call returns &lt;br/&gt;normally, call exit."}
+  v_assert["먼저 ASSERT로 state#95;가 &lt;br/&gt;ProxyStopping이 아닌지 &lt;br/&gt;확인합니다."]
+  v_check{"ASSERT 뒤에서 state#95;가 &lt;br/&gt;ProxyRunning이 아닌지 &lt;br/&gt;검사합니다."}
+  v_return["조건이 참이면 즉시 &lt;br/&gt;반환합니다."]
+  v_stopping["조건이 거짓이면 state#95;를 &lt;br/&gt;ProxyStopping으로 &lt;br/&gt;설정합니다."]
+  v_invoke["proxy#95;의 invokeMethod로 &lt;br/&gt;ThreadProxy::stop을 &lt;br/&gt;ConnectionTypeBlocking으로 &lt;br/&gt;동기 호출합니다."]
+  v_exit["동기 호출이 정상 반환하면 &lt;br/&gt;thread#95;의 exit를 호출합니다."]
+  v_wait["thread#95;의 wait를 호출해 &lt;br/&gt;스레드 종료를 기다립니다."]
+  v_dispatch["현재 스레드에서 &lt;br/&gt;dispatchMessages를 호출해 &lt;br/&gt;this와 &lt;br/&gt;Message::Type::&lt;br/&gt;InvokeMessage를 대상으로 &lt;br/&gt;메시지를 처리합니다."]
+  v_stopped["dispatchMessages가 정상 &lt;br/&gt;반환하면 state#95;를 &lt;br/&gt;ProxyStopped로 갱신합니다."]
+  v_assert --&gt;|"ASSERT 뒤에 별도의 상태 &lt;br/&gt;검사가 나옵니다."| v_check
+  v_check --&gt;|"조건이 참이면 즉시 &lt;br/&gt;반환합니다. · state#95; #33;#61; &lt;br/&gt;ProxyRunning #91;true#93;"| v_return
+  v_check --&gt;|"조건이 거짓이면 정지를 &lt;br/&gt;진행합니다. · state#95; #33;#61; &lt;br/&gt;ProxyRunning #91;false#93;"| v_stopping
+  v_stopping --&gt;|"상태를 설정한 뒤 동기 &lt;br/&gt;호출합니다."| v_invoke
+  v_invoke --&gt;|"호출이 정상 반환하면 exit를 &lt;br/&gt;호출합니다."| v_exit
+  v_exit --&gt;|"exit가 정상 반환하면 wait를 &lt;br/&gt;호출합니다."| v_wait
+  v_wait --&gt;|"wait가 정상 반환하면 &lt;br/&gt;메시지를 처리합니다."| v_dispatch
+  v_dispatch --&gt;|"메시지 처리가 정상 반환하면 &lt;br/&gt;상태를 갱신합니다."| v_stopped</pre>
+<p><a href="../ipa.threaded-stop-order.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>Threaded stop은 어떤 상태 검사와 동기 호출 및 스레드 종료 순서로 ProxyStopped가 됩니까?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<p>LLM 그림 초안 · 사람 검토 전</p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="First, ASSERT checks that state_ is not ProxyStopping.">먼저 ASSERT로 state_가 ProxyStopping이 아닌지 확인합니다.</span></td>
+<td><a href="#source-eb8f57d7452822da">utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After ASSERT, check whether state_ is not ProxyRunning.">ASSERT 뒤에서 state_가 ProxyRunning이 아닌지 검사합니다.</span></td>
+<td><a href="#source-eb8f57d7452822da">utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is true, return immediately.">조건이 참이면 즉시 반환합니다.</span></td>
+<td><a href="#source-eb8f57d7452822da">utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is false, set state_ to ProxyStopping.">조건이 거짓이면 state_를 ProxyStopping으로 설정합니다.</span></td>
+<td><a href="#source-eb8f57d7452822da">utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call ThreadProxy::stop synchronously through proxy_'s invokeMethod with ConnectionTypeBlocking.">proxy_의 invokeMethod로 ThreadProxy::stop을 ConnectionTypeBlocking으로 동기 호출합니다.</span></td>
+<td><a href="#source-eb8f57d7452822da">utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="When the synchronous call returns normally, call exit on thread_.">동기 호출이 정상 반환하면 thread_의 exit를 호출합니다.</span></td>
+<td><a href="#source-eb8f57d7452822da">utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call wait on thread_ to wait for the thread to finish.">thread_의 wait를 호출해 스레드 종료를 기다립니다.</span></td>
+<td><a href="#source-eb8f57d7452822da">utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call dispatchMessages on the current thread to process messages for this and Message::Type::InvokeMessage.">현재 스레드에서 dispatchMessages를 호출해 this와 Message::Type::InvokeMessage를 대상으로 메시지를 처리합니다.</span></td>
+<td><a href="#source-eb8f57d7452822da">utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="When dispatchMessages returns normally, update state_ to ProxyStopped.">dispatchMessages가 정상 반환하면 state_를 ProxyStopped로 갱신합니다.</span></td>
+<td><a href="#source-eb8f57d7452822da">utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="A separate state check follows ASSERT.">ASSERT 뒤에 별도의 상태 검사가 나옵니다.</span></td>
+<td><a href="#source-eb8f57d7452822da">utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is true, return immediately. · state_ != ProxyRunning [true]">조건이 참이면 즉시 반환합니다. · state_ != ProxyRunning [true]</span></td>
+<td><a href="#source-eb8f57d7452822da">utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is false, proceed with stopping. · state_ != ProxyRunning [false]">조건이 거짓이면 정지를 진행합니다. · state_ != ProxyRunning [false]</span></td>
+<td><a href="#source-eb8f57d7452822da">utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After setting the state, make the synchronous call.">상태를 설정한 뒤 동기 호출합니다.</span></td>
+<td><a href="#source-eb8f57d7452822da">utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="When the call returns normally, call exit.">호출이 정상 반환하면 exit를 호출합니다.</span></td>
+<td><a href="#source-eb8f57d7452822da">utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="When exit returns normally, call wait.">exit가 정상 반환하면 wait를 호출합니다.</span></td>
+<td><a href="#source-eb8f57d7452822da">utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="When wait returns normally, dispatch messages.">wait가 정상 반환하면 메시지를 처리합니다.</span></td>
+<td><a href="#source-eb8f57d7452822da">utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="When message dispatch returns normally, update the state.">메시지 처리가 정상 반환하면 상태를 갱신합니다.</span></td>
+<td><a href="#source-eb8f57d7452822da">utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:threaded-stop-order -->
+
+<!-- sdd:visual:isolated-destructor-guard -->
+<h3 id="isolated-소멸자의-ipc-분기">Isolated 소멸자의 IPC 분기</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"Exit와 seq#95;++로 header를 &lt;br/&gt;만들고 msg를 구성한 뒤 &lt;br/&gt;ipc#95;-#62;sendAsync#40;msg#41;를 &lt;br/&gt;호출합니다. 반환값은 &lt;br/&gt;검사하지 않습니다.": "It builds header with Exit &lt;br/&gt;and seq#95;++, constructs msg, &lt;br/&gt;and calls &lt;br/&gt;ipc#95;-#62;sendAsync#40;msg#41;. It &lt;br/&gt;does not check the return &lt;br/&gt;value.", "Isolated 소멸자는 ipc#95;가 &lt;br/&gt;있는지 확인합니다.": "The Isolated destructor &lt;br/&gt;checks whether ipc#95; is &lt;br/&gt;present.", "Isolated 소멸자는 메시지 &lt;br/&gt;구성과 sendAsync 호출을 &lt;br/&gt;건너뛰고 본문을 마칩니다. &lt;br/&gt;return 문장은 없습니다.": "The Isolated destructor &lt;br/&gt;skips message construction &lt;br/&gt;and the sendAsync call, &lt;br/&gt;then reaches the end of its &lt;br/&gt;body. There is no return &lt;br/&gt;statement.", "조건이 거짓이면 if 본문을 &lt;br/&gt;건너뜁니다. · ipc#95; #91;false#93;": "If the condition is false, &lt;br/&gt;it skips the if body. · &lt;br/&gt;ipc#95; #91;false#93;", "조건이 참이면 Exit 메시지 &lt;br/&gt;전송을 시도합니다. · ipc#95; &lt;br/&gt;#91;true#93;": "If the condition is true, &lt;br/&gt;it attempts to send the &lt;br/&gt;Exit message. · ipc#95; #91;true#93;"}
+  v_check{"Isolated 소멸자는 ipc#95;가 &lt;br/&gt;있는지 확인합니다."}
+  v_send["Exit와 seq#95;++로 header를 &lt;br/&gt;만들고 msg를 구성한 뒤 &lt;br/&gt;ipc#95;-#62;sendAsync#40;msg#41;를 &lt;br/&gt;호출합니다. 반환값은 &lt;br/&gt;검사하지 않습니다."]
+  v_end["Isolated 소멸자는 메시지 &lt;br/&gt;구성과 sendAsync 호출을 &lt;br/&gt;건너뛰고 본문을 마칩니다. &lt;br/&gt;return 문장은 없습니다."]
+  v_check --&gt;|"조건이 참이면 Exit 메시지 &lt;br/&gt;전송을 시도합니다. · ipc#95; &lt;br/&gt;#91;true#93;"| v_send
+  v_check --&gt;|"조건이 거짓이면 if 본문을 &lt;br/&gt;건너뜁니다. · ipc#95; #91;false#93;"| v_end</pre>
+<p><a href="../ipa.isolated-destructor-guard.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>Isolated 소멸자는 ipc_가 없으면 어떤 구문을 건너뛰며, 있으면 어떤 Exit 전송을 시도합니까?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<p>LLM 그림 초안 · 사람 검토 전</p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="The Isolated destructor checks whether ipc_ is present.">Isolated 소멸자는 ipc_가 있는지 확인합니다.</span></td>
+<td><a href="#source-a230ed3065e7523d">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:157</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It builds header with Exit and seq_++, constructs msg, and calls ipc_->sendAsync(msg). It does not check the return value.">Exit와 seq_++로 header를 만들고 msg를 구성한 뒤 ipc_-&gt;sendAsync(msg)를 호출합니다. 반환값은 검사하지 않습니다.</span></td>
+<td><a href="#source-a230ed3065e7523d">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:157</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The Isolated destructor skips message construction and the sendAsync call, then reaches the end of its body. There is no return statement.">Isolated 소멸자는 메시지 구성과 sendAsync 호출을 건너뛰고 본문을 마칩니다. return 문장은 없습니다.</span></td>
+<td><a href="#source-a230ed3065e7523d">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:157</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is true, it attempts to send the Exit message. · ipc_ [true]">조건이 참이면 Exit 메시지 전송을 시도합니다. · ipc_ [true]</span></td>
+<td><a href="#source-a230ed3065e7523d">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:157</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is false, it skips the if body. · ipc_ [false]">조건이 거짓이면 if 본문을 건너뜁니다. · ipc_ [false]</span></td>
+<td><a href="#source-a230ed3065e7523d">utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:157</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:isolated-destructor-guard -->
+
+<p data-sdd-evidence='[["utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:157", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L157\"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:157</code></a>"]]' data-sdd-excerpts='{"utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:157": ["#source-a230ed3065e7523d"]}'>Isolated 프록시의 소멸자는 <code>ipc_</code>가 있으면 <code>Exit</code> 명령과 증가 전의 <code>seq_</code> 값으로 헤더를 만들고, 해당 메시지를 <code>sendAsync()</code>로 보냅니다.</p>
+
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>5</span>개</summary><ul><li><code>src/libcamera/ipa_module.cpp</code><span class="evidence-lines"><a href="#source-fadefbb962b2fc44" aria-label="src/libcamera/ipa_module.cpp:390 발췌"><code>L390</code> 발췌</a> · <a aria-label="src/libcamera/ipa_module.cpp:390" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_module.cpp#L390">전체 소스 <code>L390</code></a></span></li><li><code>utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl</code><span class="evidence-lines"><a href="#source-eb8f57d7452822da" aria-label="utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25 발췌"><code>L25</code> 발췌</a> · <a aria-label="utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl#L25">전체 소스 <code>L25</code></a></span></li><li><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl</code><span class="evidence-lines"><a href="#source-c7fd6e52f2c537b5" aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48 발췌"><code>L48</code> 발췌</a> · <a aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L48">전체 소스 <code>L48</code></a> · <a href="#source-a230ed3065e7523d" aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:157 발췌"><code>L157</code> 발췌</a> · <a aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:157" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L157">전체 소스 <code>L157</code></a> · <a aria-label="utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130" href="#source-9ff6047b0a70ce66"><code>L130</code></a></span></li></ul></details><h2 id="생성과-ipc-실패">생성과 IPC 실패</h2>
+<p data-sdd-evidence='[["src/libcamera/ipa_module.cpp:390", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_module.cpp#L390\"><code>src/libcamera/ipa_module.cpp:390</code></a>"]]' data-sdd-excerpts='{"src/libcamera/ipa_module.cpp:390": ["#source-fadefbb962b2fc44"]}'><code>IPAModule::load()</code>는 <code>valid_</code>가 거짓이면 <code>false</code>를 반환하고, 이미 <code>loaded_</code>이면 <code>true</code>를 반환합니다. 이어서 <code>dlopen</code>이 실패하면 오류를 기록하고 <code>false</code>를 반환합니다. <code>dlsym</code>으로 <code>ipaCreate</code>를 찾지 못하면 오류를 기록하고 <code>dlclose</code>로 핸들을 닫은 뒤 <code>dlHandle_</code>을 <code>nullptr</code>로 설정하고 <code>false</code>를 반환합니다. 심벌을 찾으면 <code>ipaCreate_</code>에 팩토리를 저장하고 <code>loaded_</code>를 <code>true</code>로 설정한 뒤 <code>true</code>를 반환합니다.</p>
+<!-- sdd:visual:module-load-error-branches -->
+<h3 id="모듈-로드의-성공과-실패-반환">모듈 로드의 성공과 실패 반환</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"#33;valid#95;는 모듈이 유효하지 &lt;br/&gt;않다는 뜻인가요? 유효하지 &lt;br/&gt;않은 모듈에서 호출하면 &lt;br/&gt;오류입니다.": "Does #33;valid#95; mean the &lt;br/&gt;module is invalid? Calling &lt;br/&gt;this on an invalid module &lt;br/&gt;is an error.", "dlopen으로 얻은 dlHandle#95;에 &lt;br/&gt;대해 #33;dlHandle#95;는 열기 &lt;br/&gt;실패를 뜻하나요?": "For dlHandle#95; obtained by &lt;br/&gt;dlopen, does #33;dlHandle#95; &lt;br/&gt;mean opening failed?", "dlsym으로 얻은 symbol에 &lt;br/&gt;대해 #33;symbol은 심볼 탐색 &lt;br/&gt;실패를 뜻하나요?": "For symbol obtained by &lt;br/&gt;dlsym, does #33;symbol mean &lt;br/&gt;the symbol lookup failed?", "false를 반환합니다.": "Return false.", "loaded#95;는 모듈이 이미 &lt;br/&gt;로드되었다는 뜻인가요?": "Does loaded#95; mean the &lt;br/&gt;module is already loaded?", "symbol로 ipaCreate#95;를 &lt;br/&gt;설정하고 loaded#95;를 true로 &lt;br/&gt;설정한 뒤 true를 반환합니다.": "Set ipaCreate#95; from symbol, &lt;br/&gt;set loaded#95; to true, and &lt;br/&gt;return true.", "true를 반환합니다.": "Return true.", "거짓이면 dlopen으로 공유 &lt;br/&gt;객체를 엽니다. #91;false#93;": "If false, open the shared &lt;br/&gt;object with dlopen. #91;false#93;", "거짓이면 dlsym으로 &lt;br/&gt;ipaCreate를 찾습니다. &lt;br/&gt;#91;false#93;": "If false, look up ipaCreate &lt;br/&gt;with dlsym. #91;false#93;", "거짓이면 이미 로드되었는지 &lt;br/&gt;확인합니다. #91;false#93;": "If false, check whether it &lt;br/&gt;is already loaded. #91;false#93;", "거짓이면 팩터리를 &lt;br/&gt;설정합니다. #91;false#93;": "If false, set the factory. &lt;br/&gt;#91;false#93;", "오류를 기록하고 dlclose로 &lt;br/&gt;dlHandle#95;을 닫은 뒤 &lt;br/&gt;nullptr로 설정하고 false를 &lt;br/&gt;반환합니다.": "Log the error, close &lt;br/&gt;dlHandle#95; with dlclose, set &lt;br/&gt;it to nullptr, and return &lt;br/&gt;false.", "오류를 기록하고 false를 &lt;br/&gt;반환합니다.": "Log the error and return &lt;br/&gt;false.", "참이면 false를 반환합니다. &lt;br/&gt;#91;true#93;": "If true, return false. &lt;br/&gt;#91;true#93;", "참이면 true를 반환합니다. &lt;br/&gt;#91;true#93;": "If true, return true. #91;true#93;", "참이면 오류를 기록하고 &lt;br/&gt;false를 반환합니다. #91;true#93;": "If true, log the error and &lt;br/&gt;return false. #91;true#93;", "참이면 핸들을 정리하고 &lt;br/&gt;false를 반환합니다. #91;true#93;": "If true, clean up the &lt;br/&gt;handle and return false. &lt;br/&gt;#91;true#93;"}
+  v_valid{"#33;valid#95;는 모듈이 유효하지 &lt;br/&gt;않다는 뜻인가요? 유효하지 &lt;br/&gt;않은 모듈에서 호출하면 &lt;br/&gt;오류입니다."}
+  v_invalid["false를 반환합니다."]
+  v_loaded{"loaded#95;는 모듈이 이미 &lt;br/&gt;로드되었다는 뜻인가요?"}
+  v_already["true를 반환합니다."]
+  v_open{"dlopen으로 얻은 dlHandle#95;에 &lt;br/&gt;대해 #33;dlHandle#95;는 열기 &lt;br/&gt;실패를 뜻하나요?"}
+  v_open_failure["오류를 기록하고 false를 &lt;br/&gt;반환합니다."]
+  v_lookup{"dlsym으로 얻은 symbol에 &lt;br/&gt;대해 #33;symbol은 심볼 탐색 &lt;br/&gt;실패를 뜻하나요?"}
+  v_lookup_failure["오류를 기록하고 dlclose로 &lt;br/&gt;dlHandle#95;을 닫은 뒤 &lt;br/&gt;nullptr로 설정하고 false를 &lt;br/&gt;반환합니다."]
+  v_success["symbol로 ipaCreate#95;를 &lt;br/&gt;설정하고 loaded#95;를 true로 &lt;br/&gt;설정한 뒤 true를 반환합니다."]
+  v_valid --&gt;|"참이면 false를 반환합니다. &lt;br/&gt;#91;true#93;"| v_invalid
+  v_valid --&gt;|"거짓이면 이미 로드되었는지 &lt;br/&gt;확인합니다. #91;false#93;"| v_loaded
+  v_loaded --&gt;|"참이면 true를 반환합니다. &lt;br/&gt;#91;true#93;"| v_already
+  v_loaded --&gt;|"거짓이면 dlopen으로 공유 &lt;br/&gt;객체를 엽니다. #91;false#93;"| v_open
+  v_open --&gt;|"참이면 오류를 기록하고 &lt;br/&gt;false를 반환합니다. #91;true#93;"| v_open_failure
+  v_open --&gt;|"거짓이면 dlsym으로 &lt;br/&gt;ipaCreate를 찾습니다. &lt;br/&gt;#91;false#93;"| v_lookup
+  v_lookup --&gt;|"참이면 핸들을 정리하고 &lt;br/&gt;false를 반환합니다. #91;true#93;"| v_lookup_failure
+  v_lookup --&gt;|"거짓이면 팩터리를 &lt;br/&gt;설정합니다. #91;false#93;"| v_success</pre>
+<p><a href="../ipa.module-load-error-branches.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>IPAModule::load는 기존 상태, dlopen과 dlsym 결과에 따라 어떤 값을 반환하고 무엇을 정리합니까?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<p>LLM 그림 초안 · 사람 검토 전</p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Does !valid_ mean the module is invalid? Calling this on an invalid module is an error.">!valid_는 모듈이 유효하지 않다는 뜻인가요? 유효하지 않은 모듈에서 호출하면 오류입니다.</span></td>
+<td><a href="#source-fadefbb962b2fc44">src/libcamera/ipa_module.cpp:390</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return false.">false를 반환합니다.</span></td>
+<td><a href="#source-fadefbb962b2fc44">src/libcamera/ipa_module.cpp:390</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Does loaded_ mean the module is already loaded?">loaded_는 모듈이 이미 로드되었다는 뜻인가요?</span></td>
+<td><a href="#source-fadefbb962b2fc44">src/libcamera/ipa_module.cpp:390</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return true.">true를 반환합니다.</span></td>
+<td><a href="#source-fadefbb962b2fc44">src/libcamera/ipa_module.cpp:390</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="For dlHandle_ obtained by dlopen, does !dlHandle_ mean opening failed?">dlopen으로 얻은 dlHandle_에 대해 !dlHandle_는 열기 실패를 뜻하나요?</span></td>
+<td><a href="#source-fadefbb962b2fc44">src/libcamera/ipa_module.cpp:390</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Log the error and return false.">오류를 기록하고 false를 반환합니다.</span></td>
+<td><a href="#source-fadefbb962b2fc44">src/libcamera/ipa_module.cpp:390</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="For symbol obtained by dlsym, does !symbol mean the symbol lookup failed?">dlsym으로 얻은 symbol에 대해 !symbol은 심볼 탐색 실패를 뜻하나요?</span></td>
+<td><a href="#source-fadefbb962b2fc44">src/libcamera/ipa_module.cpp:390</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Log the error, close dlHandle_ with dlclose, set it to nullptr, and return false.">오류를 기록하고 dlclose로 dlHandle_을 닫은 뒤 nullptr로 설정하고 false를 반환합니다.</span></td>
+<td><a href="#source-fadefbb962b2fc44">src/libcamera/ipa_module.cpp:390</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Set ipaCreate_ from symbol, set loaded_ to true, and return true.">symbol로 ipaCreate_를 설정하고 loaded_를 true로 설정한 뒤 true를 반환합니다.</span></td>
+<td><a href="#source-fadefbb962b2fc44">src/libcamera/ipa_module.cpp:390</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, return false. · !valid_ [true]">참이면 false를 반환합니다. · !valid_ [true]</span></td>
+<td><a href="#source-fadefbb962b2fc44">src/libcamera/ipa_module.cpp:390</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, check whether it is already loaded. · !valid_ [false]">거짓이면 이미 로드되었는지 확인합니다. · !valid_ [false]</span></td>
+<td><a href="#source-fadefbb962b2fc44">src/libcamera/ipa_module.cpp:390</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, return true. · loaded_ [true]">참이면 true를 반환합니다. · loaded_ [true]</span></td>
+<td><a href="#source-fadefbb962b2fc44">src/libcamera/ipa_module.cpp:390</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, open the shared object with dlopen. · loaded_ [false]">거짓이면 dlopen으로 공유 객체를 엽니다. · loaded_ [false]</span></td>
+<td><a href="#source-fadefbb962b2fc44">src/libcamera/ipa_module.cpp:390</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, log the error and return false. · !dlHandle_ [true]">참이면 오류를 기록하고 false를 반환합니다. · !dlHandle_ [true]</span></td>
+<td><a href="#source-fadefbb962b2fc44">src/libcamera/ipa_module.cpp:390</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, look up ipaCreate with dlsym. · !dlHandle_ [false]">거짓이면 dlsym으로 ipaCreate를 찾습니다. · !dlHandle_ [false]</span></td>
+<td><a href="#source-fadefbb962b2fc44">src/libcamera/ipa_module.cpp:390</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, clean up the handle and return false. · !symbol [true]">참이면 핸들을 정리하고 false를 반환합니다. · !symbol [true]</span></td>
+<td><a href="#source-fadefbb962b2fc44">src/libcamera/ipa_module.cpp:390</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, set the factory. · !symbol [false]">거짓이면 팩터리를 설정합니다. · !symbol [false]</span></td>
+<td><a href="#source-fadefbb962b2fc44">src/libcamera/ipa_module.cpp:390</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:module-load-error-branches -->
+
+<!-- sdd:visual:synchronous-ipc-outcomes -->
+<h3 id="동기-call의-송신대기정리">동기 call의 송신·대기·정리</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"callData#95;.insert는 cookie를 &lt;br/&gt;키로, {response, false}를 &lt;br/&gt;값으로 삽입하려고 &lt;br/&gt;시도합니다.": "callData#95;.insert attempts &lt;br/&gt;to insert cookie as the key &lt;br/&gt;and {response, false} as &lt;br/&gt;the value.", "callData#95;에서 iter 항목을 &lt;br/&gt;지운 뒤 0을 반환합니다.": "Erase the iter entry from &lt;br/&gt;callData#95; and return 0.", "callData#95;의 erase가 iter &lt;br/&gt;항목을 지운 뒤 ret를 &lt;br/&gt;반환합니다.": "The erase method of &lt;br/&gt;callData#95; removes the iter &lt;br/&gt;entry, then the function &lt;br/&gt;returns ret.", "done이 false이면 타이머를 &lt;br/&gt;확인합니다. · &lt;br/&gt;#33;iter-#62;second.done #91;true#93;": "If done is false, check the &lt;br/&gt;timer. · #33;iter-#62;second.done &lt;br/&gt;#91;true#93;", "done이 true이면 정리하고 &lt;br/&gt;반환합니다. · &lt;br/&gt;#33;iter-#62;second.done #91;false#93;": "If done is true, clean up &lt;br/&gt;and return. · &lt;br/&gt;#33;iter-#62;second.done #91;false#93;", "iter 항목의 done을 &lt;br/&gt;확인합니다.": "Check done in the iter &lt;br/&gt;entry.", "result.first를 iter로 &lt;br/&gt;사용하며 result.second는 &lt;br/&gt;검사하지 않습니다. cookie가 &lt;br/&gt;이미 있으면 iter는 기존 &lt;br/&gt;항목을 가리킬 수 있습니다.": "Use result.first as iter; &lt;br/&gt;do not test result.second. &lt;br/&gt;An existing cookie can make &lt;br/&gt;iter reference an existing &lt;br/&gt;entry.", "ret가 0이 아닌지 확인합니다.": "Check whether ret is &lt;br/&gt;nonzero.", "socket#95;의 send가 message를 &lt;br/&gt;보내고 결과를 ret에 &lt;br/&gt;저장합니다.": "The send method of socket#95; &lt;br/&gt;sends message and stores &lt;br/&gt;the result in ret.", "timeout의 isRunning으로 &lt;br/&gt;타이머가 실행 중인지 &lt;br/&gt;확인합니다.": "Check whether the timer is &lt;br/&gt;running using the isRunning &lt;br/&gt;method of timeout.", "timeout의 start가 2000ms &lt;br/&gt;타이머를 시작합니다.": "The start method of timeout &lt;br/&gt;starts a 2000ms timer.", "삽입 시도 결과에서 반복자를 &lt;br/&gt;선택합니다.": "Select the iterator from &lt;br/&gt;the insertion attempt &lt;br/&gt;result.", "선택한 뒤 message를 &lt;br/&gt;보냅니다.": "Send message after the &lt;br/&gt;selection.", "송신 결과가 0이 아니면 &lt;br/&gt;정리하고 반환합니다. · ret &lt;br/&gt;#91;true#93;": "If the send result is &lt;br/&gt;nonzero, clean up and &lt;br/&gt;return. · ret #91;true#93;", "송신 결과가 0이면 타이머를 &lt;br/&gt;시작합니다. · ret #91;false#93;": "If the send result is zero, &lt;br/&gt;start the timer. · ret &lt;br/&gt;#91;false#93;", "송신 결과를 확인합니다.": "Check the send result.", "이벤트를 처리한 뒤 done을 &lt;br/&gt;다시 확인합니다.": "Check done again after &lt;br/&gt;processing events.", "타이머가 실행 중이 아니면 &lt;br/&gt;타임아웃을 처리합니다. · &lt;br/&gt;#33;timeout.isRunning#40;#41; #91;true#93;": "If the timer is not &lt;br/&gt;running, handle the &lt;br/&gt;timeout. · &lt;br/&gt;#33;timeout.isRunning#40;#41; #91;true#93;", "타이머가 실행 중이면 &lt;br/&gt;이벤트를 처리합니다. · &lt;br/&gt;#33;timeout.isRunning#40;#41; #91;false#93;": "If the timer is running, &lt;br/&gt;process events. · &lt;br/&gt;#33;timeout.isRunning#40;#41; #91;false#93;", "타이머를 시작한 뒤 done을 &lt;br/&gt;확인합니다.": "Check done after starting &lt;br/&gt;the timer.", "타임아웃을 기록하고 &lt;br/&gt;callData#95;에서 iter 항목을 &lt;br/&gt;지운 뒤 -ETIMEDOUT을 &lt;br/&gt;반환합니다.": "Log the timeout, erase the &lt;br/&gt;iter entry from callData#95;, &lt;br/&gt;and return -ETIMEDOUT.", "현재 스레드의 &lt;br/&gt;eventDispatcher가 &lt;br/&gt;processEvents를 실행합니다.": "The eventDispatcher of the &lt;br/&gt;current thread runs &lt;br/&gt;processEvents."}
+  v_insert["callData#95;.insert는 cookie를 &lt;br/&gt;키로, {response, false}를 &lt;br/&gt;값으로 삽입하려고 &lt;br/&gt;시도합니다."]
+  v_iter["result.first를 iter로 &lt;br/&gt;사용하며 result.second는 &lt;br/&gt;검사하지 않습니다. cookie가 &lt;br/&gt;이미 있으면 iter는 기존 &lt;br/&gt;항목을 가리킬 수 있습니다."]
+  v_send["socket#95;의 send가 message를 &lt;br/&gt;보내고 결과를 ret에 &lt;br/&gt;저장합니다."]
+  v_ret{"ret가 0이 아닌지 확인합니다."}
+  v_send_failure["callData#95;의 erase가 iter &lt;br/&gt;항목을 지운 뒤 ret를 &lt;br/&gt;반환합니다."]
+  v_start["timeout의 start가 2000ms &lt;br/&gt;타이머를 시작합니다."]
+  v_done{"iter 항목의 done을 &lt;br/&gt;확인합니다."}
+  v_timer{"timeout의 isRunning으로 &lt;br/&gt;타이머가 실행 중인지 &lt;br/&gt;확인합니다."}
+  v_timed_out["타임아웃을 기록하고 &lt;br/&gt;callData#95;에서 iter 항목을 &lt;br/&gt;지운 뒤 -ETIMEDOUT을 &lt;br/&gt;반환합니다."]
+  v_events["현재 스레드의 &lt;br/&gt;eventDispatcher가 &lt;br/&gt;processEvents를 실행합니다."]
+  v_success["callData#95;에서 iter 항목을 &lt;br/&gt;지운 뒤 0을 반환합니다."]
+  v_insert --&gt;|"삽입 시도 결과에서 반복자를 &lt;br/&gt;선택합니다."| v_iter
+  v_iter --&gt;|"선택한 뒤 message를 &lt;br/&gt;보냅니다."| v_send
+  v_send --&gt;|"송신 결과를 확인합니다."| v_ret
+  v_ret --&gt;|"송신 결과가 0이 아니면 &lt;br/&gt;정리하고 반환합니다. · ret &lt;br/&gt;#91;true#93;"| v_send_failure
+  v_ret --&gt;|"송신 결과가 0이면 타이머를 &lt;br/&gt;시작합니다. · ret #91;false#93;"| v_start
+  v_start --&gt;|"타이머를 시작한 뒤 done을 &lt;br/&gt;확인합니다."| v_done
+  v_done --&gt;|"done이 false이면 타이머를 &lt;br/&gt;확인합니다. · &lt;br/&gt;#33;iter-#62;second.done #91;true#93;"| v_timer
+  v_done --&gt;|"done이 true이면 정리하고 &lt;br/&gt;반환합니다. · &lt;br/&gt;#33;iter-#62;second.done #91;false#93;"| v_success
+  v_timer --&gt;|"타이머가 실행 중이 아니면 &lt;br/&gt;타임아웃을 처리합니다. · &lt;br/&gt;#33;timeout.isRunning#40;#41; #91;true#93;"| v_timed_out
+  v_timer --&gt;|"타이머가 실행 중이면 &lt;br/&gt;이벤트를 처리합니다. · &lt;br/&gt;#33;timeout.isRunning#40;#41; #91;false#93;"| v_events
+  v_events --&gt;|"이벤트를 처리한 뒤 done을 &lt;br/&gt;다시 확인합니다."| v_done</pre>
+<p><a href="../ipa.synchronous-ipc-outcomes.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>call은 쿠키 항목 삽입 시도, 송신 결과와 done·타이머 상태에 따라 무엇을 정리하고 반환합니까?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<p>LLM 그림 초안 · 사람 검토 전</p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="callData_.insert attempts to insert cookie as the key and {response, false} as the value.">callData_.insert는 cookie를 키로, {response, false}를 값으로 삽입하려고 시도합니다.</span></td>
+<td><a href="#source-651cf5a1cd2457ca">src/libcamera/ipc_pipe_unixsocket.cpp:112</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Use result.first as iter; do not test result.second. An existing cookie can make iter reference an existing entry.">result.first를 iter로 사용하며 result.second는 검사하지 않습니다. cookie가 이미 있으면 iter는 기존 항목을 가리킬 수 있습니다.</span></td>
+<td><a href="#source-651cf5a1cd2457ca">src/libcamera/ipc_pipe_unixsocket.cpp:112</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The send method of socket_ sends message and stores the result in ret.">socket_의 send가 message를 보내고 결과를 ret에 저장합니다.</span></td>
+<td><a href="#source-651cf5a1cd2457ca">src/libcamera/ipc_pipe_unixsocket.cpp:112</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether ret is nonzero.">ret가 0이 아닌지 확인합니다.</span></td>
+<td><a href="#source-651cf5a1cd2457ca">src/libcamera/ipc_pipe_unixsocket.cpp:112</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The erase method of callData_ removes the iter entry, then the function returns ret.">callData_의 erase가 iter 항목을 지운 뒤 ret를 반환합니다.</span></td>
+<td><a href="#source-651cf5a1cd2457ca">src/libcamera/ipc_pipe_unixsocket.cpp:112</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The start method of timeout starts a 2000ms timer.">timeout의 start가 2000ms 타이머를 시작합니다.</span></td>
+<td><a href="#source-651cf5a1cd2457ca">src/libcamera/ipc_pipe_unixsocket.cpp:112</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check done in the iter entry.">iter 항목의 done을 확인합니다.</span></td>
+<td><a href="#source-651cf5a1cd2457ca">src/libcamera/ipc_pipe_unixsocket.cpp:112</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether the timer is running using the isRunning method of timeout.">timeout의 isRunning으로 타이머가 실행 중인지 확인합니다.</span></td>
+<td><a href="#source-651cf5a1cd2457ca">src/libcamera/ipc_pipe_unixsocket.cpp:112</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Log the timeout, erase the iter entry from callData_, and return -ETIMEDOUT.">타임아웃을 기록하고 callData_에서 iter 항목을 지운 뒤 -ETIMEDOUT을 반환합니다.</span></td>
+<td><a href="#source-651cf5a1cd2457ca">src/libcamera/ipc_pipe_unixsocket.cpp:112</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The eventDispatcher of the current thread runs processEvents.">현재 스레드의 eventDispatcher가 processEvents를 실행합니다.</span></td>
+<td><a href="#source-651cf5a1cd2457ca">src/libcamera/ipc_pipe_unixsocket.cpp:112</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Erase the iter entry from callData_ and return 0.">callData_에서 iter 항목을 지운 뒤 0을 반환합니다.</span></td>
+<td><a href="#source-651cf5a1cd2457ca">src/libcamera/ipc_pipe_unixsocket.cpp:112</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Select the iterator from the insertion attempt result.">삽입 시도 결과에서 반복자를 선택합니다.</span></td>
+<td><a href="#source-651cf5a1cd2457ca">src/libcamera/ipc_pipe_unixsocket.cpp:112</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Send message after the selection.">선택한 뒤 message를 보냅니다.</span></td>
+<td><a href="#source-651cf5a1cd2457ca">src/libcamera/ipc_pipe_unixsocket.cpp:112</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the send result.">송신 결과를 확인합니다.</span></td>
+<td><a href="#source-651cf5a1cd2457ca">src/libcamera/ipc_pipe_unixsocket.cpp:112</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the send result is nonzero, clean up and return. · ret [true]">송신 결과가 0이 아니면 정리하고 반환합니다. · ret [true]</span></td>
+<td><a href="#source-651cf5a1cd2457ca">src/libcamera/ipc_pipe_unixsocket.cpp:112</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the send result is zero, start the timer. · ret [false]">송신 결과가 0이면 타이머를 시작합니다. · ret [false]</span></td>
+<td><a href="#source-651cf5a1cd2457ca">src/libcamera/ipc_pipe_unixsocket.cpp:112</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check done after starting the timer.">타이머를 시작한 뒤 done을 확인합니다.</span></td>
+<td><a href="#source-651cf5a1cd2457ca">src/libcamera/ipc_pipe_unixsocket.cpp:112</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If done is false, check the timer. · !iter->second.done [true]">done이 false이면 타이머를 확인합니다. · !iter-&gt;second.done [true]</span></td>
+<td><a href="#source-651cf5a1cd2457ca">src/libcamera/ipc_pipe_unixsocket.cpp:112</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If done is true, clean up and return. · !iter->second.done [false]">done이 true이면 정리하고 반환합니다. · !iter-&gt;second.done [false]</span></td>
+<td><a href="#source-651cf5a1cd2457ca">src/libcamera/ipc_pipe_unixsocket.cpp:112</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the timer is not running, handle the timeout. · !timeout.isRunning() [true]">타이머가 실행 중이 아니면 타임아웃을 처리합니다. · !timeout.isRunning() [true]</span></td>
+<td><a href="#source-651cf5a1cd2457ca">src/libcamera/ipc_pipe_unixsocket.cpp:112</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the timer is running, process events. · !timeout.isRunning() [false]">타이머가 실행 중이면 이벤트를 처리합니다. · !timeout.isRunning() [false]</span></td>
+<td><a href="#source-651cf5a1cd2457ca">src/libcamera/ipc_pipe_unixsocket.cpp:112</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check done again after processing events.">이벤트를 처리한 뒤 done을 다시 확인합니다.</span></td>
+<td><a href="#source-651cf5a1cd2457ca">src/libcamera/ipc_pipe_unixsocket.cpp:112</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:synchronous-ipc-outcomes -->
+
+<p data-sdd-evidence='[["src/libcamera/ipa_module.cpp:451", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_module.cpp#L451\"><code>src/libcamera/ipa_module.cpp:451</code></a>"]]' data-sdd-excerpts='{"src/libcamera/ipa_module.cpp:451": ["#source-0ea8ec769af3a9cd"]}'><code>IPAModule::createInterface()</code>는 모듈이 유효하지 않거나 로드되지 않았으면 <code>nullptr</code>을 반환합니다. 두 조건을 모두 통과하면 <code>ipaCreate_()</code>를 호출하고 그 반환값을 반환합니다.</p>
+<p data-sdd-evidence='[["src/libcamera/ipc_pipe_unixsocket.cpp:57", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipc_pipe_unixsocket.cpp#L57\"><code>src/libcamera/ipc_pipe_unixsocket.cpp:57</code></a>"]]' data-sdd-excerpts='{"src/libcamera/ipc_pipe_unixsocket.cpp:57": ["#source-bd92cc1dba99926f"]}'><code>IPCPipeUnixSocket::sendSync</code>는 입력 페이로드, 응답 저장 위치, 입력 헤더의 쿠키로 <code>call</code>을 호출하고 반환값을 검사합니다. 반환값이 0이 아니면 오류를 기록하고 그 값을 그대로 반환합니다. 성공하면 <code>out</code>이 널이 아닐 때 응답으로 만든 <code>IPCMessage</code>를 <code>out</code>에 저장하고 0을 반환합니다.</p>
+<p data-sdd-evidence='[["src/libcamera/ipc_pipe_unixsocket.cpp:112", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipc_pipe_unixsocket.cpp#L112\"><code>src/libcamera/ipc_pipe_unixsocket.cpp:112</code></a>"]]' data-sdd-excerpts='{"src/libcamera/ipc_pipe_unixsocket.cpp:112": ["#source-651cf5a1cd2457ca"]}'><code>IPCPipeUnixSocket::call</code>은 <code>cookie</code>를 키로 하고 <code>response</code>와 <code>false</code>를 값으로 하여 <code>callData_</code>에 삽입을 시도합니다. 이 함수는 삽입 성공 여부를 검사하지 않고 결과의 <code>first</code> 필드를 <code>iter</code>로 사용하여 해당 항목을 가리킵니다. 소켓의 <code>send</code>에는 반복자가 아닌 <code>message</code>를 전달하며, 송신이 실패하면 <code>erase</code>로 <code>iter</code>가 가리키는 항목을 지우고 송신의 반환값을 반환합니다.</p>
+<p data-sdd-evidence='[["src/libcamera/ipc_pipe_unixsocket.cpp:112", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipc_pipe_unixsocket.cpp#L112\"><code>src/libcamera/ipc_pipe_unixsocket.cpp:112</code></a>"]]' data-sdd-excerpts='{"src/libcamera/ipc_pipe_unixsocket.cpp:112": ["#source-651cf5a1cd2457ca"]}'><code>IPCPipeUnixSocket::call</code>은 타이머를 <code>2000ms</code>로 시작하고 항목의 <code>done</code>이 참이 될 때까지 기다립니다. 대기 중 타이머가 실행 중이면 현재 스레드의 이벤트 디스패처에서 <code>processEvents()</code>를 호출합니다. 타이머가 만료되면 <code>erase</code>로 항목을 지우고 <code>-ETIMEDOUT</code>을 반환합니다. <code>done</code>이 참이 되어 정상 완료되면 항목을 <code>erase</code>로 지우고 0을 반환합니다.</p>
+
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>5</span>개</summary><ul><li><code>src/libcamera/ipa_module.cpp</code><span class="evidence-lines"><a href="#source-fadefbb962b2fc44" aria-label="src/libcamera/ipa_module.cpp:390 발췌"><code>L390</code> 발췌</a> · <a aria-label="src/libcamera/ipa_module.cpp:390" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_module.cpp#L390">전체 소스 <code>L390</code></a> · <a href="#source-0ea8ec769af3a9cd" aria-label="src/libcamera/ipa_module.cpp:451 발췌"><code>L451</code> 발췌</a> · <a aria-label="src/libcamera/ipa_module.cpp:451" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_module.cpp#L451">전체 소스 <code>L451</code></a></span></li><li><code>src/libcamera/ipc_pipe_unixsocket.cpp</code><span class="evidence-lines"><a href="#source-bd92cc1dba99926f" aria-label="src/libcamera/ipc_pipe_unixsocket.cpp:57 발췌"><code>L57</code> 발췌</a> · <a aria-label="src/libcamera/ipc_pipe_unixsocket.cpp:57" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipc_pipe_unixsocket.cpp#L57">전체 소스 <code>L57</code></a> · <a href="#source-651cf5a1cd2457ca" aria-label="src/libcamera/ipc_pipe_unixsocket.cpp:112 발췌"><code>L112</code> 발췌</a> · <a aria-label="src/libcamera/ipc_pipe_unixsocket.cpp:112" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipc_pipe_unixsocket.cpp#L112">전체 소스 <code>L112</code></a> · <a aria-label="src/libcamera/ipc_pipe_unixsocket.cpp:27" href="#source-f0268126d3f8c2bc"><code>L27</code></a></span></li></ul></details>
+<!-- sdd:class-diagram -->
+<h2 id="클래스-관계">클래스 관계</h2>
+<p>화살표의 글자는 추출한 관계를 나타내며, 점선은 상속입니다. 화살표는 참조 대상 또는 기반 클래스를 향합니다. 호출 순서를 뜻하지 않습니다.</p>
+<pre class="mermaid">flowchart LR
+  c0["IPAInterface"]:::context
+  c1["IPAManager"]
+  c2["IPAModule"]
+  c3["IPAProxy"]
+  c4["Loggable"]:::context
+  c5["ipa::ipu3::IPAIPU3"]
+  c6["ipa::ipu3::Module"]:::context
+  c7["ipa::rkisp1::IPARkISP1"]
+  c8["ipa::rkisp1::Module"]:::context
+  c1 --&gt;|필드 참조| c2
+  c2 -.-&gt;|상속| c4
+  c3 -.-&gt;|상속| c0
+  c3 --&gt;|필드 참조| c2
+  c5 -.-&gt;|상속| c6
+  c7 -.-&gt;|상속| c8
+  classDef context fill:#fafafa,stroke:#aaa,stroke-dasharray:4 3,color:#555</pre>
+<!-- /sdd:class-diagram -->
+
+<h2 id="소스-근거">소스 근거</h2>
+<details class="source-excerpts"><summary>소스 발췌 <span>24</span>개</summary>
+<p>같은 발췌는 한 번만 싣습니다. 필요한 원문을 펼쳐 설명과 대조하세요.</p>
+<p><a id="source-7603cbafe8eef490"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/ipa_manager.cpp:107</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_manager.cpp#L107"><code>src/libcamera/ipa_manager.cpp:107</code></a> ~ <code>162</code></p>
+<p>SHA-256: <code>ed1b15d5743b434eb29e34ba981de978ff4dd9bcb186859e4800931a525e766c</code></p>
+<div class="highlight"><pre><span></span><code>IPAManager::IPAManager(const CameraManager &amp;cm)
+    : cm_(cm)
+{
+    const GlobalConfiguration &amp;configuration = cm._d()-&gt;configuration();
+
+#if HAVE_IPA_PUBKEY
+    if (!pubKey_.isValid())
+        LOG(IPAManager, Warning) &lt;&lt; "Public key not valid";
+
+    forceIsolation_ = configuration.option&lt;bool&gt;({ "ipa", "force_isolation" })
+                       .value_or(false);
+#endif
+
+    unsigned int ipaCount = 0;
+
+    /* User-specified paths take precedence. */
+    const auto modulePaths =
+        configuration.listOption({ "ipa", "module_paths" })
+            .value_or(utils::defopt);
+    for (const auto &amp;dir : modulePaths) {
+        if (dir.empty())
+            continue;
+
+        ipaCount += addDir(dir.c_str());
+    }
+
+    if (!modulePaths.empty() &amp;&amp; !ipaCount)
+        LOG(IPAManager, Warning) &lt;&lt; "No IPA found in '"
+                     &lt;&lt; utils::join(modulePaths, ":")
+                     &lt;&lt; "'";
+
+    /*
+     * When libcamera is used before it is installed, load IPAs from the
+     * same build directory as the libcamera library itself.
+     */
+    std::string root = utils::libcameraBuildPath();
+    if (!root.empty()) {
+        std::string ipaBuildPath = root + "src/ipa";
+        constexpr int maxDepth = 2;
+
+        LOG(IPAManager, Info)
+            &lt;&lt; "libcamera is not installed. Adding '"
+            &lt;&lt; ipaBuildPath &lt;&lt; "' to the IPA search path";
+
+        ipaCount += addDir(ipaBuildPath.c_str(), maxDepth);
+    }
+
+    /* Finally try to load IPAs from the installed system path. */
+    ipaCount += addDir(IPA_MODULE_DIR);
+
+    if (!ipaCount)
+        LOG(IPAManager, Warning)
+            &lt;&lt; "No IPA found in '" IPA_MODULE_DIR "'";
+}
+
+IPAManager::~IPAManager() = default;
+</code></pre></div>
+</details>
+<p><a id="source-6e1525c1fc1aa55e"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/ipa_module.cpp:460</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_module.cpp#L460"><code>src/libcamera/ipa_module.cpp:460</code></a> ~ <code>478</code></p>
+<p>SHA-256: <code>99940db9ea353ad0d8282b7c2148578f4c6054d785ef7aaf690d522b52bafb5b</code></p>
+<div class="highlight"><pre><span></span><code>\brief Verify if the IPA module matches a given name
+ * \param[in] name The IPA module name
+ * \param[in] minVersion Minimum acceptable version of IPA module
+ * \param[in] maxVersion Maximum acceptable version of IPA module
+ *
+ * This function checks if this IPA module matches the requested \a name
+ * and the input version range.
+ *
+ * \return True if the IPA module matches, or false otherwise
+ */
+bool IPAModule::match(const char *name, uint32_t minVersion,
+              uint32_t maxVersion) const
+{
+    return info_.pipelineVersion &gt;= minVersion &amp;&amp;
+           info_.pipelineVersion &lt;= maxVersion &amp;&amp;
+           !strcmp(info_.name, name);
+}
+
+std::string IPAModule::logPrefix()
+</code></pre></div>
+</details>
+<p><a id="source-2a1bbbc8623a516f"></a></p>
+<details class="note">
+<summary>소스 근거: include/libcamera/internal/ipa_manager.h:35</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/ipa_manager.h#L35"><code>include/libcamera/internal/ipa_manager.h:35</code></a> ~ <code>58</code></p>
+<p>SHA-256: <code>e0bd5192ea24a8b39d3df7b7b93c8b17614663a0144f6dd0741d410fa321d458</code></p>
+<div class="highlight"><pre><span></span><code>template&lt;typename T&gt;
+    std::unique_ptr&lt;T&gt; createIPA(const char *name, uint32_t minVersion,
+                     uint32_t maxVersion)
+    {
+        IPAModule *m = module(name, minVersion, maxVersion);
+        if (!m)
+            return nullptr;
+
+        auto proxy = [&amp;]() -&gt; std::unique_ptr&lt;T&gt; {
+            if (isSignatureValid(m))
+                return std::make_unique&lt;typename T::Threaded&gt;(m, cm_);
+            else
+                return std::make_unique&lt;typename T::Isolated&gt;(m, cm_);
+        }();
+
+        if (!proxy-&gt;isValid()) {
+            LOG(IPAManager, Error) &lt;&lt; "Failed to load proxy";
+            return nullptr;
+        }
+
+        return proxy;
+    }
+
+#if HAVE_IPA_PUBKEY
+</code></pre></div>
+</details>
+<p><a id="source-532f8ffa194bd319"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/ipa_manager.cpp:289</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_manager.cpp#L289"><code>src/libcamera/ipa_manager.cpp:289</code></a> ~ <code>319</code></p>
+<p>SHA-256: <code>f657ce54df77453510108b02060166edd7506c982d13d3e4868fadee4065a677</code></p>
+<div class="highlight"><pre><span></span><code>bool IPAManager::isSignatureValid([[maybe_unused]] IPAModule *ipa) const
+{
+#if HAVE_IPA_PUBKEY
+    if (forceIsolation_) {
+        LOG(IPAManager, Debug)
+            &lt;&lt; "Isolation of IPA module " &lt;&lt; ipa-&gt;path()
+            &lt;&lt; " forced through configuration";
+        return false;
+    }
+
+    File file{ ipa-&gt;path() };
+    if (!file.open(File::OpenModeFlag::ReadOnly))
+        return false;
+
+    std::span&lt;uint8_t&gt; data = file.map();
+    if (data.empty())
+        return false;
+
+    bool valid = pubKey_.verify(data, ipa-&gt;signature());
+
+    LOG(IPAManager, Debug)
+        &lt;&lt; "IPA module " &lt;&lt; ipa-&gt;path() &lt;&lt; " signature is "
+        &lt;&lt; (valid ? "valid" : "not valid");
+
+    return valid;
+#else
+    return false;
+#endif
+}
+
+} /* namespace libcamera */
+</code></pre></div>
+</details>
+<p><a id="source-c7fd6e52f2c537b5"></a></p>
+<details class="note">
+<summary>소스 근거: utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L48"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:48</code></a> ~ <code>128</code></p>
+<p>SHA-256: <code>af4b12c81ffee2e9979c01a7e7eb188f5568d258ba03e522b60a3608dc226abd</code></p>
+<div class="highlight"><pre><span></span><code>{{proxy_name}}Threaded::{{proxy_name}}Threaded(IPAModule *ipam, const CameraManager &amp;cm)
+    : {{proxy_name}}(ipam, cm), thread_("{{proxy_name}}")
+{
+    LOG(IPAProxy, Debug)
+        &lt;&lt; "initializing {{module_name}} proxy in thread: loading IPA from "
+        &lt;&lt; ipam-&gt;path();
+
+    if (!ipam-&gt;load())
+        return;
+
+    IPAInterface *ipai = ipam-&gt;createInterface();
+    if (!ipai) {
+        LOG(IPAProxy, Error)
+            &lt;&lt; "Failed to create IPA context for " &lt;&lt; ipam-&gt;path();
+        return;
+    }
+
+    ipa_ = std::unique_ptr&lt;{{interface_name}}&gt;(static_cast&lt;{{interface_name}} *&gt;(ipai));
+    proxy_.setIPA(ipa_.get());
+
+{% for method in interface_event.methods %}
+    ipa_-&gt;{{method.mojom_name}}.connect(this, &amp;{{proxy_name}}Threaded::{{method.mojom_name}}Handler);
+{%- endfor %}
+
+    valid_ = true;
+}
+
+{{proxy_name}}Threaded::~{{proxy_name}}Threaded() = default;
+
+{% for method in interface_main.methods %}
+{{proxy_funcs.func_sig(proxy_name + "Threaded", method)}}
+{
+{%- if method.mojom_name == "stop" %}
+    {{proxy_funcs.stop_thread_body()}}
+{%- elif method.mojom_name == "init" %}
+    {{ method|method_return_value + " _ret = " if method|method_return_value != "void" -}}
+    ipa_-&gt;{{method.mojom_name}}(
+    {%- for param in method|method_param_names -%}
+        {{param}}{{- ", " if not loop.last}}
+    {%- endfor -%}
+);
+
+    proxy_.moveToThread(&amp;thread_);
+
+    return {{ "_ret" if method|method_return_value != "void" }};
+{%- elif method.mojom_name == "start" %}
+    state_ = ProxyRunning;
+    thread_.start();
+
+    return proxy_.invokeMethod(&amp;ThreadProxy::start, ConnectionTypeBlocking
+    {{- ", " if method|method_param_names}}
+    {%- for param in method|method_param_names -%}
+        {{param}}{{- ", " if not loop.last}}
+    {%- endfor -%}
+);
+{%- elif not method|is_async %}
+    return ipa_-&gt;{{method.mojom_name}}(
+    {%- for param in method|method_param_names -%}
+        {{param}}{{- ", " if not loop.last}}
+    {%- endfor -%}
+);
+{% elif method|is_async %}
+    ASSERT(state_ == ProxyRunning);
+    proxy_.invokeMethod(&amp;ThreadProxy::{{method.mojom_name}}, ConnectionTypeQueued
+    {%- for param in method|method_param_names -%}
+        , {{param}}
+    {%- endfor -%}
+);
+{%- endif %}
+}
+{% endfor %}
+
+{% for method in interface_event.methods %}
+{{proxy_funcs.func_sig(proxy_name + "Threaded", method, "Handler")}}
+{
+    ASSERT(state_ != ProxyStopped);
+    {{method.mojom_name}}.emit({{method.parameters|params_comma_sep}});
+}
+{% endfor %}
+
+/* ========================================================================== */
+</code></pre></div>
+</details>
+<p><a id="source-9ff6047b0a70ce66"></a></p>
+<details class="note">
+<summary>소스 근거: utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L130"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:130</code></a> ~ <code>212</code></p>
+<p>SHA-256: <code>dd0ba6e352ffacd6c27c6ff5bb447af14838d75ca6aed8d056855ec442a97744</code></p>
+<div class="highlight"><pre><span></span><code>{{proxy_name}}Isolated::{{proxy_name}}Isolated(IPAModule *ipam, const CameraManager &amp;cm)
+    : {{proxy_name}}(ipam, cm),
+      controlSerializer_(ControlSerializer::Role::Proxy), seq_(0)
+{
+    LOG(IPAProxy, Debug)
+        &lt;&lt; "initializing {{module_name}} proxy in isolation: loading IPA from "
+        &lt;&lt; ipam-&gt;path();
+
+    const std::string proxyWorkerPath = resolvePath("{{module_name}}_ipa_proxy");
+    if (proxyWorkerPath.empty()) {
+        LOG(IPAProxy, Error) &lt;&lt; "Failed to get proxy worker path";
+        return;
+    }
+
+    auto ipc = std::make_unique&lt;IPCPipeUnixSocket&gt;(ipam-&gt;path().c_str(),
+                               proxyWorkerPath.c_str());
+    if (!ipc-&gt;isConnected()) {
+        LOG(IPAProxy, Error) &lt;&lt; "Failed to create IPCPipe";
+        return;
+    }
+
+    ipc-&gt;recv.connect(this, &amp;{{proxy_name}}Isolated::recvMessage);
+
+    ipc_ = std::move(ipc);
+    valid_ = true;
+}
+
+{{proxy_name}}Isolated::~{{proxy_name}}Isolated()
+{
+    if (ipc_) {
+        IPCMessage::Header header =
+            { static_cast&lt;uint32_t&gt;({{cmd_enum_name}}::Exit), seq_++ };
+        IPCMessage msg(header);
+        ipc_-&gt;sendAsync(msg);
+    }
+}
+
+{% for method in interface_main.methods %}
+{{proxy_funcs.func_sig(proxy_name + "Isolated", method)}}
+{
+{%- if method.mojom_name == "configure" %}
+    controlSerializer_.reset();
+{%- endif %}
+{%- set has_output = true if method|method_param_outputs|length &gt; 0 or method|method_return_value != "void" %}
+{%- set cmd = cmd_enum_name + "::" + method.mojom_name|cap %}
+    IPCMessage::Header _header = { static_cast&lt;uint32_t&gt;({{cmd}}), seq_++ };
+    IPCMessage _ipcInputBuf(_header);
+{%- if has_output %}
+    IPCMessage _ipcOutputBuf;
+{%- endif %}
+
+{{proxy_funcs.serialize_call(method|method_param_inputs, '_ipcInputBuf.data()', '_ipcInputBuf.fds()')}}
+
+{% if method|is_async %}
+    int _ret = ipc_-&gt;sendAsync(_ipcInputBuf);
+{%- else %}
+    int _ret = ipc_-&gt;sendSync(_ipcInputBuf
+{{- ", &amp;_ipcOutputBuf" if has_output -}}
+);
+{%- endif %}
+    if (_ret &lt; 0) {
+        LOG(IPAProxy, Error) &lt;&lt; "Failed to call {{method.mojom_name}}: " &lt;&lt; _ret;
+{%- if method|method_return_value != "void" %}
+        return static_cast&lt;{{method|method_return_value}}&gt;(_ret);
+{%- else %}
+        return;
+{%- endif %}
+    }
+{% if method|method_return_value != "void" %}
+    {{method|method_return_value}} _retValue = IPADataSerializer&lt;{{method|method_return_value}}&gt;::deserialize(_ipcOutputBuf.data(), 0);
+
+{{proxy_funcs.deserialize_call(method|method_param_outputs, '_ipcOutputBuf.data()', '_ipcOutputBuf.fds()', init_offset = method|method_return_value|byte_width|int)}}
+
+    return _retValue;
+
+{% elif method|method_param_outputs|length &gt; 0 %}
+{{proxy_funcs.deserialize_call(method|method_param_outputs, '_ipcOutputBuf.data()', '_ipcOutputBuf.fds()')}}
+{% endif -%}
+}
+
+{% endfor %}
+
+void {{proxy_name}}Isolated::recvMessage(
+</code></pre></div>
+</details>
+<p><a id="source-59a673fb7c43c0e0"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/ipa_proxy.cpp:204</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_proxy.cpp#L204"><code>src/libcamera/ipa_proxy.cpp:204</code></a> ~ <code>261</code></p>
+<p>SHA-256: <code>8cbcadf7036cdb391f4c48af8562cb637752242f9564f1118c949a62df9dbd77</code></p>
+<div class="highlight"><pre><span></span><code>\brief Find a valid full path for a proxy worker for a given executable name
+ * \param[in] file File name of proxy worker executable
+ *
+ * A proxy worker's executable could be found in either the global installation
+ * directory, or in the paths specified by the environment variable
+ * LIBCAMERA_IPA_PROXY_PATH. This function checks the global install directory
+ * first, then LIBCAMERA_IPA_PROXY_PATH in order, and returns the full path to
+ * the proxy worker executable that is specified by file. The proxy worker
+ * executable shall have exec permission.
+ *
+ * \return The full path to the proxy worker executable, or an empty string if
+ * no valid executable path
+ */
+std::string IPAProxy::resolvePath(const std::string &amp;file) const
+{
+    std::string proxyFile = "/" + file;
+
+    /* Try paths from the configuration first. */
+    for (const auto &amp;dir : execPaths_) {
+        if (dir.empty())
+            continue;
+
+        std::string proxyPath = dir + proxyFile;
+        if (!access(proxyPath.c_str(), X_OK))
+            return proxyPath;
+    }
+
+    /*
+     * When libcamera is used before it is installed, load proxy workers
+     * from the same build directory as the libcamera directory itself.
+     * This requires identifying the path of the libcamera.so, and
+     * referencing a relative path for the proxy workers from that point.
+     */
+    std::string root = utils::libcameraBuildPath();
+    if (!root.empty()) {
+        std::string ipaProxyDir = root + "src/libcamera/proxy/worker";
+
+        LOG(IPAProxy, Info)
+            &lt;&lt; "libcamera is not installed. Loading proxy workers from '"
+            &lt;&lt; ipaProxyDir &lt;&lt; "'";
+
+        std::string proxyPath = ipaProxyDir + proxyFile;
+        if (!access(proxyPath.c_str(), X_OK))
+            return proxyPath;
+
+        return std::string();
+    }
+
+    /* Else try finding the exec target from the install directory. */
+    std::string proxyPath = std::string(IPA_PROXY_DIR) + proxyFile;
+    if (!access(proxyPath.c_str(), X_OK))
+        return proxyPath;
+
+    return std::string();
+}
+
+/**
+ * \var IPAProxy::valid_
+</code></pre></div>
+</details>
+<p><a id="source-f0268126d3f8c2bc"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/ipc_pipe_unixsocket.cpp:27</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipc_pipe_unixsocket.cpp#L27"><code>src/libcamera/ipc_pipe_unixsocket.cpp:27</code></a> ~ <code>144</code></p>
+<p>SHA-256: <code>0abe488ceae72cca0a5b96c7223ffc4cc412ab18f94765fd7f001dc450544f40</code></p>
+<div class="highlight"><pre><span></span><code>IPCPipeUnixSocket::IPCPipeUnixSocket(const char *ipaModulePath,
+                     const char *ipaProxyWorkerPath)
+    : IPCPipe()
+{
+    socket_ = std::make_unique&lt;IPCUnixSocket&gt;();
+    UniqueFD fd = socket_-&gt;create();
+    if (!fd.isValid()) {
+        LOG(IPCPipe, Error) &lt;&lt; "Failed to create socket";
+        return;
+    }
+    socket_-&gt;readyRead.connect(this, &amp;IPCPipeUnixSocket::readyRead);
+
+    std::array args{ std::string(ipaModulePath), std::to_string(fd.get()) };
+    std::array fds{ fd.get() };
+
+    proc_ = std::make_unique&lt;Process&gt;();
+    int ret = proc_-&gt;start(ipaProxyWorkerPath, args, fds);
+    if (ret) {
+        LOG(IPCPipe, Error)
+            &lt;&lt; "Failed to start proxy worker process";
+        return;
+    }
+
+    connected_ = true;
+}
+
+IPCPipeUnixSocket::~IPCPipeUnixSocket()
+{
+}
+
+int IPCPipeUnixSocket::sendSync(const IPCMessage &amp;in, IPCMessage *out)
+{
+    IPCUnixSocket::Payload response;
+
+    int ret = call(in.payload(), &amp;response, in.header().cookie);
+    if (ret) {
+        LOG(IPCPipe, Error) &lt;&lt; "Failed to call sync";
+        return ret;
+    }
+
+    if (out)
+        *out = IPCMessage(response);
+
+    return 0;
+}
+
+int IPCPipeUnixSocket::sendAsync(const IPCMessage &amp;data)
+{
+    int ret = socket_-&gt;send(data.payload());
+    if (ret) {
+        LOG(IPCPipe, Error) &lt;&lt; "Failed to call async";
+        return ret;
+    }
+
+    return 0;
+}
+
+void IPCPipeUnixSocket::readyRead()
+{
+    IPCUnixSocket::Payload payload;
+    int ret = socket_-&gt;receive(&amp;payload);
+    if (ret) {
+        LOG(IPCPipe, Error) &lt;&lt; "Receive message failed" &lt;&lt; ret;
+        return;
+    }
+
+    /* \todo Use span to avoid the double copy when callData is found. */
+    if (payload.data.size() &lt; sizeof(IPCMessage::Header)) {
+        LOG(IPCPipe, Error) &lt;&lt; "Not enough data received";
+        return;
+    }
+
+    IPCMessage ipcMessage(payload);
+
+    auto callData = callData_.find(ipcMessage.header().cookie);
+    if (callData != callData_.end()) {
+        *callData-&gt;second.response = std::move(payload);
+        callData-&gt;second.done = true;
+        return;
+    }
+
+    /* Received unexpected data, this means it's a call from the IPA. */
+    recv.emit(ipcMessage);
+}
+
+int IPCPipeUnixSocket::call(const IPCUnixSocket::Payload &amp;message,
+                IPCUnixSocket::Payload *response, uint32_t cookie)
+{
+    Timer timeout;
+    int ret;
+
+    const auto result = callData_.insert({ cookie, { response, false } });
+    const auto &amp;iter = result.first;
+
+    ret = socket_-&gt;send(message);
+    if (ret) {
+        callData_.erase(iter);
+        return ret;
+    }
+
+    /* \todo Make this less dangerous, see IPCPipe::sendSync() */
+    timeout.start(2000ms);
+    while (!iter-&gt;second.done) {
+        if (!timeout.isRunning()) {
+            LOG(IPCPipe, Error) &lt;&lt; "Call timeout!";
+            callData_.erase(iter);
+            return -ETIMEDOUT;
+        }
+
+        Thread::current()-&gt;eventDispatcher()-&gt;processEvents();
+    }
+
+    callData_.erase(iter);
+
+    return 0;
+}
+
+} /* namespace libcamera */
+</code></pre></div>
+</details>
+<p><a id="source-542f7efc12af7917"></a></p>
+<details class="note">
+<summary>소스 근거: utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:75</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L75"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:75</code></a> ~ <code>128</code></p>
+<p>SHA-256: <code>229171bf11ad25715f66dce8118661d411ecb495b15b82548f9f9a8369e0fa0c</code></p>
+<div class="highlight"><pre><span></span><code>{{proxy_name}}Threaded::~{{proxy_name}}Threaded() = default;
+
+{% for method in interface_main.methods %}
+{{proxy_funcs.func_sig(proxy_name + "Threaded", method)}}
+{
+{%- if method.mojom_name == "stop" %}
+    {{proxy_funcs.stop_thread_body()}}
+{%- elif method.mojom_name == "init" %}
+    {{ method|method_return_value + " _ret = " if method|method_return_value != "void" -}}
+    ipa_-&gt;{{method.mojom_name}}(
+    {%- for param in method|method_param_names -%}
+        {{param}}{{- ", " if not loop.last}}
+    {%- endfor -%}
+);
+
+    proxy_.moveToThread(&amp;thread_);
+
+    return {{ "_ret" if method|method_return_value != "void" }};
+{%- elif method.mojom_name == "start" %}
+    state_ = ProxyRunning;
+    thread_.start();
+
+    return proxy_.invokeMethod(&amp;ThreadProxy::start, ConnectionTypeBlocking
+    {{- ", " if method|method_param_names}}
+    {%- for param in method|method_param_names -%}
+        {{param}}{{- ", " if not loop.last}}
+    {%- endfor -%}
+);
+{%- elif not method|is_async %}
+    return ipa_-&gt;{{method.mojom_name}}(
+    {%- for param in method|method_param_names -%}
+        {{param}}{{- ", " if not loop.last}}
+    {%- endfor -%}
+);
+{% elif method|is_async %}
+    ASSERT(state_ == ProxyRunning);
+    proxy_.invokeMethod(&amp;ThreadProxy::{{method.mojom_name}}, ConnectionTypeQueued
+    {%- for param in method|method_param_names -%}
+        , {{param}}
+    {%- endfor -%}
+);
+{%- endif %}
+}
+{% endfor %}
+
+{% for method in interface_event.methods %}
+{{proxy_funcs.func_sig(proxy_name + "Threaded", method, "Handler")}}
+{
+    ASSERT(state_ != ProxyStopped);
+    {{method.mojom_name}}.emit({{method.parameters|params_comma_sep}});
+}
+{% endfor %}
+
+/* ========================================================================== */
+</code></pre></div>
+</details>
+<p><a id="source-7670edf527118b0e"></a></p>
+<details class="note">
+<summary>소스 근거: utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:93</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L93"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:93</code></a> ~ <code>103</code></p>
+<p>SHA-256: <code>6d84fe1343442ab9a1a6b0a70cb1d00c03d0ed1af36ac3cfb8fe739590f517e1</code></p>
+<div class="highlight"><pre><span></span><code>{%- elif method.mojom_name == "start" %}
+    state_ = ProxyRunning;
+    thread_.start();
+
+    return proxy_.invokeMethod(&amp;ThreadProxy::start, ConnectionTypeBlocking
+    {{- ", " if method|method_param_names}}
+    {%- for param in method|method_param_names -%}
+        {{param}}{{- ", " if not loop.last}}
+    {%- endfor -%}
+);
+{%- elif not method|is_async %}
+</code></pre></div>
+</details>
+<p><a id="source-f6afc431ed47a72a"></a></p>
+<details class="note">
+<summary>소스 근거: utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:109</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L109"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:109</code></a> ~ <code>118</code></p>
+<p>SHA-256: <code>9bffd86ebff514f6f8f34878e0f5b845ba9a15ccfc50b967619c8e9a9c90651d</code></p>
+<div class="highlight"><pre><span></span><code>{% elif method|is_async %}
+    ASSERT(state_ == ProxyRunning);
+    proxy_.invokeMethod(&amp;ThreadProxy::{{method.mojom_name}}, ConnectionTypeQueued
+    {%- for param in method|method_param_names -%}
+        , {{param}}
+    {%- endfor -%}
+);
+{%- endif %}
+}
+{% endfor %}
+</code></pre></div>
+</details>
+<p><a id="source-9d9c3049e90e4238"></a></p>
+<details class="note">
+<summary>소스 근거: utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:82</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L82"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:82</code></a> ~ <code>93</code></p>
+<p>SHA-256: <code>19c6c157aeb7f5b049df673ccd1c2792c2675800d870838db244a21f359738b9</code></p>
+<div class="highlight"><pre><span></span><code>{%- elif method.mojom_name == "init" %}
+    {{ method|method_return_value + " _ret = " if method|method_return_value != "void" -}}
+    ipa_-&gt;{{method.mojom_name}}(
+    {%- for param in method|method_param_names -%}
+        {{param}}{{- ", " if not loop.last}}
+    {%- endfor -%}
+);
+
+    proxy_.moveToThread(&amp;thread_);
+
+    return {{ "_ret" if method|method_return_value != "void" }};
+{%- elif method.mojom_name == "start" %}
+</code></pre></div>
+</details>
+<p><a id="source-60c70cd011db2353"></a></p>
+<details class="note">
+<summary>소스 근거: utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:55</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L55"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:55</code></a> ~ <code>56</code></p>
+<p>SHA-256: <code>487c09c1385700711ded6c5037d3c9d4d59b576e401dd378775c6d567c6b4dbe</code></p>
+<div class="highlight"><pre><span></span><code>if (!ipam-&gt;load())
+        return;
+</code></pre></div>
+</details>
+<p><a id="source-6fafe97ae651cb83"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/ipc_pipe_unixsocket.cpp:73</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipc_pipe_unixsocket.cpp#L73"><code>src/libcamera/ipc_pipe_unixsocket.cpp:73</code></a> ~ <code>84</code></p>
+<p>SHA-256: <code>81f2c0648cc4ae69f0049dd2aef8d25e3fc1bc498706a15d41d76db29c865f61</code></p>
+<div class="highlight"><pre><span></span><code>int IPCPipeUnixSocket::sendAsync(const IPCMessage &amp;data)
+{
+    int ret = socket_-&gt;send(data.payload());
+    if (ret) {
+        LOG(IPCPipe, Error) &lt;&lt; "Failed to call async";
+        return ret;
+    }
+
+    return 0;
+}
+
+void IPCPipeUnixSocket::readyRead()
+</code></pre></div>
+</details>
+<p><a id="source-7f9e84d5315c5882"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/ipc_pipe_unixsocket.cpp:84</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipc_pipe_unixsocket.cpp#L84"><code>src/libcamera/ipc_pipe_unixsocket.cpp:84</code></a> ~ <code>110</code></p>
+<p>SHA-256: <code>80db6c393d9adc09ed40ff8c4bf122abf5125ad8a36129134bcfd3b3fc3496d1</code></p>
+<div class="highlight"><pre><span></span><code>void IPCPipeUnixSocket::readyRead()
+{
+    IPCUnixSocket::Payload payload;
+    int ret = socket_-&gt;receive(&amp;payload);
+    if (ret) {
+        LOG(IPCPipe, Error) &lt;&lt; "Receive message failed" &lt;&lt; ret;
+        return;
+    }
+
+    /* \todo Use span to avoid the double copy when callData is found. */
+    if (payload.data.size() &lt; sizeof(IPCMessage::Header)) {
+        LOG(IPCPipe, Error) &lt;&lt; "Not enough data received";
+        return;
+    }
+
+    IPCMessage ipcMessage(payload);
+
+    auto callData = callData_.find(ipcMessage.header().cookie);
+    if (callData != callData_.end()) {
+        *callData-&gt;second.response = std::move(payload);
+        callData-&gt;second.done = true;
+        return;
+    }
+
+    /* Received unexpected data, this means it's a call from the IPA. */
+    recv.emit(ipcMessage);
+}
+</code></pre></div>
+</details>
+<p><a id="source-bae93ab8b66697ce"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/base/log.cpp:1044</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/log.cpp#L1044"><code>src/libcamera/base/log.cpp:1044</code></a> ~ <code>1058</code></p>
+<p>SHA-256: <code>522875c26e54ef1cc9cce7c4797356dda57027e4fb9bd25ceb4b352ccc7bcefe</code></p>
+<div class="highlight"><pre><span></span><code>\def ASSERT(condition)
+ * \hideinitializer
+ * \brief Abort program execution if assertion fails
+ *
+ * If \a condition is false, ASSERT() logs an error message with the Fatal log
+ * level and aborts program execution.
+ *
+ * If the macro NDEBUG is defined before including log.h, ASSERT() generates no
+ * code.
+ *
+ * Using conditions that have side effects with ASSERT() is not recommended, as
+ * these effects would depend on whether NDEBUG is defined or not. Similarly,
+ * ASSERT() should not be used to check for errors that can occur under normal
+ * conditions as those checks would then be removed when compiling with NDEBUG.
+ */
+</code></pre></div>
+</details>
+<p><a id="source-5a4a0da4800968a4"></a></p>
+<details class="note">
+<summary>소스 근거: include/libcamera/ipa/ipu3.mojom:19</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/ipa/ipu3.mojom#L19"><code>include/libcamera/ipa/ipu3.mojom:19</code></a> ~ <code>44</code></p>
+<p>SHA-256: <code>f1969299336634cdd04e42402648a452126032a25540ad5c78bd2c804362a381</code></p>
+<div class="highlight"><pre><span></span><code>interface IPAIPU3Interface {
+    init(libcamera.IPASettings settings,
+         libcamera.IPACameraSensorInfo sensorInfo,
+         libcamera.ControlInfoMap sensorControls)
+        =&gt; (int32 ret, libcamera.ControlInfoMap ipaControls);
+    start() =&gt; (int32 ret);
+    stop();
+
+    configure(IPAConfigInfo configInfo)
+        =&gt; (int32 ret, libcamera.ControlInfoMap ipaControls);
+
+    mapBuffers(array&lt;libcamera.IPABuffer&gt; buffers);
+    unmapBuffers(array&lt;uint32&gt; ids);
+
+    [async] queueRequest(uint32 frame, libcamera.ControlList controls);
+    [async] computeParams(uint32 frame, uint32 bufferId);
+    [async] processStats(uint32 frame, int64 frameTimestamp,
+                 uint32 bufferId, libcamera.ControlList sensorControls);
+};
+
+interface IPAIPU3EventInterface {
+    setSensorControls(uint32 frame, libcamera.ControlList sensorControls,
+              libcamera.ControlList lensControls);
+    paramsComputed(uint32 frame);
+    metadataReady(uint32 frame, libcamera.ControlList metadata);
+};
+</code></pre></div>
+</details>
+<p><a id="source-7a01de2477d6466e"></a></p>
+<details class="note">
+<summary>소스 근거: include/libcamera/ipa/rkisp1.mojom:17</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/ipa/rkisp1.mojom#L17"><code>include/libcamera/ipa/rkisp1.mojom:17</code></a> ~ <code>43</code></p>
+<p>SHA-256: <code>32d657315ff8eac800254f0a5d39462d55bb4b0ef6ee5717930f3d3b8504162b</code></p>
+<div class="highlight"><pre><span></span><code>interface IPARkISP1Interface {
+    init(libcamera.IPASettings settings,
+         uint32 hwRevision, uint32 supportedBlocks,
+         libcamera.IPACameraSensorInfo sensorInfo,
+         libcamera.ControlInfoMap sensorControls)
+        =&gt; (int32 ret, libcamera.ControlInfoMap ipaControls);
+    start() =&gt; (int32 ret);
+    stop();
+
+    configure(IPAConfigInfo configInfo,
+          map&lt;uint32, libcamera.IPAStream&gt; streamConfig)
+        =&gt; (int32 ret, libcamera.ControlInfoMap ipaControls);
+
+    mapBuffers(array&lt;libcamera.IPABuffer&gt; buffers);
+    unmapBuffers(array&lt;uint32&gt; ids);
+
+    [async] queueRequest(uint32 frame, libcamera.ControlList reqControls);
+    [async] computeParams(uint32 frame, uint32 bufferId);
+    [async] processStats(uint32 frame, uint32 bufferId,
+                 libcamera.ControlList sensorControls);
+};
+
+interface IPARkISP1EventInterface {
+    paramsComputed(uint32 frame, uint32 bytesused);
+    setSensorControls(uint32 frame, libcamera.ControlList sensorControls);
+    metadataReady(uint32 frame, libcamera.ControlList metadata);
+};
+</code></pre></div>
+</details>
+<p><a id="source-fadefbb962b2fc44"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/ipa_module.cpp:390</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_module.cpp#L390"><code>src/libcamera/ipa_module.cpp:390</code></a> ~ <code>460</code></p>
+<p>SHA-256: <code>a1e13344bfc27e191c6c24c682f3a088446d42c99b9497c6e831ab1b97b55619</code></p>
+<div class="highlight"><pre><span></span><code>\brief Load the IPA implementation factory from the shared object
+ *
+ * The IPA module shared object implements an IPAInterface object to be used
+ * by pipeline handlers. This function loads the factory function from the
+ * shared object. Later, createInterface() can be called to instantiate the
+ * IPAInterface.
+ *
+ * This function only needs to be called successfully once, after which
+ * createInterface() can be called as many times as IPAInterface instances are
+ * needed.
+ *
+ * Calling this function on an invalid module (as returned by isValid()) is
+ * an error.
+ *
+ * \return True if load was successful, or already loaded, and false otherwise
+ */
+bool IPAModule::load()
+{
+    if (!valid_)
+        return false;
+
+    if (loaded_)
+        return true;
+
+    dlHandle_ = dlopen(libPath_.c_str(), RTLD_LAZY);
+    if (!dlHandle_) {
+        LOG(IPAModule, Error)
+            &lt;&lt; "Failed to open IPA module shared object: "
+            &lt;&lt; dlerror();
+        return false;
+    }
+
+    void *symbol = dlsym(dlHandle_, "ipaCreate");
+    if (!symbol) {
+        LOG(IPAModule, Error)
+            &lt;&lt; "Failed to load ipaCreate() from IPA module shared object: "
+            &lt;&lt; dlerror();
+        dlclose(dlHandle_);
+        dlHandle_ = nullptr;
+        return false;
+    }
+
+    ipaCreate_ = reinterpret_cast&lt;IPAIntfFactory&gt;(symbol);
+
+    loaded_ = true;
+
+    return true;
+}
+
+/**
+ * \brief Instantiate an IPA interface
+ *
+ * After loading the IPA module with load(), this function creates an instance
+ * of the IPA module interface.
+ *
+ * Calling this function on a module that has not yet been loaded, or an
+ * invalid module (as returned by load() and isValid(), respectively) is
+ * an error.
+ *
+ * \return The IPA interface on success, or nullptr on error
+ */
+IPAInterface *IPAModule::createInterface()
+{
+    if (!valid_ || !loaded_)
+        return nullptr;
+
+    return ipaCreate_();
+}
+
+/**
+ * \brief Verify if the IPA module matches
+</code></pre></div>
+</details>
+<p><a id="source-eb8f57d7452822da"></a></p>
+<details class="note">
+<summary>소스 근거: utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl#L25"><code>utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl:25</code></a> ~ <code>40</code></p>
+<p>SHA-256: <code>40789903a76fad82ef27bf4ecd2c79ed2c47d0e0ad9d6583fba12e9cf072884b</code></p>
+<div class="highlight"><pre><span></span><code>{%- macro stop_thread_body() -%}
+    ASSERT(state_ != ProxyStopping);
+    if (state_ != ProxyRunning)
+        return;
+
+    state_ = ProxyStopping;
+
+    proxy_.invokeMethod(&amp;ThreadProxy::stop, ConnectionTypeBlocking);
+
+    thread_.exit();
+    thread_.wait();
+
+    Thread::current()-&gt;dispatchMessages(Message::Type::InvokeMessage, this);
+
+    state_ = ProxyStopped;
+{%- endmacro -%}
+</code></pre></div>
+</details>
+<p><a id="source-a230ed3065e7523d"></a></p>
+<details class="note">
+<summary>소스 근거: utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:157</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl#L157"><code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl:157</code></a> ~ <code>165</code></p>
+<p>SHA-256: <code>134a6b2cd3ed0e858c49bb1f3872af60ba1d44b3a32e60f2d2d0642a68865851</code></p>
+<div class="highlight"><pre><span></span><code>{{proxy_name}}Isolated::~{{proxy_name}}Isolated()
+{
+    if (ipc_) {
+        IPCMessage::Header header =
+            { static_cast&lt;uint32_t&gt;({{cmd_enum_name}}::Exit), seq_++ };
+        IPCMessage msg(header);
+        ipc_-&gt;sendAsync(msg);
+    }
+}
+</code></pre></div>
+</details>
+<p><a id="source-651cf5a1cd2457ca"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/ipc_pipe_unixsocket.cpp:112</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipc_pipe_unixsocket.cpp#L112"><code>src/libcamera/ipc_pipe_unixsocket.cpp:112</code></a> ~ <code>142</code></p>
+<p>SHA-256: <code>c3014bf1773367a6cee381806d3e8c9d090d5422393863e184b6a0bd97b0ec79</code></p>
+<div class="highlight"><pre><span></span><code>int IPCPipeUnixSocket::call(const IPCUnixSocket::Payload &amp;message,
+                IPCUnixSocket::Payload *response, uint32_t cookie)
+{
+    Timer timeout;
+    int ret;
+
+    const auto result = callData_.insert({ cookie, { response, false } });
+    const auto &amp;iter = result.first;
+
+    ret = socket_-&gt;send(message);
+    if (ret) {
+        callData_.erase(iter);
+        return ret;
+    }
+
+    /* \todo Make this less dangerous, see IPCPipe::sendSync() */
+    timeout.start(2000ms);
+    while (!iter-&gt;second.done) {
+        if (!timeout.isRunning()) {
+            LOG(IPCPipe, Error) &lt;&lt; "Call timeout!";
+            callData_.erase(iter);
+            return -ETIMEDOUT;
+        }
+
+        Thread::current()-&gt;eventDispatcher()-&gt;processEvents();
+    }
+
+    callData_.erase(iter);
+
+    return 0;
+}
+</code></pre></div>
+</details>
+<p><a id="source-bd92cc1dba99926f"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/ipc_pipe_unixsocket.cpp:57</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipc_pipe_unixsocket.cpp#L57"><code>src/libcamera/ipc_pipe_unixsocket.cpp:57</code></a> ~ <code>71</code></p>
+<p>SHA-256: <code>de13fb892859dee920a0aa332f3f6fbb4c8c01caf5500efc8e43567b0f9a49ee</code></p>
+<div class="highlight"><pre><span></span><code>int IPCPipeUnixSocket::sendSync(const IPCMessage &amp;in, IPCMessage *out)
+{
+    IPCUnixSocket::Payload response;
+
+    int ret = call(in.payload(), &amp;response, in.header().cookie);
+    if (ret) {
+        LOG(IPCPipe, Error) &lt;&lt; "Failed to call sync";
+        return ret;
+    }
+
+    if (out)
+        *out = IPCMessage(response);
+
+    return 0;
+}
+</code></pre></div>
+</details>
+<p><a id="source-0ea8ec769af3a9cd"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/ipa_module.cpp:451</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_module.cpp#L451"><code>src/libcamera/ipa_module.cpp:451</code></a> ~ <code>457</code></p>
+<p>SHA-256: <code>cc474ffc04763317d9b3d0f3b2a6a5fb3319eba3c6883c0e71ab952df7c94fbf</code></p>
+<div class="highlight"><pre><span></span><code>IPAInterface *IPAModule::createInterface()
+{
+    if (!valid_ || !loaded_)
+        return nullptr;
+
+    return ipaCreate_();
+}
+</code></pre></div>
+</details>
+</details>
+<h2 id="관련-클래스">관련 클래스</h2>
+<p>선언·상속·주석은 각 클래스 링크에서 확인하세요.</p><ul class="related-symbols"><li><a href="component-index.html#symbol-3238118080d7f2c1"><code>libcamera::IPAManager</code></a></li><li><a href="component-index.html#symbol-28df0a797b776dc1"><code>libcamera::IPAModule</code></a></li><li><a href="component-index.html#symbol-b21b6c7500228c50"><code>libcamera::IPAProxy</code></a></li><li><a href="component-index.html#symbol-5b59abd6ba8e81fe"><code>libcamera::ipa::ipu3::IPAIPU3</code></a></li><li><a href="component-index.html#symbol-6f72c63462844b08"><code>libcamera::ipa::rkisp1::IPARkISP1</code></a></li></ul>
+
+</article><section class="evidence"><h2 id="page-evidence">문서 생성·검토 정보</h2><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>사람 검토</dt><dd>사람 검토 전</dd><dt>분석 기준 커밋</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>문서 생성 시각</dt><dd><code>2026-11-20 19:31:13+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>문서 간 계약</dt><dd><a href="../contract-consistency.json">자동 대조 보고서</a> · 사람 검토 전</dd></dl><details class="note manuscript-record"><summary>원고 작성 당시 기록</summary><p>원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.</p><ul><li>근거 파일: <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/ipa_module.h</code>, <code>include/libcamera/internal/ipa_proxy.h</code>, <code>include/libcamera/ipa/ipu3.mojom</code>, <code>include/libcamera/ipa/rkisp1.mojom</code>, <code>src/ipa/ipu3/ipu3.cpp</code>, <code>src/ipa/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/base/log.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/ipa_module.cpp</code>, <code>src/libcamera/ipa_proxy.cpp</code>, <code>src/libcamera/ipc_pipe_unixsocket.cpp</code>, <code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl</code>, <code>utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl</code></li><li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>adfa719f8e</code>)</li><li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li><li>검토 상태 기록일: 2026-11-21 · 사람 검토 전</li></ul></details><a href="../ipa.md">Markdown 원문 ↗</a> <a href="../ipa.mmd">Mermaid 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="../implementation.html"><small>이전</small>Pipeline 요청 제출과 완료 ←</a><a class="next" href="../implementation.html"><small>다음</small>IPA 튜닝과 소프트웨어 ISP →</a></nav>
+<footer>Generated by camera-hal-sdd-generator · 인용 검사와 사람의 내용 검토는 별도입니다.</footer></main>
+<aside class="page-toc"></aside></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">문서 찾기</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><label for="search-input">문서·절·용어·코드 요소 검색</label><input id="search-input" type="search" autocomplete="off" placeholder="예: Pipeline, IPA, 클래스 관계"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">클래스 관계</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">요소 찾기</label><input id="node-search" type="search" placeholder="그림 요소·함수 이름"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="축소">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="확대">+</button><button id="zoom-fit">화면에 맞춤</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">마우스로 끌거나 터치로 밀어서 그림을 이동합니다. '화면에 맞춤'은 그림 전체를 보는 개요 보기입니다.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="확대된 다이어그램"><div id="diagram-canvas"></div></div></dialog>
+<script id="site-config" type="application/json">{"root": "../", "mermaid": "assets/mermaid/mermaid.esm.min.mjs", "terms": "e624f47117"}</script><script defer src="../assets/site.js?v=dd3415510a"></script><script defer src="../assets/reader-tools.js?v=dd3415510a"></script></body></html>

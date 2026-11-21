@@ -1,0 +1,782 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IPA 튜닝과 소프트웨어 ISP · libcamera 설계 문서</title><link rel="stylesheet" href="../assets/reading.css?v=dd3415510a"><meta name="robots" content="noindex"><link rel="alternate" hreflang="ko" href="ipa-algorithms.html"><link rel="alternate" hreflang="en" href="../en/reader-archive/ipa-algorithms.html"></head>
+<body><a class="skip" href="#main">본문으로 이동</a>
+<header class="site-header"><a class="brand" href="../index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera 설계 문서</a>
+<div class="header-actions"><details class="language-selector"><summary aria-label="언어 선택">한국어 ▾</summary><nav><a lang="ko" hreflang="ko" href="ipa-algorithms.html" aria-current="true">한국어</a><a lang="en" hreflang="en" href="../en/reader-archive/ipa-algorithms.html">English</a></nav></details><button id="search-open" hidden>문서 찾기 <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>메뉴</button></div></header>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="문서 메뉴"></nav><p class="sidebar-note">코드에서 구조를 추출하고<br>근거와 함께 검토합니다.</p></aside>
+<main id="main"><p class="breadcrumb">For Vendor <span>/</span> IPA 튜닝과 소프트웨어 ISP</p><h1>IPA 튜닝과 소프트웨어 ISP</h1><div class="page-state"><span class="review-state">사람 검토 전</span><span>자동 검사 통과</span><span class="generation-method">작성: 추출한 구조와 모델이 쓴 초안</span><a class="state-help" href="#page-evidence">상태 설명 ↓</a></div>
+<p class="translation-note">이전 주소에서 연결하는 원본 자료 · <a href="../implementation.html">독자용 문서로 이동</a></p><article><p><strong>튜닝 파일 경로와 소프트웨어 ISP의 렌즈 보정·입력 버퍼 연결을 코드와 대조하세요.</strong></p><details class="note scope-notices">
+<summary>설계 질문과 검증 범위</summary>
+<p>질문별 답변과 근거 연결을 검사했습니다. 의미와 실행 결과는 사람 검토가 필요합니다.</p>
+<ul class="coverage-links"><li><p>센서별 튜닝 파일이 없으면 어떤 파일과 알고리즘이 쓰입니까?</p><p><a href="#보정-전-튜닝-파일">보정 전 튜닝 파일</a></p></li><li><p>소프트웨어 ISP의 GPU 셰이더는 렌즈 음영 보정을 어느 단계에 적용합니까?</p><p><a href="#소프트웨어-isp-셰이더의-렌즈-음영-보정">소프트웨어 ISP 셰이더의 렌즈 음영 보정</a></p></li><li><p>소프트웨어 ISP의 입력 버퍼를 텍스처로 가져올 때 형식과 실패 처리는 어떻게 연결됩니까?</p><p><a href="#소프트웨어-isp-입력-버퍼의-텍스처-형식">소프트웨어 ISP 입력 버퍼의 텍스처 형식</a></p></li></ul><p><span>확인 범위</span>: <span>코드 근거와 설명 연결</span></p>
+</details>
+<details class="page-terms">
+<summary>이 문서의 용어: IPA, 소프트웨어 ISP, ISP, 튜닝 파일 외 7개</summary>
+<ul>
+<li><strong>IPA</strong> (Image Processing Algorithms): 화질 알고리즘을 담은 별도 모듈(.so)입니다. ISP가 보낸 통계를 보고 다음 프레임에 쓸 ISP 설정값을 계산합니다. 제조사가 소스를 공개하지 않고 제공할 수 있도록 libcamera 본체와 분리되어 있습니다.</li>
+<li><strong>소프트웨어 ISP</strong>: 하드웨어 ISP가 없는 장치에서 CPU나 GPU로 ISP 처리를 대신하는 libcamera 구성 요소입니다. 소스에서는 software_isp, softisp라는 이름을 씁니다.</li>
+<li><strong>ISP</strong> (Image Signal Processor): 센서가 출력한 원시(bayer) 데이터를 화면에 쓸 수 있는 영상으로 바꾸는 처리 장치입니다. 블랙 레벨 보정, 렌즈 음영 보정, 화이트 밸런스, 디베이어 등을 수행합니다.</li>
+<li><strong>튜닝 파일</strong>: 센서와 플랫폼별 알고리즘 매개변수(보정 표, 색 행렬 등)를 담은 YAML 파일입니다. IPA가 시작할 때 읽습니다.</li>
+<li><strong>RKISP1</strong> (Rockchip Image Signal Processor 1): Rockchip SoC와 NXP i.MX8MP 등에 들어 있는 카메라 ISP입니다. libcamera에는 이 장치용 Pipeline Handler와 IPA가 있습니다.</li>
+<li><strong>mali-c55</strong>: Arm Mali-C55 카메라 ISP입니다. libcamera에는 이 장치용 Pipeline Handler와 IPA가 있습니다.</li>
+<li><strong>GL</strong>: OpenGL 계열 그래픽 API의 식별자에 쓰이는 접두사입니다. 이 문서의 GL 형식은 텍스처의 채널 구성을 나타냅니다.</li>
+<li><strong>EGL</strong>: 그래픽 API와 운영 환경의 디스플레이·이미지·버퍼를 연결하는 인터페이스입니다. 이 문서에서는 공유 버퍼를 그래픽 이미지로 가져오는 경계를 다룹니다.</li>
+<li><strong>셰이더</strong>: GPU에서 실행되는 작은 프로그램입니다. 소프트웨어 ISP는 디베이어와 색 보정을 GPU 셰이더로 수행할 수 있습니다.</li>
+<li><strong>LSC</strong> (Lens Shading Correction): 렌즈 특성 때문에 영상 가장자리가 중앙보다 어둡거나 색이 틀어지는 현상(렌즈 음영)을 보정하는 처리입니다. 화면을 격자로 나눈 보정 표를 곱해서 적용합니다.</li>
+<li><strong>IPU3</strong> (Intel Image Processing Unit 3): 일부 Intel 노트북 프로세서에 들어 있는 카메라 ISP입니다. libcamera에는 이 장치용 Pipeline Handler와 IPA가 있습니다.</li>
+</ul>
+<p>다른 용어는 <a href="../glossary.html">용어집</a>에서 찾을 수 있습니다.</p>
+</details>
+
+<h2 id="보정-전-튜닝-파일">보정 전 튜닝 파일</h2>
+<p data-sdd-evidence='[["src/libcamera/pipeline/rkisp1/rkisp1.cpp:406", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L406\"><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp:406</code></a>"], ["src/libcamera/pipeline/mali-c55/mali-c55.cpp:468", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/mali-c55/mali-c55.cpp#L468\"><code>src/libcamera/pipeline/mali-c55/mali-c55.cpp:468</code></a>"], ["src/libcamera/ipa_proxy.cpp:174", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_proxy.cpp#L174\"><code>src/libcamera/ipa_proxy.cpp:174</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline/rkisp1/rkisp1.cpp:406": ["#source-a117437c7ec61db3"], "src/libcamera/pipeline/mali-c55/mali-c55.cpp:468": ["#source-efc0c3fc5cf7acef"], "src/libcamera/ipa_proxy.cpp:174": ["#source-4000376c954f5327"]}'>RKISP1과 Mali-C55는 각각 센서 모델 이름에 <code>.yaml</code>을 붙인 파일 이름과 대체 이름 <code>uncalibrated.yaml</code>을 <code>IPAProxy::configurationFile()</code>에 전달합니다. 이 함수는 먼저 IPA 모듈 이름과 요청한 이름으로 설정 파일을 검색하고, 경로가 비어 있지 않으면 그 경로를 반환합니다. 검색 결과가 비어 있고 대체 이름도 비어 있으면 오류를 기록하고 빈 문자열을 반환합니다. 대체 이름이 비어 있지 않으면 그 이름으로 다시 검색하고 경고를 기록합니다.</p>
+<!-- sdd:visual:ipa-tuning-file-fallback -->
+<h3 id="ipa-튜닝-파일-검색-순서">IPA 튜닝 파일 검색 순서</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"검색 결과 확인": "Check the result", "대체 이름으로 검색하고 경고 &lt;br/&gt;기록": "Look up the fallback name &lt;br/&gt;and log a warning", "대체 이름이 비었는가?": "Is the fallback name empty?", "아니요": "No", "예": "Yes", "오류 기록 후 빈 경로 반환": "Log an error and return an &lt;br/&gt;empty path", "요청 경로 반환": "Return the requested path", "요청 경로가 있는가?": "Requested path found?", "요청한 이름으로 검색": "Look up the requested name"}
+  v_lookup["요청한 이름으로 검색"]
+  v_found{"요청 경로가 있는가?"}
+  v_requested["요청 경로 반환"]
+  v_fallback{"대체 이름이 비었는가?"}
+  v_missing["오류 기록 후 빈 경로 반환"]
+  v_alternative["대체 이름으로 검색하고 경고 &lt;br/&gt;기록"]
+  v_lookup --&gt;|"검색 결과 확인"| v_found
+  v_found --&gt;|"예"| v_requested
+  v_found --&gt;|"아니요"| v_fallback
+  v_fallback --&gt;|"예"| v_missing
+  v_fallback --&gt;|"아니요"| v_alternative</pre>
+<p><a href="../ipa-algorithms.ipa-tuning-file-fallback.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>요청한 튜닝 파일을 찾지 못하면 어떤 조건에서 대체 이름을 검색하나요?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Look up the requested name">요청한 이름으로 검색</span></td>
+<td><a href="#source-4000376c954f5327">src/libcamera/ipa_proxy.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Requested path found?">요청 경로가 있는가?</span></td>
+<td><a href="#source-4000376c954f5327">src/libcamera/ipa_proxy.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return the requested path">요청 경로 반환</span></td>
+<td><a href="#source-4000376c954f5327">src/libcamera/ipa_proxy.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is the fallback name empty?">대체 이름이 비었는가?</span></td>
+<td><a href="#source-4000376c954f5327">src/libcamera/ipa_proxy.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Log an error and return an empty path">오류 기록 후 빈 경로 반환</span></td>
+<td><a href="#source-4000376c954f5327">src/libcamera/ipa_proxy.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Look up the fallback name and log a warning">대체 이름으로 검색하고 경고 기록</span></td>
+<td><a href="#source-4000376c954f5327">src/libcamera/ipa_proxy.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the result">검색 결과 확인</span></td>
+<td><a href="#source-4000376c954f5327">src/libcamera/ipa_proxy.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes">예</span></td>
+<td><a href="#source-4000376c954f5327">src/libcamera/ipa_proxy.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No">아니요</span></td>
+<td><a href="#source-4000376c954f5327">src/libcamera/ipa_proxy.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes">예</span></td>
+<td><a href="#source-4000376c954f5327">src/libcamera/ipa_proxy.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No">아니요</span></td>
+<td><a href="#source-4000376c954f5327">src/libcamera/ipa_proxy.cpp:174</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:ipa-tuning-file-fallback -->
+
+<p data-sdd-evidence='[["src/ipa/rkisp1/data/uncalibrated.yaml:1", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/rkisp1/data/uncalibrated.yaml#L1\"><code>src/ipa/rkisp1/data/uncalibrated.yaml:1</code></a>"], ["src/ipa/rkisp1/data/imx219.yaml:1", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/rkisp1/data/imx219.yaml#L1\"><code>src/ipa/rkisp1/data/imx219.yaml:1</code></a>"], ["src/ipa/mali-c55/data/uncalibrated.yaml:1", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/mali-c55/data/uncalibrated.yaml#L1\"><code>src/ipa/mali-c55/data/uncalibrated.yaml:1</code></a>"], ["src/ipa/mali-c55/algorithms/meson.build:1", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/mali-c55/algorithms/meson.build#L1\"><code>src/ipa/mali-c55/algorithms/meson.build:1</code></a>"]]' data-sdd-excerpts='{"src/ipa/rkisp1/data/uncalibrated.yaml:1": ["#source-c3d57577d02a4dc3"], "src/ipa/rkisp1/data/imx219.yaml:1": ["#source-ae07d96c1336aa7d"], "src/ipa/mali-c55/data/uncalibrated.yaml:1": ["#source-2aca0607eacef985"], "src/ipa/mali-c55/algorithms/meson.build:1": ["#source-f8b760d0d191cbea"]}'>RKISP1의 <code>uncalibrated.yaml</code>에는 <code>Agc</code>, <code>Awb</code>, <code>BlackLevelCorrection</code>, <code>Ccm</code>, <code>GammaOutCorrection</code>이 나열되어 있습니다. RKISP1의 IMX219 센서별 파일에도 <code>GammaOutCorrection</code> 항목이 있습니다. Mali-C55의 <code>uncalibrated.yaml</code>에는 <code>Agc</code>, <code>Awb</code>, <code>BlackLevelCorrection</code>, <code>Ccm</code>, <code>Gamma</code>가 나열되어 있습니다. 별도로 알고리즘 빌드 목록인 <code>mali_c55_ipa_algorithms</code>에는 <code>gamma.cpp</code>가 포함되어 있습니다.</p>
+
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>7</span>개</summary><ul><li><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code><span class="evidence-lines"><a href="#source-a117437c7ec61db3" aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:406 발췌"><code>L406</code> 발췌</a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:406" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L406">전체 소스 <code>L406</code></a></span></li><li><code>src/libcamera/pipeline/mali-c55/mali-c55.cpp</code><span class="evidence-lines"><a href="#source-efc0c3fc5cf7acef" aria-label="src/libcamera/pipeline/mali-c55/mali-c55.cpp:468 발췌"><code>L468</code> 발췌</a> · <a aria-label="src/libcamera/pipeline/mali-c55/mali-c55.cpp:468" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/mali-c55/mali-c55.cpp#L468">전체 소스 <code>L468</code></a></span></li><li><code>src/libcamera/ipa_proxy.cpp</code><span class="evidence-lines"><a href="#source-4000376c954f5327" aria-label="src/libcamera/ipa_proxy.cpp:174 발췌"><code>L174</code> 발췌</a> · <a aria-label="src/libcamera/ipa_proxy.cpp:174" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_proxy.cpp#L174">전체 소스 <code>L174</code></a></span></li><li><code>src/ipa/rkisp1/data/uncalibrated.yaml</code><span class="evidence-lines"><a href="#source-c3d57577d02a4dc3" aria-label="src/ipa/rkisp1/data/uncalibrated.yaml:1 발췌"><code>L1</code> 발췌</a> · <a aria-label="src/ipa/rkisp1/data/uncalibrated.yaml:1" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/rkisp1/data/uncalibrated.yaml#L1">전체 소스 <code>L1</code></a></span></li><li><code>src/ipa/rkisp1/data/imx219.yaml</code><span class="evidence-lines"><a href="#source-ae07d96c1336aa7d" aria-label="src/ipa/rkisp1/data/imx219.yaml:1 발췌"><code>L1</code> 발췌</a> · <a aria-label="src/ipa/rkisp1/data/imx219.yaml:1" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/rkisp1/data/imx219.yaml#L1">전체 소스 <code>L1</code></a></span></li><li><code>src/ipa/mali-c55/data/uncalibrated.yaml</code><span class="evidence-lines"><a href="#source-2aca0607eacef985" aria-label="src/ipa/mali-c55/data/uncalibrated.yaml:1 발췌"><code>L1</code> 발췌</a> · <a aria-label="src/ipa/mali-c55/data/uncalibrated.yaml:1" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/mali-c55/data/uncalibrated.yaml#L1">전체 소스 <code>L1</code></a></span></li><li><code>src/ipa/mali-c55/algorithms/meson.build</code><span class="evidence-lines"><a href="#source-f8b760d0d191cbea" aria-label="src/ipa/mali-c55/algorithms/meson.build:1 발췌"><code>L1</code> 발췌</a> · <a aria-label="src/ipa/mali-c55/algorithms/meson.build:1" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/mali-c55/algorithms/meson.build#L1">전체 소스 <code>L1</code></a></span></li></ul></details><h2 id="소프트웨어-isp-입력-버퍼의-텍스처-형식">소프트웨어 ISP 입력 버퍼의 텍스처 형식</h2>
+<p data-sdd-evidence='[["src/libcamera/egl.cpp:174", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/egl.cpp#L174\"><code>src/libcamera/egl.cpp:174</code></a>"]]' data-sdd-excerpts='{"src/libcamera/egl.cpp:174": ["#source-8cc12a6ba8b0dced"]}'><code>createDMABufTexture2D()</code>는 <code>GL_RED</code>와 <code>GL_LUMINANCE</code>를 각각 <code>DRM_FORMAT_R8</code>에 대응합니다. <code>GL_RG</code>는 <code>DRM_FORMAT_GR88</code>에, <code>GL_RGBA</code>는 <code>DRM_FORMAT_ARGB8888</code>에 대응합니다.</p>
+<!-- sdd:visual:softisp-dmabuf-import-paths -->
+<h3 id="dma-buf-가져오기-분기">DMA-BUF 가져오기 분기</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"-ENODEV 반환": "Return -ENODEV", "0 반환": "Return 0", "EGL 이미지 생성에 &lt;br/&gt;실패했는가?": "Did EGL image creation fail?", "GL 형식을 지원하는가?": "Is the GL format supported?", "GL#95;RED·GL#95;LUMINANCE → &lt;br/&gt;DRM#95;FORMAT#95;R8, GL#95;RG → &lt;br/&gt;DRM#95;FORMAT#95;GR88, GL#95;RGBA → &lt;br/&gt;DRM#95;FORMAT#95;ARGB8888": "GL#95;RED·GL#95;LUMINANCE → &lt;br/&gt;DRM#95;FORMAT#95;R8, GL#95;RG → &lt;br/&gt;DRM#95;FORMAT#95;GR88, GL#95;RGBA → &lt;br/&gt;DRM#95;FORMAT#95;ARGB8888", "실패 플래그 설정 후 -ENODEV &lt;br/&gt;반환": "Set the failure flag and &lt;br/&gt;return -ENODEV", "아니요": "No", "예": "Yes", "출력 텍스처인가?": "Is this an output texture?", "프레임버퍼 연결 결과 반환": "Return the framebuffer &lt;br/&gt;attachment result"}
+  v_format{"GL 형식을 지원하는가?"}
+  v_unknown["-ENODEV 반환"]
+  v_image{"EGL 이미지 생성에 &lt;br/&gt;실패했는가?"}
+  v_failed["실패 플래그 설정 후 -ENODEV &lt;br/&gt;반환"]
+  v_output{"출력 텍스처인가?"}
+  v_attach["프레임버퍼 연결 결과 반환"]
+  v_success["0 반환"]
+  v_format --&gt;|"아니요"| v_unknown
+  v_format --&gt;|"GL#95;RED·GL#95;LUMINANCE → &lt;br/&gt;DRM#95;FORMAT#95;R8, GL#95;RG → &lt;br/&gt;DRM#95;FORMAT#95;GR88, GL#95;RGBA → &lt;br/&gt;DRM#95;FORMAT#95;ARGB8888"| v_image
+  v_image --&gt;|"예"| v_failed
+  v_image --&gt;|"아니요"| v_output
+  v_output --&gt;|"예"| v_attach
+  v_output --&gt;|"아니요"| v_success</pre>
+<p><a href="../ipa-algorithms.softisp-dmabuf-import-paths.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>각 GL 텍스처 형식은 어떤 DRM 형식을 선택하고, EGL 가져오기에 실패하면 무엇을 반환합니까?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Is the GL format supported?">GL 형식을 지원하는가?</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return -ENODEV">-ENODEV 반환</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Did EGL image creation fail?">EGL 이미지 생성에 실패했는가?</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Set the failure flag and return -ENODEV">실패 플래그 설정 후 -ENODEV 반환</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is this an output texture?">출력 텍스처인가?</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return the framebuffer attachment result">프레임버퍼 연결 결과 반환</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return 0">0 반환</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No">아니요</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="GL_RED·GL_LUMINANCE → DRM_FORMAT_R8, GL_RG → DRM_FORMAT_GR88, GL_RGBA → DRM_FORMAT_ARGB8888">GL_RED·GL_LUMINANCE → DRM_FORMAT_R8, GL_RG → DRM_FORMAT_GR88, GL_RGBA → DRM_FORMAT_ARGB8888</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes">예</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No">아니요</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes">예</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No">아니요</span></td>
+<td><a href="#source-8cc12a6ba8b0dced">src/libcamera/egl.cpp:174</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:softisp-dmabuf-import-paths -->
+
+<p data-sdd-evidence='[["src/libcamera/egl.cpp:174", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/egl.cpp#L174\"><code>src/libcamera/egl.cpp:174</code></a>"]]' data-sdd-excerpts='{"src/libcamera/egl.cpp:174": ["#source-8cc12a6ba8b0dced"]}'><code>createDMABufTexture2D()</code>의 <code>switch</code>에서 처리하지 않는 형식은 <code>default</code> 분기로 갑니다. 이 분기는 오류 수준으로 <code>unhandled GL format</code>을 로그에 기록하고 <code>-ENODEV</code>를 반환합니다. 이 분기에는 <code>dmabuf_import_failed_</code>에 값을 대입하는 코드가 없습니다.</p>
+<p data-sdd-evidence='[["src/libcamera/egl.cpp:174", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/egl.cpp#L174\"><code>src/libcamera/egl.cpp:174</code></a>"]]' data-sdd-excerpts='{"src/libcamera/egl.cpp:174": ["#source-8cc12a6ba8b0dced"]}'><code>createDMABufTexture2D()</code>는 <code>eglCreateImageKHR()</code>의 결과가 <code>EGL_NO_IMAGE_KHR</code>이면 디버그 로그에 <code>eglCreateImageKHR fail</code>을 기록합니다. 이어서 <code>eglImage.dmabuf_import_failed_</code>에 <code>true</code>를 대입하고 <code>-ENODEV</code>를 반환합니다. <code>createInputDMABufTexture2D()</code>는 <code>createDMABufTexture2D()</code>의 마지막 인자로 <code>false</code>를 전달합니다. <code>createOutputDMABufTexture2D()</code>는 마지막 인자로 <code>true</code>를 전달합니다.</p>
+<p data-sdd-evidence='[["src/libcamera/egl.cpp:174", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/egl.cpp#L174\"><code>src/libcamera/egl.cpp:174</code></a>"]]' data-sdd-excerpts='{"src/libcamera/egl.cpp:174": ["#source-8cc12a6ba8b0dced"]}'><code>createDMABufTexture2D()</code>는 처리할 수 없는 GL 형식이거나 EGL 이미지 생성에 실패하면 앞서 <code>-ENODEV</code>를 반환합니다. 이 오류 분기에서 반환하지 않은 경로에서 <code>output</code>이 참이면 <code>attachTextureToFBO(eglImage)</code>를 호출해 텍스처를 프레임버퍼 객체에 연결하고, 그 반환값을 <code>ret</code>에 대입합니다. <code>output</code>이 거짓이면 <code>ret</code>은 초기값인 0을 유지하며, 함수는 마지막에 <code>ret</code>을 반환합니다.</p>
+
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/egl.cpp</code><span class="evidence-lines"><a href="#source-8cc12a6ba8b0dced" aria-label="src/libcamera/egl.cpp:174 발췌"><code>L174</code> 발췌</a> · <a aria-label="src/libcamera/egl.cpp:174" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/egl.cpp#L174">전체 소스 <code>L174</code></a></span></li></ul></details><h2 id="소프트웨어-isp-셰이더의-렌즈-음영-보정">소프트웨어 ISP 셰이더의 렌즈 음영 보정</h2>
+<p data-sdd-evidence='[["src/libcamera/shaders/bayer_1x_packed.frag:237", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/shaders/bayer_1x_packed.frag#L237\"><code>src/libcamera/shaders/bayer_1x_packed.frag:237</code></a>"], ["src/libcamera/shaders/bayer_unpacked.frag:140", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/shaders/bayer_unpacked.frag#L140\"><code>src/libcamera/shaders/bayer_unpacked.frag:140</code></a>"]]' data-sdd-excerpts='{"src/libcamera/shaders/bayer_1x_packed.frag:237": ["#source-68d470282c445049"], "src/libcamera/shaders/bayer_unpacked.frag:140": ["#source-86d4a7688119bd37"]}'>두 셰이더의 <code>main</code>은 구성된 <code>rgb</code>에서 <code>blacklevel</code>을 빼고 <code>1.0 - blacklevel</code>로 나눕니다. <code>APPLY_LSC</code>가 정의된 경우 그다음 <code>lsc_tex</code>에서 읽은 RGB 값에 <code>4.0</code>을 곱해 <code>rgb</code>에 적용합니다. packed 셰이더는 <code>textureOut</code>을, unpacked 셰이더는 <code>center.xy</code>를 텍스처 좌표로 사용하며, <code>4.0</code>은 <code>UQ&lt;2, 6&gt;</code> 값을 실수로 변환하는 배율입니다.</p>
+<!-- sdd:visual:softisp-lsc-shader-order -->
+<h3 id="셰이더의-렌즈-음영-보정-위치">셰이더의 렌즈 음영 보정 위치</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"APPLY#95;LSC가 정의됐는가?": "Is APPLY#95;LSC defined?", "AWB 이득 곱셈과 범위 제한": "Apply AWB gains and clamp", "AWB 적용 후": "After AWB", "CCM, 범위 제한, 대비, 감마 &lt;br/&gt;순서": "CCM, clamp, contrast, then &lt;br/&gt;gamma", "lsc#95;tex의 RGB에 4.0을 곱해 &lt;br/&gt;적용": "Apply lsc#95;tex RGB scaled by &lt;br/&gt;4.0", "블랙 레벨 정규화": "Normalize the black level", "블랙 레벨 처리 후": "After black-level correction", "아니요": "No", "예": "Yes", "음영 보정 후": "After lens shading &lt;br/&gt;correction"}
+  v_black["블랙 레벨 정규화"]
+  v_condition{"APPLY#95;LSC가 정의됐는가?"}
+  v_lsc["lsc#95;tex의 RGB에 4.0을 곱해 &lt;br/&gt;적용"]
+  v_awb["AWB 이득 곱셈과 범위 제한"]
+  v_color["CCM, 범위 제한, 대비, 감마 &lt;br/&gt;순서"]
+  v_black --&gt;|"블랙 레벨 처리 후"| v_condition
+  v_condition --&gt;|"예"| v_lsc
+  v_condition --&gt;|"아니요"| v_awb
+  v_lsc --&gt;|"음영 보정 후"| v_awb
+  v_awb --&gt;|"AWB 적용 후"| v_color</pre>
+<p><a href="../ipa-algorithms.softisp-lsc-shader-order.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>두 셰이더에서 어떤 조건일 때 렌즈 음영을 보정하며, 전후에는 무엇을 처리하나요?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Normalize the black level">블랙 레벨 정규화</span></td>
+<td><a href="#source-68d470282c445049">src/libcamera/shaders/bayer_1x_packed.frag:237</a> · <a href="#source-86d4a7688119bd37">src/libcamera/shaders/bayer_unpacked.frag:140</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is APPLY_LSC defined?">APPLY_LSC가 정의됐는가?</span></td>
+<td><a href="#source-68d470282c445049">src/libcamera/shaders/bayer_1x_packed.frag:237</a> · <a href="#source-86d4a7688119bd37">src/libcamera/shaders/bayer_unpacked.frag:140</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Apply lsc_tex RGB scaled by 4.0">lsc_tex의 RGB에 4.0을 곱해 적용</span></td>
+<td><a href="#source-68d470282c445049">src/libcamera/shaders/bayer_1x_packed.frag:237</a> · <a href="#source-86d4a7688119bd37">src/libcamera/shaders/bayer_unpacked.frag:140</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Apply AWB gains and clamp">AWB 이득 곱셈과 범위 제한</span></td>
+<td><a href="#source-68d470282c445049">src/libcamera/shaders/bayer_1x_packed.frag:237</a> · <a href="#source-86d4a7688119bd37">src/libcamera/shaders/bayer_unpacked.frag:140</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="CCM, clamp, contrast, then gamma">CCM, 범위 제한, 대비, 감마 순서</span></td>
+<td><a href="#source-68d470282c445049">src/libcamera/shaders/bayer_1x_packed.frag:237</a> · <a href="#source-86d4a7688119bd37">src/libcamera/shaders/bayer_unpacked.frag:140</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After black-level correction">블랙 레벨 처리 후</span></td>
+<td><a href="#source-68d470282c445049">src/libcamera/shaders/bayer_1x_packed.frag:237</a> · <a href="#source-86d4a7688119bd37">src/libcamera/shaders/bayer_unpacked.frag:140</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Yes">예</span></td>
+<td><a href="#source-68d470282c445049">src/libcamera/shaders/bayer_1x_packed.frag:237</a> · <a href="#source-86d4a7688119bd37">src/libcamera/shaders/bayer_unpacked.frag:140</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="No">아니요</span></td>
+<td><a href="#source-68d470282c445049">src/libcamera/shaders/bayer_1x_packed.frag:237</a> · <a href="#source-86d4a7688119bd37">src/libcamera/shaders/bayer_unpacked.frag:140</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After lens shading correction">음영 보정 후</span></td>
+<td><a href="#source-68d470282c445049">src/libcamera/shaders/bayer_1x_packed.frag:237</a> · <a href="#source-86d4a7688119bd37">src/libcamera/shaders/bayer_unpacked.frag:140</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After AWB">AWB 적용 후</span></td>
+<td><a href="#source-68d470282c445049">src/libcamera/shaders/bayer_1x_packed.frag:237</a> · <a href="#source-86d4a7688119bd37">src/libcamera/shaders/bayer_unpacked.frag:140</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:softisp-lsc-shader-order -->
+
+<p data-sdd-evidence='[["src/libcamera/shaders/bayer_1x_packed.frag:237", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/shaders/bayer_1x_packed.frag#L237\"><code>src/libcamera/shaders/bayer_1x_packed.frag:237</code></a>"], ["src/libcamera/shaders/bayer_unpacked.frag:140", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/shaders/bayer_unpacked.frag#L140\"><code>src/libcamera/shaders/bayer_unpacked.frag:140</code></a>"], ["include/libcamera/ipa/softisp.mojom:1", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/ipa/softisp.mojom#L1\"><code>include/libcamera/ipa/softisp.mojom:1</code></a>"]]' data-sdd-excerpts='{"src/libcamera/shaders/bayer_1x_packed.frag:237": ["#source-68d470282c445049"], "src/libcamera/shaders/bayer_unpacked.frag:140": ["#source-86d4a7688119bd37"], "include/libcamera/ipa/softisp.mojom:1": ["#source-df8e8976167a0311"]}'>두 셰이더의 <code>main</code>은 그다음 <code>awb</code> 이득을 곱하고 각 채널을 0과 1 사이로 제한한 뒤 <code>ccm</code> 색 보정을 적용합니다. 이어서 다시 값을 0과 1 사이로 제한하고 각 채널에 <code>apply_contrast</code>를 적용한 후 <code>gamma</code> 거듭제곱을 적용합니다. <code>IPASoftIspInterface.init</code> 선언은 <code>fdStats</code>와 <code>fdParams</code>를 인자로 받고 <code>lscEnabled</code>를 반환값으로 포함합니다. 이 선언은 이 항목들과 셰이더의 <code>lsc_tex</code> 사이의 연결을 명시하지 않습니다.</p>
+
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>3</span>개</summary><ul><li><code>src/libcamera/shaders/bayer_1x_packed.frag</code><span class="evidence-lines"><a href="#source-68d470282c445049" aria-label="src/libcamera/shaders/bayer_1x_packed.frag:237 발췌"><code>L237</code> 발췌</a> · <a aria-label="src/libcamera/shaders/bayer_1x_packed.frag:237" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/shaders/bayer_1x_packed.frag#L237">전체 소스 <code>L237</code></a></span></li><li><code>src/libcamera/shaders/bayer_unpacked.frag</code><span class="evidence-lines"><a href="#source-86d4a7688119bd37" aria-label="src/libcamera/shaders/bayer_unpacked.frag:140 발췌"><code>L140</code> 발췌</a> · <a aria-label="src/libcamera/shaders/bayer_unpacked.frag:140" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/shaders/bayer_unpacked.frag#L140">전체 소스 <code>L140</code></a></span></li><li><code>include/libcamera/ipa/softisp.mojom</code><span class="evidence-lines"><a href="#source-df8e8976167a0311" aria-label="include/libcamera/ipa/softisp.mojom:1 발췌"><code>L1</code> 발췌</a> · <a aria-label="include/libcamera/ipa/softisp.mojom:1" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/ipa/softisp.mojom#L1">전체 소스 <code>L1</code></a></span></li></ul></details>
+<!-- sdd:class-diagram -->
+<h2 id="클래스-관계">클래스 관계</h2>
+<p>화살표의 글자는 추출한 관계를 나타내며, 점선은 상속입니다. 화살표는 참조 대상 또는 기반 클래스를 향합니다. 호출 순서를 뜻하지 않습니다.</p>
+<pre class="mermaid">flowchart LR
+  c0["IPAInterface"]:::context
+  c1["IPAManager"]
+  c2["IPAModule"]
+  c3["IPAProxy"]
+  c4["Loggable"]:::context
+  c5["ipa::ipu3::IPAIPU3"]
+  c6["ipa::ipu3::Module"]:::context
+  c7["ipa::rkisp1::IPARkISP1"]
+  c8["ipa::rkisp1::Module"]:::context
+  c1 --&gt;|필드 참조| c2
+  c2 -.-&gt;|상속| c4
+  c3 -.-&gt;|상속| c0
+  c3 --&gt;|필드 참조| c2
+  c5 -.-&gt;|상속| c6
+  c7 -.-&gt;|상속| c8
+  classDef context fill:#fafafa,stroke:#aaa,stroke-dasharray:4 3,color:#555</pre>
+<!-- /sdd:class-diagram -->
+
+<h2 id="소스-근거">소스 근거</h2>
+<details class="source-excerpts"><summary>소스 발췌 <span>11</span>개</summary>
+<p>같은 발췌는 한 번만 싣습니다. 필요한 원문을 펼쳐 설명과 대조하세요.</p>
+<p><a id="source-a117437c7ec61db3"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/pipeline/rkisp1/rkisp1.cpp:406</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L406"><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp:406</code></a> ~ <code>408</code></p>
+<p>SHA-256: <code>5085c39368b264636b7bc7386979e019ea9cd60621335cc42d1e3ad28d810c6c</code></p>
+<div class="highlight"><pre><span></span><code>/* The IPA tuning file is made from the sensor name. */
+    std::string ipaTuningFile =
+        ipa_-&gt;configurationFile(sensor_-&gt;model() + ".yaml", "uncalibrated.yaml");
+</code></pre></div>
+</details>
+<p><a id="source-efc0c3fc5cf7acef"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/pipeline/mali-c55/mali-c55.cpp:468</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/mali-c55/mali-c55.cpp#L468"><code>src/libcamera/pipeline/mali-c55/mali-c55.cpp:468</code></a> ~ <code>469</code></p>
+<p>SHA-256: <code>226c3c21c4b760c25b2a3323369bce67c92f92db80b9fcef19589a44af6eaa2a</code></p>
+<div class="highlight"><pre><span></span><code>std::string ipaTuningFile = ipa_-&gt;configurationFile(sensor()-&gt;model() + ".yaml",
+                                "uncalibrated.yaml");
+</code></pre></div>
+</details>
+<p><a id="source-4000376c954f5327"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/ipa_proxy.cpp:174</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_proxy.cpp#L174"><code>src/libcamera/ipa_proxy.cpp:174</code></a> ~ <code>199</code></p>
+<p>SHA-256: <code>6c48d1f3994c22addbc1b338c87cf7b166f9fee0f9223ecf718a254be0aa93a8</code></p>
+<div class="highlight"><pre><span></span><code>std::string IPAProxy::configurationFile(const std::string &amp;name,
+                    const std::string &amp;fallbackName) const
+{
+    /*
+     * The IPA module name can be used as-is to build directory names as it
+     * has been validated when loading the module.
+     */
+    const std::string ipaName = ipam_-&gt;info().name;
+    std::string confPath = ipaConfigurationFile(ipaName, name, configPaths_);
+    if (!confPath.empty()) {
+        LOG(IPAProxy, Info) &lt;&lt; "Using tuning file " &lt;&lt; confPath;
+        return confPath;
+    }
+
+    if (fallbackName.empty()) {
+        LOG(IPAProxy, Error)
+            &lt;&lt; "Configuration file '" &lt;&lt; name
+            &lt;&lt; "' not found for IPA module '" &lt;&lt; ipaName &lt;&lt; "'";
+        return std::string();
+    }
+
+    confPath = ipaConfigurationFile(ipaName, fallbackName, configPaths_);
+    LOG(IPAProxy, Warning)
+        &lt;&lt; "Configuration file '" &lt;&lt; name
+        &lt;&lt; "' not found for IPA module '" &lt;&lt; ipaName
+        &lt;&lt; "', falling back to '" &lt;&lt; confPath &lt;&lt; "'";
+</code></pre></div>
+</details>
+<p><a id="source-c3d57577d02a4dc3"></a></p>
+<details class="note">
+<summary>소스 근거: src/ipa/rkisp1/data/uncalibrated.yaml:1</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/rkisp1/data/uncalibrated.yaml#L1"><code>src/ipa/rkisp1/data/uncalibrated.yaml:1</code></a> ~ <code>11</code></p>
+<p>SHA-256: <code>f3e8a3a6257b7fb82f16cf5c8239901d57bcc15023908c8994dcac3714e9e648</code></p>
+<div class="highlight"><pre><span></span><code># SPDX-License-Identifier: CC0-1.0
+%YAML 1.1
+---
+version: 1
+algorithms:
+  - Agc:
+  - Awb:
+  - BlackLevelCorrection:
+  - Ccm:
+  - GammaOutCorrection:
+...
+</code></pre></div>
+</details>
+<p><a id="source-ae07d96c1336aa7d"></a></p>
+<details class="note">
+<summary>소스 근거: src/ipa/rkisp1/data/imx219.yaml:1</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/rkisp1/data/imx219.yaml#L1"><code>src/ipa/rkisp1/data/imx219.yaml:1</code></a> ~ <code>115</code></p>
+<p>SHA-256: <code>481ce90625969b74388d6a4dfceb898e2595daa9a40ed271589fd7ae42c3f477</code></p>
+<div class="highlight"><pre><span></span><code># SPDX-License-Identifier: CC0-1.0
+%YAML 1.1
+---
+version: 1
+algorithms:
+  - Agc:
+  - Awb:
+  - BlackLevelCorrection:
+  - LensShadingCorrection:
+      x-size: [ 0.0625, 0.0625, 0.0625, 0.0625, 0.0625, 0.0625, 0.0625, 0.0625 ]
+      y-size: [ 0.0625, 0.0625, 0.0625, 0.0625, 0.0625, 0.0625, 0.0625, 0.0625 ]
+      sets:
+        - ct: 5800
+          r: [
+               1501, 1480, 1478, 1362, 1179, 1056, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1030, 1053, 1134, 1185, 1520, 1480, 1463, 1179, 1056, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1027, 1046, 1134, 1533, 1471, 1179, 1056, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1025, 1039, 1471,
+               1314, 1068, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1025, 1314, 1150, 1028, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1150, 1050, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1076, 1026,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1052, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1050, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1050, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1050, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1025, 1086, 1037, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1025, 1057, 1182, 1071, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1057, 1161,
+               1345, 1146, 1027, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1036, 1161, 1298, 1612, 1328, 1089, 1025, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1025, 1036, 1161, 1324, 1463, 1884, 1651, 1339, 1103, 1032,
+               1025, 1024, 1024, 1024, 1024, 1025, 1038, 1101, 1204, 1324, 1463, 1497, 1933,
+               1884, 1587, 1275, 1079, 1052, 1046, 1046, 1046, 1046, 1055, 1101, 1204, 1336,
+               1487, 1493, 1476,
+             ]
+          gr: [
+                1262, 1250, 1094, 1027, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1250, 1095, 1028, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1095, 1030, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1030,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1025, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1041, 1051, 1025, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1051, 1165, 1088,
+                1051, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1051, 1165, 1261,
+              ]
+          gb: [
+                1259, 1248, 1092, 1027, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1248, 1092, 1027, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1092, 1029, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1029,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1025, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1041, 1051, 1025, 1024, 1024, 1024,
+                1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1052, 1166, 1090,
+                1051, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+                1052, 1166, 1266,
+              ]
+          b: [
+               1380, 1378, 1377, 1247, 1080, 1025, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1030, 1406, 1378, 1284, 1092, 1027, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1406, 1338, 1129, 1029, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1338,
+               1205, 1043, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1205, 1094, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1116, 1039, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1070, 1025,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1052, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1052, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1052, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1052, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1070, 1025, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1025, 1109, 1036, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1025, 1057,
+               1175, 1082, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1057, 1176, 1293, 1172, 1036, 1024, 1024, 1024, 1024, 1024, 1024,
+               1024, 1024, 1024, 1024, 1024, 1054, 1185, 1334, 1438, 1294, 1099, 1025, 1024,
+               1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1054, 1185, 1334, 1334, 1462,
+               1438, 1226, 1059, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1025, 1054, 1185,
+               1326, 1334, 1334,
+             ]
+  - GammaOutCorrection:
+...
+</code></pre></div>
+</details>
+<p><a id="source-2aca0607eacef985"></a></p>
+<details class="note">
+<summary>소스 근거: src/ipa/mali-c55/data/uncalibrated.yaml:1</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/mali-c55/data/uncalibrated.yaml#L1"><code>src/ipa/mali-c55/data/uncalibrated.yaml:1</code></a> ~ <code>11</code></p>
+<p>SHA-256: <code>146853b0c8245c36b27863ac10c2edcaeed14bb5624c0eb523a0b75d226199e1</code></p>
+<div class="highlight"><pre><span></span><code># SPDX-License-Identifier: CC0-1.0
+%YAML 1.1
+---
+version: 1
+algorithms:
+  - Agc:
+  - Awb:
+  - BlackLevelCorrection:
+  - Ccm:
+  - Gamma:
+...
+</code></pre></div>
+</details>
+<p><a id="source-f8b760d0d191cbea"></a></p>
+<details class="note">
+<summary>소스 근거: src/ipa/mali-c55/algorithms/meson.build:1</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/mali-c55/algorithms/meson.build#L1"><code>src/ipa/mali-c55/algorithms/meson.build:1</code></a> ~ <code>10</code></p>
+<p>SHA-256: <code>3928a9bc4320438e89a6a3545559afe1f9b45195e24421219df8014c30f33778</code></p>
+<div class="highlight"><pre><span></span><code># SPDX-License-Identifier: CC0-1.0
+
+mali_c55_ipa_algorithms = files([
+    'agc.cpp',
+    'awb.cpp',
+    'blc.cpp',
+    'ccm.cpp',
+    'gamma.cpp',
+    'lsc.cpp',
+])
+</code></pre></div>
+</details>
+<p><a id="source-8cc12a6ba8b0dced"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/egl.cpp:174</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/egl.cpp#L174"><code>src/libcamera/egl.cpp:174</code></a> ~ <code>279</code></p>
+<p>SHA-256: <code>54972e6c423848da387112f756eb3670a3ac895a05f7cc8d3e7bb77f5cb6a570</code></p>
+<div class="highlight"><pre><span></span><code>int eGL::createDMABufTexture2D(eGLImage &amp;eglImage, int fd, bool output)
+{
+    EGLint drm_format;
+    int ret = 0;
+
+    assertThread();
+
+    switch (eglImage.format_) {
+    case GL_RED:
+    case GL_LUMINANCE:
+        drm_format = DRM_FORMAT_R8;
+        break;
+    case GL_RG:
+        drm_format = DRM_FORMAT_GR88;
+        break;
+    case GL_RGBA:
+        drm_format = DRM_FORMAT_ARGB8888;
+        break;
+    default:
+        LOG(eGL, Error) &lt;&lt; "unhandled GL format";
+        return -ENODEV;
+    }
+
+    // clang-format off
+    EGLint image_attrs[] = {
+        EGL_WIDTH, (EGLint)eglImage.width_,
+        EGL_HEIGHT, (EGLint)eglImage.height_,
+        EGL_LINUX_DRM_FOURCC_EXT, drm_format,
+        EGL_DMA_BUF_PLANE0_FD_EXT, fd,
+        EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
+        EGL_DMA_BUF_PLANE0_PITCH_EXT, (EGLint)eglImage.stride_,
+        EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT, 0,
+        EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT, 0,
+        EGL_NONE,
+    };
+    // clang-format on
+
+    EGLImageKHR image = vtable_.eglCreateImageKHR(display_, EGL_NO_CONTEXT,
+                              EGL_LINUX_DMA_BUF_EXT,
+                              NULL, image_attrs);
+
+    if (image == EGL_NO_IMAGE_KHR) {
+        LOG(eGL, Debug) &lt;&lt; "eglCreateImageKHR fail";
+        eglImage.dmabuf_import_failed_ = true;
+        return -ENODEV;
+    }
+
+    activateBindTexture(eglImage);
+
+    // Generate texture with filter semantics
+    vtable_.glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, image);
+    vtable_.eglDestroyImageKHR(display_, image);
+
+    // Nearest filtering
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    // Wrap to edge to avoid edge artifacts
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    if (output)
+        ret = attachTextureToFBO(eglImage);
+
+    return ret;
+}
+
+/**
+ * \brief Create an input DMA-BUF backed texture
+ * \param[in,out] eglImage EGL image to associate with the DMA-BUF
+ * \param[in] fd DMA-BUF file descriptor
+ *
+ * Creates an EGL image from a DMA-BUF file descriptor and binds it to
+ * a 2D texture for use as an input texture in shaders. The texture is
+ * configured with nearest filtering and clamp-to-edge wrapping.
+ *
+ * \return 0 on success, or -ENODEV on failure
+ */
+int eGL::createInputDMABufTexture2D(eGLImage &amp;eglImage, int fd)
+{
+    assertThread();
+
+    return createDMABufTexture2D(eglImage, fd, false);
+}
+
+/**
+ * \brief Create an output DMA-BUF backed texture
+ * \param[in,out] eglImage EGL image to associate with the DMA-BUF
+ * \param[in] fd DMA-BUF file descriptor
+ *
+ * Creates an EGL image from a DMA-BUF file descriptor and binds it to
+ * a 2D texture, then attaches it to a framebuffer object for use as a
+ * render target. This enables zero-copy rendering directly to the
+ * DMA-BUF.
+ *
+ * \return 0 on success, or -ENODEV on failure
+ */
+int eGL::createOutputDMABufTexture2D(eGLImage &amp;eglImage, int fd)
+{
+    assertThread();
+
+    return createDMABufTexture2D(eglImage, fd, true);
+}
+
+/**
+ * \brief Create a 2D texture from a memory buffer
+</code></pre></div>
+</details>
+<p><a id="source-68d470282c445049"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/shaders/bayer_1x_packed.frag:237</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/shaders/bayer_1x_packed.frag#L237"><code>src/libcamera/shaders/bayer_1x_packed.frag:237</code></a> ~ <code>270</code></p>
+<p>SHA-256: <code>84e5be2b8bbb1a1337af23df059b5d9270e16421c945a530a8c848709f302e6a</code></p>
+<div class="highlight"><pre><span></span><code>rgb = (rgb - blacklevel) / (1.0 - blacklevel);
+
+#if defined(APPLY_LSC)
+        /* Multiple by 4.0 for UQ&lt;2, 6&gt; -&gt; float conversion:
+         * texture2D(...) = original_float * 2^6 (quantization) * 1/2^8 (texture byte to float)
+         * =&gt; original_float = texture2D(...) / 2^6 * 2^8 = texture2D(...) * 2^2
+         */
+        rgb = rgb * (texture2D(lsc_tex, textureOut).rgb * 4.0);
+#endif
+
+    /* Apply AWB gains, and saturate each channel at sensor range */
+    rgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));
+
+    /* Colour Correction Matrix */
+    rgb = ccm * rgb;
+
+    /*
+     * Contrast
+     * contrastExp 0..2 contrast to 0..infinity; avoid actual infinity at tan(pi/2)
+     */
+    rgb = clamp(rgb, 0.0, 1.0);
+    rgb.r = apply_contrast(rgb.r);
+    rgb.g = apply_contrast(rgb.g);
+    rgb.b = apply_contrast(rgb.b);
+
+    /* Apply gamma after colour correction */
+    rgb = pow(rgb, vec3(gamma));
+
+#if defined (SWAP_BLUE)
+    gl_FragColor = vec4(rgb.bgr, 1.0);
+#else
+    gl_FragColor = vec4(rgb, 1.0);
+#endif
+}
+</code></pre></div>
+</details>
+<p><a id="source-86d4a7688119bd37"></a></p>
+<details class="note">
+<summary>소스 근거: src/libcamera/shaders/bayer_unpacked.frag:140</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/shaders/bayer_unpacked.frag#L140"><code>src/libcamera/shaders/bayer_unpacked.frag:140</code></a> ~ <code>169</code></p>
+<p>SHA-256: <code>5567b6548b078d7db847d9b57eefb1799e917214787288683110d5b41510573b</code></p>
+<div class="highlight"><pre><span></span><code>rgb = (rgb - blacklevel) / (1.0 - blacklevel);
+
+#if defined(APPLY_LSC)
+    /* Multiple by 4.0 for UQ&lt;2, 6&gt; -&gt; float conversion */
+    rgb = rgb * (texture2D(lsc_tex, center.xy).rgb * 4.0);
+#endif
+
+    /* Apply AWB gains, and saturate each channel at sensor range */
+    rgb = clamp(rgb * awb, vec3(0.0), vec3(1.0));
+
+    /* Colour Correction Matrix */
+    rgb = ccm * rgb;
+
+    /*
+     * Contrast
+     */
+    rgb = clamp(rgb, 0.0, 1.0);
+    rgb.r = apply_contrast(rgb.r);
+    rgb.g = apply_contrast(rgb.g);
+    rgb.b = apply_contrast(rgb.b);
+
+    /* Apply gamma after colour correction */
+    rgb = pow(rgb, vec3(gamma));
+
+#if defined (SWAP_BLUE)
+    gl_FragColor = vec4(rgb.bgr, 1.0);
+#else
+    gl_FragColor = vec4(rgb, 1.0);
+#endif
+}
+</code></pre></div>
+</details>
+<p><a id="source-df8e8976167a0311"></a></p>
+<details class="note">
+<summary>소스 근거: include/libcamera/ipa/softisp.mojom:1</summary>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/ipa/softisp.mojom#L1"><code>include/libcamera/ipa/softisp.mojom:1</code></a> ~ <code>40</code></p>
+<p>SHA-256: <code>dedbfb928f4f1cdb8e174d8104cb8cbd575fd543e9b620240984c3af4cddecdb</code></p>
+<div class="highlight"><pre><span></span><code>/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+/*
+ * \todo Document the interface and remove the related EXCLUDE_PATTERNS entry.
+ */
+
+module ipa.softisp;
+
+import "include/libcamera/ipa/core.mojom";
+
+struct IPAConfigInfo {
+    libcamera.ControlInfoMap sensorControls;
+};
+
+interface IPASoftIspInterface {
+    init(libcamera.IPASettings settings,
+         libcamera.SharedFD fdStats,
+         libcamera.SharedFD fdParams,
+         libcamera.IPACameraSensorInfo sensorInfo,
+         libcamera.ControlInfoMap sensorControls)
+        =&gt; (int32 ret,
+            libcamera.ControlInfoMap ipaControls,
+            bool ccmEnabled, bool lscEnabled);
+    start() =&gt; (int32 ret);
+    stop();
+    configure(IPAConfigInfo configInfo)
+        =&gt; (int32 ret, libcamera.ControlInfoMap ipaControls);
+
+    [async] queueRequest(uint32 frame, libcamera.ControlList sensorControls);
+    [async] computeParams(uint32 frame);
+    [async] processStats(uint32 frame,
+                 uint32 bufferId,
+                 libcamera.ControlList sensorControls);
+};
+
+interface IPASoftIspEventInterface {
+    setSensorControls(libcamera.ControlList sensorControls);
+    paramsComputed(uint32 frame);
+    metadataReady(uint32 frame, libcamera.ControlList metadata);
+};
+</code></pre></div>
+</details>
+</details>
+<h2 id="관련-클래스">관련 클래스</h2>
+<p>선언·상속·주석은 각 클래스 링크에서 확인하세요.</p><ul class="related-symbols"><li><a href="component-index.html#symbol-3238118080d7f2c1"><code>libcamera::IPAManager</code></a></li><li><a href="component-index.html#symbol-28df0a797b776dc1"><code>libcamera::IPAModule</code></a></li><li><a href="component-index.html#symbol-b21b6c7500228c50"><code>libcamera::IPAProxy</code></a></li><li><a href="component-index.html#symbol-5b59abd6ba8e81fe"><code>libcamera::ipa::ipu3::IPAIPU3</code></a></li><li><a href="component-index.html#symbol-6f72c63462844b08"><code>libcamera::ipa::rkisp1::IPARkISP1</code></a></li></ul>
+
+</article><section class="evidence"><h2 id="page-evidence">문서 생성·검토 정보</h2><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>사람 검토</dt><dd>사람 검토 전</dd><dt>분석 기준 커밋</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>문서 생성 시각</dt><dd><code>2026-11-20 17:45:00+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>문서 간 계약</dt><dd><a href="../contract-consistency.json">자동 대조 보고서</a> · 사람 검토 전</dd></dl><details class="note manuscript-record"><summary>원고 작성 당시 기록</summary><p>원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.</p><ul><li>근거 파일: <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/ipa_module.h</code>, <code>include/libcamera/internal/ipa_proxy.h</code>, <code>include/libcamera/ipa/softisp.mojom</code>, <code>src/ipa/ipu3/ipu3.cpp</code>, <code>src/ipa/mali-c55/algorithms/meson.build</code>, <code>src/ipa/mali-c55/data/uncalibrated.yaml</code>, <code>src/ipa/rkisp1/data/imx219.yaml</code>, <code>src/ipa/rkisp1/data/uncalibrated.yaml</code>, <code>src/ipa/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/egl.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/ipa_module.cpp</code>, <code>src/libcamera/ipa_proxy.cpp</code>, <code>src/libcamera/pipeline/mali-c55/mali-c55.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/shaders/bayer_1x_packed.frag</code>, <code>src/libcamera/shaders/bayer_unpacked.frag</code></li><li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>adfa719f8e</code>)</li><li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li><li>검토 상태 기록일: 2026-11-21 · 사람 검토 전</li></ul></details><a href="../ipa-algorithms.md">Markdown 원문 ↗</a> <a href="../ipa-algorithms.mmd">Mermaid 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="../implementation.html"><small>이전</small>IPA 관리와 구현 진입점 ←</a><a class="next" href="../implementation.html"><small>다음</small>IPU3 LSC와 상태 연결 →</a></nav>
+<footer>Generated by camera-hal-sdd-generator · 인용 검사와 사람의 내용 검토는 별도입니다.</footer></main>
+<aside class="page-toc"></aside></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">문서 찾기</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><label for="search-input">문서·절·용어·코드 요소 검색</label><input id="search-input" type="search" autocomplete="off" placeholder="예: Pipeline, IPA, 클래스 관계"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">클래스 관계</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">요소 찾기</label><input id="node-search" type="search" placeholder="그림 요소·함수 이름"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="축소">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="확대">+</button><button id="zoom-fit">화면에 맞춤</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">마우스로 끌거나 터치로 밀어서 그림을 이동합니다. '화면에 맞춤'은 그림 전체를 보는 개요 보기입니다.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="확대된 다이어그램"><div id="diagram-canvas"></div></div></dialog>
+<script id="site-config" type="application/json">{"root": "../", "mermaid": "assets/mermaid/mermaid.esm.min.mjs", "terms": "e624f47117"}</script><script defer src="../assets/site.js?v=dd3415510a"></script><script defer src="../assets/reader-tools.js?v=dd3415510a"></script></body></html>

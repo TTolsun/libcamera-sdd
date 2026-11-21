@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Implementation and Extension Points · libcamera design document</title><link rel="stylesheet" href="../assets/reading.css?v=dd3415510a"><link rel="alternate" hreflang="ko" href="../implementation.html"><link rel="alternate" hreflang="en" href="implementation.html"></head>
+<body><a class="skip" href="#main">Go to body text</a>
+<header class="site-header"><a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera Design Document</a>
+<div class="header-actions"><details class="language-selector"><summary aria-label="Choose language">English ▾</summary><nav><a lang="ko" hreflang="ko" href="../implementation.html">한국어</a><a lang="en" hreflang="en" href="implementation.html" aria-current="true">English</a></nav></details><nav class="download-nav" aria-label="Download the whole document" style="display:flex"><details class="language-selector download-menu"><summary title="Download" aria-label="Download the whole document">⤓ ▾</summary><nav><a href="download/full.html?print">PDF</a><a href="download/full.md" download="libcamera-설계-문서.en.md">Markdown</a></nav></details></nav><button id="search-open" hidden>Find document <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button></div></header>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Document menu"><details class="nav-group" data-nav-id="group-cced28c6dc3f99c2396a5eaa" open><summary>Start Here</summary><a href="index.html">Start Here</a><a href="architecture.html">Architecture</a><a href="glossary.html">Glossary</a></details><details class="nav-group" data-nav-id="group-630ba09448af522154f38ef7" open><summary>ForVendor</summary><a href="for-vendor.html">ForVendor</a><a href="features-and-support.html">Features and Support</a><a href="device-integration.html">Device Integration and Verification</a></details><details class="nav-group" data-nav-id="group-88fa0d759f845b47c044c2cd" open><summary>ForDeveloper</summary><a href="for-developer.html">ForDeveloper</a><a href="request-flow.html">Request Flow and Core Concepts</a><a href="implementation.html" aria-current="page">Implementation and Extension Points</a><a href="troubleshooting.html">Caveats and Troubleshooting</a></details></nav><p class="sidebar-note">Extract the structure from the code and review it together with <br> evidence.</p></aside>
+<main id="main"><p class="breadcrumb">ForDeveloper <span>/</span> Implementation and Extension Points</p><h1>Implementation and Extension Points</h1><details class="mobile-toc"><summary>On this page</summary><div class="toc"><ul><li><a href="#device-matching">Device matching and object lifetime</a><ul><li><a href="#%ED%95%B8%EB%93%A4%EB%9F%AC-%EC%83%9D%EC%84%B1%EA%B3%BC-%EC%9E%A5%EC%B9%98-%ED%9A%8D%EB%93%9D%EB%B0%98%EB%82%A9%EC%9D%98-%EC%B1%85%EC%9E%84">Responsibility for handler creation and device acquisition and release</a></li><li><a href="#%ED%9A%8D%EB%93%9D%EB%B0%98%EB%82%A9%EC%9D%98-%EC%9E%A0%EA%B8%88-%EC%A1%B0%EA%B1%B4%EA%B3%BC-%ED%95%B4%EC%A0%9C-%EC%88%9C%EC%84%9C">Locking conditions and release order for acquisition and return</a></li></ul></li><li><a href="#queue-limit">Device request limit and waiting queue</a></li><li><a href="#ipa-frame-interface">Frame input and result interface</a></li><li><a href="#ipa-extensions">IPA module selection and failure conditions</a><ul><li><a href="#ipa-%EB%AA%A8%EB%93%88-%EA%B2%80%EC%83%89%EA%B3%BC-%ED%94%84%EB%A1%9D%EC%8B%9C-%EB%B0%98%ED%99%98-%EB%B6%84%EA%B8%B0">IPA module search and proxy return branches</a></li></ul></li><li><a href="#ipu3-lsc">Linking builds and status</a><ul><li><a href="#lsc-%EB%B9%8C%EB%93%9C%EC%99%80-%EB%A9%94%EC%84%9C%EB%93%9C-%EC%83%81%ED%83%9C-%EC%9E%85%EB%A0%A5">LSC build and method state inputs</a></li></ul></li><li><a href="#rkisp1-dewarp">Scope of stream application and execution verification</a><ul><li><a href="#%EC%B6%9C%EB%A0%A5%EB%B3%84-%EB%A7%B5%EA%B3%BC-%EC%84%A0%ED%83%9D%EC%A0%81-%EB%B3%B4%EC%A0%95%EA%B0%92">Per-output maps and optional correction values</a></li><li><a href="#%EB%B3%B4%EC%A0%95-%EA%B2%BD%EB%A1%9C%EA%B0%80-%EC%95%B1-%EB%B2%84%ED%8D%BC%EB%A5%BC-%EC%B7%A8%EC%86%8C%ED%95%98%EB%8A%94-%EB%91%90-%EA%B2%BD%EC%9A%B0">Two cases where the correction path cancels an app buffer</a></li></ul></li></ul></div></details><p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p>Check device matching and the queue contract, then follow the change into the IPA module or the device-specific correction code.</p><h2 id="device-matching">Device matching and object lifetime</h2>
+<p data-sdd-evidence='[["src/libcamera/pipeline_handler.cpp:50", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L50\"><code>src/libcamera/pipeline_handler.cpp:50</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline_handler.cpp:50": ["reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5"]}'><code>PipelineHandler</code> creates and manages <code>Camera</code> devices by matching the media devices from <code>DeviceEnumerator</code> with supported pipelines. Instances must not be created manually and must be created using <code>PipelineHandlerFactoryBase::create()</code>. Their reference counts are managed with <code>std::shared_ptr</code>, and they implement <code>std::enable_shared_from_this</code> to create a new <code>shared_ptr</code> when only this is available in a member function. If match() finds all devices needed for one pipeline, match() must acquire them all, create one or more <code>Camera</code> instances, store them internally, register them with the camera manager, and then return true. If match() cannot find all the required devices, match() must either acquire no devices or release all devices already acquired, and return false. After each success, match() must be called on a new handler instance, and each call must acquire the devices for one pipeline until compatible devices are exhausted.</p>
+<!-- sdd:visual:handler-device-ownership -->
+<h3 id="핸들러-생성과-장치-획득반납의-책임">Responsibility for handler creation and device acquisition and release</h3>
+<pre class="mermaid">flowchart TB
+
+  v_factory["PipelineHandler instances &lt;br/&gt;must always be constructed &lt;br/&gt;through &lt;br/&gt;PipelineHandlerFactoryBase::&lt;br/&gt;create#40;#41; and never manually."]
+  v_handler["PipelineHandler instances &lt;br/&gt;are reference-counted &lt;br/&gt;through std::shared#95;ptr. &lt;br/&gt;They implement &lt;br/&gt;std::&lt;br/&gt;enable#95;shared#95;from#95;this to &lt;br/&gt;create new std::shared#95;ptr &lt;br/&gt;instances in &lt;br/&gt;member-function paths where &lt;br/&gt;only this is available."]
+  v_match["If all devices needed for &lt;br/&gt;one pipeline are found, the &lt;br/&gt;PipelineHandler::match &lt;br/&gt;implementation must acquire &lt;br/&gt;them all with &lt;br/&gt;MediaDevice::acquire#40;#41;, &lt;br/&gt;create one or more Camera &lt;br/&gt;instances, store them &lt;br/&gt;internally, register them &lt;br/&gt;with the camera manager, &lt;br/&gt;and return true. Otherwise, &lt;br/&gt;it must acquire no devices &lt;br/&gt;or release all devices &lt;br/&gt;already acquired with &lt;br/&gt;MediaDevice::release#40;#41;, and &lt;br/&gt;return false."]
+  v_search["acquireMediaDevice#40;#41; finds &lt;br/&gt;and acquires an available &lt;br/&gt;matching device, excluding &lt;br/&gt;devices already acquired, &lt;br/&gt;and returns a shared &lt;br/&gt;pointer. It returns nullptr &lt;br/&gt;if no match is found or &lt;br/&gt;acquisition fails. The &lt;br/&gt;caller must not release the &lt;br/&gt;device explicitly; it is &lt;br/&gt;released automatically when &lt;br/&gt;the handler is destroyed."]
+  v_devices["A device acquired by &lt;br/&gt;acquireMediaDevice#40;#41; is &lt;br/&gt;stored in the handler#39;s &lt;br/&gt;mediaDevices#95;."]
+  v_release["The handler destructor &lt;br/&gt;releases each device stored &lt;br/&gt;in mediaDevices#95; using &lt;br/&gt;MediaDevice::release#40;#41;."]
+  v_factory --&gt;|"PipelineHandlerFactoryBase::&lt;br/&gt;create#40;#41; is the required &lt;br/&gt;construction path for &lt;br/&gt;PipelineHandler instances."| v_handler
+  v_handler --&gt;|"The camera manager calls &lt;br/&gt;the PipelineHandler#39;s &lt;br/&gt;match#40;#41;. If match#40;#41; returns &lt;br/&gt;true, a new handler &lt;br/&gt;instance is created and its &lt;br/&gt;match#40;#41; is called."| v_match
+  v_handler --&gt;|"PipelineHandler stores &lt;br/&gt;shared pointers to devices &lt;br/&gt;in mediaDevices#95;."| v_devices
+  v_search --&gt;|"acquireMediaDevice#40;#41; stores &lt;br/&gt;the acquired device in &lt;br/&gt;mediaDevices#95;. · &lt;br/&gt;#33;media-#62;acquire#40;#41; #91;false#93;"| v_devices
+  v_devices --&gt;|"When the handler is &lt;br/&gt;destroyed, it releases each &lt;br/&gt;device in mediaDevices#95;."| v_release</pre>
+<p><a href="pipeline-handler.handler-device-ownership.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>How are factory creation, reference lifetime, and the match contract connected, and where is the device acquired through acquireMediaDevice stored and how is it released when the handler is destroyed? See the separate diagram for the locking conditions for acquire and release.</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="PipelineHandler instances must always be constructed through PipelineHandlerFactoryBase::create() and never manually.">PipelineHandler instances must always be constructed through PipelineHandlerFactoryBase::create() and never manually.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5">src/libcamera/pipeline_handler.cpp:50</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="PipelineHandler instances are reference-counted through std::shared_ptr. They implement std::enable_shared_from_this to create new std::shared_ptr instances in member-function paths where only this is available.">PipelineHandler instances are reference-counted through std::shared_ptr. They implement std::enable_shared_from_this to create new std::shared_ptr instances in member-function paths where only this is available.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5">src/libcamera/pipeline_handler.cpp:50</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If all devices needed for one pipeline are found, the PipelineHandler::match implementation must acquire them all with MediaDevice::acquire(), create one or more Camera instances, store them internally, register them with the camera manager, and return true. Otherwise, it must acquire no devices or release all devices already acquired with MediaDevice::release(), and return false.">If all devices needed for one pipeline are found, the PipelineHandler::match implementation must acquire them all with MediaDevice::acquire(), create one or more Camera instances, store them internally, register them with the camera manager, and return true. Otherwise, it must acquire no devices or release all devices already acquired with MediaDevice::release(), and return false.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5">src/libcamera/pipeline_handler.cpp:50</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="acquireMediaDevice() finds and acquires an available matching device, excluding devices already acquired, and returns a shared pointer. It returns nullptr if no match is found or acquisition fails. The caller must not release the device explicitly; it is released automatically when the handler is destroyed.">acquireMediaDevice() finds and acquires an available matching device, excluding devices already acquired, and returns a shared pointer. It returns nullptr if no match is found or acquisition fails. The caller must not release the device explicitly; it is released automatically when the handler is destroyed.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="A device acquired by acquireMediaDevice() is stored in the handler's mediaDevices_.">A device acquired by acquireMediaDevice() is stored in the handler's mediaDevices_.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a> · <a href="reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5">src/libcamera/pipeline_handler.cpp:50</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The handler destructor releases each device stored in mediaDevices_ using MediaDevice::release().">The handler destructor releases each device stored in mediaDevices_ using MediaDevice::release().</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5">src/libcamera/pipeline_handler.cpp:50</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="PipelineHandlerFactoryBase::create() is the required construction path for PipelineHandler instances.">PipelineHandlerFactoryBase::create() is the required construction path for PipelineHandler instances.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5">src/libcamera/pipeline_handler.cpp:50</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The camera manager calls the PipelineHandler's match(). If match() returns true, a new handler instance is created and its match() is called.">The camera manager calls the PipelineHandler's match(). If match() returns true, a new handler instance is created and its match() is called.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5">src/libcamera/pipeline_handler.cpp:50</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="PipelineHandler stores shared pointers to devices in mediaDevices_.">PipelineHandler stores shared pointers to devices in mediaDevices_.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5">src/libcamera/pipeline_handler.cpp:50</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="acquireMediaDevice() stores the acquired device in mediaDevices_. · !media->acquire() [false]">acquireMediaDevice() stores the acquired device in mediaDevices_. · !media-&gt;acquire() [false]</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="When the handler is destroyed, it releases each device in mediaDevices_.">When the handler is destroyed, it releases each device in mediaDevices_.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5">src/libcamera/pipeline_handler.cpp:50</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:handler-device-ownership -->
+
+<!-- sdd:visual:acquire-release-locks -->
+<h3 id="획득반납의-잠금-조건과-해제-순서">Locking conditions and release order for acquisition and return</h3>
+<pre class="mermaid">flowchart TB
+
+  v_acquire["acquire is a separate entry &lt;br/&gt;path. Each successful call &lt;br/&gt;must be matched by a &lt;br/&gt;release call; &lt;br/&gt;PipelineHandler must not &lt;br/&gt;call it directly because &lt;br/&gt;Camera handles access &lt;br/&gt;internally."]
+  v_acquire_count{"Check whether useCount#95; is &lt;br/&gt;0."}
+  v_lock["Iterate over all of &lt;br/&gt;mediaDevices#95; and lock each &lt;br/&gt;device. If any lock fails, &lt;br/&gt;call unlockMediaDevices#40;#41; &lt;br/&gt;and return false."]
+  v_acquire_device{"Call acquireDevice#40;camera#41;. &lt;br/&gt;On failure, call &lt;br/&gt;unlockMediaDevices#40;#41; if &lt;br/&gt;useCount#95; is 0, and return &lt;br/&gt;false."}
+  v_acquire_success["Increment useCount#95; and &lt;br/&gt;return true."]
+  v_release["release is a separate entry &lt;br/&gt;path. Each call must match &lt;br/&gt;a previous successful &lt;br/&gt;acquire call; calling it &lt;br/&gt;when the handler has not &lt;br/&gt;been acquired results in &lt;br/&gt;undefined behaviour. &lt;br/&gt;PipelineHandler must not &lt;br/&gt;call it directly because &lt;br/&gt;Camera handles access &lt;br/&gt;internally."]
+  v_release_device["First call &lt;br/&gt;releaseDevice#40;camera#41;."]
+  v_release_count{"Check whether useCount#95; is &lt;br/&gt;1."}
+  v_unlock["Call unlockMediaDevices#40;#41;."]
+  v_decrement["Decrement useCount#95;."]
+  v_acquire --&gt;|"Check the count when &lt;br/&gt;acquiring."| v_acquire_count
+  v_acquire_count --&gt;|"If the condition is true, &lt;br/&gt;attempt to lock the &lt;br/&gt;devices. · useCount#95; #61;#61; 0 &lt;br/&gt;#91;true#93;"| v_lock
+  v_acquire_count --&gt;|"If the condition is false, &lt;br/&gt;skip locking. · useCount#95; &lt;br/&gt;#61;#61; 0 #91;false#93;"| v_acquire_device
+  v_lock --&gt;|"Proceed when the entire &lt;br/&gt;loop completes without &lt;br/&gt;failure. An empty list also &lt;br/&gt;completes the loop."| v_acquire_device
+  v_acquire_device --&gt;|"If device acquisition does &lt;br/&gt;not fail, increment the &lt;br/&gt;count. · &lt;br/&gt;#33;acquireDevice#40;camera#41; &lt;br/&gt;#91;false#93;"| v_acquire_success
+  v_release --&gt;|"Call releaseDevice#40;camera#41;."| v_release_device
+  v_release_device --&gt;|"Check the count after the &lt;br/&gt;call."| v_release_count
+  v_release_count --&gt;|"If the condition is true, &lt;br/&gt;unlock the devices. · &lt;br/&gt;useCount#95; #61;#61; 1 #91;true#93;"| v_unlock
+  v_unlock --&gt;|"Decrement the count after &lt;br/&gt;unlocking."| v_decrement
+  v_release_count --&gt;|"Even if the condition is &lt;br/&gt;false, decrement the count. &lt;br/&gt;· useCount#95; #61;#61; 1 #91;false#93;"| v_decrement</pre>
+<p><a href="pipeline-handler.acquire-release-locks.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>Treat acquire and release as separate entry paths, and distinguish the useCount_ conditions, failure returns, and the order of releaseDevice, conditional unlocking, and decrementing.</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="acquire is a separate entry path. Each successful call must be matched by a release call; PipelineHandler must not call it directly because Camera handles access internally.">acquire is a separate entry path. Each successful call must be matched by a release call; PipelineHandler must not call it directly because Camera handles access internally.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether useCount_ is 0.">Check whether useCount_ is 0.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Iterate over all of mediaDevices_ and lock each device. If any lock fails, call unlockMediaDevices() and return false.">Iterate over all of mediaDevices_ and lock each device. If any lock fails, call unlockMediaDevices() and return false.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call acquireDevice(camera). On failure, call unlockMediaDevices() if useCount_ is 0, and return false.">Call acquireDevice(camera). On failure, call unlockMediaDevices() if useCount_ is 0, and return false.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Increment useCount_ and return true.">Increment useCount_ and return true.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="release is a separate entry path. Each call must match a previous successful acquire call; calling it when the handler has not been acquired results in undefined behaviour. PipelineHandler must not call it directly because Camera handles access internally.">release is a separate entry path. Each call must match a previous successful acquire call; calling it when the handler has not been acquired results in undefined behaviour. PipelineHandler must not call it directly because Camera handles access internally.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="First call releaseDevice(camera).">First call releaseDevice(camera).</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether useCount_ is 1.">Check whether useCount_ is 1.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call unlockMediaDevices().">Call unlockMediaDevices().</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Decrement useCount_.">Decrement useCount_.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the count when acquiring.">Check the count when acquiring.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is true, attempt to lock the devices. · useCount_ == 0 [true]">If the condition is true, attempt to lock the devices. · useCount_ == 0 [true]</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is false, skip locking. · useCount_ == 0 [false]">If the condition is false, skip locking. · useCount_ == 0 [false]</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Proceed when the entire loop completes without failure. An empty list also completes the loop.">Proceed when the entire loop completes without failure. An empty list also completes the loop.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If device acquisition does not fail, increment the count. · !acquireDevice(camera) [false]">If device acquisition does not fail, increment the count. · !acquireDevice(camera) [false]</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call releaseDevice(camera).">Call releaseDevice(camera).</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the count after the call.">Check the count after the call.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is true, unlock the devices. · useCount_ == 1 [true]">If the condition is true, unlock the devices. · useCount_ == 1 [true]</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Decrement the count after unlocking.">Decrement the count after unlocking.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Even if the condition is false, decrement the count. · useCount_ == 1 [false]">Even if the condition is false, decrement the count. · useCount_ == 1 [false]</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:acquire-release-locks -->
+
+<p data-sdd-evidence='[["src/libcamera/pipeline_handler.cpp:119", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L119\"><code>src/libcamera/pipeline_handler.cpp:119</code></a>"], ["src/libcamera/pipeline_handler.cpp:50", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L50\"><code>src/libcamera/pipeline_handler.cpp:50</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline_handler.cpp:119": ["reader-archive/pipeline-handler.html#source-a3caf1625bc18d64"], "src/libcamera/pipeline_handler.cpp:50": ["reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5"]}'>acquireMediaDevice() searches for a matching device, excluding previously acquired devices, and stores it in <code>mediaDevices_</code> if found and acquired. The caller must not release the device explicitly; the handler destructor calls <code>MediaDevice::release()</code>. acquire() locks the media devices only when <code>useCount_</code> == 0. If a device lock fails, acquire() unlocks the devices and returns false; if acquireDevice() fails, acquire() unlocks the devices when <code>useCount_</code> == 0 and returns false. Every successful acquire() must be paired with a release(). After calling releaseDevice(), release() unlocks the devices if <code>useCount_</code> == 1, then decrements the count. Resources shared by multiple cameras must not be released until releaseDevice() has been called for all previously acquired cameras.</p>
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>2</span></summary><ul><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5" aria-label="src/libcamera/pipeline_handler.cpp:50 excerpt"><code>L50</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:50" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L50">Full source <code>L50</code></a> · <a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64" aria-label="src/libcamera/pipeline_handler.cpp:119 excerpt"><code>L119</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:119" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L119">Full source <code>L119</code></a></span></li></ul></details><h2 id="queue-limit">Device request limit and waiting queue</h2>
+<p data-sdd-evidence='[["include/libcamera/internal/pipeline_handler.h:38", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/pipeline_handler.h#L38\"><code>include/libcamera/internal/pipeline_handler.h:38</code></a>"], ["src/libcamera/pipeline_handler.cpp:805", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L805\"><code>src/libcamera/pipeline_handler.cpp:805</code></a>"]]' data-sdd-excerpts='{"include/libcamera/internal/pipeline_handler.h:38": ["reader-archive/pipeline-requests.html#source-0cf3f7eced88f3df"], "src/libcamera/pipeline_handler.cpp:805": ["reader-archive/pipeline-requests.html#source-bf25a409490e6fa9"]}'>In the <code>PipelineHandler</code> constructor declaration, the default value of maxQueuedRequestsDevice is 32. <code>maxQueuedRequestsDevice_</code> limits the number of requests the pipeline handler queues to the hardware at a given time. The remaining requests wait in the internal waiting queue until they are queued later.</p>
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>2</span></summary><ul><li><code>include/libcamera/internal/pipeline_handler.h</code><span class="evidence-lines"><a href="reader-archive/pipeline-requests.html#source-0cf3f7eced88f3df" aria-label="include/libcamera/internal/pipeline_handler.h:38 excerpt"><code>L38</code> excerpt</a> · <a aria-label="include/libcamera/internal/pipeline_handler.h:38" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/pipeline_handler.h#L38">Full source <code>L38</code></a></span></li><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="reader-archive/pipeline-requests.html#source-bf25a409490e6fa9" aria-label="src/libcamera/pipeline_handler.cpp:805 excerpt"><code>L805</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:805" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L805">Full source <code>L805</code></a></span></li></ul></details>
+<h2 id="ipa-frame-interface">Frame input and result interface</h2>
+<p data-sdd-evidence='[["include/libcamera/ipa/ipu3.mojom:19", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/ipa/ipu3.mojom#L19\"><code>include/libcamera/ipa/ipu3.mojom:19</code></a>"]]' data-sdd-excerpts='{"include/libcamera/ipa/ipu3.mojom:19": ["reader-archive/ipa.html#source-5a4a0da4800968a4"]}'><code>IPAIPU3Interface</code> declares <code>queueRequest(frame, controls)</code>, <code>computeParams(frame, bufferId)</code>, and <code>processStats(frame, frameTimestamp, bufferId, sensorControls)</code> as <code>[async]</code> methods. <code>IPAIPU3EventInterface</code> declares <code>paramsComputed(frame)</code>, <code>metadataReady(frame, metadata)</code>, and <code>setSensorControls(frame, sensorControls, lensControls)</code>.</p>
+<p data-sdd-evidence='[["include/libcamera/ipa/rkisp1.mojom:17", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/ipa/rkisp1.mojom#L17\"><code>include/libcamera/ipa/rkisp1.mojom:17</code></a>"]]' data-sdd-excerpts='{"include/libcamera/ipa/rkisp1.mojom:17": ["reader-archive/ipa.html#source-7a01de2477d6466e"]}'><code>IPARkISP1Interface</code> declares <code>queueRequest(frame, reqControls)</code>, <code>computeParams(frame, bufferId)</code>, and <code>processStats(frame, bufferId, sensorControls)</code> as <code>[async]</code> methods. <code>IPARkISP1EventInterface</code> declares <code>paramsComputed(frame, bytesused)</code>, <code>metadataReady(frame, metadata)</code>, and <code>setSensorControls(frame, sensorControls)</code>.</p>
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>2</span></summary><ul><li><code>include/libcamera/ipa/ipu3.mojom</code><span class="evidence-lines"><a href="reader-archive/ipa.html#source-5a4a0da4800968a4" aria-label="include/libcamera/ipa/ipu3.mojom:19 excerpt"><code>L19</code> excerpt</a> · <a aria-label="include/libcamera/ipa/ipu3.mojom:19" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/ipa/ipu3.mojom#L19">Full source <code>L19</code></a></span></li><li><code>include/libcamera/ipa/rkisp1.mojom</code><span class="evidence-lines"><a href="reader-archive/ipa.html#source-7a01de2477d6466e" aria-label="include/libcamera/ipa/rkisp1.mojom:17 excerpt"><code>L17</code> excerpt</a> · <a aria-label="include/libcamera/ipa/rkisp1.mojom:17" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/ipa/rkisp1.mojom#L17">Full source <code>L17</code></a></span></li></ul></details><h2 id="ipa-extensions">IPA module selection and failure conditions</h2>
+<p data-sdd-evidence='[["include/libcamera/internal/ipa_manager.h:39", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/ipa_manager.h#L39\"><code>include/libcamera/internal/ipa_manager.h:39</code></a>"], ["src/libcamera/ipa_manager.cpp:249", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_manager.cpp#L249\"><code>src/libcamera/ipa_manager.cpp:249</code></a>"]]' data-sdd-excerpts='{"include/libcamera/internal/ipa_manager.h:39": ["reader-archive/vendor-integration.html#source-88cede73f337db67", "reader-archive/vendor-integration.html#source-da860180dc9199e6"], "src/libcamera/ipa_manager.cpp:249": ["reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8"]}'>When calling <code>module</code>, <code>createIPA</code> passes <code>name</code>, representing the name, <code>minVersion</code>, representing the minimum version, and <code>maxVersion</code>, representing the maximum version, in that order. <code>IPAManager::module</code> iterates through the modules and returns the first module for which <code>match</code> holds for the name and allowed version range, ending the search; if no module matches by the end, the function returns <code>nullptr</code>. <code>createIPA</code> receives the result of <code>module</code> in <code>m</code> and, if <code>!m</code>, returns <code>nullptr</code>.</p>
+<!-- sdd:visual:item-algorithm -->
+<h3 id="ipa-모듈-검색과-프록시-반환-분기">IPA module search and proxy return branches</h3>
+<pre class="mermaid">flowchart TB
+
+  v_lookup["Pass the name and allowed &lt;br/&gt;version range to module."]
+  v_remaining{"Is there another module to &lt;br/&gt;check?"}
+  v_match{"Does the module match the &lt;br/&gt;name and version range?"}
+  v_missing["With no matching module, &lt;br/&gt;createIPA immediately &lt;br/&gt;returns nullptr."]
+  v_signature{"Does isSignatureValid &lt;br/&gt;return true for the first &lt;br/&gt;matching module?"}
+  v_threaded["Create the Threaded proxy."]
+  v_isolated["Create the Isolated proxy."]
+  v_valid{"Is the new proxy valid?"}
+  v_invalid["Log the proxy error and &lt;br/&gt;return nullptr."]
+  v_return["Return the valid proxy."]
+  v_lookup --&gt;|"Check the module list."| v_remaining
+  v_remaining --&gt;|"There is a module to check."| v_match
+  v_remaining --&gt;|"The list was empty or the &lt;br/&gt;search was exhausted."| v_missing
+  v_match --&gt;|"A mismatch leads back to &lt;br/&gt;the remaining modules."| v_remaining
+  v_match --&gt;|"The first match ends the &lt;br/&gt;search."| v_signature
+  v_signature --&gt;|"isSignatureValid returns &lt;br/&gt;true."| v_threaded
+  v_signature --&gt;|"isSignatureValid returns &lt;br/&gt;false."| v_isolated
+  v_threaded --&gt;|"Check the resulting proxy."| v_valid
+  v_isolated --&gt;|"Check the resulting proxy."| v_valid
+  v_valid --&gt;|"The proxy is invalid."| v_invalid
+  v_valid --&gt;|"The proxy is valid."| v_return</pre>
+<p><a href="vendor-integration.item-algorithm.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>How does createIPA select a matching module and proxy type, and in which branches does createIPA return nullptr?</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Pass the name and allowed version range to module.">Pass the name and allowed version range to module.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is there another module to check?">Is there another module to check?</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8">src/libcamera/ipa_manager.cpp:249</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Does the module match the name and version range?">Does the module match the name and version range?</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8">src/libcamera/ipa_manager.cpp:249</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="With no matching module, createIPA immediately returns nullptr.">With no matching module, createIPA immediately returns nullptr.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8">src/libcamera/ipa_manager.cpp:249</a> · <a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Does isSignatureValid return true for the first matching module?">Does isSignatureValid return true for the first matching module?</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8">src/libcamera/ipa_manager.cpp:249</a> · <a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Create the Threaded proxy.">Create the Threaded proxy.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Create the Isolated proxy.">Create the Isolated proxy.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is the new proxy valid?">Is the new proxy valid?</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Log the proxy error and return nullptr.">Log the proxy error and return nullptr.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return the valid proxy.">Return the valid proxy.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the module list.">Check the module list.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a> · <a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8">src/libcamera/ipa_manager.cpp:249</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="There is a module to check.">There is a module to check.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8">src/libcamera/ipa_manager.cpp:249</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The list was empty or the search was exhausted.">The list was empty or the search was exhausted.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8">src/libcamera/ipa_manager.cpp:249</a> · <a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="A mismatch leads back to the remaining modules.">A mismatch leads back to the remaining modules.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8">src/libcamera/ipa_manager.cpp:249</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The first match ends the search.">The first match ends the search.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8">src/libcamera/ipa_manager.cpp:249</a> · <a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="isSignatureValid returns true.">isSignatureValid returns true.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8">src/libcamera/ipa_manager.cpp:249</a> · <a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="isSignatureValid returns false.">isSignatureValid returns false.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8">src/libcamera/ipa_manager.cpp:249</a> · <a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the resulting proxy.">Check the resulting proxy.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the resulting proxy.">Check the resulting proxy.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The proxy is invalid.">The proxy is invalid.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The proxy is valid.">The proxy is valid.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:item-algorithm -->
+
+<p data-sdd-evidence='[["include/libcamera/internal/ipa_manager.h:43", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/ipa_manager.h#L43\"><code>include/libcamera/internal/ipa_manager.h:43</code></a>"], ["include/libcamera/internal/ipa_manager.h:35", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/ipa_manager.h#L35\"><code>include/libcamera/internal/ipa_manager.h:35</code></a>"]]' data-sdd-excerpts='{"include/libcamera/internal/ipa_manager.h:43": ["reader-archive/vendor-integration.html#source-6dc4133d5797f19b"], "include/libcamera/internal/ipa_manager.h:35": ["reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc"]}'>The lambda inside <code>createIPA</code> creates a <code>T::Threaded</code> proxy object if <code>isSignatureValid(m)</code> is true, and a <code>T::Isolated</code> proxy object if it is false. <code>createIPA</code> logs the <code>Failed to load proxy</code> error and returns <code>nullptr</code> if the created proxy fails the <code>isValid</code> check. <code>createIPA</code> returns the created proxy if it passes validation.</p>
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>4</span></summary><ul><li><code>include/libcamera/internal/ipa_manager.h</code><span class="evidence-lines"><a aria-label="include/libcamera/internal/ipa_manager.h:39" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/ipa_manager.h#L39"><code>L39</code></a> · <a href="reader-archive/vendor-integration.html#source-6dc4133d5797f19b" aria-label="include/libcamera/internal/ipa_manager.h:43 excerpt"><code>L43</code> excerpt</a> · <a aria-label="include/libcamera/internal/ipa_manager.h:43" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/ipa_manager.h#L43">Full source <code>L43</code></a> · <a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc" aria-label="include/libcamera/internal/ipa_manager.h:35 excerpt"><code>L35</code> excerpt</a> · <a aria-label="include/libcamera/internal/ipa_manager.h:35" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/ipa_manager.h#L35">Full source <code>L35</code></a> · <a aria-label="include/libcamera/internal/ipa_manager.h:39" href="reader-archive/vendor-integration.html#source-88cede73f337db67"><code>L39</code></a> · <a aria-label="include/libcamera/internal/ipa_manager.h:39" href="reader-archive/vendor-integration.html#source-da860180dc9199e6"><code>L39</code></a></span></li><li><code>src/libcamera/ipa_manager.cpp</code><span class="evidence-lines"><a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8" aria-label="src/libcamera/ipa_manager.cpp:249 excerpt"><code>L249</code> excerpt</a> · <a aria-label="src/libcamera/ipa_manager.cpp:249" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_manager.cpp#L249">Full source <code>L249</code></a></span></li></ul></details><h2 id="ipu3-lsc">Linking builds and status</h2>
+<p data-sdd-evidence='[["src/ipa/ipu3/algorithms/meson.build:3", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/ipu3/algorithms/meson.build#L3\"><code>src/ipa/ipu3/algorithms/meson.build:3</code></a>"], ["src/ipa/ipu3/algorithms/lsc.cpp:25", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/ipu3/algorithms/lsc.cpp#L25\"><code>src/ipa/ipu3/algorithms/lsc.cpp:25</code></a>"], ["src/ipa/ipu3/ipa_context.h:32", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/ipu3/ipa_context.h#L32\"><code>src/ipa/ipu3/ipa_context.h:32</code></a>"]]' data-sdd-excerpts='{"src/ipa/ipu3/algorithms/meson.build:3": ["reader-archive/ipu3-lsc-flow.html#source-914bc0dd95a64016"], "src/ipa/ipu3/algorithms/lsc.cpp:25": ["reader-archive/ipu3-lsc-flow.html#source-724bb41a4f6f5bae"], "src/ipa/ipu3/ipa_context.h:32": ["reader-archive/ipu3-lsc-flow.html#source-47a8aa55a4a846f4"]}'>Meson's <code>ipu3_ipa_algorithms</code> list includes <code>lsc.cpp</code> as a build input, and this file introduces the <code>Lsc</code> class as the IPU3 lens shading correction algorithm. The <code>lsc</code> field of <code>IPAActiveState</code> is declared as type <code>ipa::lsc::ActiveState</code>. <code>IPAFrameContext</code> inherits from <code>FrameContext</code> and declares the <code>lsc</code> field as type <code>ipa::lsc::FrameContext</code>. The type of the <code>frameContexts</code> field of <code>IPAContext</code> is <code>FCQueue&lt;IPAFrameContext&gt;</code>.</p>
+<!-- sdd:visual:lsc-build-state-integration -->
+<h3 id="lsc-빌드와-메서드-상태-입력">LSC build and method state inputs</h3>
+<pre class="mermaid">flowchart TB
+
+  v_build["ipu3#95;ipa#95;algorithms &lt;br/&gt;includes lsc.cpp as a build &lt;br/&gt;input, but inclusion alone &lt;br/&gt;does not prove LSC is &lt;br/&gt;enabled for a request."]
+  v_cpp["lsc.cpp is a source file &lt;br/&gt;included in the build list."]
+  v_lsc["Lsc is the IPU3 lens &lt;br/&gt;shading correction &lt;br/&gt;algorithm."]
+  v_queue["Lsc::queueRequest takes &lt;br/&gt;IPAContext and &lt;br/&gt;IPAFrameContext by &lt;br/&gt;reference."]
+  v_context["IPAContext declares &lt;br/&gt;activeState with type &lt;br/&gt;IPAActiveState."]
+  v_active["IPAActiveState declares the &lt;br/&gt;shared lsc state with type &lt;br/&gt;ipa::lsc::ActiveState."]
+  v_frame["IPAFrameContext declares &lt;br/&gt;the frame lsc state with &lt;br/&gt;type ipa::lsc::FrameContext."]
+  v_build --&gt;|"ipu3#95;ipa#95;algorithms &lt;br/&gt;includes lsc.cpp as a build &lt;br/&gt;input."| v_cpp
+  v_cpp --&gt;|"lsc.cpp defines &lt;br/&gt;Lsc::queueRequest."| v_queue
+  v_lsc --&gt;|"Lsc declares the &lt;br/&gt;queueRequest method."| v_queue
+  v_queue --&gt;|"Lsc::queueRequest takes &lt;br/&gt;IPAContext by reference."| v_context
+  v_queue --&gt;|"Lsc::queueRequest takes &lt;br/&gt;IPAFrameContext by &lt;br/&gt;reference."| v_frame
+  v_context --&gt;|"The activeState in &lt;br/&gt;IPAContext is an &lt;br/&gt;IPAActiveState."| v_active
+  v_queue --&gt;|"Lsc::queueRequest passes &lt;br/&gt;context.activeState.lsc to &lt;br/&gt;lscAlgo#95;."| v_active
+  v_frame --&gt;|"Lsc::queueRequest passes &lt;br/&gt;frameContext.lsc to &lt;br/&gt;lscAlgo#95;."| v_queue</pre>
+<p><a href="ipu3-lsc-flow.lsc-build-state-integration.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>How are lsc.cpp in the build list, the IPAContext and IPAFrameContext inputs to Lsc methods, and the declarations of shared lsc state and per-frame lsc state connected?</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="ipu3_ipa_algorithms includes lsc.cpp as a build input, but inclusion alone does not prove LSC is enabled for a request.">ipu3_ipa_algorithms includes lsc.cpp as a build input, but inclusion alone does not prove LSC is enabled for a request.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-914bc0dd95a64016">src/ipa/ipu3/algorithms/meson.build:3</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="lsc.cpp is a source file included in the build list.">lsc.cpp is a source file included in the build list.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-914bc0dd95a64016">src/ipa/ipu3/algorithms/meson.build:3</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Lsc is the IPU3 lens shading correction algorithm.">Lsc is the IPU3 lens shading correction algorithm.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-724bb41a4f6f5bae">src/ipa/ipu3/algorithms/lsc.cpp:25</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Lsc::queueRequest takes IPAContext and IPAFrameContext by reference.">Lsc::queueRequest takes IPAContext and IPAFrameContext by reference.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-fb65fafe64a3b61f">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="IPAContext declares activeState with type IPAActiveState.">IPAContext declares activeState with type IPAActiveState.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-47a8aa55a4a846f4">src/ipa/ipu3/ipa_context.h:32</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="IPAActiveState declares the shared lsc state with type ipa::lsc::ActiveState.">IPAActiveState declares the shared lsc state with type ipa::lsc::ActiveState.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-47a8aa55a4a846f4">src/ipa/ipu3/ipa_context.h:32</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="IPAFrameContext declares the frame lsc state with type ipa::lsc::FrameContext.">IPAFrameContext declares the frame lsc state with type ipa::lsc::FrameContext.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-47a8aa55a4a846f4">src/ipa/ipu3/ipa_context.h:32</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="ipu3_ipa_algorithms includes lsc.cpp as a build input.">ipu3_ipa_algorithms includes lsc.cpp as a build input.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-914bc0dd95a64016">src/ipa/ipu3/algorithms/meson.build:3</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="lsc.cpp defines Lsc::queueRequest.">lsc.cpp defines Lsc::queueRequest.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-914bc0dd95a64016">src/ipa/ipu3/algorithms/meson.build:3</a> · <a href="reader-archive/ipu3-lsc-flow.html#source-fb65fafe64a3b61f">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Lsc declares the queueRequest method.">Lsc declares the queueRequest method.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-1c0b8c6b923ea225">src/ipa/ipu3/algorithms/lsc.h:21</a> · <a href="reader-archive/ipu3-lsc-flow.html#source-fb65fafe64a3b61f">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Lsc::queueRequest takes IPAContext by reference.">Lsc::queueRequest takes IPAContext by reference.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-fb65fafe64a3b61f">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Lsc::queueRequest takes IPAFrameContext by reference.">Lsc::queueRequest takes IPAFrameContext by reference.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-fb65fafe64a3b61f">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The activeState in IPAContext is an IPAActiveState.">The activeState in IPAContext is an IPAActiveState.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-47a8aa55a4a846f4">src/ipa/ipu3/ipa_context.h:32</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Lsc::queueRequest passes context.activeState.lsc to lscAlgo_.">Lsc::queueRequest passes context.activeState.lsc to lscAlgo_.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-fb65fafe64a3b61f">src/ipa/ipu3/algorithms/lsc.cpp:121</a> · <a href="reader-archive/ipu3-lsc-flow.html#source-47a8aa55a4a846f4">src/ipa/ipu3/ipa_context.h:32</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Lsc::queueRequest passes frameContext.lsc to lscAlgo_.">Lsc::queueRequest passes frameContext.lsc to lscAlgo_.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-fb65fafe64a3b61f">src/ipa/ipu3/algorithms/lsc.cpp:121</a> · <a href="reader-archive/ipu3-lsc-flow.html#source-47a8aa55a4a846f4">src/ipa/ipu3/ipa_context.h:32</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:lsc-build-state-integration -->
+
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>5</span></summary><ul><li><code>src/ipa/ipu3/algorithms/meson.build</code><span class="evidence-lines"><a href="reader-archive/ipu3-lsc-flow.html#source-914bc0dd95a64016" aria-label="src/ipa/ipu3/algorithms/meson.build:3 excerpt"><code>L3</code> excerpt</a> · <a aria-label="src/ipa/ipu3/algorithms/meson.build:3" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/ipu3/algorithms/meson.build#L3">Full source <code>L3</code></a></span></li><li><code>src/ipa/ipu3/algorithms/lsc.cpp</code><span class="evidence-lines"><a href="reader-archive/ipu3-lsc-flow.html#source-724bb41a4f6f5bae" aria-label="src/ipa/ipu3/algorithms/lsc.cpp:25 excerpt"><code>L25</code> excerpt</a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:25" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/ipu3/algorithms/lsc.cpp#L25">Full source <code>L25</code></a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:121" href="reader-archive/ipu3-lsc-flow.html#source-fb65fafe64a3b61f"><code>L121</code></a></span></li><li><code>src/ipa/ipu3/ipa_context.h</code><span class="evidence-lines"><a href="reader-archive/ipu3-lsc-flow.html#source-47a8aa55a4a846f4" aria-label="src/ipa/ipu3/ipa_context.h:32 excerpt"><code>L32</code> excerpt</a> · <a aria-label="src/ipa/ipu3/ipa_context.h:32" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/ipu3/ipa_context.h#L32">Full source <code>L32</code></a></span></li><li><code>src/ipa/ipu3/algorithms/lsc.h</code><span class="evidence-lines"><a aria-label="src/ipa/ipu3/algorithms/lsc.h:21" href="reader-archive/ipu3-lsc-flow.html#source-1c0b8c6b923ea225"><code>L21</code></a></span></li></ul></details><h2 id="rkisp1-dewarp">Scope of stream application and execution verification</h2>
+<p data-sdd-evidence='[["src/libcamera/converter/converter_dw100.cpp:178", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L178\"><code>src/libcamera/converter/converter_dw100.cpp:178</code></a>"]]' data-sdd-excerpts='{"src/libcamera/converter/converter_dw100.cpp:178": ["reader-archive/rkisp1-dewarp.html#source-167e93a77fbf4931", "reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c"]}'>While iterating over each output configuration in <code>outputCfgs</code>, <code>ConverterDW100Module::configure</code> passes <code>inputCfg.size</code> to <code>setInputSize</code>, <code>outputCfg.size</code> to <code>setOutputSize</code>, and <code>sensorCrop_</code> to <code>setSensorCrop</code> on the corresponding stream's <code>vertexMap</code>. While iterating over the output streams, <code>ConverterDW100Module::configure</code> calls the corresponding stream's <code>vertexMap.setDewarpParams</code> and passes <code>*dewarpParams</code> if <code>dewarpParams</code> has a value.</p>
+<!-- sdd:visual:per-output-vertex-map -->
+<h3 id="출력별-맵과-선택적-보정값">Per-output maps and optional correction values</h3>
+<pre class="mermaid">flowchart TB
+
+  v_clear["vertexMaps#95;.clear#40;#41; clears &lt;br/&gt;the existing maps."]
+  v_configure["The function stores the &lt;br/&gt;result of &lt;br/&gt;converter#95;.configure#40;&lt;br/&gt;inputCfg, outputCfgs#41; in &lt;br/&gt;ret."]
+  v_ret_check{"The function checks ret: if &lt;br/&gt;#40;ret#41;."}
+  v_return_ret["The function returns ret."]
+  v_store["The function stores &lt;br/&gt;inputCfg.bufferCount in &lt;br/&gt;inputBufferCount#95; and &lt;br/&gt;dewarpParams.has#95;value#40;#41; in &lt;br/&gt;hasDewarpParams#95;."]
+  v_loop{"The function iterates over &lt;br/&gt;each output in for #40;auto &lt;br/&gt;#38;ref : outputCfgs#41;."}
+  v_map["The function sets the input &lt;br/&gt;size, output size, and &lt;br/&gt;sensorCrop#95; on each &lt;br/&gt;stream#39;s info.map."]
+  v_params_check{"The function checks &lt;br/&gt;dewarpParams: if &lt;br/&gt;#40;dewarpParams#41;."}
+  v_set_params["The function calls &lt;br/&gt;vertexMap.setDewarpParams#40;#42;&lt;br/&gt;dewarpParams#41;."]
+  v_update["The function sets &lt;br/&gt;info.update to true."]
+  v_return_zero["The function returns 0 &lt;br/&gt;after processing all &lt;br/&gt;outputs. It can succeed &lt;br/&gt;without dewarp parameters."]
+  v_clear --&gt;|"After clearing the maps, &lt;br/&gt;the function calls the base &lt;br/&gt;configuration."| v_configure
+  v_configure --&gt;|"After the call returns &lt;br/&gt;normally, the function &lt;br/&gt;checks ret."| v_ret_check
+  v_ret_check --&gt;|"If true, the function &lt;br/&gt;returns ret. · ret #91;true#93;"| v_return_ret
+  v_ret_check --&gt;|"If false, the function &lt;br/&gt;stores the input buffer &lt;br/&gt;count and parameter &lt;br/&gt;presence. · ret #91;false#93;"| v_store
+  v_store --&gt;|"After storing the values, &lt;br/&gt;the function iterates over &lt;br/&gt;the outputs."| v_loop
+  v_loop --&gt;|"If an output remains, the &lt;br/&gt;function configures its map."| v_map
+  v_loop --&gt;|"If there are no outputs or &lt;br/&gt;iteration is complete, the &lt;br/&gt;function returns 0."| v_return_zero
+  v_map --&gt;|"After the map setup calls &lt;br/&gt;return normally, the &lt;br/&gt;function checks the &lt;br/&gt;parameters."| v_params_check
+  v_params_check --&gt;|"If true, the function sets &lt;br/&gt;the dewarp parameters. · &lt;br/&gt;dewarpParams #91;true#93;"| v_set_params
+  v_params_check --&gt;|"If false, the function &lt;br/&gt;skips setting the dewarp &lt;br/&gt;parameters. · dewarpParams &lt;br/&gt;#91;false#93;"| v_update
+  v_set_params --&gt;|"After the call returns &lt;br/&gt;normally, the function sets &lt;br/&gt;update."| v_update
+  v_update --&gt;|"The function checks for the &lt;br/&gt;next output."| v_loop</pre>
+<p><a href="rkisp1-dewarp.per-output-vertex-map.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>What does ConverterDW100Module::configure return depending on the underlying configuration result, and how does ConverterDW100Module::configure initialize the map for each output?</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="vertexMaps_.clear() clears the existing maps.">vertexMaps_.clear() clears the existing maps.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function stores the result of converter_.configure(inputCfg, outputCfgs) in ret.">The function stores the result of converter_.configure(inputCfg, outputCfgs) in ret.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function checks ret: if (ret).">The function checks ret: if (ret).</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function returns ret.">The function returns ret.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function stores inputCfg.bufferCount in inputBufferCount_ and dewarpParams.has_value() in hasDewarpParams_.">The function stores inputCfg.bufferCount in inputBufferCount_ and dewarpParams.has_value() in hasDewarpParams_.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function iterates over each output in for (auto &amp;ref : outputCfgs).">The function iterates over each output in for (auto &amp;ref : outputCfgs).</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function sets the input size, output size, and sensorCrop_ on each stream's info.map.">The function sets the input size, output size, and sensorCrop_ on each stream's info.map.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function checks dewarpParams: if (dewarpParams).">The function checks dewarpParams: if (dewarpParams).</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function calls vertexMap.setDewarpParams(*dewarpParams).">The function calls vertexMap.setDewarpParams(*dewarpParams).</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function sets info.update to true.">The function sets info.update to true.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function returns 0 after processing all outputs. It can succeed without dewarp parameters.">The function returns 0 after processing all outputs. It can succeed without dewarp parameters.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After clearing the maps, the function calls the base configuration.">After clearing the maps, the function calls the base configuration.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After the call returns normally, the function checks ret.">After the call returns normally, the function checks ret.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, the function returns ret. · ret [true]">If true, the function returns ret. · ret [true]</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, the function stores the input buffer count and parameter presence. · ret [false]">If false, the function stores the input buffer count and parameter presence. · ret [false]</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After storing the values, the function iterates over the outputs.">After storing the values, the function iterates over the outputs.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If an output remains, the function configures its map.">If an output remains, the function configures its map.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If there are no outputs or iteration is complete, the function returns 0.">If there are no outputs or iteration is complete, the function returns 0.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After the map setup calls return normally, the function checks the parameters.">After the map setup calls return normally, the function checks the parameters.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, the function sets the dewarp parameters. · dewarpParams [true]">If true, the function sets the dewarp parameters. · dewarpParams [true]</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, the function skips setting the dewarp parameters. · dewarpParams [false]">If false, the function skips setting the dewarp parameters. · dewarpParams [false]</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After the call returns normally, the function sets update.">After the call returns normally, the function sets update.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function checks for the next output.">The function checks for the next output.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:per-output-vertex-map -->
+
+<!-- sdd:visual:cancelled-main-path-buffer -->
+<h3 id="보정-경로가-앱-버퍼를-취소하는-두-경우">Two cases where the correction path cancels an app buffer</h3>
+<pre class="mermaid">flowchart TB
+
+  v_cancelled{"On the path using the &lt;br/&gt;dewarper, an ISP internal &lt;br/&gt;buffer marked &lt;br/&gt;FrameMetadata::&lt;br/&gt;FrameCancelled is not &lt;br/&gt;queued to the dewarper."}
+  v_queue{"Queueing fails if &lt;br/&gt;dewarper#95;-#62;queueBuffers#40;#41; &lt;br/&gt;returns a negative value."}
+  v_cancel_request["Both paths call &lt;br/&gt;cancelDewarpRequest#40;#41;."]
+  v_complete_buffer["Mark the &lt;br/&gt;application-supplied &lt;br/&gt;request#39;s main-path buffer &lt;br/&gt;as &lt;br/&gt;FrameMetadata::&lt;br/&gt;FrameCancelled and complete &lt;br/&gt;it with completeBuffer#40;#41;. &lt;br/&gt;Do not complete the ISP &lt;br/&gt;internal buffer."]
+  v_complete_request["Check the request#39;s &lt;br/&gt;completion conditions with &lt;br/&gt;tryCompleteRequest#40;#41;. The &lt;br/&gt;whole request does not &lt;br/&gt;necessarily complete at &lt;br/&gt;this point."]
+  v_cancelled --&gt;|"Call it for the cancelled &lt;br/&gt;internal buffer. · &lt;br/&gt;metadata.status #61;#61; &lt;br/&gt;FrameMetadata::&lt;br/&gt;FrameCancelled #91;true#93;"| v_cancel_request
+  v_queue --&gt;|"Call it if queueing fails. &lt;br/&gt;· ret #60; 0 #91;true#93;"| v_cancel_request
+  v_cancel_request --&gt;|"Cancel and complete the &lt;br/&gt;buffer for the request#39;s &lt;br/&gt;main-path stream. · stream &lt;br/&gt;#61;#61; #38;data-#62;mainPathStream#95; &lt;br/&gt;#91;true#93;"| v_complete_buffer
+  v_complete_buffer --&gt;|"Check request completion &lt;br/&gt;after processing the &lt;br/&gt;buffers."| v_complete_request</pre>
+<p><a href="rkisp1-dewarp.cancelled-main-path-buffer.mmd">Mermaid source</a></p>
+<details class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>How are buffers canceled by the ISP and dewarper queue registration failures communicated to the app's main-path buffers?</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="On the path using the dewarper, an ISP internal buffer marked FrameMetadata::FrameCancelled is not queued to the dewarper.">On the path using the dewarper, an ISP internal buffer marked FrameMetadata::FrameCancelled is not queued to the dewarper.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-ac82e844328c94fc">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</a> · <a href="reader-archive/rkisp1-dewarp.html#source-6f7ca94446a01328">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Queueing fails if dewarper_->queueBuffers() returns a negative value.">Queueing fails if dewarper_-&gt;queueBuffers() returns a negative value.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-ac82e844328c94fc">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Both paths call cancelDewarpRequest().">Both paths call cancelDewarpRequest().</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-ac82e844328c94fc">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Mark the application-supplied request's main-path buffer as FrameMetadata::FrameCancelled and complete it with completeBuffer(). Do not complete the ISP internal buffer.">Mark the application-supplied request's main-path buffer as FrameMetadata::FrameCancelled and complete it with completeBuffer(). Do not complete the ISP internal buffer.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-ac82e844328c94fc">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</a> · <a href="reader-archive/rkisp1-dewarp.html#source-6f7ca94446a01328">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605</a> · <a href="reader-archive/rkisp1-dewarp.html#source-f22474612903b58b">include/libcamera/internal/framebuffer.h:36</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the request's completion conditions with tryCompleteRequest(). The whole request does not necessarily complete at this point.">Check the request's completion conditions with tryCompleteRequest(). The whole request does not necessarily complete at this point.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-6f7ca94446a01328">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call it for the cancelled internal buffer. · metadata.status == FrameMetadata::FrameCancelled [true]">Call it for the cancelled internal buffer. · metadata.status == FrameMetadata::FrameCancelled [true]</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-ac82e844328c94fc">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call it if queueing fails. · ret < 0 [true]">Call it if queueing fails. · ret &lt; 0 [true]</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-ac82e844328c94fc">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Cancel and complete the buffer for the request's main-path stream. · stream == &amp;data->mainPathStream_ [true]">Cancel and complete the buffer for the request's main-path stream. · stream == &amp;data-&gt;mainPathStream_ [true]</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-6f7ca94446a01328">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check request completion after processing the buffers.">Check request completion after processing the buffers.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-6f7ca94446a01328">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:cancelled-main-path-buffer -->
+
+<p data-sdd-evidence='[["src/libcamera/converter/converter_dw100.cpp:369", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L369\"><code>src/libcamera/converter/converter_dw100.cpp:369</code></a>"], ["src/libcamera/converter/converter_dw100.cpp:402", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L402\"><code>src/libcamera/converter/converter_dw100.cpp:402</code></a>"], ["src/libcamera/converter/converter_dw100.cpp:400", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L400\"><code>src/libcamera/converter/converter_dw100.cpp:400</code></a>"], ["src/libcamera/converter/converter_dw100.cpp:434", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L434\"><code>src/libcamera/converter/converter_dw100.cpp:434</code></a>"]]' data-sdd-excerpts='{"src/libcamera/converter/converter_dw100.cpp:369": ["reader-archive/rkisp1-dewarp.html#source-d069b98fadac2d0c", "reader-archive/rkisp1-dewarp.html#source-fc0e25ddead912f1"], "src/libcamera/converter/converter_dw100.cpp:402": ["reader-archive/rkisp1-dewarp.html#source-ec47236059d2723f"], "src/libcamera/converter/converter_dw100.cpp:400": ["reader-archive/rkisp1-dewarp.html#source-3b37038ea14e4a3f"], "src/libcamera/converter/converter_dw100.cpp:434": ["reader-archive/rkisp1-dewarp.html#source-3a4c4ed7cee81158", "reader-archive/rkisp1-dewarp.html#source-91482028dd941751"]}'>If <code>hasDewarpParams_</code> is true, <code>ConverterDW100Module::updateControlInfos</code> registers <code>controls::LensDewarpEnable</code> in <code>controls</code> and sets the control information's minimum to <code>false</code> and its maximum and default to <code>true</code>. If <code>isConfigured(stream)</code> is false, <code>setControls</code> exits with <code>return</code>. For a configured stream, <code>setControls</code> logs a dynamic control error if <code>info.update</code> and <code>running_</code> are true and <code>converter_.supportsRequests()</code> is false. If the <code>isConfigured(stream)</code> check finds that the stream is not configured, <code>populateMetadata</code> returns immediately.</p>
+<p data-sdd-evidence='[["src/libcamera/converter/converter_dw100.cpp:443", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L443\"><code>src/libcamera/converter/converter_dw100.cpp:443</code></a>"], ["src/libcamera/converter/converter_dw100.cpp:441", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L441\"><code>src/libcamera/converter/converter_dw100.cpp:441</code></a>"]]' data-sdd-excerpts='{"src/libcamera/converter/converter_dw100.cpp:443": ["reader-archive/rkisp1-dewarp.html#source-aebf4a59ba423b05"], "src/libcamera/converter/converter_dw100.cpp:441": ["reader-archive/rkisp1-dewarp.html#source-6fc7fca6e9842fbd"]}'><code>ConverterDW100Module::populateMetadata</code> records the configured stream's <code>vertexMap.effectiveScalerCrop()</code> value in <code>controls::ScalerCrop</code> and then, if <code>hasDewarpParams_</code> is true, records the <code>vertexMap.lensDewarpEnable()</code> value in <code>controls::LensDewarpEnable</code>.</p>
+<p data-sdd-evidence='[["src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L1605\"><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605</code></a>"], ["src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L1630\"><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</code></a>"], ["include/libcamera/internal/framebuffer.h:36", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/framebuffer.h#L36\"><code>include/libcamera/internal/framebuffer.h:36</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605": ["reader-archive/rkisp1-dewarp.html#source-6f7ca94446a01328"], "src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630": ["reader-archive/rkisp1-dewarp.html#source-ac82e844328c94fc"], "include/libcamera/internal/framebuffer.h:36": ["reader-archive/rkisp1-dewarp.html#source-f22474612903b58b"]}'>On an RKISP1 board using a dewarper, <code>imageBufferReady()</code> calls <code>cancelDewarpRequest()</code> if the buffer returned by the ISP is <code>FrameCancelled</code> or the dewarper's <code>queueBuffers()</code> fails. When checking this path on the board, <code>cancelDewarpRequest()</code> marks the app's <code>main-path</code> buffer associated with the request as <code>FrameCancelled</code> instead of the internal buffer between the ISP and the dewarper, completes it with <code>completeBuffer()</code>, and then calls <code>tryCompleteRequest()</code>.</p>
+
+
+<details class="evidence-links evidence-section"><summary>Section-wide evidence: <span>15</span></summary><ul><li><code>src/libcamera/converter/converter_dw100.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/converter/converter_dw100.cpp:178" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L178"><code>L178</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:369" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L369"><code>L369</code></a> · <a href="reader-archive/rkisp1-dewarp.html#source-ec47236059d2723f" aria-label="src/libcamera/converter/converter_dw100.cpp:402 excerpt"><code>L402</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:402" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L402">Full source <code>L402</code></a> · <a href="reader-archive/rkisp1-dewarp.html#source-3b37038ea14e4a3f" aria-label="src/libcamera/converter/converter_dw100.cpp:400 excerpt"><code>L400</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:400" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L400">Full source <code>L400</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:434" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L434"><code>L434</code></a> · <a href="reader-archive/rkisp1-dewarp.html#source-aebf4a59ba423b05" aria-label="src/libcamera/converter/converter_dw100.cpp:443 excerpt"><code>L443</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:443" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L443">Full source <code>L443</code></a> · <a href="reader-archive/rkisp1-dewarp.html#source-6fc7fca6e9842fbd" aria-label="src/libcamera/converter/converter_dw100.cpp:441 excerpt"><code>L441</code> excerpt</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:441" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L441">Full source <code>L441</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:178" href="reader-archive/rkisp1-dewarp.html#source-167e93a77fbf4931"><code>L178</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:369" href="reader-archive/rkisp1-dewarp.html#source-fc0e25ddead912f1"><code>L369</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:434" href="reader-archive/rkisp1-dewarp.html#source-3a4c4ed7cee81158"><code>L434</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:197" href="reader-archive/rkisp1-dewarp.html#source-fff6050000b728bd"><code>L197</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:198" href="reader-archive/rkisp1-dewarp.html#source-a6496a0f6db3636a"><code>L198</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:199" href="reader-archive/rkisp1-dewarp.html#source-a92725ea0f81f8d7"><code>L199</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:178" href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c"><code>L178</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:212" href="reader-archive/rkisp1-dewarp.html#source-3c3967c227d1109c"><code>L212</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:369" href="reader-archive/rkisp1-dewarp.html#source-d069b98fadac2d0c"><code>L369</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:434" href="reader-archive/rkisp1-dewarp.html#source-91482028dd941751"><code>L434</code></a></span></li><li><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code><span class="evidence-lines"><a href="reader-archive/rkisp1-dewarp.html#source-6f7ca94446a01328" aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605 excerpt"><code>L1605</code> excerpt</a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L1605">Full source <code>L1605</code></a> · <a href="reader-archive/rkisp1-dewarp.html#source-ac82e844328c94fc" aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630 excerpt"><code>L1630</code> excerpt</a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L1630">Full source <code>L1630</code></a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:914" href="reader-archive/rkisp1-dewarp.html#source-36de5a75453d86c6"><code>L914</code></a></span></li><li><code>include/libcamera/internal/framebuffer.h</code><span class="evidence-lines"><a href="reader-archive/rkisp1-dewarp.html#source-f22474612903b58b" aria-label="include/libcamera/internal/framebuffer.h:36 excerpt"><code>L36</code> excerpt</a> · <a aria-label="include/libcamera/internal/framebuffer.h:36" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/framebuffer.h#L36">Full source <code>L36</code></a></span></li></ul></details></article><section class="evidence"><h2 id="page-evidence">Source manuscripts and review records</h2><details><summary>Pipeline Handler</summary><section><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>Document generation time</dt><dd><code>2026-11-20 18:11:25+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>include/libcamera/internal/pipeline_handler.h</code>, <code>src/libcamera/pipeline/imx8-isi/imx8-isi.cpp</code>, <code>src/libcamera/pipeline/ipu3/imgu.cpp</code>, <code>src/libcamera/pipeline/ipu3/ipu3.cpp</code>, <code>src/libcamera/pipeline/mali-c55/mali-c55.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/pipeline/rpi/pisp/pisp.cpp</code>, <code>src/libcamera/pipeline/rpi/vc4/vc4.cpp</code>, <code>src/libcamera/pipeline/uvcvideo/uvcvideo.cpp</code>, <code>src/libcamera/pipeline/vimc/vimc.cpp</code>, <code>src/libcamera/pipeline/virtual/virtual.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code></li><li>Evidence level: code verified (static analysis, simple_compdb configuration, commit <code>adfa719f8e</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded on: 2026-11-21 · Awaiting human review</li></ul></details><a href="../pipeline-handler.md">Markdown source ↗</a> <a href="pipeline-handler.mmd">Mermaid source ↗</a></section><p><a href="reader-archive/pipeline-handler.html#page-evidence">Open earlier detail</a></p></details><details><summary>Pipeline Request Submission and Completion</summary><section><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>Document generation time</dt><dd><code>2026-11-20 17:39:07+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>include/libcamera/internal/pipeline_handler.h</code>, <code>src/libcamera/pipeline/imx8-isi/imx8-isi.cpp</code>, <code>src/libcamera/pipeline/ipu3/ipu3.cpp</code>, <code>src/libcamera/pipeline/mali-c55/mali-c55.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/pipeline/rpi/pisp/pisp.cpp</code>, <code>src/libcamera/pipeline/rpi/vc4/vc4.cpp</code>, <code>src/libcamera/pipeline/uvcvideo/uvcvideo.cpp</code>, <code>src/libcamera/pipeline/vimc/vimc.cpp</code>, <code>src/libcamera/pipeline/virtual/virtual.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code>, <code>src/libcamera/request.cpp</code></li><li>Evidence level: code verified (static analysis, simple_compdb configuration, commit <code>adfa719f8e</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded on: 2026-11-21 · Awaiting human review</li></ul></details><a href="../pipeline-requests.md">Markdown source ↗</a> <a href="pipeline-requests.mmd">Mermaid source ↗</a></section><p><a href="reader-archive/pipeline-requests.html#page-evidence">Open earlier detail</a></p></details><details><summary>IPA management and implementation entry points</summary><section><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>Document generation time</dt><dd><code>2026-11-20 19:31:13+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/ipa_module.h</code>, <code>include/libcamera/internal/ipa_proxy.h</code>, <code>include/libcamera/ipa/ipu3.mojom</code>, <code>include/libcamera/ipa/rkisp1.mojom</code>, <code>src/ipa/ipu3/ipu3.cpp</code>, <code>src/ipa/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/base/log.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/ipa_module.cpp</code>, <code>src/libcamera/ipa_proxy.cpp</code>, <code>src/libcamera/ipc_pipe_unixsocket.cpp</code>, <code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl</code>, <code>utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl</code></li><li>Evidence level: code verified (static analysis, simple_compdb configuration, commit <code>adfa719f8e</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded on: 2026-11-21 · Awaiting human review</li></ul></details><a href="../ipa.md">Markdown source ↗</a> <a href="ipa.mmd">Mermaid source ↗</a></section><p><a href="reader-archive/ipa.html#page-evidence">Open earlier detail</a></p></details><details><summary>Integration guide</summary><section><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>Document generation time</dt><dd><code>2026-11-20 16:39:26+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>include/libcamera/camera.h</code>, <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/pipeline_handler.h</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/pipeline/ipu3/ipu3.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code></li><li>Evidence level: code verified (static analysis, simple_compdb configuration, commit <code>adfa719f8e</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded on: 2026-11-21 · Awaiting human review</li></ul></details><a href="../vendor-integration.md">Markdown source ↗</a> <a href="vendor-integration.mmd">Mermaid source ↗</a></section><p><a href="reader-archive/vendor-integration.html#page-evidence">Open earlier detail</a></p></details><details><summary>IPU3 LSC Configuration and Frame Processing</summary><section><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>Document generation time</dt><dd><code>2026-11-11 20:17:55+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>src/ipa/ipu3/algorithms/lsc.cpp</code>, <code>src/ipa/ipu3/algorithms/lsc.h</code>, <code>src/ipa/ipu3/algorithms/meson.build</code>, <code>src/ipa/ipu3/ipa_context.h</code>, <code>src/ipa/libipa/lsc.h</code></li><li>Evidence level: code verified (static analysis, simple_compdb configuration, commit <code>c19d05128f</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded: 2026-11-12 · Before human review</li></ul></details><a href="../ipu3-lsc-flow.md">Markdown source ↗</a> <a href="ipu3-lsc-flow.mmd">Mermaid source ↗</a></section><p><a href="reader-archive/ipu3-lsc-flow.html#page-evidence">Open earlier detail</a></p></details><details><summary>RKISP1 Per-Camera Distortion Correction</summary><section><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>Document generation time</dt><dd><code>2026-11-21 13:36:35+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>include/libcamera/internal/converter.h</code>, <code>include/libcamera/internal/converter/converter_dw100.h</code>, <code>include/libcamera/internal/converter/converter_dw100_vertexmap.h</code>, <code>include/libcamera/internal/framebuffer.h</code>, <code>src/libcamera/converter.cpp</code>, <code>src/libcamera/converter/converter_dw100.cpp</code>, <code>src/libcamera/converter/converter_dw100_vertexmap.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code></li><li>Evidence level: code verified (static analysis, simple_compdb configuration, commit <code>adfa719f8e</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded on: 2026-11-21 · Awaiting human review</li></ul></details><a href="../rkisp1-dewarp.md">Markdown source ↗</a></section><p><a href="reader-archive/rkisp1-dewarp.html#page-evidence">Open earlier detail</a></p></details></section><p><a href="implementation.md" download>Download page Markdown</a> · <a href="../reader-edition.json">Reader edition source map</a></p><nav class="pagination" aria-label="Previous and next pages"><a class="previous" href="request-flow.html"><small>Previous</small>Request Flow and Core Concepts ←</a><a class="next" href="troubleshooting.html"><small>Next</small>Caveats and Troubleshooting →</a></nav><footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
+<aside class="page-toc"><nav aria-label="On this page"><p>On this page</p><div class="toc"><ul><li><a href="#device-matching">Device matching and object lifetime</a><ul><li><a href="#%ED%95%B8%EB%93%A4%EB%9F%AC-%EC%83%9D%EC%84%B1%EA%B3%BC-%EC%9E%A5%EC%B9%98-%ED%9A%8D%EB%93%9D%EB%B0%98%EB%82%A9%EC%9D%98-%EC%B1%85%EC%9E%84">Responsibility for handler creation and device acquisition and release</a></li><li><a href="#%ED%9A%8D%EB%93%9D%EB%B0%98%EB%82%A9%EC%9D%98-%EC%9E%A0%EA%B8%88-%EC%A1%B0%EA%B1%B4%EA%B3%BC-%ED%95%B4%EC%A0%9C-%EC%88%9C%EC%84%9C">Locking conditions and release order for acquisition and return</a></li></ul></li><li><a href="#queue-limit">Device request limit and waiting queue</a></li><li><a href="#ipa-frame-interface">Frame input and result interface</a></li><li><a href="#ipa-extensions">IPA module selection and failure conditions</a><ul><li><a href="#ipa-%EB%AA%A8%EB%93%88-%EA%B2%80%EC%83%89%EA%B3%BC-%ED%94%84%EB%A1%9D%EC%8B%9C-%EB%B0%98%ED%99%98-%EB%B6%84%EA%B8%B0">IPA module search and proxy return branches</a></li></ul></li><li><a href="#ipu3-lsc">Linking builds and status</a><ul><li><a href="#lsc-%EB%B9%8C%EB%93%9C%EC%99%80-%EB%A9%94%EC%84%9C%EB%93%9C-%EC%83%81%ED%83%9C-%EC%9E%85%EB%A0%A5">LSC build and method state inputs</a></li></ul></li><li><a href="#rkisp1-dewarp">Scope of stream application and execution verification</a><ul><li><a href="#%EC%B6%9C%EB%A0%A5%EB%B3%84-%EB%A7%B5%EA%B3%BC-%EC%84%A0%ED%83%9D%EC%A0%81-%EB%B3%B4%EC%A0%95%EA%B0%92">Per-output maps and optional correction values</a></li><li><a href="#%EB%B3%B4%EC%A0%95-%EA%B2%BD%EB%A1%9C%EA%B0%80-%EC%95%B1-%EB%B2%84%ED%8D%BC%EB%A5%BC-%EC%B7%A8%EC%86%8C%ED%95%98%EB%8A%94-%EB%91%90-%EA%B2%BD%EC%9A%B0">Two cases where the correction path cancels an app buffer</a></li></ul></li></ul></div></nav></aside></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find document</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search documents, sections, terms, and code elements</label><input id="search-input" type="search" autocomplete="off" placeholder="Example: Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Diagram element and function names"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Collapse">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to screen</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">Drag with a mouse or swipe with touch to move the diagram. "Fit to screen" shows an overview of the whole diagram.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="Zoomed diagram"><div id="diagram-canvas"></div></div></dialog>
+<script id="site-config" type="application/json">{"root": "./", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "10c7b0ad3c", "language": "en"}</script><script defer src="../assets/site.js?v=dd3415510a"></script><script defer src="../assets/reader-tools.js?v=dd3415510a"></script></body></html>

@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>구현·확장 지점 · libcamera 설계 문서</title><link rel="stylesheet" href="assets/reading.css?v=dd3415510a"><link rel="alternate" hreflang="ko" href="implementation.html"><link rel="alternate" hreflang="en" href="en/implementation.html"></head>
+<body><a class="skip" href="#main">본문으로 이동</a>
+<header class="site-header"><a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera 설계 문서</a>
+<div class="header-actions"><details class="language-selector"><summary aria-label="언어 선택">한국어 ▾</summary><nav><a lang="ko" hreflang="ko" href="implementation.html" aria-current="true">한국어</a><a lang="en" hreflang="en" href="en/implementation.html">English</a></nav></details><nav class="download-nav" aria-label="Download the whole document" style="display:flex"><details class="language-selector download-menu"><summary title="Download" aria-label="Download the whole document">⤓ ▾</summary><nav><a href="download/full.html?print">PDF</a><a href="download/full.md" download="libcamera-설계-문서.md">Markdown</a></nav></details></nav><button id="search-open" hidden>문서 찾기 <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>메뉴</button></div></header>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="문서 메뉴"><details class="nav-group" data-nav-id="group-cced28c6dc3f99c2396a5eaa" open><summary>시작하기</summary><a href="index.html">시작하기</a><a href="architecture.html">Architecture</a><a href="glossary.html">용어집</a></details><details class="nav-group" data-nav-id="group-630ba09448af522154f38ef7" open><summary>ForVendor</summary><a href="for-vendor.html">ForVendor</a><a href="features-and-support.html">기능·지원 범위</a><a href="device-integration.html">장치 연동과 검증</a></details><details class="nav-group" data-nav-id="group-88fa0d759f845b47c044c2cd" open><summary>ForDeveloper</summary><a href="for-developer.html">ForDeveloper</a><a href="request-flow.html">요청 흐름과 핵심 개념</a><a href="implementation.html" aria-current="page">구현·확장 지점</a><a href="troubleshooting.html">주의점과 문제 진단</a></details></nav><p class="sidebar-note">코드에서 구조를 추출하고<br>근거와 함께 검토합니다.</p></aside>
+<main id="main"><p class="breadcrumb">ForDeveloper <span>/</span> 구현·확장 지점</p><h1>구현·확장 지점</h1><details class="mobile-toc"><summary>이 페이지에서</summary><div class="toc"><ul><li><a href="#device-matching">장치 매칭과 객체 수명</a><ul><li><a href="#%ED%95%B8%EB%93%A4%EB%9F%AC-%EC%83%9D%EC%84%B1%EA%B3%BC-%EC%9E%A5%EC%B9%98-%ED%9A%8D%EB%93%9D%EB%B0%98%EB%82%A9%EC%9D%98-%EC%B1%85%EC%9E%84">핸들러 생성과 장치 획득·반납의 책임</a></li><li><a href="#%ED%9A%8D%EB%93%9D%EB%B0%98%EB%82%A9%EC%9D%98-%EC%9E%A0%EA%B8%88-%EC%A1%B0%EA%B1%B4%EA%B3%BC-%ED%95%B4%EC%A0%9C-%EC%88%9C%EC%84%9C">획득·반납의 잠금 조건과 해제 순서</a></li></ul></li><li><a href="#queue-limit">장치 요청 한도와 대기 큐</a></li><li><a href="#ipa-frame-interface">프레임 입력과 결과 인터페이스</a></li><li><a href="#ipa-extensions">IPA 모듈 선택과 실패 조건</a><ul><li><a href="#ipa-%EB%AA%A8%EB%93%88-%EA%B2%80%EC%83%89%EA%B3%BC-%ED%94%84%EB%A1%9D%EC%8B%9C-%EB%B0%98%ED%99%98-%EB%B6%84%EA%B8%B0">IPA 모듈 검색과 프록시 반환 분기</a></li></ul></li><li><a href="#ipu3-lsc">빌드와 상태 연결</a><ul><li><a href="#lsc-%EB%B9%8C%EB%93%9C%EC%99%80-%EB%A9%94%EC%84%9C%EB%93%9C-%EC%83%81%ED%83%9C-%EC%9E%85%EB%A0%A5">LSC 빌드와 메서드 상태 입력</a></li></ul></li><li><a href="#rkisp1-dewarp">스트림 적용과 실행 확인 범위</a><ul><li><a href="#%EC%B6%9C%EB%A0%A5%EB%B3%84-%EB%A7%B5%EA%B3%BC-%EC%84%A0%ED%83%9D%EC%A0%81-%EB%B3%B4%EC%A0%95%EA%B0%92">출력별 맵과 선택적 보정값</a></li><li><a href="#%EB%B3%B4%EC%A0%95-%EA%B2%BD%EB%A1%9C%EA%B0%80-%EC%95%B1-%EB%B2%84%ED%8D%BC%EB%A5%BC-%EC%B7%A8%EC%86%8C%ED%95%98%EB%8A%94-%EB%91%90-%EA%B2%BD%EC%9A%B0">보정 경로가 앱 버퍼를 취소하는 두 경우</a></li></ul></li></ul></div></details><article><p>장치 매칭과 큐 계약을 확인한 뒤 변경 대상에 따라 IPA 모듈이나 장치별 보정 구현으로 이동하세요.</p><h2 id="device-matching">장치 매칭과 객체 수명</h2>
+<p data-sdd-evidence='[["src/libcamera/pipeline_handler.cpp:50", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L50\"><code>src/libcamera/pipeline_handler.cpp:50</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline_handler.cpp:50": ["reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5"]}'><code>PipelineHandler</code>는 <code>DeviceEnumerator</code>의 미디어 장치를 지원하는 파이프라인과 일치시켜 <code>Camera</code>를 생성하고 관리합니다. 인스턴스는 수동으로 생성해서는 안 되며 <code>PipelineHandlerFactoryBase::create()</code>로 생성해야 하고, <code>std::shared_ptr</code>로 참조 횟수를 관리하며 멤버 함수에서 this만 사용할 수 있을 때 새 <code>shared_ptr</code>를 만들도록 <code>std::enable_shared_from_this</code>를 구현합니다. match()는 한 파이프라인에 필요한 장치를 모두 찾으면 모두 확보하고 하나 이상의 <code>Camera</code>를 생성해 내부에 저장하고 camera manager에 등록한 뒤 true를 반환해야 합니다. 필요한 장치를 모두 찾지 못하면 장치를 확보하지 않거나 이미 확보한 장치를 모두 해제하고 false를 반환해야 하며, 성공할 때마다 새 핸들러 인스턴스의 match()를 호출해 호환 장치가 소진될 때까지 각 호출이 한 파이프라인의 장치를 확보해야 합니다.</p>
+<!-- sdd:visual:handler-device-ownership -->
+<h3 id="핸들러-생성과-장치-획득반납의-책임">핸들러 생성과 장치 획득·반납의 책임</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"PipelineHandler 인스턴스는 &lt;br/&gt;std::shared#95;ptr로 참조 수를 &lt;br/&gt;관리합니다. 멤버 함수에서 &lt;br/&gt;this만 사용할 수 있는 &lt;br/&gt;경로에서 새 &lt;br/&gt;std::shared#95;ptr를 만들 수 &lt;br/&gt;있도록 &lt;br/&gt;std::&lt;br/&gt;enable#95;shared#95;from#95;this를 &lt;br/&gt;구현합니다.": "PipelineHandler instances &lt;br/&gt;are reference-counted &lt;br/&gt;through std::shared#95;ptr. &lt;br/&gt;They implement &lt;br/&gt;std::&lt;br/&gt;enable#95;shared#95;from#95;this to &lt;br/&gt;create new std::shared#95;ptr &lt;br/&gt;instances in &lt;br/&gt;member-function paths where &lt;br/&gt;only this is available.", "PipelineHandler 인스턴스는 &lt;br/&gt;수동으로 만들지 말고 항상 &lt;br/&gt;PipelineHandlerFactoryBase::&lt;br/&gt;create#40;#41;로 만들어야 합니다.": "PipelineHandler instances &lt;br/&gt;must always be constructed &lt;br/&gt;through &lt;br/&gt;PipelineHandlerFactoryBase::&lt;br/&gt;create#40;#41; and never manually.", "PipelineHandler::match &lt;br/&gt;구현은 한 파이프라인에 &lt;br/&gt;필요한 장치를 모두 찾으면 &lt;br/&gt;MediaDevice::acquire#40;#41;로 &lt;br/&gt;모두 획득하고 Camera를 하나 &lt;br/&gt;이상 만들어 내부에 저장하고 &lt;br/&gt;카메라 관리자에 등록한 뒤 &lt;br/&gt;true를 반환해야 합니다. &lt;br/&gt;그렇지 않으면 장치를 &lt;br/&gt;획득하지 않거나 이미 획득한 &lt;br/&gt;장치를 &lt;br/&gt;MediaDevice::release#40;#41;로 &lt;br/&gt;모두 해제하고 false를 &lt;br/&gt;반환해야 합니다.": "If all devices needed for &lt;br/&gt;one pipeline are found, the &lt;br/&gt;PipelineHandler::match &lt;br/&gt;implementation must acquire &lt;br/&gt;them all with &lt;br/&gt;MediaDevice::acquire#40;#41;, &lt;br/&gt;create one or more Camera &lt;br/&gt;instances, store them &lt;br/&gt;internally, register them &lt;br/&gt;with the camera manager, &lt;br/&gt;and return true. Otherwise, &lt;br/&gt;it must acquire no devices &lt;br/&gt;or release all devices &lt;br/&gt;already acquired with &lt;br/&gt;MediaDevice::release#40;#41;, and &lt;br/&gt;return false.", "PipelineHandlerFactoryBase::&lt;br/&gt;create#40;#41;는 &lt;br/&gt;PipelineHandler의 필수 생성 &lt;br/&gt;경로입니다.": "PipelineHandlerFactoryBase::&lt;br/&gt;create#40;#41; is the required &lt;br/&gt;construction path for &lt;br/&gt;PipelineHandler instances.", "PipelineHandler는 &lt;br/&gt;mediaDevices#95;에 장치의 공유 &lt;br/&gt;포인터를 보관합니다.": "PipelineHandler stores &lt;br/&gt;shared pointers to devices &lt;br/&gt;in mediaDevices#95;.", "acquireMediaDevice#40;#41;가 &lt;br/&gt;획득한 장치는 핸들러의 &lt;br/&gt;mediaDevices#95;에 보관됩니다.": "A device acquired by &lt;br/&gt;acquireMediaDevice#40;#41; is &lt;br/&gt;stored in the handler#39;s &lt;br/&gt;mediaDevices#95;.", "acquireMediaDevice#40;#41;는 &lt;br/&gt;이전에 획득된 장치를 &lt;br/&gt;제외하고 일치하는 사용 &lt;br/&gt;가능한 장치를 찾아 획득한 &lt;br/&gt;뒤 공유 포인터를 &lt;br/&gt;반환합니다. 일치하는 장치가 &lt;br/&gt;없거나 획득에 실패하면 &lt;br/&gt;nullptr을 반환합니다. &lt;br/&gt;호출자는 장치를 직접 &lt;br/&gt;해제하면 안 되며, 장치는 &lt;br/&gt;핸들러가 소멸할 때 자동으로 &lt;br/&gt;해제됩니다.": "acquireMediaDevice#40;#41; finds &lt;br/&gt;and acquires an available &lt;br/&gt;matching device, excluding &lt;br/&gt;devices already acquired, &lt;br/&gt;and returns a shared &lt;br/&gt;pointer. It returns nullptr &lt;br/&gt;if no match is found or &lt;br/&gt;acquisition fails. The &lt;br/&gt;caller must not release the &lt;br/&gt;device explicitly; it is &lt;br/&gt;released automatically when &lt;br/&gt;the handler is destroyed.", "acquireMediaDevice#40;#41;는 &lt;br/&gt;획득한 장치를 &lt;br/&gt;mediaDevices#95;에 보관합니다. &lt;br/&gt;· #33;media-#62;acquire#40;#41; #91;false#93;": "acquireMediaDevice#40;#41; stores &lt;br/&gt;the acquired device in &lt;br/&gt;mediaDevices#95;. · &lt;br/&gt;#33;media-#62;acquire#40;#41; #91;false#93;", "카메라 관리자는 &lt;br/&gt;PipelineHandler의 match#40;#41;를 &lt;br/&gt;호출합니다. match#40;#41;가 &lt;br/&gt;true를 반환하면 새 핸들러 &lt;br/&gt;인스턴스가 생성되고 그 &lt;br/&gt;인스턴스의 match#40;#41;가 &lt;br/&gt;호출됩니다.": "The camera manager calls &lt;br/&gt;the PipelineHandler#39;s &lt;br/&gt;match#40;#41;. If match#40;#41; returns &lt;br/&gt;true, a new handler &lt;br/&gt;instance is created and its &lt;br/&gt;match#40;#41; is called.", "핸들러 소멸자는 &lt;br/&gt;mediaDevices#95;에 보관된 각 &lt;br/&gt;장치를 &lt;br/&gt;MediaDevice::release#40;#41;로 &lt;br/&gt;해제합니다.": "The handler destructor &lt;br/&gt;releases each device stored &lt;br/&gt;in mediaDevices#95; using &lt;br/&gt;MediaDevice::release#40;#41;.", "핸들러가 소멸하면 &lt;br/&gt;mediaDevices#95;의 각 장치를 &lt;br/&gt;해제합니다.": "When the handler is &lt;br/&gt;destroyed, it releases each &lt;br/&gt;device in mediaDevices#95;."}
+  v_factory["PipelineHandler 인스턴스는 &lt;br/&gt;수동으로 만들지 말고 항상 &lt;br/&gt;PipelineHandlerFactoryBase::&lt;br/&gt;create#40;#41;로 만들어야 합니다."]
+  v_handler["PipelineHandler 인스턴스는 &lt;br/&gt;std::shared#95;ptr로 참조 수를 &lt;br/&gt;관리합니다. 멤버 함수에서 &lt;br/&gt;this만 사용할 수 있는 &lt;br/&gt;경로에서 새 &lt;br/&gt;std::shared#95;ptr를 만들 수 &lt;br/&gt;있도록 &lt;br/&gt;std::&lt;br/&gt;enable#95;shared#95;from#95;this를 &lt;br/&gt;구현합니다."]
+  v_match["PipelineHandler::match &lt;br/&gt;구현은 한 파이프라인에 &lt;br/&gt;필요한 장치를 모두 찾으면 &lt;br/&gt;MediaDevice::acquire#40;#41;로 &lt;br/&gt;모두 획득하고 Camera를 하나 &lt;br/&gt;이상 만들어 내부에 저장하고 &lt;br/&gt;카메라 관리자에 등록한 뒤 &lt;br/&gt;true를 반환해야 합니다. &lt;br/&gt;그렇지 않으면 장치를 &lt;br/&gt;획득하지 않거나 이미 획득한 &lt;br/&gt;장치를 &lt;br/&gt;MediaDevice::release#40;#41;로 &lt;br/&gt;모두 해제하고 false를 &lt;br/&gt;반환해야 합니다."]
+  v_search["acquireMediaDevice#40;#41;는 &lt;br/&gt;이전에 획득된 장치를 &lt;br/&gt;제외하고 일치하는 사용 &lt;br/&gt;가능한 장치를 찾아 획득한 &lt;br/&gt;뒤 공유 포인터를 &lt;br/&gt;반환합니다. 일치하는 장치가 &lt;br/&gt;없거나 획득에 실패하면 &lt;br/&gt;nullptr을 반환합니다. &lt;br/&gt;호출자는 장치를 직접 &lt;br/&gt;해제하면 안 되며, 장치는 &lt;br/&gt;핸들러가 소멸할 때 자동으로 &lt;br/&gt;해제됩니다."]
+  v_devices["acquireMediaDevice#40;#41;가 &lt;br/&gt;획득한 장치는 핸들러의 &lt;br/&gt;mediaDevices#95;에 보관됩니다."]
+  v_release["핸들러 소멸자는 &lt;br/&gt;mediaDevices#95;에 보관된 각 &lt;br/&gt;장치를 &lt;br/&gt;MediaDevice::release#40;#41;로 &lt;br/&gt;해제합니다."]
+  v_factory --&gt;|"PipelineHandlerFactoryBase::&lt;br/&gt;create#40;#41;는 &lt;br/&gt;PipelineHandler의 필수 생성 &lt;br/&gt;경로입니다."| v_handler
+  v_handler --&gt;|"카메라 관리자는 &lt;br/&gt;PipelineHandler의 match#40;#41;를 &lt;br/&gt;호출합니다. match#40;#41;가 &lt;br/&gt;true를 반환하면 새 핸들러 &lt;br/&gt;인스턴스가 생성되고 그 &lt;br/&gt;인스턴스의 match#40;#41;가 &lt;br/&gt;호출됩니다."| v_match
+  v_handler --&gt;|"PipelineHandler는 &lt;br/&gt;mediaDevices#95;에 장치의 공유 &lt;br/&gt;포인터를 보관합니다."| v_devices
+  v_search --&gt;|"acquireMediaDevice#40;#41;는 &lt;br/&gt;획득한 장치를 &lt;br/&gt;mediaDevices#95;에 보관합니다. &lt;br/&gt;· #33;media-#62;acquire#40;#41; #91;false#93;"| v_devices
+  v_devices --&gt;|"핸들러가 소멸하면 &lt;br/&gt;mediaDevices#95;의 각 장치를 &lt;br/&gt;해제합니다."| v_release</pre>
+<p><a href="pipeline-handler.handler-device-ownership.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>팩토리 생성·참조 수명과 match 계약은 어떻게 이어지며, acquireMediaDevice로 확보한 장치는 어디에 보관하고 핸들러 소멸 시 어떻게 해제합니까? acquire·release의 잠금 조건은 별도 그림에서 확인하세요.</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<p>LLM 그림 초안 · 사람 검토 전</p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="PipelineHandler instances must always be constructed through PipelineHandlerFactoryBase::create() and never manually.">PipelineHandler 인스턴스는 수동으로 만들지 말고 항상 PipelineHandlerFactoryBase::create()로 만들어야 합니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5">src/libcamera/pipeline_handler.cpp:50</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="PipelineHandler instances are reference-counted through std::shared_ptr. They implement std::enable_shared_from_this to create new std::shared_ptr instances in member-function paths where only this is available.">PipelineHandler 인스턴스는 std::shared_ptr로 참조 수를 관리합니다. 멤버 함수에서 this만 사용할 수 있는 경로에서 새 std::shared_ptr를 만들 수 있도록 std::enable_shared_from_this를 구현합니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5">src/libcamera/pipeline_handler.cpp:50</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If all devices needed for one pipeline are found, the PipelineHandler::match implementation must acquire them all with MediaDevice::acquire(), create one or more Camera instances, store them internally, register them with the camera manager, and return true. Otherwise, it must acquire no devices or release all devices already acquired with MediaDevice::release(), and return false.">PipelineHandler::match 구현은 한 파이프라인에 필요한 장치를 모두 찾으면 MediaDevice::acquire()로 모두 획득하고 Camera를 하나 이상 만들어 내부에 저장하고 카메라 관리자에 등록한 뒤 true를 반환해야 합니다. 그렇지 않으면 장치를 획득하지 않거나 이미 획득한 장치를 MediaDevice::release()로 모두 해제하고 false를 반환해야 합니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5">src/libcamera/pipeline_handler.cpp:50</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="acquireMediaDevice() finds and acquires an available matching device, excluding devices already acquired, and returns a shared pointer. It returns nullptr if no match is found or acquisition fails. The caller must not release the device explicitly; it is released automatically when the handler is destroyed.">acquireMediaDevice()는 이전에 획득된 장치를 제외하고 일치하는 사용 가능한 장치를 찾아 획득한 뒤 공유 포인터를 반환합니다. 일치하는 장치가 없거나 획득에 실패하면 nullptr을 반환합니다. 호출자는 장치를 직접 해제하면 안 되며, 장치는 핸들러가 소멸할 때 자동으로 해제됩니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="A device acquired by acquireMediaDevice() is stored in the handler's mediaDevices_.">acquireMediaDevice()가 획득한 장치는 핸들러의 mediaDevices_에 보관됩니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a> · <a href="reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5">src/libcamera/pipeline_handler.cpp:50</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The handler destructor releases each device stored in mediaDevices_ using MediaDevice::release().">핸들러 소멸자는 mediaDevices_에 보관된 각 장치를 MediaDevice::release()로 해제합니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5">src/libcamera/pipeline_handler.cpp:50</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="PipelineHandlerFactoryBase::create() is the required construction path for PipelineHandler instances.">PipelineHandlerFactoryBase::create()는 PipelineHandler의 필수 생성 경로입니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5">src/libcamera/pipeline_handler.cpp:50</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The camera manager calls the PipelineHandler's match(). If match() returns true, a new handler instance is created and its match() is called.">카메라 관리자는 PipelineHandler의 match()를 호출합니다. match()가 true를 반환하면 새 핸들러 인스턴스가 생성되고 그 인스턴스의 match()가 호출됩니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5">src/libcamera/pipeline_handler.cpp:50</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="PipelineHandler stores shared pointers to devices in mediaDevices_.">PipelineHandler는 mediaDevices_에 장치의 공유 포인터를 보관합니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5">src/libcamera/pipeline_handler.cpp:50</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="acquireMediaDevice() stores the acquired device in mediaDevices_. · !media->acquire() [false]">acquireMediaDevice()는 획득한 장치를 mediaDevices_에 보관합니다. · !media-&gt;acquire() [false]</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="When the handler is destroyed, it releases each device in mediaDevices_.">핸들러가 소멸하면 mediaDevices_의 각 장치를 해제합니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5">src/libcamera/pipeline_handler.cpp:50</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:handler-device-ownership -->
+
+<!-- sdd:visual:acquire-release-locks -->
+<h3 id="획득반납의-잠금-조건과-해제-순서">획득·반납의 잠금 조건과 해제 순서</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"acquireDevice#40;camera#41;를 &lt;br/&gt;호출합니다. 실패하면 &lt;br/&gt;useCount#95;가 0일 때 &lt;br/&gt;unlockMediaDevices#40;#41;를 &lt;br/&gt;호출하고 false를 반환합니다.": "Call acquireDevice#40;camera#41;. &lt;br/&gt;On failure, call &lt;br/&gt;unlockMediaDevices#40;#41; if &lt;br/&gt;useCount#95; is 0, and return &lt;br/&gt;false.", "acquire는 별도 진입 &lt;br/&gt;경로입니다. 성공한 각 &lt;br/&gt;호출에는 release 호출이 &lt;br/&gt;대응해야 하며, &lt;br/&gt;PipelineHandler가 직접 &lt;br/&gt;호출하지 않고 Camera가 &lt;br/&gt;내부에서 처리합니다.": "acquire is a separate entry &lt;br/&gt;path. Each successful call &lt;br/&gt;must be matched by a &lt;br/&gt;release call; &lt;br/&gt;PipelineHandler must not &lt;br/&gt;call it directly because &lt;br/&gt;Camera handles access &lt;br/&gt;internally.", "mediaDevices#95; 전체를 &lt;br/&gt;반복하며 잠급니다. 한 &lt;br/&gt;장치라도 잠금에 실패하면 &lt;br/&gt;unlockMediaDevices#40;#41;를 &lt;br/&gt;호출하고 false를 반환합니다.": "Iterate over all of &lt;br/&gt;mediaDevices#95; and lock each &lt;br/&gt;device. If any lock fails, &lt;br/&gt;call unlockMediaDevices#40;#41; &lt;br/&gt;and return false.", "releaseDevice#40;camera#41;를 &lt;br/&gt;먼저 호출합니다.": "First call &lt;br/&gt;releaseDevice#40;camera#41;.", "releaseDevice#40;camera#41;를 &lt;br/&gt;호출합니다.": "Call releaseDevice#40;camera#41;.", "release는 별도 진입 &lt;br/&gt;경로입니다. 각 호출은 &lt;br/&gt;이전에 성공한 acquire &lt;br/&gt;호출에 대응해야 하며, &lt;br/&gt;획득하지 않은 상태에서 &lt;br/&gt;호출하면 동작이 정의되지 &lt;br/&gt;않습니다. PipelineHandler는 &lt;br/&gt;직접 호출하지 않고 Camera가 &lt;br/&gt;내부에서 처리합니다.": "release is a separate entry &lt;br/&gt;path. Each call must match &lt;br/&gt;a previous successful &lt;br/&gt;acquire call; calling it &lt;br/&gt;when the handler has not &lt;br/&gt;been acquired results in &lt;br/&gt;undefined behaviour. &lt;br/&gt;PipelineHandler must not &lt;br/&gt;call it directly because &lt;br/&gt;Camera handles access &lt;br/&gt;internally.", "unlockMediaDevices#40;#41;를 &lt;br/&gt;호출합니다.": "Call unlockMediaDevices#40;#41;.", "useCount#95;가 0인지 &lt;br/&gt;확인합니다.": "Check whether useCount#95; is &lt;br/&gt;0.", "useCount#95;가 1인지 &lt;br/&gt;확인합니다.": "Check whether useCount#95; is &lt;br/&gt;1.", "useCount#95;를 감소시킵니다.": "Decrement useCount#95;.", "useCount#95;를 증가시키고 &lt;br/&gt;true를 반환합니다.": "Increment useCount#95; and &lt;br/&gt;return true.", "잠금을 해제한 뒤 횟수를 &lt;br/&gt;감소시킵니다.": "Decrement the count after &lt;br/&gt;unlocking.", "장치 획득에 실패하지 않으면 &lt;br/&gt;횟수를 증가시킵니다. · &lt;br/&gt;#33;acquireDevice#40;camera#41; &lt;br/&gt;#91;false#93;": "If device acquisition does &lt;br/&gt;not fail, increment the &lt;br/&gt;count. · &lt;br/&gt;#33;acquireDevice#40;camera#41; &lt;br/&gt;#91;false#93;", "전체 반복이 실패 없이 &lt;br/&gt;완료되면 진행합니다. 빈 &lt;br/&gt;목록도 반복이 완료됩니다.": "Proceed when the entire &lt;br/&gt;loop completes without &lt;br/&gt;failure. An empty list also &lt;br/&gt;completes the loop.", "조건이 거짓이면 잠금을 &lt;br/&gt;건너뜁니다. · useCount#95; #61;#61; &lt;br/&gt;0 #91;false#93;": "If the condition is false, &lt;br/&gt;skip locking. · useCount#95; &lt;br/&gt;#61;#61; 0 #91;false#93;", "조건이 거짓이어도 횟수를 &lt;br/&gt;감소시킵니다. · useCount#95; &lt;br/&gt;#61;#61; 1 #91;false#93;": "Even if the condition is &lt;br/&gt;false, decrement the count. &lt;br/&gt;· useCount#95; #61;#61; 1 #91;false#93;", "조건이 참이면 잠금을 &lt;br/&gt;시도합니다. · useCount#95; #61;#61; &lt;br/&gt;0 #91;true#93;": "If the condition is true, &lt;br/&gt;attempt to lock the &lt;br/&gt;devices. · useCount#95; #61;#61; 0 &lt;br/&gt;#91;true#93;", "조건이 참이면 잠금을 &lt;br/&gt;해제합니다. · useCount#95; #61;#61; &lt;br/&gt;1 #91;true#93;": "If the condition is true, &lt;br/&gt;unlock the devices. · &lt;br/&gt;useCount#95; #61;#61; 1 #91;true#93;", "호출 후 횟수를 확인합니다.": "Check the count after the &lt;br/&gt;call.", "획득할 때 횟수를 확인합니다.": "Check the count when &lt;br/&gt;acquiring."}
+  v_acquire["acquire는 별도 진입 &lt;br/&gt;경로입니다. 성공한 각 &lt;br/&gt;호출에는 release 호출이 &lt;br/&gt;대응해야 하며, &lt;br/&gt;PipelineHandler가 직접 &lt;br/&gt;호출하지 않고 Camera가 &lt;br/&gt;내부에서 처리합니다."]
+  v_acquire_count{"useCount#95;가 0인지 &lt;br/&gt;확인합니다."}
+  v_lock["mediaDevices#95; 전체를 &lt;br/&gt;반복하며 잠급니다. 한 &lt;br/&gt;장치라도 잠금에 실패하면 &lt;br/&gt;unlockMediaDevices#40;#41;를 &lt;br/&gt;호출하고 false를 반환합니다."]
+  v_acquire_device{"acquireDevice#40;camera#41;를 &lt;br/&gt;호출합니다. 실패하면 &lt;br/&gt;useCount#95;가 0일 때 &lt;br/&gt;unlockMediaDevices#40;#41;를 &lt;br/&gt;호출하고 false를 반환합니다."}
+  v_acquire_success["useCount#95;를 증가시키고 &lt;br/&gt;true를 반환합니다."]
+  v_release["release는 별도 진입 &lt;br/&gt;경로입니다. 각 호출은 &lt;br/&gt;이전에 성공한 acquire &lt;br/&gt;호출에 대응해야 하며, &lt;br/&gt;획득하지 않은 상태에서 &lt;br/&gt;호출하면 동작이 정의되지 &lt;br/&gt;않습니다. PipelineHandler는 &lt;br/&gt;직접 호출하지 않고 Camera가 &lt;br/&gt;내부에서 처리합니다."]
+  v_release_device["releaseDevice#40;camera#41;를 &lt;br/&gt;먼저 호출합니다."]
+  v_release_count{"useCount#95;가 1인지 &lt;br/&gt;확인합니다."}
+  v_unlock["unlockMediaDevices#40;#41;를 &lt;br/&gt;호출합니다."]
+  v_decrement["useCount#95;를 감소시킵니다."]
+  v_acquire --&gt;|"획득할 때 횟수를 확인합니다."| v_acquire_count
+  v_acquire_count --&gt;|"조건이 참이면 잠금을 &lt;br/&gt;시도합니다. · useCount#95; #61;#61; &lt;br/&gt;0 #91;true#93;"| v_lock
+  v_acquire_count --&gt;|"조건이 거짓이면 잠금을 &lt;br/&gt;건너뜁니다. · useCount#95; #61;#61; &lt;br/&gt;0 #91;false#93;"| v_acquire_device
+  v_lock --&gt;|"전체 반복이 실패 없이 &lt;br/&gt;완료되면 진행합니다. 빈 &lt;br/&gt;목록도 반복이 완료됩니다."| v_acquire_device
+  v_acquire_device --&gt;|"장치 획득에 실패하지 않으면 &lt;br/&gt;횟수를 증가시킵니다. · &lt;br/&gt;#33;acquireDevice#40;camera#41; &lt;br/&gt;#91;false#93;"| v_acquire_success
+  v_release --&gt;|"releaseDevice#40;camera#41;를 &lt;br/&gt;호출합니다."| v_release_device
+  v_release_device --&gt;|"호출 후 횟수를 확인합니다."| v_release_count
+  v_release_count --&gt;|"조건이 참이면 잠금을 &lt;br/&gt;해제합니다. · useCount#95; #61;#61; &lt;br/&gt;1 #91;true#93;"| v_unlock
+  v_unlock --&gt;|"잠금을 해제한 뒤 횟수를 &lt;br/&gt;감소시킵니다."| v_decrement
+  v_release_count --&gt;|"조건이 거짓이어도 횟수를 &lt;br/&gt;감소시킵니다. · useCount#95; &lt;br/&gt;#61;#61; 1 #91;false#93;"| v_decrement</pre>
+<p><a href="pipeline-handler.acquire-release-locks.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>acquire와 release를 별도 진입 경로로 두고 useCount_ 조건, 실패 반환, releaseDevice·조건부 잠금 해제·감소의 순서를 구분하세요.</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<p>LLM 그림 초안 · 사람 검토 전</p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="acquire is a separate entry path. Each successful call must be matched by a release call; PipelineHandler must not call it directly because Camera handles access internally.">acquire는 별도 진입 경로입니다. 성공한 각 호출에는 release 호출이 대응해야 하며, PipelineHandler가 직접 호출하지 않고 Camera가 내부에서 처리합니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether useCount_ is 0.">useCount_가 0인지 확인합니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Iterate over all of mediaDevices_ and lock each device. If any lock fails, call unlockMediaDevices() and return false.">mediaDevices_ 전체를 반복하며 잠급니다. 한 장치라도 잠금에 실패하면 unlockMediaDevices()를 호출하고 false를 반환합니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call acquireDevice(camera). On failure, call unlockMediaDevices() if useCount_ is 0, and return false.">acquireDevice(camera)를 호출합니다. 실패하면 useCount_가 0일 때 unlockMediaDevices()를 호출하고 false를 반환합니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Increment useCount_ and return true.">useCount_를 증가시키고 true를 반환합니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="release is a separate entry path. Each call must match a previous successful acquire call; calling it when the handler has not been acquired results in undefined behaviour. PipelineHandler must not call it directly because Camera handles access internally.">release는 별도 진입 경로입니다. 각 호출은 이전에 성공한 acquire 호출에 대응해야 하며, 획득하지 않은 상태에서 호출하면 동작이 정의되지 않습니다. PipelineHandler는 직접 호출하지 않고 Camera가 내부에서 처리합니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="First call releaseDevice(camera).">releaseDevice(camera)를 먼저 호출합니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check whether useCount_ is 1.">useCount_가 1인지 확인합니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call unlockMediaDevices().">unlockMediaDevices()를 호출합니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Decrement useCount_.">useCount_를 감소시킵니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the count when acquiring.">획득할 때 횟수를 확인합니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is true, attempt to lock the devices. · useCount_ == 0 [true]">조건이 참이면 잠금을 시도합니다. · useCount_ == 0 [true]</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is false, skip locking. · useCount_ == 0 [false]">조건이 거짓이면 잠금을 건너뜁니다. · useCount_ == 0 [false]</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Proceed when the entire loop completes without failure. An empty list also completes the loop.">전체 반복이 실패 없이 완료되면 진행합니다. 빈 목록도 반복이 완료됩니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If device acquisition does not fail, increment the count. · !acquireDevice(camera) [false]">장치 획득에 실패하지 않으면 횟수를 증가시킵니다. · !acquireDevice(camera) [false]</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call releaseDevice(camera).">releaseDevice(camera)를 호출합니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the count after the call.">호출 후 횟수를 확인합니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If the condition is true, unlock the devices. · useCount_ == 1 [true]">조건이 참이면 잠금을 해제합니다. · useCount_ == 1 [true]</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Decrement the count after unlocking.">잠금을 해제한 뒤 횟수를 감소시킵니다.</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Even if the condition is false, decrement the count. · useCount_ == 1 [false]">조건이 거짓이어도 횟수를 감소시킵니다. · useCount_ == 1 [false]</span></td>
+<td><a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64">src/libcamera/pipeline_handler.cpp:119</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:acquire-release-locks -->
+
+<p data-sdd-evidence='[["src/libcamera/pipeline_handler.cpp:119", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L119\"><code>src/libcamera/pipeline_handler.cpp:119</code></a>"], ["src/libcamera/pipeline_handler.cpp:50", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L50\"><code>src/libcamera/pipeline_handler.cpp:50</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline_handler.cpp:119": ["reader-archive/pipeline-handler.html#source-a3caf1625bc18d64"], "src/libcamera/pipeline_handler.cpp:50": ["reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5"]}'>acquireMediaDevice()는 이전에 확보된 장치를 제외하고 일치하는 장치를 찾아 확보하면 <code>mediaDevices_</code>에 보관하며, 호출자는 명시적으로 해제해서는 안 되고 핸들러 소멸자가 <code>MediaDevice::release()</code>를 호출합니다. acquire()는 <code>useCount_</code> == 0일 때만 미디어 장치를 잠그고, 장치 잠금이 실패하면 잠금을 해제하고 false를 반환하며 acquireDevice()가 실패하면 <code>useCount_</code> == 0인 경우 잠금을 해제하고 false를 반환합니다. 성공한 acquire()마다 release()가 짝을 이뤄야 하며, release()는 releaseDevice()를 호출한 뒤 <code>useCount_</code> == 1이면 장치 잠금을 풀고 카운트를 줄입니다. 여러 카메라가 공유하는 자원은 이전에 확보한 모든 카메라에 대해 releaseDevice()가 호출될 때까지 반납하지 않아야 합니다.</p>
+
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>2</span>개</summary><ul><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="reader-archive/pipeline-handler.html#source-69bfa9568cf8b5c5" aria-label="src/libcamera/pipeline_handler.cpp:50 발췌"><code>L50</code> 발췌</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:50" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L50">전체 소스 <code>L50</code></a> · <a href="reader-archive/pipeline-handler.html#source-a3caf1625bc18d64" aria-label="src/libcamera/pipeline_handler.cpp:119 발췌"><code>L119</code> 발췌</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:119" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L119">전체 소스 <code>L119</code></a></span></li></ul></details><h2 id="queue-limit">장치 요청 한도와 대기 큐</h2>
+<p data-sdd-evidence='[["include/libcamera/internal/pipeline_handler.h:38", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/pipeline_handler.h#L38\"><code>include/libcamera/internal/pipeline_handler.h:38</code></a>"], ["src/libcamera/pipeline_handler.cpp:805", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L805\"><code>src/libcamera/pipeline_handler.cpp:805</code></a>"]]' data-sdd-excerpts='{"include/libcamera/internal/pipeline_handler.h:38": ["reader-archive/pipeline-requests.html#source-0cf3f7eced88f3df"], "src/libcamera/pipeline_handler.cpp:805": ["reader-archive/pipeline-requests.html#source-bf25a409490e6fa9"]}'><code>PipelineHandler</code> 생성자 선언에서 maxQueuedRequestsDevice의 기본값은 32입니다. <code>maxQueuedRequestsDevice_</code>는 파이프라인 핸들러가 한 시점에 하드웨어에 큐잉하는 요청 수를 제한합니다. 나머지 요청은 나중에 대기열에 추가될 때까지 내부 대기 큐에서 기다립니다.</p>
+
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>2</span>개</summary><ul><li><code>include/libcamera/internal/pipeline_handler.h</code><span class="evidence-lines"><a href="reader-archive/pipeline-requests.html#source-0cf3f7eced88f3df" aria-label="include/libcamera/internal/pipeline_handler.h:38 발췌"><code>L38</code> 발췌</a> · <a aria-label="include/libcamera/internal/pipeline_handler.h:38" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/pipeline_handler.h#L38">전체 소스 <code>L38</code></a></span></li><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="reader-archive/pipeline-requests.html#source-bf25a409490e6fa9" aria-label="src/libcamera/pipeline_handler.cpp:805 발췌"><code>L805</code> 발췌</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:805" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L805">전체 소스 <code>L805</code></a></span></li></ul></details>
+<h2 id="ipa-frame-interface">프레임 입력과 결과 인터페이스</h2>
+<p data-sdd-evidence='[["include/libcamera/ipa/ipu3.mojom:19", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/ipa/ipu3.mojom#L19\"><code>include/libcamera/ipa/ipu3.mojom:19</code></a>"]]' data-sdd-excerpts='{"include/libcamera/ipa/ipu3.mojom:19": ["reader-archive/ipa.html#source-5a4a0da4800968a4"]}'><code>IPAIPU3Interface</code>는 <code>[async]</code> 메서드로 <code>queueRequest(frame, controls)</code>, <code>computeParams(frame, bufferId)</code>, <code>processStats(frame, frameTimestamp, bufferId, sensorControls)</code>를 선언합니다. <code>IPAIPU3EventInterface</code>는 <code>paramsComputed(frame)</code>, <code>metadataReady(frame, metadata)</code>, <code>setSensorControls(frame, sensorControls, lensControls)</code>를 선언합니다.</p>
+<p data-sdd-evidence='[["include/libcamera/ipa/rkisp1.mojom:17", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/ipa/rkisp1.mojom#L17\"><code>include/libcamera/ipa/rkisp1.mojom:17</code></a>"]]' data-sdd-excerpts='{"include/libcamera/ipa/rkisp1.mojom:17": ["reader-archive/ipa.html#source-7a01de2477d6466e"]}'><code>IPARkISP1Interface</code>는 <code>[async]</code> 메서드로 <code>queueRequest(frame, reqControls)</code>, <code>computeParams(frame, bufferId)</code>, <code>processStats(frame, bufferId, sensorControls)</code>를 선언합니다. <code>IPARkISP1EventInterface</code>는 <code>paramsComputed(frame, bytesused)</code>, <code>metadataReady(frame, metadata)</code>, <code>setSensorControls(frame, sensorControls)</code>를 선언합니다.</p>
+
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>2</span>개</summary><ul><li><code>include/libcamera/ipa/ipu3.mojom</code><span class="evidence-lines"><a href="reader-archive/ipa.html#source-5a4a0da4800968a4" aria-label="include/libcamera/ipa/ipu3.mojom:19 발췌"><code>L19</code> 발췌</a> · <a aria-label="include/libcamera/ipa/ipu3.mojom:19" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/ipa/ipu3.mojom#L19">전체 소스 <code>L19</code></a></span></li><li><code>include/libcamera/ipa/rkisp1.mojom</code><span class="evidence-lines"><a href="reader-archive/ipa.html#source-7a01de2477d6466e" aria-label="include/libcamera/ipa/rkisp1.mojom:17 발췌"><code>L17</code> 발췌</a> · <a aria-label="include/libcamera/ipa/rkisp1.mojom:17" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/ipa/rkisp1.mojom#L17">전체 소스 <code>L17</code></a></span></li></ul></details><h2 id="ipa-extensions">IPA 모듈 선택과 실패 조건</h2>
+<p data-sdd-evidence='[["include/libcamera/internal/ipa_manager.h:39", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/ipa_manager.h#L39\"><code>include/libcamera/internal/ipa_manager.h:39</code></a>"], ["src/libcamera/ipa_manager.cpp:249", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_manager.cpp#L249\"><code>src/libcamera/ipa_manager.cpp:249</code></a>"]]' data-sdd-excerpts='{"include/libcamera/internal/ipa_manager.h:39": ["reader-archive/vendor-integration.html#source-88cede73f337db67", "reader-archive/vendor-integration.html#source-da860180dc9199e6"], "src/libcamera/ipa_manager.cpp:249": ["reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8"]}'><code>createIPA</code>는 <code>module</code>을 호출할 때 이름을 나타내는 <code>name</code>, 최소 버전을 나타내는 <code>minVersion</code>, 최대 버전을 나타내는 <code>maxVersion</code>을 순서대로 전달합니다. <code>IPAManager::module</code>은 모듈을 순회하며 이름과 허용 버전 범위에 대해 첫 <code>match</code>가 성립하면 해당 모듈을 반환하고 검색을 끝냅니다. 끝까지 일치하는 모듈이 없으면 <code>nullptr</code>을 반환합니다. <code>createIPA</code>는 <code>module</code>의 결과를 <code>m</code>에 받고, <code>!m</code>이면 <code>nullptr</code>을 반환합니다.</p>
+<!-- sdd:visual:item-algorithm -->
+<h3 id="ipa-모듈-검색과-프록시-반환-분기">IPA 모듈 검색과 프록시 반환 분기</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"Isolated 프록시를 &lt;br/&gt;생성합니다.": "Create the Isolated proxy.", "Threaded 프록시를 &lt;br/&gt;생성합니다.": "Create the Threaded proxy.", "isSignatureValid가 거짓을 &lt;br/&gt;반환합니다.": "isSignatureValid returns &lt;br/&gt;false.", "isSignatureValid가 참을 &lt;br/&gt;반환합니다.": "isSignatureValid returns &lt;br/&gt;true.", "검사할 모듈이 남았습니까?": "Is there another module to &lt;br/&gt;check?", "검사할 모듈이 있습니다.": "There is a module to check.", "모듈 목록을 확인합니다.": "Check the module list.", "목록이 비었거나 순회를 &lt;br/&gt;마쳤습니다.": "The list was empty or the &lt;br/&gt;search was exhausted.", "생성 결과를 검사합니다.": "Check the resulting proxy.", "생성한 프록시가 유효합니까?": "Is the new proxy valid?", "유효한 프록시를 반환합니다.": "Return the valid proxy.", "이름과 버전 범위가 &lt;br/&gt;일치합니까?": "Does the module match the &lt;br/&gt;name and version range?", "이름과 허용 버전 범위를 &lt;br/&gt;module에 전달합니다.": "Pass the name and allowed &lt;br/&gt;version range to module.", "일치하지 않아 남은 항목을 &lt;br/&gt;확인합니다.": "A mismatch leads back to &lt;br/&gt;the remaining modules.", "일치한 모듈이 없어 &lt;br/&gt;createIPA가 즉시 nullptr을 &lt;br/&gt;반환합니다.": "With no matching module, &lt;br/&gt;createIPA immediately &lt;br/&gt;returns nullptr.", "첫 일치 모듈로 검색을 &lt;br/&gt;끝냅니다.": "The first match ends the &lt;br/&gt;search.", "첫 일치 모듈에 대해 &lt;br/&gt;isSignatureValid가 참을 &lt;br/&gt;반환합니까?": "Does isSignatureValid &lt;br/&gt;return true for the first &lt;br/&gt;matching module?", "프록시 오류를 기록하고 &lt;br/&gt;nullptr을 반환합니다.": "Log the proxy error and &lt;br/&gt;return nullptr.", "프록시가 유효하지 않습니다.": "The proxy is invalid.", "프록시가 유효합니다.": "The proxy is valid."}
+  v_lookup["이름과 허용 버전 범위를 &lt;br/&gt;module에 전달합니다."]
+  v_remaining{"검사할 모듈이 남았습니까?"}
+  v_match{"이름과 버전 범위가 &lt;br/&gt;일치합니까?"}
+  v_missing["일치한 모듈이 없어 &lt;br/&gt;createIPA가 즉시 nullptr을 &lt;br/&gt;반환합니다."]
+  v_signature{"첫 일치 모듈에 대해 &lt;br/&gt;isSignatureValid가 참을 &lt;br/&gt;반환합니까?"}
+  v_threaded["Threaded 프록시를 &lt;br/&gt;생성합니다."]
+  v_isolated["Isolated 프록시를 &lt;br/&gt;생성합니다."]
+  v_valid{"생성한 프록시가 유효합니까?"}
+  v_invalid["프록시 오류를 기록하고 &lt;br/&gt;nullptr을 반환합니다."]
+  v_return["유효한 프록시를 반환합니다."]
+  v_lookup --&gt;|"모듈 목록을 확인합니다."| v_remaining
+  v_remaining --&gt;|"검사할 모듈이 있습니다."| v_match
+  v_remaining --&gt;|"목록이 비었거나 순회를 &lt;br/&gt;마쳤습니다."| v_missing
+  v_match --&gt;|"일치하지 않아 남은 항목을 &lt;br/&gt;확인합니다."| v_remaining
+  v_match --&gt;|"첫 일치 모듈로 검색을 &lt;br/&gt;끝냅니다."| v_signature
+  v_signature --&gt;|"isSignatureValid가 참을 &lt;br/&gt;반환합니다."| v_threaded
+  v_signature --&gt;|"isSignatureValid가 거짓을 &lt;br/&gt;반환합니다."| v_isolated
+  v_threaded --&gt;|"생성 결과를 검사합니다."| v_valid
+  v_isolated --&gt;|"생성 결과를 검사합니다."| v_valid
+  v_valid --&gt;|"프록시가 유효하지 않습니다."| v_invalid
+  v_valid --&gt;|"프록시가 유효합니다."| v_return</pre>
+<p><a href="vendor-integration.item-algorithm.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>createIPA는 일치하는 모듈과 프록시 종류를 어떻게 선택하며 어느 분기에서 nullptr을 반환합니까?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Pass the name and allowed version range to module.">이름과 허용 버전 범위를 module에 전달합니다.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is there another module to check?">검사할 모듈이 남았습니까?</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8">src/libcamera/ipa_manager.cpp:249</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Does the module match the name and version range?">이름과 버전 범위가 일치합니까?</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8">src/libcamera/ipa_manager.cpp:249</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="With no matching module, createIPA immediately returns nullptr.">일치한 모듈이 없어 createIPA가 즉시 nullptr을 반환합니다.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8">src/libcamera/ipa_manager.cpp:249</a> · <a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Does isSignatureValid return true for the first matching module?">첫 일치 모듈에 대해 isSignatureValid가 참을 반환합니까?</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8">src/libcamera/ipa_manager.cpp:249</a> · <a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Create the Threaded proxy.">Threaded 프록시를 생성합니다.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Create the Isolated proxy.">Isolated 프록시를 생성합니다.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Is the new proxy valid?">생성한 프록시가 유효합니까?</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Log the proxy error and return nullptr.">프록시 오류를 기록하고 nullptr을 반환합니다.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return the valid proxy.">유효한 프록시를 반환합니다.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the module list.">모듈 목록을 확인합니다.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a> · <a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8">src/libcamera/ipa_manager.cpp:249</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="There is a module to check.">검사할 모듈이 있습니다.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8">src/libcamera/ipa_manager.cpp:249</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The list was empty or the search was exhausted.">목록이 비었거나 순회를 마쳤습니다.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8">src/libcamera/ipa_manager.cpp:249</a> · <a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="A mismatch leads back to the remaining modules.">일치하지 않아 남은 항목을 확인합니다.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8">src/libcamera/ipa_manager.cpp:249</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The first match ends the search.">첫 일치 모듈로 검색을 끝냅니다.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8">src/libcamera/ipa_manager.cpp:249</a> · <a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="isSignatureValid returns true.">isSignatureValid가 참을 반환합니다.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8">src/libcamera/ipa_manager.cpp:249</a> · <a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="isSignatureValid returns false.">isSignatureValid가 거짓을 반환합니다.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8">src/libcamera/ipa_manager.cpp:249</a> · <a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the resulting proxy.">생성 결과를 검사합니다.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the resulting proxy.">생성 결과를 검사합니다.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The proxy is invalid.">프록시가 유효하지 않습니다.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The proxy is valid.">프록시가 유효합니다.</span></td>
+<td><a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc">include/libcamera/internal/ipa_manager.h:35</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:item-algorithm -->
+
+<p data-sdd-evidence='[["include/libcamera/internal/ipa_manager.h:43", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/ipa_manager.h#L43\"><code>include/libcamera/internal/ipa_manager.h:43</code></a>"], ["include/libcamera/internal/ipa_manager.h:35", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/ipa_manager.h#L35\"><code>include/libcamera/internal/ipa_manager.h:35</code></a>"]]' data-sdd-excerpts='{"include/libcamera/internal/ipa_manager.h:43": ["reader-archive/vendor-integration.html#source-6dc4133d5797f19b"], "include/libcamera/internal/ipa_manager.h:35": ["reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc"]}'><code>createIPA</code> 내부 람다는 <code>isSignatureValid(m)</code>이 참이면 <code>T::Threaded</code> 프록시 객체를 생성하고, 거짓이면 <code>T::Isolated</code> 프록시 객체를 생성합니다. <code>createIPA</code>는 생성한 프록시의 <code>isValid</code> 검사가 실패하면 <code>Failed to load proxy</code> 오류를 기록하고 <code>nullptr</code>을 반환합니다. <code>createIPA</code>는 생성한 프록시가 유효성 검사를 통과하면 해당 프록시를 반환합니다.</p>
+
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>4</span>개</summary><ul><li><code>include/libcamera/internal/ipa_manager.h</code><span class="evidence-lines"><a aria-label="include/libcamera/internal/ipa_manager.h:39" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/ipa_manager.h#L39"><code>L39</code></a> · <a href="reader-archive/vendor-integration.html#source-6dc4133d5797f19b" aria-label="include/libcamera/internal/ipa_manager.h:43 발췌"><code>L43</code> 발췌</a> · <a aria-label="include/libcamera/internal/ipa_manager.h:43" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/ipa_manager.h#L43">전체 소스 <code>L43</code></a> · <a href="reader-archive/vendor-integration.html#source-1bc92c4993a1c4dc" aria-label="include/libcamera/internal/ipa_manager.h:35 발췌"><code>L35</code> 발췌</a> · <a aria-label="include/libcamera/internal/ipa_manager.h:35" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/ipa_manager.h#L35">전체 소스 <code>L35</code></a> · <a aria-label="include/libcamera/internal/ipa_manager.h:39" href="reader-archive/vendor-integration.html#source-88cede73f337db67"><code>L39</code></a> · <a aria-label="include/libcamera/internal/ipa_manager.h:39" href="reader-archive/vendor-integration.html#source-da860180dc9199e6"><code>L39</code></a></span></li><li><code>src/libcamera/ipa_manager.cpp</code><span class="evidence-lines"><a href="reader-archive/vendor-integration.html#source-f61e5a9ff79a97a8" aria-label="src/libcamera/ipa_manager.cpp:249 발췌"><code>L249</code> 발췌</a> · <a aria-label="src/libcamera/ipa_manager.cpp:249" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/ipa_manager.cpp#L249">전체 소스 <code>L249</code></a></span></li></ul></details><h2 id="ipu3-lsc">빌드와 상태 연결</h2>
+<p data-sdd-evidence='[["src/ipa/ipu3/algorithms/meson.build:3", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/ipu3/algorithms/meson.build#L3\"><code>src/ipa/ipu3/algorithms/meson.build:3</code></a>"], ["src/ipa/ipu3/algorithms/lsc.cpp:25", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/ipu3/algorithms/lsc.cpp#L25\"><code>src/ipa/ipu3/algorithms/lsc.cpp:25</code></a>"], ["src/ipa/ipu3/ipa_context.h:32", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/ipu3/ipa_context.h#L32\"><code>src/ipa/ipu3/ipa_context.h:32</code></a>"]]' data-sdd-excerpts='{"src/ipa/ipu3/algorithms/meson.build:3": ["reader-archive/ipu3-lsc-flow.html#source-914bc0dd95a64016"], "src/ipa/ipu3/algorithms/lsc.cpp:25": ["reader-archive/ipu3-lsc-flow.html#source-724bb41a4f6f5bae"], "src/ipa/ipu3/ipa_context.h:32": ["reader-archive/ipu3-lsc-flow.html#source-47a8aa55a4a846f4"]}'>Meson의 <code>ipu3_ipa_algorithms</code> 목록은 <code>lsc.cpp</code>를 빌드 입력에 포함하며, 이 파일은 <code>Lsc</code> 클래스를 IPU3 렌즈 음영 보정 알고리즘으로 소개합니다. <code>IPAActiveState</code>의 <code>lsc</code> 필드는 <code>ipa::lsc::ActiveState</code> 타입으로 선언되어 있습니다. <code>IPAFrameContext</code>는 <code>FrameContext</code>를 상속하며, <code>lsc</code> 필드를 <code>ipa::lsc::FrameContext</code> 타입으로 선언합니다. <code>IPAContext</code>의 <code>frameContexts</code> 필드 타입은 <code>FCQueue&lt;IPAFrameContext&gt;</code>입니다.</p>
+<!-- sdd:visual:lsc-build-state-integration -->
+<h3 id="lsc-빌드와-메서드-상태-입력">LSC 빌드와 메서드 상태 입력</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"IPAActiveState는 &lt;br/&gt;ipa::lsc::ActiveState &lt;br/&gt;타입의 공유 lsc 상태를 &lt;br/&gt;선언합니다.": "IPAActiveState declares the &lt;br/&gt;shared lsc state with type &lt;br/&gt;ipa::lsc::ActiveState.", "IPAContext는 IPAActiveState &lt;br/&gt;타입의 activeState를 &lt;br/&gt;선언합니다.": "IPAContext declares &lt;br/&gt;activeState with type &lt;br/&gt;IPAActiveState.", "IPAContext의 activeState는 &lt;br/&gt;IPAActiveState입니다.": "The activeState in &lt;br/&gt;IPAContext is an &lt;br/&gt;IPAActiveState.", "IPAFrameContext는 &lt;br/&gt;ipa::lsc::FrameContext &lt;br/&gt;타입의 프레임 lsc 상태를 &lt;br/&gt;선언합니다.": "IPAFrameContext declares &lt;br/&gt;the frame lsc state with &lt;br/&gt;type ipa::lsc::FrameContext.", "Lsc::queueRequest는 &lt;br/&gt;IPAContext를 참조로 &lt;br/&gt;받습니다.": "Lsc::queueRequest takes &lt;br/&gt;IPAContext by reference.", "Lsc::queueRequest는 &lt;br/&gt;IPAContext와 &lt;br/&gt;IPAFrameContext를 참조 &lt;br/&gt;인자로 받습니다.": "Lsc::queueRequest takes &lt;br/&gt;IPAContext and &lt;br/&gt;IPAFrameContext by &lt;br/&gt;reference.", "Lsc::queueRequest는 &lt;br/&gt;IPAFrameContext를 참조로 &lt;br/&gt;받습니다.": "Lsc::queueRequest takes &lt;br/&gt;IPAFrameContext by &lt;br/&gt;reference.", "Lsc::queueRequest는 &lt;br/&gt;context.activeState.lsc를 &lt;br/&gt;lscAlgo#95;에 전달합니다.": "Lsc::queueRequest passes &lt;br/&gt;context.activeState.lsc to &lt;br/&gt;lscAlgo#95;.", "Lsc::queueRequest는 &lt;br/&gt;frameContext.lsc를 &lt;br/&gt;lscAlgo#95;에 전달합니다.": "Lsc::queueRequest passes &lt;br/&gt;frameContext.lsc to &lt;br/&gt;lscAlgo#95;.", "Lsc는 IPU3 렌즈 셰이딩 보정 &lt;br/&gt;알고리즘입니다.": "Lsc is the IPU3 lens &lt;br/&gt;shading correction &lt;br/&gt;algorithm.", "Lsc는 queueRequest 메서드를 &lt;br/&gt;선언합니다.": "Lsc declares the &lt;br/&gt;queueRequest method.", "ipu3#95;ipa#95;algorithms는 &lt;br/&gt;lsc.cpp를 빌드 입력으로 &lt;br/&gt;포함하지만, 이것만으로 &lt;br/&gt;요청의 LSC 활성화를 &lt;br/&gt;증명하지는 않습니다.": "ipu3#95;ipa#95;algorithms &lt;br/&gt;includes lsc.cpp as a build &lt;br/&gt;input, but inclusion alone &lt;br/&gt;does not prove LSC is &lt;br/&gt;enabled for a request.", "ipu3#95;ipa#95;algorithms는 &lt;br/&gt;lsc.cpp를 빌드 입력으로 &lt;br/&gt;포함합니다.": "ipu3#95;ipa#95;algorithms &lt;br/&gt;includes lsc.cpp as a build &lt;br/&gt;input.", "lsc.cpp는 빌드 목록에 &lt;br/&gt;포함된 소스 파일입니다.": "lsc.cpp is a source file &lt;br/&gt;included in the build list.", "lsc.cpp에서 &lt;br/&gt;Lsc::queueRequest를 &lt;br/&gt;정의합니다.": "lsc.cpp defines &lt;br/&gt;Lsc::queueRequest."}
+  v_build["ipu3#95;ipa#95;algorithms는 &lt;br/&gt;lsc.cpp를 빌드 입력으로 &lt;br/&gt;포함하지만, 이것만으로 &lt;br/&gt;요청의 LSC 활성화를 &lt;br/&gt;증명하지는 않습니다."]
+  v_cpp["lsc.cpp는 빌드 목록에 &lt;br/&gt;포함된 소스 파일입니다."]
+  v_lsc["Lsc는 IPU3 렌즈 셰이딩 보정 &lt;br/&gt;알고리즘입니다."]
+  v_queue["Lsc::queueRequest는 &lt;br/&gt;IPAContext와 &lt;br/&gt;IPAFrameContext를 참조 &lt;br/&gt;인자로 받습니다."]
+  v_context["IPAContext는 IPAActiveState &lt;br/&gt;타입의 activeState를 &lt;br/&gt;선언합니다."]
+  v_active["IPAActiveState는 &lt;br/&gt;ipa::lsc::ActiveState &lt;br/&gt;타입의 공유 lsc 상태를 &lt;br/&gt;선언합니다."]
+  v_frame["IPAFrameContext는 &lt;br/&gt;ipa::lsc::FrameContext &lt;br/&gt;타입의 프레임 lsc 상태를 &lt;br/&gt;선언합니다."]
+  v_build --&gt;|"ipu3#95;ipa#95;algorithms는 &lt;br/&gt;lsc.cpp를 빌드 입력으로 &lt;br/&gt;포함합니다."| v_cpp
+  v_cpp --&gt;|"lsc.cpp에서 &lt;br/&gt;Lsc::queueRequest를 &lt;br/&gt;정의합니다."| v_queue
+  v_lsc --&gt;|"Lsc는 queueRequest 메서드를 &lt;br/&gt;선언합니다."| v_queue
+  v_queue --&gt;|"Lsc::queueRequest는 &lt;br/&gt;IPAContext를 참조로 &lt;br/&gt;받습니다."| v_context
+  v_queue --&gt;|"Lsc::queueRequest는 &lt;br/&gt;IPAFrameContext를 참조로 &lt;br/&gt;받습니다."| v_frame
+  v_context --&gt;|"IPAContext의 activeState는 &lt;br/&gt;IPAActiveState입니다."| v_active
+  v_queue --&gt;|"Lsc::queueRequest는 &lt;br/&gt;context.activeState.lsc를 &lt;br/&gt;lscAlgo#95;에 전달합니다."| v_active
+  v_frame --&gt;|"Lsc::queueRequest는 &lt;br/&gt;frameContext.lsc를 &lt;br/&gt;lscAlgo#95;에 전달합니다."| v_queue</pre>
+<p><a href="ipu3-lsc-flow.lsc-build-state-integration.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>빌드 목록의 lsc.cpp와 Lsc 메서드의 IPAContext·IPAFrameContext 입력, 공유 lsc 상태·프레임 lsc 상태 선언은 어떻게 연결됩니까?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<p>LLM 그림 초안 · 사람 검토 전</p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="ipu3_ipa_algorithms includes lsc.cpp as a build input, but inclusion alone does not prove LSC is enabled for a request.">ipu3_ipa_algorithms는 lsc.cpp를 빌드 입력으로 포함하지만, 이것만으로 요청의 LSC 활성화를 증명하지는 않습니다.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-914bc0dd95a64016">src/ipa/ipu3/algorithms/meson.build:3</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="lsc.cpp is a source file included in the build list.">lsc.cpp는 빌드 목록에 포함된 소스 파일입니다.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-914bc0dd95a64016">src/ipa/ipu3/algorithms/meson.build:3</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Lsc is the IPU3 lens shading correction algorithm.">Lsc는 IPU3 렌즈 셰이딩 보정 알고리즘입니다.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-724bb41a4f6f5bae">src/ipa/ipu3/algorithms/lsc.cpp:25</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Lsc::queueRequest takes IPAContext and IPAFrameContext by reference.">Lsc::queueRequest는 IPAContext와 IPAFrameContext를 참조 인자로 받습니다.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-fb65fafe64a3b61f">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="IPAContext declares activeState with type IPAActiveState.">IPAContext는 IPAActiveState 타입의 activeState를 선언합니다.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-47a8aa55a4a846f4">src/ipa/ipu3/ipa_context.h:32</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="IPAActiveState declares the shared lsc state with type ipa::lsc::ActiveState.">IPAActiveState는 ipa::lsc::ActiveState 타입의 공유 lsc 상태를 선언합니다.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-47a8aa55a4a846f4">src/ipa/ipu3/ipa_context.h:32</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="IPAFrameContext declares the frame lsc state with type ipa::lsc::FrameContext.">IPAFrameContext는 ipa::lsc::FrameContext 타입의 프레임 lsc 상태를 선언합니다.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-47a8aa55a4a846f4">src/ipa/ipu3/ipa_context.h:32</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="ipu3_ipa_algorithms includes lsc.cpp as a build input.">ipu3_ipa_algorithms는 lsc.cpp를 빌드 입력으로 포함합니다.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-914bc0dd95a64016">src/ipa/ipu3/algorithms/meson.build:3</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="lsc.cpp defines Lsc::queueRequest.">lsc.cpp에서 Lsc::queueRequest를 정의합니다.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-914bc0dd95a64016">src/ipa/ipu3/algorithms/meson.build:3</a> · <a href="reader-archive/ipu3-lsc-flow.html#source-fb65fafe64a3b61f">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Lsc declares the queueRequest method.">Lsc는 queueRequest 메서드를 선언합니다.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-1c0b8c6b923ea225">src/ipa/ipu3/algorithms/lsc.h:21</a> · <a href="reader-archive/ipu3-lsc-flow.html#source-fb65fafe64a3b61f">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Lsc::queueRequest takes IPAContext by reference.">Lsc::queueRequest는 IPAContext를 참조로 받습니다.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-fb65fafe64a3b61f">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Lsc::queueRequest takes IPAFrameContext by reference.">Lsc::queueRequest는 IPAFrameContext를 참조로 받습니다.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-fb65fafe64a3b61f">src/ipa/ipu3/algorithms/lsc.cpp:121</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The activeState in IPAContext is an IPAActiveState.">IPAContext의 activeState는 IPAActiveState입니다.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-47a8aa55a4a846f4">src/ipa/ipu3/ipa_context.h:32</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Lsc::queueRequest passes context.activeState.lsc to lscAlgo_.">Lsc::queueRequest는 context.activeState.lsc를 lscAlgo_에 전달합니다.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-fb65fafe64a3b61f">src/ipa/ipu3/algorithms/lsc.cpp:121</a> · <a href="reader-archive/ipu3-lsc-flow.html#source-47a8aa55a4a846f4">src/ipa/ipu3/ipa_context.h:32</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Lsc::queueRequest passes frameContext.lsc to lscAlgo_.">Lsc::queueRequest는 frameContext.lsc를 lscAlgo_에 전달합니다.</span></td>
+<td><a href="reader-archive/ipu3-lsc-flow.html#source-fb65fafe64a3b61f">src/ipa/ipu3/algorithms/lsc.cpp:121</a> · <a href="reader-archive/ipu3-lsc-flow.html#source-47a8aa55a4a846f4">src/ipa/ipu3/ipa_context.h:32</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:lsc-build-state-integration -->
+
+
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>5</span>개</summary><ul><li><code>src/ipa/ipu3/algorithms/meson.build</code><span class="evidence-lines"><a href="reader-archive/ipu3-lsc-flow.html#source-914bc0dd95a64016" aria-label="src/ipa/ipu3/algorithms/meson.build:3 발췌"><code>L3</code> 발췌</a> · <a aria-label="src/ipa/ipu3/algorithms/meson.build:3" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/ipu3/algorithms/meson.build#L3">전체 소스 <code>L3</code></a></span></li><li><code>src/ipa/ipu3/algorithms/lsc.cpp</code><span class="evidence-lines"><a href="reader-archive/ipu3-lsc-flow.html#source-724bb41a4f6f5bae" aria-label="src/ipa/ipu3/algorithms/lsc.cpp:25 발췌"><code>L25</code> 발췌</a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:25" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/ipu3/algorithms/lsc.cpp#L25">전체 소스 <code>L25</code></a> · <a aria-label="src/ipa/ipu3/algorithms/lsc.cpp:121" href="reader-archive/ipu3-lsc-flow.html#source-fb65fafe64a3b61f"><code>L121</code></a></span></li><li><code>src/ipa/ipu3/ipa_context.h</code><span class="evidence-lines"><a href="reader-archive/ipu3-lsc-flow.html#source-47a8aa55a4a846f4" aria-label="src/ipa/ipu3/ipa_context.h:32 발췌"><code>L32</code> 발췌</a> · <a aria-label="src/ipa/ipu3/ipa_context.h:32" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/ipu3/ipa_context.h#L32">전체 소스 <code>L32</code></a></span></li><li><code>src/ipa/ipu3/algorithms/lsc.h</code><span class="evidence-lines"><a aria-label="src/ipa/ipu3/algorithms/lsc.h:21" href="reader-archive/ipu3-lsc-flow.html#source-1c0b8c6b923ea225"><code>L21</code></a></span></li></ul></details><h2 id="rkisp1-dewarp">스트림 적용과 실행 확인 범위</h2>
+<p data-sdd-evidence='[["src/libcamera/converter/converter_dw100.cpp:178", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L178\"><code>src/libcamera/converter/converter_dw100.cpp:178</code></a>"]]' data-sdd-excerpts='{"src/libcamera/converter/converter_dw100.cpp:178": ["reader-archive/rkisp1-dewarp.html#source-167e93a77fbf4931", "reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c"]}'><code>ConverterDW100Module::configure</code>는 <code>outputCfgs</code>의 각 출력 설정을 순회하면서 해당 스트림의 <code>vertexMap</code>에 <code>inputCfg.size</code>를 <code>setInputSize</code>로, <code>outputCfg.size</code>를 <code>setOutputSize</code>로, <code>sensorCrop_</code>을 <code>setSensorCrop</code>으로 전달합니다. <code>ConverterDW100Module::configure</code>는 출력 스트림을 순회하면서 <code>dewarpParams</code>에 값이 있으면 해당 스트림의 <code>vertexMap.setDewarpParams</code>를 호출하고 <code>*dewarpParams</code>를 전달합니다.</p>
+<!-- sdd:visual:per-output-vertex-map -->
+<h3 id="출력별-맵과-선택적-보정값">출력별 맵과 선택적 보정값</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"converter#95;.configure#40;&lt;br/&gt;inputCfg, outputCfgs#41;의 &lt;br/&gt;결과를 ret에 저장합니다.": "The function stores the &lt;br/&gt;result of &lt;br/&gt;converter#95;.configure#40;&lt;br/&gt;inputCfg, outputCfgs#41; in &lt;br/&gt;ret.", "for #40;auto #38;ref : &lt;br/&gt;outputCfgs#41;에서 각 출력을 &lt;br/&gt;순회합니다.": "The function iterates over &lt;br/&gt;each output in for #40;auto &lt;br/&gt;#38;ref : outputCfgs#41;.", "if #40;dewarpParams#41;": "The function checks &lt;br/&gt;dewarpParams: if &lt;br/&gt;#40;dewarpParams#41;.", "if #40;ret#41;": "The function checks ret: if &lt;br/&gt;#40;ret#41;.", "info.update에 true를 &lt;br/&gt;저장합니다.": "The function sets &lt;br/&gt;info.update to true.", "inputBufferCount#95;에 &lt;br/&gt;inputCfg.bufferCount를, &lt;br/&gt;hasDewarpParams#95;에 &lt;br/&gt;dewarpParams.has#95;value#40;#41;를 &lt;br/&gt;저장합니다.": "The function stores &lt;br/&gt;inputCfg.bufferCount in &lt;br/&gt;inputBufferCount#95; and &lt;br/&gt;dewarpParams.has#95;value#40;#41; in &lt;br/&gt;hasDewarpParams#95;.", "ret을 반환합니다.": "The function returns ret.", "vertexMap.setDewarpParams#40;#42;&lt;br/&gt;dewarpParams#41;를 호출합니다.": "The function calls &lt;br/&gt;vertexMap.setDewarpParams#40;#42;&lt;br/&gt;dewarpParams#41;.", "vertexMaps#95;.clear#40;#41;로 기존 &lt;br/&gt;맵을 지웁니다.": "vertexMaps#95;.clear#40;#41; clears &lt;br/&gt;the existing maps.", "각 stream의 info.map에 입력 &lt;br/&gt;크기, 출력 크기와 &lt;br/&gt;sensorCrop#95;을 설정합니다.": "The function sets the input &lt;br/&gt;size, output size, and &lt;br/&gt;sensorCrop#95; on each &lt;br/&gt;stream#39;s info.map.", "거짓이면 보정값 설정을 &lt;br/&gt;건너뜁니다. · dewarpParams &lt;br/&gt;#91;false#93;": "If false, the function &lt;br/&gt;skips setting the dewarp &lt;br/&gt;parameters. · dewarpParams &lt;br/&gt;#91;false#93;", "거짓이면 입력 버퍼 수와 &lt;br/&gt;보정값 유무를 저장합니다. · &lt;br/&gt;ret #91;false#93;": "If false, the function &lt;br/&gt;stores the input buffer &lt;br/&gt;count and parameter &lt;br/&gt;presence. · ret #91;false#93;", "다음 출력이 있는지 &lt;br/&gt;확인합니다.": "The function checks for the &lt;br/&gt;next output.", "맵 설정 호출이 정상 &lt;br/&gt;복귀하면 보정값을 &lt;br/&gt;확인합니다.": "After the map setup calls &lt;br/&gt;return normally, the &lt;br/&gt;function checks the &lt;br/&gt;parameters.", "맵을 지운 뒤 기저 구성을 &lt;br/&gt;호출합니다.": "After clearing the maps, &lt;br/&gt;the function calls the base &lt;br/&gt;configuration.", "모든 출력을 처리하면 0을 &lt;br/&gt;반환합니다. 보정값이 없어도 &lt;br/&gt;성공할 수 있습니다.": "The function returns 0 &lt;br/&gt;after processing all &lt;br/&gt;outputs. It can succeed &lt;br/&gt;without dewarp parameters.", "저장한 뒤 출력을 순회합니다.": "After storing the values, &lt;br/&gt;the function iterates over &lt;br/&gt;the outputs.", "참이면 ret을 반환합니다. · &lt;br/&gt;ret #91;true#93;": "If true, the function &lt;br/&gt;returns ret. · ret #91;true#93;", "참이면 보정값을 설정합니다. &lt;br/&gt;· dewarpParams #91;true#93;": "If true, the function sets &lt;br/&gt;the dewarp parameters. · &lt;br/&gt;dewarpParams #91;true#93;", "처리할 출력이 있으면 해당 &lt;br/&gt;맵을 설정합니다.": "If an output remains, the &lt;br/&gt;function configures its map.", "출력이 없거나 순회가 끝나면 &lt;br/&gt;0을 반환합니다.": "If there are no outputs or &lt;br/&gt;iteration is complete, the &lt;br/&gt;function returns 0.", "호출이 정상 복귀하면 &lt;br/&gt;update를 설정합니다.": "After the call returns &lt;br/&gt;normally, the function sets &lt;br/&gt;update.", "호출이 정상 복귀하면 ret을 &lt;br/&gt;확인합니다.": "After the call returns &lt;br/&gt;normally, the function &lt;br/&gt;checks ret."}
+  v_clear["vertexMaps#95;.clear#40;#41;로 기존 &lt;br/&gt;맵을 지웁니다."]
+  v_configure["converter#95;.configure#40;&lt;br/&gt;inputCfg, outputCfgs#41;의 &lt;br/&gt;결과를 ret에 저장합니다."]
+  v_ret_check{"if #40;ret#41;"}
+  v_return_ret["ret을 반환합니다."]
+  v_store["inputBufferCount#95;에 &lt;br/&gt;inputCfg.bufferCount를, &lt;br/&gt;hasDewarpParams#95;에 &lt;br/&gt;dewarpParams.has#95;value#40;#41;를 &lt;br/&gt;저장합니다."]
+  v_loop{"for #40;auto #38;ref : &lt;br/&gt;outputCfgs#41;에서 각 출력을 &lt;br/&gt;순회합니다."}
+  v_map["각 stream의 info.map에 입력 &lt;br/&gt;크기, 출력 크기와 &lt;br/&gt;sensorCrop#95;을 설정합니다."]
+  v_params_check{"if #40;dewarpParams#41;"}
+  v_set_params["vertexMap.setDewarpParams#40;#42;&lt;br/&gt;dewarpParams#41;를 호출합니다."]
+  v_update["info.update에 true를 &lt;br/&gt;저장합니다."]
+  v_return_zero["모든 출력을 처리하면 0을 &lt;br/&gt;반환합니다. 보정값이 없어도 &lt;br/&gt;성공할 수 있습니다."]
+  v_clear --&gt;|"맵을 지운 뒤 기저 구성을 &lt;br/&gt;호출합니다."| v_configure
+  v_configure --&gt;|"호출이 정상 복귀하면 ret을 &lt;br/&gt;확인합니다."| v_ret_check
+  v_ret_check --&gt;|"참이면 ret을 반환합니다. · &lt;br/&gt;ret #91;true#93;"| v_return_ret
+  v_ret_check --&gt;|"거짓이면 입력 버퍼 수와 &lt;br/&gt;보정값 유무를 저장합니다. · &lt;br/&gt;ret #91;false#93;"| v_store
+  v_store --&gt;|"저장한 뒤 출력을 순회합니다."| v_loop
+  v_loop --&gt;|"처리할 출력이 있으면 해당 &lt;br/&gt;맵을 설정합니다."| v_map
+  v_loop --&gt;|"출력이 없거나 순회가 끝나면 &lt;br/&gt;0을 반환합니다."| v_return_zero
+  v_map --&gt;|"맵 설정 호출이 정상 &lt;br/&gt;복귀하면 보정값을 &lt;br/&gt;확인합니다."| v_params_check
+  v_params_check --&gt;|"참이면 보정값을 설정합니다. &lt;br/&gt;· dewarpParams #91;true#93;"| v_set_params
+  v_params_check --&gt;|"거짓이면 보정값 설정을 &lt;br/&gt;건너뜁니다. · dewarpParams &lt;br/&gt;#91;false#93;"| v_update
+  v_set_params --&gt;|"호출이 정상 복귀하면 &lt;br/&gt;update를 설정합니다."| v_update
+  v_update --&gt;|"다음 출력이 있는지 &lt;br/&gt;확인합니다."| v_loop</pre>
+<p><a href="rkisp1-dewarp.per-output-vertex-map.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>ConverterDW100Module::configure는 기저 구성 결과에 따라 무엇을 반환하며 각 출력의 맵을 어떻게 초기화합니까?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<p>LLM 그림 초안 · 사람 검토 전</p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="vertexMaps_.clear() clears the existing maps.">vertexMaps_.clear()로 기존 맵을 지웁니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function stores the result of converter_.configure(inputCfg, outputCfgs) in ret.">converter_.configure(inputCfg, outputCfgs)의 결과를 ret에 저장합니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function checks ret: if (ret).">if (ret)</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function returns ret.">ret을 반환합니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function stores inputCfg.bufferCount in inputBufferCount_ and dewarpParams.has_value() in hasDewarpParams_.">inputBufferCount_에 inputCfg.bufferCount를, hasDewarpParams_에 dewarpParams.has_value()를 저장합니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function iterates over each output in for (auto &amp;ref : outputCfgs).">for (auto &amp;ref : outputCfgs)에서 각 출력을 순회합니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function sets the input size, output size, and sensorCrop_ on each stream's info.map.">각 stream의 info.map에 입력 크기, 출력 크기와 sensorCrop_을 설정합니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function checks dewarpParams: if (dewarpParams).">if (dewarpParams)</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function calls vertexMap.setDewarpParams(*dewarpParams).">vertexMap.setDewarpParams(*dewarpParams)를 호출합니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function sets info.update to true.">info.update에 true를 저장합니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function returns 0 after processing all outputs. It can succeed without dewarp parameters.">모든 출력을 처리하면 0을 반환합니다. 보정값이 없어도 성공할 수 있습니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After clearing the maps, the function calls the base configuration.">맵을 지운 뒤 기저 구성을 호출합니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After the call returns normally, the function checks ret.">호출이 정상 복귀하면 ret을 확인합니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, the function returns ret. · ret [true]">참이면 ret을 반환합니다. · ret [true]</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, the function stores the input buffer count and parameter presence. · ret [false]">거짓이면 입력 버퍼 수와 보정값 유무를 저장합니다. · ret [false]</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After storing the values, the function iterates over the outputs.">저장한 뒤 출력을 순회합니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If an output remains, the function configures its map.">처리할 출력이 있으면 해당 맵을 설정합니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If there are no outputs or iteration is complete, the function returns 0.">출력이 없거나 순회가 끝나면 0을 반환합니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After the map setup calls return normally, the function checks the parameters.">맵 설정 호출이 정상 복귀하면 보정값을 확인합니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If true, the function sets the dewarp parameters. · dewarpParams [true]">참이면 보정값을 설정합니다. · dewarpParams [true]</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If false, the function skips setting the dewarp parameters. · dewarpParams [false]">거짓이면 보정값 설정을 건너뜁니다. · dewarpParams [false]</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After the call returns normally, the function sets update.">호출이 정상 복귀하면 update를 설정합니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function checks for the next output.">다음 출력이 있는지 확인합니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c">src/libcamera/converter/converter_dw100.cpp:178</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:per-output-vertex-map -->
+
+<!-- sdd:visual:cancelled-main-path-buffer -->
+<h3 id="보정-경로가-앱-버퍼를-취소하는-두-경우">보정 경로가 앱 버퍼를 취소하는 두 경우</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"dewarper#95;-#62;queueBuffers#40;#41;가 &lt;br/&gt;음수를 반환하면 큐 등록이 &lt;br/&gt;실패합니다.": "Queueing fails if &lt;br/&gt;dewarper#95;-#62;queueBuffers#40;#41; &lt;br/&gt;returns a negative value.", "dewarper를 사용하는 &lt;br/&gt;경로에서 ISP 내부 버퍼가 &lt;br/&gt;FrameMetadata::&lt;br/&gt;FrameCancelled이면 &lt;br/&gt;dewarper에 큐 등록하지 &lt;br/&gt;않습니다.": "On the path using the &lt;br/&gt;dewarper, an ISP internal &lt;br/&gt;buffer marked &lt;br/&gt;FrameMetadata::&lt;br/&gt;FrameCancelled is not &lt;br/&gt;queued to the dewarper.", "tryCompleteRequest#40;#41;에서 &lt;br/&gt;요청의 완료 조건을 &lt;br/&gt;확인합니다. 요청 전체가 &lt;br/&gt;항상 이 자리에서 완료되는 &lt;br/&gt;것은 아닙니다.": "Check the request#39;s &lt;br/&gt;completion conditions with &lt;br/&gt;tryCompleteRequest#40;#41;. The &lt;br/&gt;whole request does not &lt;br/&gt;necessarily complete at &lt;br/&gt;this point.", "두 경로는 &lt;br/&gt;cancelDewarpRequest#40;#41;를 &lt;br/&gt;호출합니다.": "Both paths call &lt;br/&gt;cancelDewarpRequest#40;#41;.", "버퍼 처리를 마친 뒤 요청 &lt;br/&gt;완료를 확인합니다.": "Check request completion &lt;br/&gt;after processing the &lt;br/&gt;buffers.", "앱이 제공한 요청의 &lt;br/&gt;main-path 버퍼를 &lt;br/&gt;FrameMetadata::&lt;br/&gt;FrameCancelled로 표시하고 &lt;br/&gt;completeBuffer#40;#41;로 &lt;br/&gt;완료합니다. ISP 내부 버퍼는 &lt;br/&gt;완료하지 않습니다.": "Mark the &lt;br/&gt;application-supplied &lt;br/&gt;request#39;s main-path buffer &lt;br/&gt;as &lt;br/&gt;FrameMetadata::&lt;br/&gt;FrameCancelled and complete &lt;br/&gt;it with completeBuffer#40;#41;. &lt;br/&gt;Do not complete the ISP &lt;br/&gt;internal buffer.", "요청의 main-path 스트림에 &lt;br/&gt;해당하는 버퍼를 취소하고 &lt;br/&gt;완료합니다. · stream #61;#61; &lt;br/&gt;#38;data-#62;mainPathStream#95; &lt;br/&gt;#91;true#93;": "Cancel and complete the &lt;br/&gt;buffer for the request#39;s &lt;br/&gt;main-path stream. · stream &lt;br/&gt;#61;#61; #38;data-#62;mainPathStream#95; &lt;br/&gt;#91;true#93;", "취소된 내부 버퍼에 대해 &lt;br/&gt;호출합니다. · &lt;br/&gt;metadata.status #61;#61; &lt;br/&gt;FrameMetadata::&lt;br/&gt;FrameCancelled #91;true#93;": "Call it for the cancelled &lt;br/&gt;internal buffer. · &lt;br/&gt;metadata.status #61;#61; &lt;br/&gt;FrameMetadata::&lt;br/&gt;FrameCancelled #91;true#93;", "큐 등록이 실패하면 &lt;br/&gt;호출합니다. · ret #60; 0 #91;true#93;": "Call it if queueing fails. &lt;br/&gt;· ret #60; 0 #91;true#93;"}
+  v_cancelled{"dewarper를 사용하는 &lt;br/&gt;경로에서 ISP 내부 버퍼가 &lt;br/&gt;FrameMetadata::&lt;br/&gt;FrameCancelled이면 &lt;br/&gt;dewarper에 큐 등록하지 &lt;br/&gt;않습니다."}
+  v_queue{"dewarper#95;-#62;queueBuffers#40;#41;가 &lt;br/&gt;음수를 반환하면 큐 등록이 &lt;br/&gt;실패합니다."}
+  v_cancel_request["두 경로는 &lt;br/&gt;cancelDewarpRequest#40;#41;를 &lt;br/&gt;호출합니다."]
+  v_complete_buffer["앱이 제공한 요청의 &lt;br/&gt;main-path 버퍼를 &lt;br/&gt;FrameMetadata::&lt;br/&gt;FrameCancelled로 표시하고 &lt;br/&gt;completeBuffer#40;#41;로 &lt;br/&gt;완료합니다. ISP 내부 버퍼는 &lt;br/&gt;완료하지 않습니다."]
+  v_complete_request["tryCompleteRequest#40;#41;에서 &lt;br/&gt;요청의 완료 조건을 &lt;br/&gt;확인합니다. 요청 전체가 &lt;br/&gt;항상 이 자리에서 완료되는 &lt;br/&gt;것은 아닙니다."]
+  v_cancelled --&gt;|"취소된 내부 버퍼에 대해 &lt;br/&gt;호출합니다. · &lt;br/&gt;metadata.status #61;#61; &lt;br/&gt;FrameMetadata::&lt;br/&gt;FrameCancelled #91;true#93;"| v_cancel_request
+  v_queue --&gt;|"큐 등록이 실패하면 &lt;br/&gt;호출합니다. · ret #60; 0 #91;true#93;"| v_cancel_request
+  v_cancel_request --&gt;|"요청의 main-path 스트림에 &lt;br/&gt;해당하는 버퍼를 취소하고 &lt;br/&gt;완료합니다. · stream #61;#61; &lt;br/&gt;#38;data-#62;mainPathStream#95; &lt;br/&gt;#91;true#93;"| v_complete_buffer
+  v_complete_buffer --&gt;|"버퍼 처리를 마친 뒤 요청 &lt;br/&gt;완료를 확인합니다."| v_complete_request</pre>
+<p><a href="rkisp1-dewarp.cancelled-main-path-buffer.mmd">Mermaid 원문</a></p>
+<details class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>ISP가 취소한 버퍼와 dewarper 큐 등록 실패는 앱의 main-path 버퍼에 어떻게 전달됩니까?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<p>LLM 그림 초안 · 사람 검토 전</p>
+<p>작성 모델: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="On the path using the dewarper, an ISP internal buffer marked FrameMetadata::FrameCancelled is not queued to the dewarper.">dewarper를 사용하는 경로에서 ISP 내부 버퍼가 FrameMetadata::FrameCancelled이면 dewarper에 큐 등록하지 않습니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-ac82e844328c94fc">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</a> · <a href="reader-archive/rkisp1-dewarp.html#source-6f7ca94446a01328">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Queueing fails if dewarper_->queueBuffers() returns a negative value.">dewarper_-&gt;queueBuffers()가 음수를 반환하면 큐 등록이 실패합니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-ac82e844328c94fc">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Both paths call cancelDewarpRequest().">두 경로는 cancelDewarpRequest()를 호출합니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-ac82e844328c94fc">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Mark the application-supplied request's main-path buffer as FrameMetadata::FrameCancelled and complete it with completeBuffer(). Do not complete the ISP internal buffer.">앱이 제공한 요청의 main-path 버퍼를 FrameMetadata::FrameCancelled로 표시하고 completeBuffer()로 완료합니다. ISP 내부 버퍼는 완료하지 않습니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-ac82e844328c94fc">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</a> · <a href="reader-archive/rkisp1-dewarp.html#source-6f7ca94446a01328">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605</a> · <a href="reader-archive/rkisp1-dewarp.html#source-f22474612903b58b">include/libcamera/internal/framebuffer.h:36</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check the request's completion conditions with tryCompleteRequest(). The whole request does not necessarily complete at this point.">tryCompleteRequest()에서 요청의 완료 조건을 확인합니다. 요청 전체가 항상 이 자리에서 완료되는 것은 아닙니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-6f7ca94446a01328">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call it for the cancelled internal buffer. · metadata.status == FrameMetadata::FrameCancelled [true]">취소된 내부 버퍼에 대해 호출합니다. · metadata.status == FrameMetadata::FrameCancelled [true]</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-ac82e844328c94fc">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call it if queueing fails. · ret < 0 [true]">큐 등록이 실패하면 호출합니다. · ret &lt; 0 [true]</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-ac82e844328c94fc">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Cancel and complete the buffer for the request's main-path stream. · stream == &amp;data->mainPathStream_ [true]">요청의 main-path 스트림에 해당하는 버퍼를 취소하고 완료합니다. · stream == &amp;data-&gt;mainPathStream_ [true]</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-6f7ca94446a01328">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check request completion after processing the buffers.">버퍼 처리를 마친 뒤 요청 완료를 확인합니다.</span></td>
+<td><a href="reader-archive/rkisp1-dewarp.html#source-6f7ca94446a01328">src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:cancelled-main-path-buffer -->
+
+<p data-sdd-evidence='[["src/libcamera/converter/converter_dw100.cpp:369", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L369\"><code>src/libcamera/converter/converter_dw100.cpp:369</code></a>"], ["src/libcamera/converter/converter_dw100.cpp:402", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L402\"><code>src/libcamera/converter/converter_dw100.cpp:402</code></a>"], ["src/libcamera/converter/converter_dw100.cpp:400", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L400\"><code>src/libcamera/converter/converter_dw100.cpp:400</code></a>"], ["src/libcamera/converter/converter_dw100.cpp:434", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L434\"><code>src/libcamera/converter/converter_dw100.cpp:434</code></a>"]]' data-sdd-excerpts='{"src/libcamera/converter/converter_dw100.cpp:369": ["reader-archive/rkisp1-dewarp.html#source-d069b98fadac2d0c", "reader-archive/rkisp1-dewarp.html#source-fc0e25ddead912f1"], "src/libcamera/converter/converter_dw100.cpp:402": ["reader-archive/rkisp1-dewarp.html#source-ec47236059d2723f"], "src/libcamera/converter/converter_dw100.cpp:400": ["reader-archive/rkisp1-dewarp.html#source-3b37038ea14e4a3f"], "src/libcamera/converter/converter_dw100.cpp:434": ["reader-archive/rkisp1-dewarp.html#source-3a4c4ed7cee81158", "reader-archive/rkisp1-dewarp.html#source-91482028dd941751"]}'><code>ConverterDW100Module::updateControlInfos</code>는 <code>hasDewarpParams_</code>가 참이면 <code>controls::LensDewarpEnable</code>을 <code>controls</code>에 등록하고, 제어 정보의 최솟값을 <code>false</code>, 최댓값과 기본값을 <code>true</code>로 설정합니다. <code>setControls</code>는 <code>isConfigured(stream)</code>이 거짓이면 <code>return</code>으로 종료합니다. 구성된 스트림에서 <code>setControls</code>는 <code>info.update</code>와 <code>running_</code>이 참이고 <code>converter_.supportsRequests()</code>가 거짓이면 동적 제어 오류 로그를 기록합니다. <code>populateMetadata</code>는 <code>isConfigured(stream)</code> 검사에서 스트림이 설정되지 않은 것으로 확인되면 즉시 반환합니다.</p>
+<p data-sdd-evidence='[["src/libcamera/converter/converter_dw100.cpp:443", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L443\"><code>src/libcamera/converter/converter_dw100.cpp:443</code></a>"], ["src/libcamera/converter/converter_dw100.cpp:441", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L441\"><code>src/libcamera/converter/converter_dw100.cpp:441</code></a>"]]' data-sdd-excerpts='{"src/libcamera/converter/converter_dw100.cpp:443": ["reader-archive/rkisp1-dewarp.html#source-aebf4a59ba423b05"], "src/libcamera/converter/converter_dw100.cpp:441": ["reader-archive/rkisp1-dewarp.html#source-6fc7fca6e9842fbd"]}'><code>ConverterDW100Module::populateMetadata</code>는 구성된 스트림의 <code>vertexMap.effectiveScalerCrop()</code> 값을 <code>controls::ScalerCrop</code>에 기록합니다. 이어서 <code>hasDewarpParams_</code>가 참이면 <code>vertexMap.lensDewarpEnable()</code> 값을 <code>controls::LensDewarpEnable</code>에 기록합니다.</p>
+<p data-sdd-evidence='[["src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L1605\"><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605</code></a>"], ["src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L1630\"><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630</code></a>"], ["include/libcamera/internal/framebuffer.h:36", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/framebuffer.h#L36\"><code>include/libcamera/internal/framebuffer.h:36</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605": ["reader-archive/rkisp1-dewarp.html#source-6f7ca94446a01328"], "src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630": ["reader-archive/rkisp1-dewarp.html#source-ac82e844328c94fc"], "include/libcamera/internal/framebuffer.h:36": ["reader-archive/rkisp1-dewarp.html#source-f22474612903b58b"]}'>dewarper를 사용하는 RKISP1 보드에서 <code>imageBufferReady()</code>는 ISP 반환 버퍼가 <code>FrameCancelled</code>이거나 dewarper의 <code>queueBuffers()</code>가 실패하면 <code>cancelDewarpRequest()</code>를 호출합니다. 보드에서 이 경로를 확인할 때 <code>cancelDewarpRequest()</code>는 ISP와 dewarper 사이의 내부 버퍼 대신 요청에 연결된 앱의 <code>main-path</code> 버퍼를 <code>FrameCancelled</code>로 표시하고 <code>completeBuffer()</code>로 완료한 뒤 <code>tryCompleteRequest()</code>를 호출합니다.</p>
+
+
+<details class="evidence-links evidence-section"><summary>절 전체 근거 <span>15</span>개</summary><ul><li><code>src/libcamera/converter/converter_dw100.cpp</code><span class="evidence-lines"><a aria-label="src/libcamera/converter/converter_dw100.cpp:178" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L178"><code>L178</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:369" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L369"><code>L369</code></a> · <a href="reader-archive/rkisp1-dewarp.html#source-ec47236059d2723f" aria-label="src/libcamera/converter/converter_dw100.cpp:402 발췌"><code>L402</code> 발췌</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:402" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L402">전체 소스 <code>L402</code></a> · <a href="reader-archive/rkisp1-dewarp.html#source-3b37038ea14e4a3f" aria-label="src/libcamera/converter/converter_dw100.cpp:400 발췌"><code>L400</code> 발췌</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:400" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L400">전체 소스 <code>L400</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:434" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L434"><code>L434</code></a> · <a href="reader-archive/rkisp1-dewarp.html#source-aebf4a59ba423b05" aria-label="src/libcamera/converter/converter_dw100.cpp:443 발췌"><code>L443</code> 발췌</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:443" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L443">전체 소스 <code>L443</code></a> · <a href="reader-archive/rkisp1-dewarp.html#source-6fc7fca6e9842fbd" aria-label="src/libcamera/converter/converter_dw100.cpp:441 발췌"><code>L441</code> 발췌</a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:441" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/converter/converter_dw100.cpp#L441">전체 소스 <code>L441</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:178" href="reader-archive/rkisp1-dewarp.html#source-167e93a77fbf4931"><code>L178</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:369" href="reader-archive/rkisp1-dewarp.html#source-fc0e25ddead912f1"><code>L369</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:434" href="reader-archive/rkisp1-dewarp.html#source-3a4c4ed7cee81158"><code>L434</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:197" href="reader-archive/rkisp1-dewarp.html#source-fff6050000b728bd"><code>L197</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:198" href="reader-archive/rkisp1-dewarp.html#source-a6496a0f6db3636a"><code>L198</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:199" href="reader-archive/rkisp1-dewarp.html#source-a92725ea0f81f8d7"><code>L199</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:178" href="reader-archive/rkisp1-dewarp.html#source-25d871212cbd755c"><code>L178</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:212" href="reader-archive/rkisp1-dewarp.html#source-3c3967c227d1109c"><code>L212</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:369" href="reader-archive/rkisp1-dewarp.html#source-d069b98fadac2d0c"><code>L369</code></a> · <a aria-label="src/libcamera/converter/converter_dw100.cpp:434" href="reader-archive/rkisp1-dewarp.html#source-91482028dd941751"><code>L434</code></a></span></li><li><code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code><span class="evidence-lines"><a href="reader-archive/rkisp1-dewarp.html#source-6f7ca94446a01328" aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605 발췌"><code>L1605</code> 발췌</a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:1605" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L1605">전체 소스 <code>L1605</code></a> · <a href="reader-archive/rkisp1-dewarp.html#source-ac82e844328c94fc" aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630 발췌"><code>L1630</code> 발췌</a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:1630" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/rkisp1/rkisp1.cpp#L1630">전체 소스 <code>L1630</code></a> · <a aria-label="src/libcamera/pipeline/rkisp1/rkisp1.cpp:914" href="reader-archive/rkisp1-dewarp.html#source-36de5a75453d86c6"><code>L914</code></a></span></li><li><code>include/libcamera/internal/framebuffer.h</code><span class="evidence-lines"><a href="reader-archive/rkisp1-dewarp.html#source-f22474612903b58b" aria-label="include/libcamera/internal/framebuffer.h:36 발췌"><code>L36</code> 발췌</a> · <a aria-label="include/libcamera/internal/framebuffer.h:36" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/framebuffer.h#L36">전체 소스 <code>L36</code></a></span></li></ul></details></article><section class="evidence"><h2 id="page-evidence">원고와 검토 기록</h2><details><summary>Pipeline Handler</summary><section><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>사람 검토</dt><dd>사람 검토 전</dd><dt>분석 기준 커밋</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>문서 생성 시각</dt><dd><code>2026-11-20 18:11:25+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>문서 간 계약</dt><dd><a href="contract-consistency.json">자동 대조 보고서</a> · 사람 검토 전</dd></dl><details class="note manuscript-record"><summary>원고 작성 당시 기록</summary><p>원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.</p><ul><li>근거 파일: <code>include/libcamera/internal/pipeline_handler.h</code>, <code>src/libcamera/pipeline/imx8-isi/imx8-isi.cpp</code>, <code>src/libcamera/pipeline/ipu3/imgu.cpp</code>, <code>src/libcamera/pipeline/ipu3/ipu3.cpp</code>, <code>src/libcamera/pipeline/mali-c55/mali-c55.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/pipeline/rpi/pisp/pisp.cpp</code>, <code>src/libcamera/pipeline/rpi/vc4/vc4.cpp</code>, <code>src/libcamera/pipeline/uvcvideo/uvcvideo.cpp</code>, <code>src/libcamera/pipeline/vimc/vimc.cpp</code>, <code>src/libcamera/pipeline/virtual/virtual.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code></li><li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>adfa719f8e</code>)</li><li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li><li>검토 상태 기록일: 2026-11-21 · 사람 검토 전</li></ul></details><a href="pipeline-handler.md">Markdown 원문 ↗</a> <a href="pipeline-handler.mmd">Mermaid 원문 ↗</a></section><p><a href="reader-archive/pipeline-handler.html#page-evidence">이전 주소의 상세 내용 열기</a></p></details><details><summary>Pipeline 요청 제출과 완료</summary><section><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>사람 검토</dt><dd>사람 검토 전</dd><dt>분석 기준 커밋</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>문서 생성 시각</dt><dd><code>2026-11-20 17:39:07+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>문서 간 계약</dt><dd><a href="contract-consistency.json">자동 대조 보고서</a> · 사람 검토 전</dd></dl><details class="note manuscript-record"><summary>원고 작성 당시 기록</summary><p>원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.</p><ul><li>근거 파일: <code>include/libcamera/internal/pipeline_handler.h</code>, <code>src/libcamera/pipeline/imx8-isi/imx8-isi.cpp</code>, <code>src/libcamera/pipeline/ipu3/ipu3.cpp</code>, <code>src/libcamera/pipeline/mali-c55/mali-c55.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/pipeline/rpi/pisp/pisp.cpp</code>, <code>src/libcamera/pipeline/rpi/vc4/vc4.cpp</code>, <code>src/libcamera/pipeline/uvcvideo/uvcvideo.cpp</code>, <code>src/libcamera/pipeline/vimc/vimc.cpp</code>, <code>src/libcamera/pipeline/virtual/virtual.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code>, <code>src/libcamera/request.cpp</code></li><li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>adfa719f8e</code>)</li><li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li><li>검토 상태 기록일: 2026-11-21 · 사람 검토 전</li></ul></details><a href="pipeline-requests.md">Markdown 원문 ↗</a> <a href="pipeline-requests.mmd">Mermaid 원문 ↗</a></section><p><a href="reader-archive/pipeline-requests.html#page-evidence">이전 주소의 상세 내용 열기</a></p></details><details><summary>IPA 관리와 구현 진입점</summary><section><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>사람 검토</dt><dd>사람 검토 전</dd><dt>분석 기준 커밋</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>문서 생성 시각</dt><dd><code>2026-11-20 19:31:13+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>문서 간 계약</dt><dd><a href="contract-consistency.json">자동 대조 보고서</a> · 사람 검토 전</dd></dl><details class="note manuscript-record"><summary>원고 작성 당시 기록</summary><p>원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.</p><ul><li>근거 파일: <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/ipa_module.h</code>, <code>include/libcamera/internal/ipa_proxy.h</code>, <code>include/libcamera/ipa/ipu3.mojom</code>, <code>include/libcamera/ipa/rkisp1.mojom</code>, <code>src/ipa/ipu3/ipu3.cpp</code>, <code>src/ipa/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/base/log.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/ipa_module.cpp</code>, <code>src/libcamera/ipa_proxy.cpp</code>, <code>src/libcamera/ipc_pipe_unixsocket.cpp</code>, <code>utils/codegen/ipc/generators/libcamera_templates/module_ipa_proxy.cpp.tmpl</code>, <code>utils/codegen/ipc/generators/libcamera_templates/proxy_functions.tmpl</code></li><li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>adfa719f8e</code>)</li><li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li><li>검토 상태 기록일: 2026-11-21 · 사람 검토 전</li></ul></details><a href="ipa.md">Markdown 원문 ↗</a> <a href="ipa.mmd">Mermaid 원문 ↗</a></section><p><a href="reader-archive/ipa.html#page-evidence">이전 주소의 상세 내용 열기</a></p></details><details><summary>연동 가이드</summary><section><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>사람 검토</dt><dd>사람 검토 전</dd><dt>분석 기준 커밋</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>문서 생성 시각</dt><dd><code>2026-11-20 16:39:26+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>문서 간 계약</dt><dd><a href="contract-consistency.json">자동 대조 보고서</a> · 사람 검토 전</dd></dl><details class="note manuscript-record"><summary>원고 작성 당시 기록</summary><p>원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.</p><ul><li>근거 파일: <code>include/libcamera/camera.h</code>, <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/pipeline_handler.h</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/pipeline/ipu3/ipu3.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code></li><li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>adfa719f8e</code>)</li><li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li><li>검토 상태 기록일: 2026-11-21 · 사람 검토 전</li></ul></details><a href="vendor-integration.md">Markdown 원문 ↗</a> <a href="vendor-integration.mmd">Mermaid 원문 ↗</a></section><p><a href="reader-archive/vendor-integration.html#page-evidence">이전 주소의 상세 내용 열기</a></p></details><details><summary>IPU3 LSC의 설정과 프레임 처리</summary><section><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>사람 검토</dt><dd>사람 검토 전</dd><dt>분석 기준 커밋</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>문서 생성 시각</dt><dd><code>2026-11-11 20:17:55+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>문서 간 계약</dt><dd><a href="contract-consistency.json">자동 대조 보고서</a> · 사람 검토 전</dd></dl><details class="note manuscript-record"><summary>원고 작성 당시 기록</summary><p>원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.</p><ul><li>근거 파일: <code>src/ipa/ipu3/algorithms/lsc.cpp</code>, <code>src/ipa/ipu3/algorithms/lsc.h</code>, <code>src/ipa/ipu3/algorithms/meson.build</code>, <code>src/ipa/ipu3/ipa_context.h</code>, <code>src/ipa/libipa/lsc.h</code></li><li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>c19d05128f</code>)</li><li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li><li>검토 상태 기록일: 2026-11-12 · 사람 검토 전</li></ul></details><a href="ipu3-lsc-flow.md">Markdown 원문 ↗</a> <a href="ipu3-lsc-flow.mmd">Mermaid 원문 ↗</a></section><p><a href="reader-archive/ipu3-lsc-flow.html#page-evidence">이전 주소의 상세 내용 열기</a></p></details><details><summary>RKISP1 카메라별 왜곡 보정</summary><section><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>사람 검토</dt><dd>사람 검토 전</dd><dt>분석 기준 커밋</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>문서 생성 시각</dt><dd><code>2026-11-21 13:36:35+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>문서 간 계약</dt><dd><a href="contract-consistency.json">자동 대조 보고서</a> · 사람 검토 전</dd></dl><details class="note manuscript-record"><summary>원고 작성 당시 기록</summary><p>원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.</p><ul><li>근거 파일: <code>include/libcamera/internal/converter.h</code>, <code>include/libcamera/internal/converter/converter_dw100.h</code>, <code>include/libcamera/internal/converter/converter_dw100_vertexmap.h</code>, <code>include/libcamera/internal/framebuffer.h</code>, <code>src/libcamera/converter.cpp</code>, <code>src/libcamera/converter/converter_dw100.cpp</code>, <code>src/libcamera/converter/converter_dw100_vertexmap.cpp</code>, <code>src/libcamera/pipeline/rkisp1/rkisp1.cpp</code></li><li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>adfa719f8e</code>)</li><li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li><li>검토 상태 기록일: 2026-11-21 · 사람 검토 전</li></ul></details><a href="rkisp1-dewarp.md">Markdown 원문 ↗</a></section><p><a href="reader-archive/rkisp1-dewarp.html#page-evidence">이전 주소의 상세 내용 열기</a></p></details></section><p><a href="implementation.md" download>이 페이지 Markdown 받기</a> · <a href="reader-edition.json">독자용 문서의 원본 위치</a></p><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="request-flow.html"><small>이전</small>요청 흐름과 핵심 개념 ←</a><a class="next" href="troubleshooting.html"><small>다음</small>주의점과 문제 진단 →</a></nav><footer>Generated by camera-hal-sdd-generator · 인용 검사와 사람의 내용 검토는 별도입니다.</footer></main>
+<aside class="page-toc"><nav aria-label="이 페이지에서"><p>이 페이지에서</p><div class="toc"><ul><li><a href="#device-matching">장치 매칭과 객체 수명</a><ul><li><a href="#%ED%95%B8%EB%93%A4%EB%9F%AC-%EC%83%9D%EC%84%B1%EA%B3%BC-%EC%9E%A5%EC%B9%98-%ED%9A%8D%EB%93%9D%EB%B0%98%EB%82%A9%EC%9D%98-%EC%B1%85%EC%9E%84">핸들러 생성과 장치 획득·반납의 책임</a></li><li><a href="#%ED%9A%8D%EB%93%9D%EB%B0%98%EB%82%A9%EC%9D%98-%EC%9E%A0%EA%B8%88-%EC%A1%B0%EA%B1%B4%EA%B3%BC-%ED%95%B4%EC%A0%9C-%EC%88%9C%EC%84%9C">획득·반납의 잠금 조건과 해제 순서</a></li></ul></li><li><a href="#queue-limit">장치 요청 한도와 대기 큐</a></li><li><a href="#ipa-frame-interface">프레임 입력과 결과 인터페이스</a></li><li><a href="#ipa-extensions">IPA 모듈 선택과 실패 조건</a><ul><li><a href="#ipa-%EB%AA%A8%EB%93%88-%EA%B2%80%EC%83%89%EA%B3%BC-%ED%94%84%EB%A1%9D%EC%8B%9C-%EB%B0%98%ED%99%98-%EB%B6%84%EA%B8%B0">IPA 모듈 검색과 프록시 반환 분기</a></li></ul></li><li><a href="#ipu3-lsc">빌드와 상태 연결</a><ul><li><a href="#lsc-%EB%B9%8C%EB%93%9C%EC%99%80-%EB%A9%94%EC%84%9C%EB%93%9C-%EC%83%81%ED%83%9C-%EC%9E%85%EB%A0%A5">LSC 빌드와 메서드 상태 입력</a></li></ul></li><li><a href="#rkisp1-dewarp">스트림 적용과 실행 확인 범위</a><ul><li><a href="#%EC%B6%9C%EB%A0%A5%EB%B3%84-%EB%A7%B5%EA%B3%BC-%EC%84%A0%ED%83%9D%EC%A0%81-%EB%B3%B4%EC%A0%95%EA%B0%92">출력별 맵과 선택적 보정값</a></li><li><a href="#%EB%B3%B4%EC%A0%95-%EA%B2%BD%EB%A1%9C%EA%B0%80-%EC%95%B1-%EB%B2%84%ED%8D%BC%EB%A5%BC-%EC%B7%A8%EC%86%8C%ED%95%98%EB%8A%94-%EB%91%90-%EA%B2%BD%EC%9A%B0">보정 경로가 앱 버퍼를 취소하는 두 경우</a></li></ul></li></ul></div></nav></aside></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">문서 찾기</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><label for="search-input">문서·절·용어·코드 요소 검색</label><input id="search-input" type="search" autocomplete="off" placeholder="예: Pipeline, IPA, 클래스 관계"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">클래스 관계</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">요소 찾기</label><input id="node-search" type="search" placeholder="그림 요소·함수 이름"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="축소">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="확대">+</button><button id="zoom-fit">화면에 맞춤</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">마우스로 끌거나 터치로 밀어서 그림을 이동합니다. '화면에 맞춤'은 그림 전체를 보는 개요 보기입니다.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="확대된 다이어그램"><div id="diagram-canvas"></div></div></dialog>
+<script id="site-config" type="application/json">{"root": "./", "mermaid": "assets/mermaid/mermaid.esm.min.mjs", "terms": "e624f47117"}</script><script defer src="assets/site.js?v=dd3415510a"></script><script defer src="assets/reader-tools.js?v=dd3415510a"></script></body></html>
