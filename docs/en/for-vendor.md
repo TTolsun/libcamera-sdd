@@ -7,9 +7,62 @@ Applications use the common Camera API to configure devices and capture images. 
 
 ## Items to check on the device
 
-On the target device, test normal capture and stopping with incomplete requests separately. For each submission, record the number of completion callbacks, the request status, and the status of each buffer. Determine separately whether the request was canceled and whether capture succeeded for each frame. Check Contract and evidence for completion notification after stopping.
+First, test normal capture on your target device. In a separate test, stop capture while requests are still pending. For each request you submit, count its completion callbacks and record that count along with the request status and the status of each buffer. Check whether the request was canceled. Then check each frame to see whether it was captured successfully. See what completion notifications to expect after capture stops and why.
 
 Compare Benefits of adopting a common API and Hardware and build conditions, then check the device-specific implementation responsibilities in Integration guide. Support scope and validation covers the first capture on a customer board, configuration constraints, and performance evidence.
+
+### Test first capture and stopping on the target board
+
+```mermaid
+flowchart TB
+
+  v_app-stop["App calls Camera::stop#40;#41;"]
+  v_request-result["cancelled#95; selects <br/>RequestCancelled or <br/>RequestComplete"]
+  v_camera-notify["Camera API: emit <br/>requestCompleted in Running <br/>or Stopping"]
+  v_app-result["App checks request status <br/>and whether each buffer <br/>reports FrameSuccess"]
+  v_vendor-board["Plan two tests on the <br/>target board"]
+  v_vendor-capture["First test: capture <br/>normally and check the <br/>frame result"]
+  v_vendor-pending["Second test: leave a <br/>request incomplete"]
+  v_vendor-record["For each submission, record <br/>the received callback count <br/>#40;zero if none observed#41;, <br/>the observed request <br/>status, and each buffer’s <br/>observed status"]
+  v_vendor-board -->|"First test"| v_vendor-capture
+  v_vendor-board -->|"Second test"| v_vendor-pending
+  v_vendor-capture -->|"Record results per <br/>submission"| v_vendor-record
+  v_vendor-pending -->|"Call stop"| v_app-stop
+  v_app-stop -->|"Record results per <br/>submission"| v_vendor-record
+  v_camera-notify -->|"Count callbacks if received"| v_vendor-record
+  v_vendor-record -->|"Judge cancellation from <br/>observed request status"| v_request-result
+  v_vendor-record -->|"Check buffer statuses"| v_app-result
+```
+
+Mermaid source
+
+<details open>
+<summary>Diagram evidence and verification scope</summary>
+
+How can we check normal capture and stopping with an incomplete request on the target board?
+
+Source-linked interpretation · automatic link check only · meaning and device execution not yet verified
+
+| Elements and transitions | Source evidence |
+| --- | --- |
+| App calls Camera::stop() | src/libcamera/camera.cpp:1431 |
+| cancelled\_ selects RequestCancelled or RequestComplete | src/libcamera/request.cpp:103 |
+| Camera API: emit requestCompleted in Running or Stopping | src/libcamera/camera.cpp:1481 |
+| App checks request status and whether each buffer reports FrameSuccess | src/libcamera/camera.cpp:1481 · src/libcamera/request.cpp:103 · src/libcamera/framebuffer.cpp:40 |
+| Plan two tests on the target board | src/libcamera/camera.cpp:1431 · src/libcamera/framebuffer.cpp:40 |
+| First test: capture normally and check the frame result | src/libcamera/framebuffer.cpp:40 · src/libcamera/camera.cpp:1481 |
+| Second test: leave a request incomplete | src/libcamera/camera.cpp:1431 · src/libcamera/pipeline_handler.cpp:359 |
+| For each submission, record the received callback count (zero if none observed), the observed request status, and each buffer’s observed status | src/libcamera/camera.cpp:1481 · src/libcamera/request.cpp:103 · src/libcamera/framebuffer.cpp:40 |
+| First test | src/libcamera/framebuffer.cpp:40 |
+| Second test | src/libcamera/camera.cpp:1431 · src/libcamera/pipeline_handler.cpp:359 |
+| Record results per submission | src/libcamera/camera.cpp:1481 · src/libcamera/framebuffer.cpp:40 |
+| Call stop | src/libcamera/camera.cpp:1431 |
+| Record results per submission | src/libcamera/camera.cpp:1431 · src/libcamera/camera.cpp:1481 |
+| Count callbacks if received | src/libcamera/camera.cpp:1481 |
+| Judge cancellation from observed request status | src/libcamera/request.cpp:103 |
+| Check buffer statuses | src/libcamera/request.cpp:103 · src/libcamera/framebuffer.cpp:40 |
+
+</details>
 
 ## Boundary between hardware and the common layer
 

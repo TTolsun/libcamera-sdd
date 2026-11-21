@@ -456,9 +456,109 @@
 <li><strong id="d3-term-프록시">Proxy</strong>: A proxy object that does not call the IPA module directly. It receives calls through the same interface and forwards them to an IPA thread or a separate process. It is automatically generated from mojom definitions at build time.</li>
 <li><strong id="d3-term-활성-스트림">Active streams</strong>: A Stream connected to the current camera configuration. If a request buffer refers to a stream of a different configuration, the submission check rejects it.</li>
 </ul></article><section class="evidence"><h2 id="d3-page-evidence">Source manuscripts and review records</h2><details open><summary>Glossary</summary><section><dl><dt>Contracts between documents</dt><dd><a href="../../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl></section><p><a href="../reader-archive/glossary.html#page-evidence">Open earlier detail</a></p></details></section><p><a href="../glossary.md" download>Download page Markdown</a> · <a href="../../reader-edition.json">Reader edition source map</a></p></section><section class="full-page" id="doc-4"><p class="breadcrumb">ForVendor</p><h1>ForVendor</h1><p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p>Applications use the common Camera API to configure devices and capture images. A device-specific PipelineHandler implementation matches the required media devices with devices in the system and configures the hardware pipeline according to the stream configuration. To evaluate adoption, check the hardware and build conditions, then test first capture and stopping on the target board.</p><ul class="reader-edition-links"><li><a href="#doc-5">Check platform and build support</a></li><li><a href="#doc-6">Plan first capture and stop tests</a></li></ul><h2 id="d4-adoption-check">Items to check on the device</h2>
-<p>On the target device, test normal capture and stopping with incomplete requests separately. For each submission, record the number of completion callbacks, the request status, and the status of each buffer. Determine separately whether the request was canceled and whether capture succeeded for each frame. Check <a href="#d8-stop-and-disconnect">Contract and evidence for completion notification after stopping</a>.</p>
+<p>First, test normal capture on your target device. In a separate test, stop capture while requests are still pending. For each request you submit, count its completion callbacks and record that count along with the request status and the status of each buffer. Check whether the request was canceled. Then check each frame to see whether it was captured successfully. See <a href="#d8-stop-and-disconnect">what completion notifications to expect after capture stops and why</a>.</p>
 <p>Compare <a href="../reader-archive/vendor-overview.html#%EC%9E%A5%EC%B9%98-%EA%B5%AC%ED%98%84%EC%9E%90%EA%B0%80-%EA%B3%B5%ED%86%B5-%EA%B3%84%EC%B8%B5%EC%97%90%EC%84%9C-%EC%96%BB%EB%8A%94-%EA%B2%83">Benefits of adopting a common API</a> and <a href="#d5-platform-support">Hardware and build conditions</a>, then check the device-specific implementation responsibilities in <a href="#doc-6">Integration guide</a>. <a href="#doc-5">Support scope and validation</a> covers the first capture on a customer board, configuration constraints, and performance evidence.</p>
-<h2 id="d4-vendor-responsibilities">Boundary between hardware and the common layer</h2>
+<!-- sdd:visual:stop-notification-boundary-vendor -->
+<h3 id="d4-대상-보드에서-첫-캡처와-정지-시험">Test first capture and stopping on the target board</h3>
+<pre class="mermaid">flowchart TB
+
+  v_app-stop["App calls Camera::stop#40;#41;"]
+  v_request-result["cancelled#95; selects &lt;br/&gt;RequestCancelled or &lt;br/&gt;RequestComplete"]
+  v_camera-notify["Camera API: emit &lt;br/&gt;requestCompleted in Running &lt;br/&gt;or Stopping"]
+  v_app-result["App checks request status &lt;br/&gt;and whether each buffer &lt;br/&gt;reports FrameSuccess"]
+  v_vendor-board["Plan two tests on the &lt;br/&gt;target board"]
+  v_vendor-capture["First test: capture &lt;br/&gt;normally and check the &lt;br/&gt;frame result"]
+  v_vendor-pending["Second test: leave a &lt;br/&gt;request incomplete"]
+  v_vendor-record["For each submission, record &lt;br/&gt;the received callback count &lt;br/&gt;#40;zero if none observed#41;, &lt;br/&gt;the observed request &lt;br/&gt;status, and each buffer’s &lt;br/&gt;observed status"]
+  v_vendor-board --&gt;|"First test"| v_vendor-capture
+  v_vendor-board --&gt;|"Second test"| v_vendor-pending
+  v_vendor-capture --&gt;|"Record results per &lt;br/&gt;submission"| v_vendor-record
+  v_vendor-pending --&gt;|"Call stop"| v_app-stop
+  v_app-stop --&gt;|"Record results per &lt;br/&gt;submission"| v_vendor-record
+  v_camera-notify --&gt;|"Count callbacks if received"| v_vendor-record
+  v_vendor-record --&gt;|"Judge cancellation from &lt;br/&gt;observed request status"| v_request-result
+  v_vendor-record --&gt;|"Check buffer statuses"| v_app-result</pre>
+<p><a href="../request-lifecycle.stop-notification-boundary-vendor.mmd">Mermaid source</a></p>
+<details open class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>How can we check normal capture and stopping with an incomplete request on the target board?</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="App calls Camera::stop()">App calls Camera::stop()</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="cancelled_ selects RequestCancelled or RequestComplete">cancelled_ selects RequestCancelled or RequestComplete</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-db7f21585c4c2708">src/libcamera/request.cpp:103</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera API: emit requestCompleted in Running or Stopping">Camera API: emit requestCompleted in Running or Stopping</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-d53c87090347ce81">src/libcamera/camera.cpp:1481</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="App checks request status and whether each buffer reports FrameSuccess">App checks request status and whether each buffer reports FrameSuccess</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-d53c87090347ce81">src/libcamera/camera.cpp:1481</a> · <a href="../reader-archive/request-lifecycle.html#source-db7f21585c4c2708">src/libcamera/request.cpp:103</a> · <a href="../reader-archive/request-lifecycle.html#source-50aa8a55cc04062e">src/libcamera/framebuffer.cpp:40</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Plan two tests on the target board">Plan two tests on the target board</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a> · <a href="../reader-archive/request-lifecycle.html#source-50aa8a55cc04062e">src/libcamera/framebuffer.cpp:40</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="First test: capture normally and check the frame result">First test: capture normally and check the frame result</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-50aa8a55cc04062e">src/libcamera/framebuffer.cpp:40</a> · <a href="../reader-archive/request-lifecycle.html#source-d53c87090347ce81">src/libcamera/camera.cpp:1481</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Second test: leave a request incomplete">Second test: leave a request incomplete</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a> · <a href="../reader-archive/request-lifecycle.html#source-eefd1bbecb1aad0a">src/libcamera/pipeline_handler.cpp:359</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="For each submission, record the received callback count (zero if none observed), the observed request status, and each buffer’s observed status">For each submission, record the received callback count (zero if none observed), the observed request status, and each buffer’s observed status</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-d53c87090347ce81">src/libcamera/camera.cpp:1481</a> · <a href="../reader-archive/request-lifecycle.html#source-db7f21585c4c2708">src/libcamera/request.cpp:103</a> · <a href="../reader-archive/request-lifecycle.html#source-50aa8a55cc04062e">src/libcamera/framebuffer.cpp:40</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="First test">First test</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-50aa8a55cc04062e">src/libcamera/framebuffer.cpp:40</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Second test">Second test</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a> · <a href="../reader-archive/request-lifecycle.html#source-eefd1bbecb1aad0a">src/libcamera/pipeline_handler.cpp:359</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Record results per submission">Record results per submission</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-d53c87090347ce81">src/libcamera/camera.cpp:1481</a> · <a href="../reader-archive/request-lifecycle.html#source-50aa8a55cc04062e">src/libcamera/framebuffer.cpp:40</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call stop">Call stop</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Record results per submission">Record results per submission</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a> · <a href="../reader-archive/request-lifecycle.html#source-d53c87090347ce81">src/libcamera/camera.cpp:1481</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Count callbacks if received">Count callbacks if received</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-d53c87090347ce81">src/libcamera/camera.cpp:1481</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Judge cancellation from observed request status">Judge cancellation from observed request status</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-db7f21585c4c2708">src/libcamera/request.cpp:103</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Check buffer statuses">Check buffer statuses</span></td>
+<td><a href="../reader-archive/request-lifecycle.html#source-db7f21585c4c2708">src/libcamera/request.cpp:103</a> · <a href="../reader-archive/request-lifecycle.html#source-50aa8a55cc04062e">src/libcamera/framebuffer.cpp:40</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:stop-notification-boundary-vendor --><h2 id="d4-vendor-responsibilities">Boundary between hardware and the common layer</h2>
 <p data-sdd-evidence='[["src/libcamera/pipeline_handler.cpp:91", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L91\"><code>src/libcamera/pipeline_handler.cpp:91</code></a>"], ["src/libcamera/pipeline_handler.cpp:97", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L97\"><code>src/libcamera/pipeline_handler.cpp:97</code></a>"], ["src/libcamera/pipeline_handler.cpp:109", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L109\"><code>src/libcamera/pipeline_handler.cpp:109</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline_handler.cpp:91": ["reader-archive/vendor-integration.html#source-5109302527925a6a"], "src/libcamera/pipeline_handler.cpp:97": ["reader-archive/vendor-integration.html#source-293bf5d4775550d0"], "src/libcamera/pipeline_handler.cpp:109": ["reader-archive/vendor-integration.html#source-1afff120b5d66b3c"]}'>When all media devices needed for a single pipeline are found, the implementer of <code>PipelineHandler::match()</code> must call <code>MediaDevice::acquire()</code> to acquire each device, then create one or more corresponding <code>Camera</code> instances, store them internally, register them with the camera manager, and return <code>true</code>. When not all required media devices are found, the implementer of <code>PipelineHandler::match()</code> must not acquire any devices if none have yet been acquired; if some have already been acquired, the implementer must call <code>MediaDevice::release()</code> to release all acquired devices and return <code>false</code>. <code>PipelineHandler::match()</code> is called on the <code>CameraManager</code> thread and, if it returns <code>true</code>, a new <code>PipelineHandler</code> instance is created and that instance's <code>match()</code> is called.</p>
 <!-- sdd:visual:item-boundary -->
 <h3 id="d4-장치-매칭의-확보등록과-실패-정리">Acquisition and registration for device matching and cleanup on failure</h3>
