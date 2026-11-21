@@ -20,11 +20,60 @@ The documentation lists Arm Mali-C55, Intel IPU3 (`ipu3`), NXP i.MX8MP (`imx8-is
 
 The pipeline handlers to build are selected in the array option `pipelines`, whose default is `auto`. Selecting `auto` builds all pipelines applicable to the target architecture, while selecting `all` builds all pipelines. If both values are selected, `all` takes precedence. The individual choices are `imx8-isi`, `ipu3`, `mali-c55`, `rkisp1`, `rpi/pisp`, `rpi/vc4`, `simple`, `uvcvideo`, `vimc`, and `virtual`.
 
+### Raspberry Pi sensor integration requirements
+
+The minimum margin between frame length and integration time for `CamHelperStarvis2` defaults to 4 lines. `imx585` and `imx676` are registered with `create585`, which passes 8 lines. A comment in the helper code explains that both sensor manuals specify a minimum of 8 lines for `SHR0`. The exposure limit calculation accounts for this margin in the frame length and limits the exposure line count to the smaller of the frame length minus the margin and the requested exposure in lines.
+
+#### Starvis2 exposure limit
+
+```mermaid
+flowchart TB
+
+  v_selection["Select Starvis2 exposure <br/>margin"]
+  v_default["Default: 4 lines"]
+  v_specific["imx585 / imx676 → <br/>create585: 8 lines"]
+  v_available["Frame length − selected <br/>margin"]
+  v_limit["Smaller of requested and <br/>available exposure lines"]
+  v_selection -->|"Default path"| v_default
+  v_selection -->|"Sensor-specific path"| v_specific
+  v_default -->|"Margin lines"| v_available
+  v_specific -->|"Margin lines"| v_available
+  v_available -->|"Apply minimum"| v_limit
+```
+
+Mermaid source
+
 <details open>
-<summary>Section-wide evidence: 2</summary>
+<summary>Diagram evidence and verification scope</summary>
+
+How can the exposure margin limit the requested exposure?
+
+Source-linked interpretation · automatic link check only · meaning and device execution not yet verified
+
+| Elements and transitions | Source evidence |
+| --- | --- |
+| Select Starvis2 exposure margin | src/ipa/rpi/cam_helper/cam_helper_starvis2.cpp:17 |
+| Default: 4 lines | src/ipa/rpi/cam_helper/cam_helper_starvis2.cpp:17 |
+| imx585 / imx676 → create585: 8 lines | src/ipa/rpi/cam_helper/cam_helper_starvis2.cpp:17 |
+| Frame length − selected margin | src/ipa/rpi/cam_helper/cam_helper.cpp:105 |
+| Smaller of requested and available exposure lines | src/ipa/rpi/cam_helper/cam_helper.cpp:105 |
+| Default path | src/ipa/rpi/cam_helper/cam_helper_starvis2.cpp:17 |
+| Sensor-specific path | src/ipa/rpi/cam_helper/cam_helper_starvis2.cpp:17 |
+| Margin lines | src/ipa/rpi/cam_helper/cam_helper.cpp:105 |
+| Margin lines | src/ipa/rpi/cam_helper/cam_helper.cpp:105 |
+| Apply minimum | src/ipa/rpi/cam_helper/cam_helper.cpp:105 |
+
+</details>
+
+Runtime verification: Sensor names and helper creation functions are registered in `RegisterCamHelper`, and frame and exposure limit code is present. To verify that capture and exposure work on the target board, you must check the relevant constraints in the target pipeline and the kernel driver's sensor mode.
+
+<details open>
+<summary>Section-wide evidence: 4</summary>
 
 - `Documentation/platform_support.rst``L6` excerpt · [Full source `L6`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/platform_support.rst#L6)
 - `meson_options.txt``L75` excerpt · [Full source `L75`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/meson_options.txt#L75)
+- `src/ipa/rpi/cam_helper/cam_helper_starvis2.cpp``L17` excerpt · [Full source `L17`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/rpi/cam_helper/cam_helper_starvis2.cpp#L17)
+- `src/ipa/rpi/cam_helper/cam_helper.cpp``L105` excerpt · [Full source `L105`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/rpi/cam_helper/cam_helper.cpp#L105)
 
 </details>
 
@@ -203,7 +252,7 @@ The built-in benchmark in `DebayerCpu` measures only the time spent processing s
 - **Automated check**: Passed (`ok`). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.
 - **Human review**: Before human review
 - **Analysis baseline commit**: `adfa719f8ed67d18fd8a0739fc088a1f8b9e7252`
-- **Document generation time**: `2026-11-20 16:39:16+00:00`
+- **Document generation time**: `2026-11-21 20:16:03+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
 - **Contracts between documents**: Automated comparison report · Before human review
 - **Reader scope**: Answers by task and unreviewed scope
@@ -214,10 +263,10 @@ The built-in benchmark in `DebayerCpu` measures only the time spent processing s
 
 This is a record saved in the manuscript as of that time. It may differ from the current document's standards.
 
-- Evidence files: `Documentation/introduction.rst`, `Documentation/libcamera_architecture.rst`, `Documentation/platform_support.rst`, `include/libcamera/camera.h`, `include/libcamera/internal/ipa_manager.h`, `include/libcamera/internal/pipeline_handler.h`, `meson_options.txt`, `product-evidence/libcamera/official-stack.txt`, `src/libcamera/camera.cpp`, `src/libcamera/ipa_manager.cpp`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/pipeline_handler.cpp`
+- Evidence files: `Documentation/introduction.rst`, `Documentation/libcamera_architecture.rst`, `Documentation/platform_support.rst`, `include/libcamera/camera.h`, `include/libcamera/internal/ipa_manager.h`, `include/libcamera/internal/pipeline_handler.h`, `meson_options.txt`, `product-evidence/libcamera/official-stack.txt`, `src/ipa/rpi/cam_helper/cam_helper.cpp`, `src/ipa/rpi/cam_helper/cam_helper_starvis2.cpp`, `src/libcamera/camera.cpp`, `src/libcamera/ipa_manager.cpp`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/pipeline_handler.cpp`
 - Evidence level: code verified (static analysis, simple_compdb configuration, commit `adfa719f8e`)
 - Automated check (citation, sentence, and configured structure checks): passed
-- Review status recorded on: 2026-11-21 · Awaiting human review
+- Review status recorded: 2026-11-22 · Awaiting human review
 
 </details>
 

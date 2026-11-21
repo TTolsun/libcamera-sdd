@@ -20,11 +20,60 @@
 
 빌드할 파이프라인 핸들러는 배열 옵션인 `pipelines`에서 선택하며, 기본값은 `auto`입니다. `auto`를 선택하면 대상 아키텍처에 적용되는 모든 파이프라인을 빌드하고, `all`을 선택하면 모든 파이프라인을 빌드합니다. 두 값을 함께 선택하면 `all`이 우선합니다. 개별 선택지는 `imx8-isi`, `ipu3`, `mali-c55`, `rkisp1`, `rpi/pisp`, `rpi/vc4`, `simple`, `uvcvideo`, `vimc`, `virtual`입니다.
 
+### Raspberry Pi 센서의 연동 조건
+
+`CamHelperStarvis2`의 프레임 길이와 적분 시간 사이 최소 여유는 기본 4라인입니다. `imx585`와 `imx676`은 8라인을 전달하는 `create585`로 등록되며, 헬퍼 코드 주석은 두 센서의 매뉴얼이 `SHR0`의 최솟값을 8라인으로 명시한다고 설명합니다. 노출 제한 계산은 이 여유를 프레임 길이에 반영하고, 프레임 길이에서 여유를 뺀 값과 요청 노출의 라인 수 중 작은 값으로 노출 라인 수를 제한합니다.
+
+#### Starvis2 노출 제한
+
+```mermaid
+flowchart TB
+%% sdd:translations {"Starvis2 노출 여유값 선택": "Select Starvis2 exposure <br/>margin", "imx585·imx676 → create585: <br/>8라인": "imx585 / imx676 → <br/>create585: 8 lines", "기본 경로": "Default path", "기본값: 4라인": "Default: 4 lines", "센서별 경로": "Sensor-specific path", "여유 라인": "Margin lines", "요청 노출 라인과 가용 라인 <br/>중 작은 값": "Smaller of requested and <br/>available exposure lines", "작은 값 적용": "Apply minimum", "프레임 길이 − 선택한 여유값": "Frame length − selected <br/>margin"}
+  v_selection["Starvis2 노출 여유값 선택"]
+  v_default["기본값: 4라인"]
+  v_specific["imx585·imx676 → create585: <br/>8라인"]
+  v_available["프레임 길이 − 선택한 여유값"]
+  v_limit["요청 노출 라인과 가용 라인 <br/>중 작은 값"]
+  v_selection -->|"기본 경로"| v_default
+  v_selection -->|"센서별 경로"| v_specific
+  v_default -->|"여유 라인"| v_available
+  v_specific -->|"여유 라인"| v_available
+  v_available -->|"작은 값 적용"| v_limit
+```
+
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/vendor-overview.starvis2-exposure-limit.mmd)
+
 <details open>
-<summary>절 전체 근거 2개</summary>
+<summary>그림 근거와 확인 범위</summary>
+
+노출 여유값으로 요청 노출을 어떻게 제한할까?
+
+소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전
+
+| 요소·전이 | 소스 근거 |
+| --- | --- |
+| Starvis2 노출 여유값 선택 | [src/ipa/rpi/cam_helper/cam_helper_starvis2.cpp:17](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-overview.html#source-a24a98731281b4ed) |
+| 기본값: 4라인 | [src/ipa/rpi/cam_helper/cam_helper_starvis2.cpp:17](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-overview.html#source-a24a98731281b4ed) |
+| imx585·imx676 → create585: 8라인 | [src/ipa/rpi/cam_helper/cam_helper_starvis2.cpp:17](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-overview.html#source-a24a98731281b4ed) |
+| 프레임 길이 − 선택한 여유값 | [src/ipa/rpi/cam_helper/cam_helper.cpp:105](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-overview.html#source-74499d75cde7fa55) |
+| 요청 노출 라인과 가용 라인 중 작은 값 | [src/ipa/rpi/cam_helper/cam_helper.cpp:105](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-overview.html#source-74499d75cde7fa55) |
+| 기본 경로 | [src/ipa/rpi/cam_helper/cam_helper_starvis2.cpp:17](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-overview.html#source-a24a98731281b4ed) |
+| 센서별 경로 | [src/ipa/rpi/cam_helper/cam_helper_starvis2.cpp:17](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-overview.html#source-a24a98731281b4ed) |
+| 여유 라인 | [src/ipa/rpi/cam_helper/cam_helper.cpp:105](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-overview.html#source-74499d75cde7fa55) |
+| 여유 라인 | [src/ipa/rpi/cam_helper/cam_helper.cpp:105](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-overview.html#source-74499d75cde7fa55) |
+| 작은 값 적용 | [src/ipa/rpi/cam_helper/cam_helper.cpp:105](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-overview.html#source-74499d75cde7fa55) |
+
+</details>
+
+실행 확인 항목: `RegisterCamHelper`에 센서 이름과 헬퍼 생성 함수가 등록되어 있고 프레임 및 노출 제한 코드가 있지만, 대상 보드에서 실제 촬영과 노출이 동작하는지는 대상 파이프라인과 커널 드라이버의 센서 모드에서 해당 제약을 확인해야 합니다.
+
+<details open>
+<summary>절 전체 근거 4개</summary>
 
 - `Documentation/platform_support.rst`[`L6` 발췌](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-overview.html#source-9d6502e234c4647d) · [전체 소스 `L6`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/platform_support.rst#L6)
 - `meson_options.txt`[`L75` 발췌](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-overview.html#source-691389506fe87b32) · [전체 소스 `L75`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/meson_options.txt#L75)
+- `src/ipa/rpi/cam_helper/cam_helper_starvis2.cpp`[`L17` 발췌](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-overview.html#source-a24a98731281b4ed) · [전체 소스 `L17`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/rpi/cam_helper/cam_helper_starvis2.cpp#L17)
+- `src/ipa/rpi/cam_helper/cam_helper.cpp`[`L105` 발췌](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-overview.html#source-74499d75cde7fa55) · [전체 소스 `L105`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/ipa/rpi/cam_helper/cam_helper.cpp#L105)
 
 </details>
 
@@ -203,7 +252,7 @@ LLM 그림 초안 · 사람 검토 전
 - **자동 검사**: 통과 (`ok`). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.
 - **사람 검토**: 사람 검토 전
 - **분석 기준 커밋**: `adfa719f8ed67d18fd8a0739fc088a1f8b9e7252`
-- **문서 생성 시각**: `2026-11-20 16:39:16+00:00`
+- **문서 생성 시각**: `2026-11-21 20:16:03+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
 - **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
 - **독자 범위**: [과업별 답변과 미검토 범위](https://ttolsun.github.io/libcamera-sdd/reader-scope.json)
@@ -214,10 +263,10 @@ LLM 그림 초안 · 사람 검토 전
 
 원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.
 
-- 근거 파일: `Documentation/introduction.rst`, `Documentation/libcamera_architecture.rst`, `Documentation/platform_support.rst`, `include/libcamera/camera.h`, `include/libcamera/internal/ipa_manager.h`, `include/libcamera/internal/pipeline_handler.h`, `meson_options.txt`, `product-evidence/libcamera/official-stack.txt`, `src/libcamera/camera.cpp`, `src/libcamera/ipa_manager.cpp`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/pipeline_handler.cpp`
+- 근거 파일: `Documentation/introduction.rst`, `Documentation/libcamera_architecture.rst`, `Documentation/platform_support.rst`, `include/libcamera/camera.h`, `include/libcamera/internal/ipa_manager.h`, `include/libcamera/internal/pipeline_handler.h`, `meson_options.txt`, `product-evidence/libcamera/official-stack.txt`, `src/ipa/rpi/cam_helper/cam_helper.cpp`, `src/ipa/rpi/cam_helper/cam_helper_starvis2.cpp`, `src/libcamera/camera.cpp`, `src/libcamera/ipa_manager.cpp`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/pipeline_handler.cpp`
 - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `adfa719f8e`)
 - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-- 검토 상태 기록일: 2026-11-21 · 사람 검토 전
+- 검토 상태 기록일: 2026-11-22 · 사람 검토 전
 
 </details>
 
