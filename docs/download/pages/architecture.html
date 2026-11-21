@@ -1,0 +1,360 @@
+<!doctype html>
+<html data-sdd-page-copy lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architecture</title><link rel="stylesheet" href="../../assets/reading.css?v=dd3415510a"><style>.full-document-bar{position:sticky;top:0;z-index:10;display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px;padding:10px max(16px,calc((100vw - 900px)/2));background:#fff;border-bottom:1px solid var(--line);font-size:14px}.full-document-bar p{margin:0;color:var(--muted)}.full-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin-left:auto}.full-document-bar .full-hint{flex:1 1 100%;font-size:12px}#print-document{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}#print-document:disabled{background:var(--soft);border-color:var(--line);color:var(--muted);cursor:progress}.full-document main{max-width:900px;margin:0 auto;padding:32px 16px 64px}.full-cover dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 16px;font-size:14px}.full-cover dd{margin:0}.full-notice{border-left:3px solid #8ba99e;padding:4px 0 4px 14px;color:var(--muted);font-size:14px}.full-contents ol ol{padding-left:20px}.full-page{border-top:2px solid var(--line);margin-top:56px;padding-top:8px}.full-page>.breadcrumb{margin-bottom:0}@media print{.full-document-bar{display:none}.full-document main{padding:0;max-width:none}.full-cover{break-after:page}.full-page{break-before:page;border:0;margin:0;padding:0}pre{white-space:pre-wrap;overflow:visible}pre code{overflow-wrap:anywhere}.mermaid{overflow:visible;break-inside:avoid}.mermaid svg{max-width:100%!important;height:auto!important}.full-page details>summary{list-style:none}.full-page details>summary::-webkit-details-marker{display:none}}.full-page{margin:0;border:0;padding:0;break-before:auto}</style></head>
+<body class="full-document"><div class="full-document-bar"><a href="../../architecture.html">← 사이트로 돌아가기</a><p id="print-status" role="status">그림을 그리는 중입니다.</p>
+<div class="full-actions"><button id="print-document" type="button" disabled>Save as PDF</button><a href="architecture.md" download="architecture.md">Download Markdown</a></div><p class="full-hint">인쇄 창에서 대상을 PDF로 저장(Save as PDF)으로 선택하세요.</p></div>
+<main id="main"><section class="full-page" id="doc-1"><h1>Architecture</h1><article><p>카메라 스택의 계층과 각 구성 요소의 역할, 카메라 탐색 과정과 구성 요소 사이의 경계를 살펴보세요.</p><!-- sdd:visual:camera-stack -->
+<h2 id="d1-camera-stack">카메라 스택의 네 계층</h2>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"V4L2 계열 API 경유 카메라 &lt;br/&gt;장치 제어": "Control camera devices via &lt;br/&gt;the V4L2 family of APIs", "libcamera adaptation &lt;br/&gt;기반으로 사용": "Use based on the libcamera &lt;br/&gt;adaptation", "libcamera 프레임워크: &lt;br/&gt;카메라 장치 제어, 네이티브 &lt;br/&gt;C++ API 제공, 선택적 언어 &lt;br/&gt;바인딩": "libcamera framework: camera &lt;br/&gt;device control, native C++ &lt;br/&gt;API, optional language &lt;br/&gt;bindings", "libcamera 프레임워크에 연결": "Connect to the libcamera &lt;br/&gt;framework", "네이티브 C++ API 및 선택적 &lt;br/&gt;언어 바인딩 사용": "Use the native C++ API and &lt;br/&gt;optional language bindings", "애플리케이션·상위 &lt;br/&gt;프레임워크: 프로젝트 범위 &lt;br/&gt;밖, libcamera 프레임워크 &lt;br/&gt;또는 어댑테이션을 기반으로 &lt;br/&gt;사용": "Applications and &lt;br/&gt;upper-level frameworks: &lt;br/&gt;outside project scope, &lt;br/&gt;based on the libcamera &lt;br/&gt;framework or adaptation", "어댑테이션 #40;V4L2 호환 예시, &lt;br/&gt;GStreamer libcamera 요소, &lt;br/&gt;libcamera 기반 Android &lt;br/&gt;카메라 HAL 구현#41;: &lt;br/&gt;libcamera를 다른 &lt;br/&gt;프레임워크에 연결": "Adaptation #40;V4L2 &lt;br/&gt;compatibility example, &lt;br/&gt;gstreamer libcamera &lt;br/&gt;element, libcamera-based &lt;br/&gt;Android camera HAL &lt;br/&gt;implementation#41;: connects &lt;br/&gt;libcamera to other &lt;br/&gt;frameworks", "커널 드라이버 #40;V4L2 계열 &lt;br/&gt;API#41;: 카메라 하드웨어 제어, &lt;br/&gt;V4L2 계열 API로 사용자 &lt;br/&gt;공간에 노출": "Kernel drivers #40;V4L2 family &lt;br/&gt;of APIs#41;: control camera &lt;br/&gt;hardware and expose it to &lt;br/&gt;userspace through V4L2 APIs"}
+  v_apps["애플리케이션·상위 &lt;br/&gt;프레임워크: 프로젝트 범위 &lt;br/&gt;밖, libcamera 프레임워크 &lt;br/&gt;또는 어댑테이션을 기반으로 &lt;br/&gt;사용"]
+  v_adaptation["어댑테이션 #40;V4L2 호환 예시, &lt;br/&gt;GStreamer libcamera 요소, &lt;br/&gt;libcamera 기반 Android &lt;br/&gt;카메라 HAL 구현#41;: &lt;br/&gt;libcamera를 다른 &lt;br/&gt;프레임워크에 연결"]
+  v_framework["libcamera 프레임워크: &lt;br/&gt;카메라 장치 제어, 네이티브 &lt;br/&gt;C++ API 제공, 선택적 언어 &lt;br/&gt;바인딩"]
+  v_kernel["커널 드라이버 #40;V4L2 계열 &lt;br/&gt;API#41;: 카메라 하드웨어 제어, &lt;br/&gt;V4L2 계열 API로 사용자 &lt;br/&gt;공간에 노출"]
+  v_apps --&gt;|"libcamera adaptation &lt;br/&gt;기반으로 사용"| v_adaptation
+  v_adaptation --&gt;|"libcamera 프레임워크에 연결"| v_framework
+  v_framework --&gt;|"V4L2 계열 API 경유 카메라 &lt;br/&gt;장치 제어"| v_kernel
+  v_apps --&gt;|"네이티브 C++ API 및 선택적 &lt;br/&gt;언어 바인딩 사용"| v_framework</pre>
+<p><a href="../../index.camera-stack.mmd">Mermaid 원문</a></p>
+<details open class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>애플리케이션부터 커널 드라이버까지 네 소프트웨어 계층은 각각 어떤 역할을 맡습니까? 카메라 하드웨어 자체, 지원 기종, 성능은 이 그림의 범위가 아닙니다.</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Applications and upper-level frameworks: outside project scope, based on the libcamera framework or adaptation">애플리케이션·상위 프레임워크: 프로젝트 범위 밖, libcamera 프레임워크 또는 어댑테이션을 기반으로 사용</span></td>
+<td><a href="../../reader-archive/vendor-overview.html#source-e3b563f549a8c46d">Documentation/introduction.rst:137</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Adaptation (V4L2 compatibility example, gstreamer libcamera element, libcamera-based Android camera HAL implementation): connects libcamera to other frameworks">어댑테이션 (V4L2 호환 예시, GStreamer libcamera 요소, libcamera 기반 Android 카메라 HAL 구현): libcamera를 다른 프레임워크에 연결</span></td>
+<td><a href="../../reader-archive/vendor-overview.html#source-e3b563f549a8c46d">Documentation/introduction.rst:137</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="libcamera framework: camera device control, native C++ API, optional language bindings">libcamera 프레임워크: 카메라 장치 제어, 네이티브 C++ API 제공, 선택적 언어 바인딩</span></td>
+<td><a href="../../reader-archive/vendor-overview.html#source-e3b563f549a8c46d">Documentation/introduction.rst:137</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Kernel drivers (V4L2 family of APIs): control camera hardware and expose it to userspace through V4L2 APIs">커널 드라이버 (V4L2 계열 API): 카메라 하드웨어 제어, V4L2 계열 API로 사용자 공간에 노출</span></td>
+<td><a href="../../reader-archive/vendor-overview.html#source-e3b563f549a8c46d">Documentation/introduction.rst:137</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Use based on the libcamera adaptation">libcamera adaptation 기반으로 사용</span></td>
+<td><a href="../../reader-archive/vendor-overview.html#source-e3b563f549a8c46d">Documentation/introduction.rst:137</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Connect to the libcamera framework">libcamera 프레임워크에 연결</span></td>
+<td><a href="../../reader-archive/vendor-overview.html#source-e3b563f549a8c46d">Documentation/introduction.rst:137</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Control camera devices via the V4L2 family of APIs">V4L2 계열 API 경유 카메라 장치 제어</span></td>
+<td><a href="../../reader-archive/vendor-overview.html#source-e3b563f549a8c46d">Documentation/introduction.rst:137</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Use the native C++ API and optional language bindings">네이티브 C++ API 및 선택적 언어 바인딩 사용</span></td>
+<td><a href="../../reader-archive/vendor-overview.html#source-e3b563f549a8c46d">Documentation/introduction.rst:137</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:camera-stack -->
+
+<h2 id="d1-responsibilities">컴포넌트별 책임</h2>
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:758", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L758\"><code>src/libcamera/camera.cpp:758</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:758": ["reader-archive/overview.html#source-6c066281dcce33d6"]}'><code>Camera</code>는 하나의 이미지 소스에서 하나 이상의 이미지 스트림을 생성할 수 있는 카메라를 모델링하며, 장치 설정과 제어 및 이미지 스트림 캡처를 위한 주 인터페이스를 제공하는 libcamera의 중심 객체입니다. libcamera는 카메라 인스턴스의 수명을 <code>std::shared_ptr&lt;&gt;</code>로 관리하며, 인스턴스는 공유 포인터를 반환하는 <code>create()</code> 함수로 생성해야 합니다. <code>Camera</code>의 생성자와 소멸자는 비공개이므로 인스턴스를 수동으로 생성하거나 파괴할 수 없습니다.</p>
+
+<details open class="evidence-links evidence-section"><summary>절 전체 근거 <span>1</span>개</summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="../../reader-archive/overview.html#source-6c066281dcce33d6" aria-label="src/libcamera/camera.cpp:758 발췌"><code>L758</code> 발췌</a> · <a aria-label="src/libcamera/camera.cpp:758" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L758">전체 소스 <code>L758</code></a></span></li></ul></details><h2 id="d1-discovery">탐색과 파이프라인 선택</h2>
+<p data-sdd-evidence='[["src/libcamera/camera_manager.cpp:283", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera_manager.cpp#L283\"><code>src/libcamera/camera_manager.cpp:283</code></a>"], ["src/libcamera/camera_manager.cpp:154", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera_manager.cpp#L154\"><code>src/libcamera/camera_manager.cpp:154</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera_manager.cpp:283": ["reader-archive/overview.html#source-f75d22cf73f3402d"], "src/libcamera/camera_manager.cpp:154": ["reader-archive/overview.html#source-0c01857bf49370e2"]}'><code>CameraManager</code>는 libcamera의 진입점으로, 장치를 열거하고 파이프라인과 연결하며 애플리케이션이 시스템의 카메라에 접근할 수 있게 합니다. <code>CameraManager::Private::pipelineFactoryMatch</code>는 팩토리에서 <code>PipelineHandler</code>를 반복해서 생성하고 <code>enumerator_</code>로 일치를 확인하며, 일치하지 않으면 반복을 끝냅니다. <code>CameraManager</code> 인스턴스는 동시에 하나만 존재할 수 있습니다. 기존 인스턴스를 삭제하지 않고 두 번째 인스턴스를 생성하려고 하면 동작이 정의되지 않습니다.</p>
+<!-- sdd:visual:discovery-map -->
+<h3 id="d1-장치-탐색에서-camera-접근까지">장치 탐색에서 Camera 접근까지</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"CameraManager는 장치를 &lt;br/&gt;열거하고 Camera 객체를 &lt;br/&gt;소유합니다.": "CameraManager enumerates &lt;br/&gt;devices and owns the Camera &lt;br/&gt;objects.", "ID로 Camera를 찾습니다.": "Look up a Camera by ID.", "cameras#40;#41;는 사용 가능한 &lt;br/&gt;Camera 목록을 반환합니다.": "cameras#40;#41; returns the list &lt;br/&gt;of available cameras.", "get#40;id#41;는 Camera의 공유 &lt;br/&gt;포인터를 반환합니다. 없으면 &lt;br/&gt;nullptr입니다.": "get#40;id#41; returns a shared &lt;br/&gt;pointer to the Camera, or &lt;br/&gt;nullptr if it is absent.", "match가 장치 존재를 &lt;br/&gt;확인합니다.": "match checks whether the &lt;br/&gt;devices are available.", "start#40;#41;에서 매니저를 &lt;br/&gt;시작하고 장치를 열거합니다.": "start#40;#41; starts the manager &lt;br/&gt;and enumerates devices.", "true이면 새 핸들러에서 다시 &lt;br/&gt;매칭합니다.": "A true result starts &lt;br/&gt;matching again with a new &lt;br/&gt;handler.", "매니저의 별도 장치 매칭 &lt;br/&gt;책임입니다.": "This is the manager’s &lt;br/&gt;separate device matching &lt;br/&gt;responsibility.", "목록을 조회합니다.": "Get the list.", "별도의 앱 조회 조건입니다.": "This is the separate &lt;br/&gt;application lookup &lt;br/&gt;requirement.", "시작 결과가 실패입니다.": "The start failed.", "시작 실패에는 음수 오류 &lt;br/&gt;코드가 반환됩니다.": "A failed start returns a &lt;br/&gt;negative error code.", "앱은 조회 전에 매니저가 &lt;br/&gt;실행 중임을 확인합니다.": "Before a lookup, the &lt;br/&gt;application ensures the &lt;br/&gt;manager is running.", "이 파이프라인에 필요한 &lt;br/&gt;장치를 모두 찾았습니까?": "Were all devices for this &lt;br/&gt;pipeline found?", "장치 탐색을 시작합니다.": "Start device discovery.", "장치를 확보하고 Camera를 &lt;br/&gt;생성·보관·등록한 뒤 true를 &lt;br/&gt;반환합니다.": "Acquire the devices, &lt;br/&gt;create, store and register &lt;br/&gt;the cameras, and return &lt;br/&gt;true.", "장치를 확보하지 않거나 &lt;br/&gt;확보한 장치를 모두 해제하고 &lt;br/&gt;false를 반환합니다.": "Acquire no devices or &lt;br/&gt;release all acquired &lt;br/&gt;devices, then return false.", "팩터리가 핸들러를 만들고 &lt;br/&gt;매니저가 match를 호출합니다.": "The factory creates a &lt;br/&gt;handler and the manager &lt;br/&gt;calls match.", "필요한 장치가 모두 있습니다.": "All required devices are &lt;br/&gt;available.", "필요한 장치가 부족합니다.": "A required device is &lt;br/&gt;missing."}
+  v_manager["CameraManager는 장치를 &lt;br/&gt;열거하고 Camera 객체를 &lt;br/&gt;소유합니다."]
+  v_start["start#40;#41;에서 매니저를 &lt;br/&gt;시작하고 장치를 열거합니다."]
+  v_start-error["시작 실패에는 음수 오류 &lt;br/&gt;코드가 반환됩니다."]
+  v_match["팩터리가 핸들러를 만들고 &lt;br/&gt;매니저가 match를 호출합니다."]
+  v_found{"이 파이프라인에 필요한 &lt;br/&gt;장치를 모두 찾았습니까?"}
+  v_registered["장치를 확보하고 Camera를 &lt;br/&gt;생성·보관·등록한 뒤 true를 &lt;br/&gt;반환합니다."]
+  v_released["장치를 확보하지 않거나 &lt;br/&gt;확보한 장치를 모두 해제하고 &lt;br/&gt;false를 반환합니다."]
+  v_running["앱은 조회 전에 매니저가 &lt;br/&gt;실행 중임을 확인합니다."]
+  v_list["cameras#40;#41;는 사용 가능한 &lt;br/&gt;Camera 목록을 반환합니다."]
+  v_get["get#40;id#41;는 Camera의 공유 &lt;br/&gt;포인터를 반환합니다. 없으면 &lt;br/&gt;nullptr입니다."]
+  v_manager --&gt;|"장치 탐색을 시작합니다."| v_start
+  v_manager --&gt;|"매니저의 별도 장치 매칭 &lt;br/&gt;책임입니다."| v_match
+  v_start --&gt;|"시작 결과가 실패입니다."| v_start-error
+  v_match --&gt;|"match가 장치 존재를 &lt;br/&gt;확인합니다."| v_found
+  v_found --&gt;|"필요한 장치가 모두 있습니다."| v_registered
+  v_found --&gt;|"필요한 장치가 부족합니다."| v_released
+  v_registered --&gt;|"true이면 새 핸들러에서 다시 &lt;br/&gt;매칭합니다."| v_match
+  v_manager --&gt;|"별도의 앱 조회 조건입니다."| v_running
+  v_running --&gt;|"목록을 조회합니다."| v_list
+  v_running --&gt;|"ID로 Camera를 찾습니다."| v_get</pre>
+<p><a href="../../overview.discovery-map.mmd">Mermaid 원문</a></p>
+<details open class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>CameraManager는 어떻게 장치를 매칭하고 카메라를 등록하며, 앱은 어떤 조건에서 카메라를 조회할 수 있습니까?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="CameraManager enumerates devices and owns the Camera objects.">CameraManager는 장치를 열거하고 Camera 객체를 소유합니다.</span></td>
+<td><a href="../../reader-archive/overview.html#source-f75d22cf73f3402d">src/libcamera/camera_manager.cpp:283</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="start() starts the manager and enumerates devices.">start()에서 매니저를 시작하고 장치를 열거합니다.</span></td>
+<td><a href="../../reader-archive/overview.html#source-f58d94d893e03971">src/libcamera/camera_manager.cpp:329</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="A failed start returns a negative error code.">시작 실패에는 음수 오류 코드가 반환됩니다.</span></td>
+<td><a href="../../reader-archive/overview.html#source-f58d94d893e03971">src/libcamera/camera_manager.cpp:329</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The factory creates a handler and the manager calls match.">팩터리가 핸들러를 만들고 매니저가 match를 호출합니다.</span></td>
+<td><a href="../../reader-archive/overview.html#source-0c01857bf49370e2">src/libcamera/camera_manager.cpp:154</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Were all devices for this pipeline found?">이 파이프라인에 필요한 장치를 모두 찾았습니까?</span></td>
+<td><a href="../../reader-archive/overview.html#source-5bbd41c1e725138c">src/libcamera/pipeline_handler.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Acquire the devices, create, store and register the cameras, and return true.">장치를 확보하고 Camera를 생성·보관·등록한 뒤 true를 반환합니다.</span></td>
+<td><a href="../../reader-archive/overview.html#source-5bbd41c1e725138c">src/libcamera/pipeline_handler.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Acquire no devices or release all acquired devices, then return false.">장치를 확보하지 않거나 확보한 장치를 모두 해제하고 false를 반환합니다.</span></td>
+<td><a href="../../reader-archive/overview.html#source-5bbd41c1e725138c">src/libcamera/pipeline_handler.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Before a lookup, the application ensures the manager is running.">앱은 조회 전에 매니저가 실행 중임을 확인합니다.</span></td>
+<td><a href="../../reader-archive/overview.html#source-f58d94d893e03971">src/libcamera/camera_manager.cpp:329</a> · <a href="../../reader-archive/overview.html#source-0c733673790ad84f">src/libcamera/camera_manager.cpp:368</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="cameras() returns the list of available cameras.">cameras()는 사용 가능한 Camera 목록을 반환합니다.</span></td>
+<td><a href="../../reader-archive/overview.html#source-0c733673790ad84f">src/libcamera/camera_manager.cpp:368</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="get(id) returns a shared pointer to the Camera, or nullptr if it is absent.">get(id)는 Camera의 공유 포인터를 반환합니다. 없으면 nullptr입니다.</span></td>
+<td><a href="../../reader-archive/overview.html#source-0c733673790ad84f">src/libcamera/camera_manager.cpp:368</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Start device discovery.">장치 탐색을 시작합니다.</span></td>
+<td><a href="../../reader-archive/overview.html#source-f75d22cf73f3402d">src/libcamera/camera_manager.cpp:283</a> · <a href="../../reader-archive/overview.html#source-f58d94d893e03971">src/libcamera/camera_manager.cpp:329</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="This is the manager’s separate device matching responsibility.">매니저의 별도 장치 매칭 책임입니다.</span></td>
+<td><a href="../../reader-archive/overview.html#source-f75d22cf73f3402d">src/libcamera/camera_manager.cpp:283</a> · <a href="../../reader-archive/overview.html#source-0c01857bf49370e2">src/libcamera/camera_manager.cpp:154</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The start failed.">시작 결과가 실패입니다.</span></td>
+<td><a href="../../reader-archive/overview.html#source-f58d94d893e03971">src/libcamera/camera_manager.cpp:329</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="match checks whether the devices are available.">match가 장치 존재를 확인합니다.</span></td>
+<td><a href="../../reader-archive/overview.html#source-0c01857bf49370e2">src/libcamera/camera_manager.cpp:154</a> · <a href="../../reader-archive/overview.html#source-5bbd41c1e725138c">src/libcamera/pipeline_handler.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="All required devices are available.">필요한 장치가 모두 있습니다.</span></td>
+<td><a href="../../reader-archive/overview.html#source-5bbd41c1e725138c">src/libcamera/pipeline_handler.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="A required device is missing.">필요한 장치가 부족합니다.</span></td>
+<td><a href="../../reader-archive/overview.html#source-5bbd41c1e725138c">src/libcamera/pipeline_handler.cpp:86</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="A true result starts matching again with a new handler.">true이면 새 핸들러에서 다시 매칭합니다.</span></td>
+<td><a href="../../reader-archive/overview.html#source-5bbd41c1e725138c">src/libcamera/pipeline_handler.cpp:86</a> · <a href="../../reader-archive/overview.html#source-0c01857bf49370e2">src/libcamera/camera_manager.cpp:154</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="This is the separate application lookup requirement.">별도의 앱 조회 조건입니다.</span></td>
+<td><a href="../../reader-archive/overview.html#source-f75d22cf73f3402d">src/libcamera/camera_manager.cpp:283</a> · <a href="../../reader-archive/overview.html#source-f58d94d893e03971">src/libcamera/camera_manager.cpp:329</a> · <a href="../../reader-archive/overview.html#source-0c733673790ad84f">src/libcamera/camera_manager.cpp:368</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Get the list.">목록을 조회합니다.</span></td>
+<td><a href="../../reader-archive/overview.html#source-f58d94d893e03971">src/libcamera/camera_manager.cpp:329</a> · <a href="../../reader-archive/overview.html#source-0c733673790ad84f">src/libcamera/camera_manager.cpp:368</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Look up a Camera by ID.">ID로 Camera를 찾습니다.</span></td>
+<td><a href="../../reader-archive/overview.html#source-f58d94d893e03971">src/libcamera/camera_manager.cpp:329</a> · <a href="../../reader-archive/overview.html#source-0c733673790ad84f">src/libcamera/camera_manager.cpp:368</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:discovery-map -->
+
+<p data-sdd-evidence='[["src/libcamera/camera_manager.cpp:329", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera_manager.cpp#L329\"><code>src/libcamera/camera_manager.cpp:329</code></a>"], ["src/libcamera/camera_manager.cpp:368", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera_manager.cpp#L368\"><code>src/libcamera/camera_manager.cpp:368</code></a>"], ["src/libcamera/pipeline_handler.cpp:86", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L86\"><code>src/libcamera/pipeline_handler.cpp:86</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera_manager.cpp:329": ["reader-archive/overview.html#source-f58d94d893e03971"], "src/libcamera/camera_manager.cpp:368": ["reader-archive/overview.html#source-0c733673790ad84f"], "src/libcamera/pipeline_handler.cpp:86": ["reader-archive/overview.html#source-5bbd41c1e725138c"]}'>애플리케이션은 <code>CameraManager::start()</code>의 시작이 확인된 뒤부터 카메라 관리자가 중지되거나 해당 카메라가 시스템에서 분리될 때까지 카메라를 나열하고 사용할 수 있습니다. 호출자는 <code>CameraManager::cameras()</code>와 <code>CameraManager::get()</code>을 호출하기 전에 카메라 매니저가 실행 중인지 확인해야 합니다. <code>PipelineHandler::match()</code> 구현자는 필요한 미디어 장치를 모두 찾으면 각 장치를 <code>MediaDevice::acquire()</code>로 획득하고, 해당 <code>Camera</code> 인스턴스를 생성해 내부에 저장하고 카메라 관리자에 등록한 뒤 <code>true</code>를 반환해야 합니다. 필요한 장치를 모두 찾지 못하면 <code>match()</code> 구현자는 어떤 미디어 장치도 획득하지 않거나 이미 획득한 장치를 <code>MediaDevice::release()</code>로 모두 해제하고 <code>false</code>를 반환해야 합니다.</p>
+
+<details open class="evidence-links evidence-section"><summary>절 전체 근거 <span>5</span>개</summary><ul><li><code>src/libcamera/camera_manager.cpp</code><span class="evidence-lines"><a href="../../reader-archive/overview.html#source-f75d22cf73f3402d" aria-label="src/libcamera/camera_manager.cpp:283 발췌"><code>L283</code> 발췌</a> · <a aria-label="src/libcamera/camera_manager.cpp:283" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera_manager.cpp#L283">전체 소스 <code>L283</code></a> · <a href="../../reader-archive/overview.html#source-0c01857bf49370e2" aria-label="src/libcamera/camera_manager.cpp:154 발췌"><code>L154</code> 발췌</a> · <a aria-label="src/libcamera/camera_manager.cpp:154" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera_manager.cpp#L154">전체 소스 <code>L154</code></a> · <a href="../../reader-archive/overview.html#source-f58d94d893e03971" aria-label="src/libcamera/camera_manager.cpp:329 발췌"><code>L329</code> 발췌</a> · <a aria-label="src/libcamera/camera_manager.cpp:329" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera_manager.cpp#L329">전체 소스 <code>L329</code></a> · <a href="../../reader-archive/overview.html#source-0c733673790ad84f" aria-label="src/libcamera/camera_manager.cpp:368 발췌"><code>L368</code> 발췌</a> · <a aria-label="src/libcamera/camera_manager.cpp:368" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera_manager.cpp#L368">전체 소스 <code>L368</code></a></span></li><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="../../reader-archive/overview.html#source-5bbd41c1e725138c" aria-label="src/libcamera/pipeline_handler.cpp:86 발췌"><code>L86</code> 발췌</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:86" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L86">전체 소스 <code>L86</code></a></span></li></ul></details><h2 id="d1-layer-boundaries">다른 팀·계층과의 경계</h2>
+<p data-sdd-evidence='[["Documentation/introduction.rst:163", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/introduction.rst#L163\"><code>Documentation/introduction.rst:163</code></a>"]]' data-sdd-excerpts='{"Documentation/introduction.rst:163": ["reader-archive/team-overview.html#source-9e653b8ff755db78"]}'>libcamera 프레임워크(소프트웨어 개발의 기반 구조) 또는 libcamera를 맞춰 적용한 것을 기반으로 하는 애플리케이션(응용 프로그램)과 상위 수준 프레임워크는 libcamera 프로젝트의 범위 밖에 있습니다.</p>
+<!-- sdd:visual:item-boundaries -->
+<h3 id="d1-다른-팀계층과의-경계의-관계와-경계">다른 팀·계층과의 경계의 관계와 경계</h3>
+<pre class="mermaid">flowchart TB
+%% sdd:translations {"Handlers는 libcamera 코드 &lt;br/&gt;기반의 일부입니다.": "Handlers are part of the &lt;br/&gt;libcamera code base.", "IPA Modules는 Pipeline &lt;br/&gt;Handler API로만 libcamera와 &lt;br/&gt;상호작용하며 kernel camera &lt;br/&gt;devices에 직접 접근할 수 &lt;br/&gt;없습니다.": "IPA Modules use only the &lt;br/&gt;Pipeline Handler API to &lt;br/&gt;interact with libcamera and &lt;br/&gt;cannot directly access &lt;br/&gt;kernel camera devices.", "IPA Modules는 별도 &lt;br/&gt;플러그인입니다. in-tree &lt;br/&gt;모듈에는 free software &lt;br/&gt;license가 적용되며 외부 IPA &lt;br/&gt;Modules는 open-source 또는 &lt;br/&gt;closed-source일 수 있습니다.": "IPA Modules are separate &lt;br/&gt;plugins. In-tree modules &lt;br/&gt;have a free software &lt;br/&gt;license; external IPA &lt;br/&gt;Modules may be open-source &lt;br/&gt;or closed-source.", "IPA 알고리즘은 IPA &lt;br/&gt;Modules라는 외부 &lt;br/&gt;플러그인으로 로드됩니다.": "IPA algorithms are loaded &lt;br/&gt;as external plugins named &lt;br/&gt;IPA Modules.", "IPA 알고리즘은 하드웨어 &lt;br/&gt;이미지 처리 및 통계 수집과 &lt;br/&gt;함께 3A 등을 구현하고 &lt;br/&gt;하드웨어 이미지 처리를 &lt;br/&gt;제어합니다.": "IPA algorithms implement 3A &lt;br/&gt;and others with hardware &lt;br/&gt;image processing and &lt;br/&gt;statistics collection, and &lt;br/&gt;control hardware image &lt;br/&gt;processing.", "Pipeline Handler는 stream &lt;br/&gt;configuration을 바탕으로 &lt;br/&gt;pipeline을 구성하고 장치에 &lt;br/&gt;필요하면 runtime 실행과 &lt;br/&gt;scheduling을 수행합니다.": "The Pipeline Handler &lt;br/&gt;configures pipelines from &lt;br/&gt;stream configuration and &lt;br/&gt;handles runtime execution &lt;br/&gt;and scheduling when the &lt;br/&gt;device needs them.", "libcamera는 카메라 지원을 &lt;br/&gt;위한 프레임워크와 코드 &lt;br/&gt;기반을 제공합니다.": "libcamera provides a &lt;br/&gt;framework and code base for &lt;br/&gt;camera support.", "third parties가 배포하는 &lt;br/&gt;외부 closed-source IPA &lt;br/&gt;Modules에는 libcamera &lt;br/&gt;프로젝트의 소스 코드가 &lt;br/&gt;없어야 합니다.": "External closed-source IPA &lt;br/&gt;Modules distributed by &lt;br/&gt;third parties must not &lt;br/&gt;include libcamera project &lt;br/&gt;source code.", "third parties는 외부 IPA &lt;br/&gt;Modules를 개발하고 배포할 &lt;br/&gt;수 있습니다.": "Third parties may develop &lt;br/&gt;and distribute external IPA &lt;br/&gt;Modules.", "애플리케이션과 상위 &lt;br/&gt;프레임워크는 libcamera &lt;br/&gt;프레임워크 또는 &lt;br/&gt;adaptation을 기반으로 &lt;br/&gt;합니다.": "Applications and &lt;br/&gt;upper-level frameworks are &lt;br/&gt;based on the libcamera &lt;br/&gt;framework or adaptation.", "애플리케이션과 상위 &lt;br/&gt;프레임워크는 libcamera &lt;br/&gt;프로젝트 범위 밖에 있습니다.": "Applications and &lt;br/&gt;upper-level frameworks are &lt;br/&gt;outside the libcamera &lt;br/&gt;project scope.", "장치 제조사는 Handlers를 &lt;br/&gt;upstream에 기여해야 합니다.": "Device vendors must &lt;br/&gt;contribute Handlers &lt;br/&gt;upstream.", "장치 제조사는 Pipeline &lt;br/&gt;Handler를 upstream에 &lt;br/&gt;기여해야 하며 외부 IPA &lt;br/&gt;Modules를 제공할 수 &lt;br/&gt;있습니다.": "Device vendors must &lt;br/&gt;contribute Pipeline &lt;br/&gt;Handlers upstream and may &lt;br/&gt;provide external IPA &lt;br/&gt;Modules.", "장치별 Handlers는 &lt;br/&gt;하드웨어를 추상화하고, 실행 &lt;br/&gt;시스템에서 감지해 지원하는 &lt;br/&gt;장치의 Camera 인스턴스를 &lt;br/&gt;만들며 카메라 장치와의 &lt;br/&gt;상호작용을 관리합니다.": "Device-specific Handlers &lt;br/&gt;abstract hardware, create &lt;br/&gt;Camera instances for this &lt;br/&gt;system#39;s detected and &lt;br/&gt;supported devices, and &lt;br/&gt;manage camera-device &lt;br/&gt;interactions.", "장치별 Handlers는 Pipeline &lt;br/&gt;Handler 기본 클래스를 &lt;br/&gt;상속합니다.": "Device-specific Handlers &lt;br/&gt;derive from the Pipeline &lt;br/&gt;Handler base class."}
+  v_applications["애플리케이션과 상위 &lt;br/&gt;프레임워크는 libcamera &lt;br/&gt;프로젝트 범위 밖에 있습니다."]
+  v_libcamera["libcamera는 카메라 지원을 &lt;br/&gt;위한 프레임워크와 코드 &lt;br/&gt;기반을 제공합니다."]
+  v_vendors["장치 제조사는 Pipeline &lt;br/&gt;Handler를 upstream에 &lt;br/&gt;기여해야 하며 외부 IPA &lt;br/&gt;Modules를 제공할 수 &lt;br/&gt;있습니다."]
+  v_handlers["장치별 Handlers는 &lt;br/&gt;하드웨어를 추상화하고, 실행 &lt;br/&gt;시스템에서 감지해 지원하는 &lt;br/&gt;장치의 Camera 인스턴스를 &lt;br/&gt;만들며 카메라 장치와의 &lt;br/&gt;상호작용을 관리합니다."]
+  v_pipeline["Pipeline Handler는 stream &lt;br/&gt;configuration을 바탕으로 &lt;br/&gt;pipeline을 구성하고 장치에 &lt;br/&gt;필요하면 runtime 실행과 &lt;br/&gt;scheduling을 수행합니다."]
+  v_algorithms["IPA 알고리즘은 하드웨어 &lt;br/&gt;이미지 처리 및 통계 수집과 &lt;br/&gt;함께 3A 등을 구현하고 &lt;br/&gt;하드웨어 이미지 처리를 &lt;br/&gt;제어합니다."]
+  v_modules["IPA Modules는 별도 &lt;br/&gt;플러그인입니다. in-tree &lt;br/&gt;모듈에는 free software &lt;br/&gt;license가 적용되며 외부 IPA &lt;br/&gt;Modules는 open-source 또는 &lt;br/&gt;closed-source일 수 있습니다."]
+  v_third["third parties가 배포하는 &lt;br/&gt;외부 closed-source IPA &lt;br/&gt;Modules에는 libcamera &lt;br/&gt;프로젝트의 소스 코드가 &lt;br/&gt;없어야 합니다."]
+  v_applications --&gt;|"애플리케이션과 상위 &lt;br/&gt;프레임워크는 libcamera &lt;br/&gt;프레임워크 또는 &lt;br/&gt;adaptation을 기반으로 &lt;br/&gt;합니다."| v_libcamera
+  v_handlers --&gt;|"Handlers는 libcamera 코드 &lt;br/&gt;기반의 일부입니다."| v_libcamera
+  v_vendors --&gt;|"장치 제조사는 Handlers를 &lt;br/&gt;upstream에 기여해야 합니다."| v_handlers
+  v_handlers --&gt;|"장치별 Handlers는 Pipeline &lt;br/&gt;Handler 기본 클래스를 &lt;br/&gt;상속합니다."| v_pipeline
+  v_algorithms --&gt;|"IPA 알고리즘은 IPA &lt;br/&gt;Modules라는 외부 &lt;br/&gt;플러그인으로 로드됩니다."| v_modules
+  v_third --&gt;|"third parties는 외부 IPA &lt;br/&gt;Modules를 개발하고 배포할 &lt;br/&gt;수 있습니다."| v_modules
+  v_modules --&gt;|"IPA Modules는 Pipeline &lt;br/&gt;Handler API로만 libcamera와 &lt;br/&gt;상호작용하며 kernel camera &lt;br/&gt;devices에 직접 접근할 수 &lt;br/&gt;없습니다."| v_pipeline</pre>
+<p><a href="../../team-overview.item-boundaries.mmd">Mermaid 원문</a></p>
+<details open class="note">
+<summary>그림 근거와 확인 범위</summary>
+<p>애플리케이션, libcamera, 장치 제조사, Pipeline Handler와 IPA Module 사이에서 프로젝트 범위와 책임은 어떻게 나뉩니까?</p>
+<p>소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="표"><table>
+<thead>
+<tr>
+<th>요소·전이</th>
+<th>소스 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Applications and upper-level frameworks are outside the libcamera project scope.">애플리케이션과 상위 프레임워크는 libcamera 프로젝트 범위 밖에 있습니다.</span></td>
+<td><a href="../../reader-archive/team-overview.html#source-9e653b8ff755db78">Documentation/introduction.rst:163</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="libcamera provides a framework and code base for camera support.">libcamera는 카메라 지원을 위한 프레임워크와 코드 기반을 제공합니다.</span></td>
+<td><a href="../../reader-archive/team-overview.html#source-9e653b8ff755db78">Documentation/introduction.rst:163</a> · <a href="../../reader-archive/team-overview.html#source-341442e08591ef50">Documentation/introduction.rst:200</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Device vendors must contribute Pipeline Handlers upstream and may provide external IPA Modules.">장치 제조사는 Pipeline Handler를 upstream에 기여해야 하며 외부 IPA Modules를 제공할 수 있습니다.</span></td>
+<td><a href="../../reader-archive/team-overview.html#source-341442e08591ef50">Documentation/introduction.rst:200</a> · <a href="../../reader-archive/team-overview.html#source-1f130cc8640ef810">Documentation/libcamera_architecture.rst:109</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Device-specific Handlers abstract hardware, create Camera instances for this system's detected and supported devices, and manage camera-device interactions.">장치별 Handlers는 하드웨어를 추상화하고, 실행 시스템에서 감지해 지원하는 장치의 Camera 인스턴스를 만들며 카메라 장치와의 상호작용을 관리합니다.</span></td>
+<td><a href="../../reader-archive/team-overview.html#source-8bd888bd0473995e">Documentation/libcamera_architecture.rst:87</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The Pipeline Handler configures pipelines from stream configuration and handles runtime execution and scheduling when the device needs them.">Pipeline Handler는 stream configuration을 바탕으로 pipeline을 구성하고 장치에 필요하면 runtime 실행과 scheduling을 수행합니다.</span></td>
+<td><a href="../../reader-archive/team-overview.html#source-8bd888bd0473995e">Documentation/libcamera_architecture.rst:87</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="IPA algorithms implement 3A and others with hardware image processing and statistics collection, and control hardware image processing.">IPA 알고리즘은 하드웨어 이미지 처리 및 통계 수집과 함께 3A 등을 구현하고 하드웨어 이미지 처리를 제어합니다.</span></td>
+<td><a href="../../reader-archive/team-overview.html#source-1f130cc8640ef810">Documentation/libcamera_architecture.rst:109</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="IPA Modules are separate plugins. In-tree modules have a free software license; external IPA Modules may be open-source or closed-source.">IPA Modules는 별도 플러그인입니다. in-tree 모듈에는 free software license가 적용되며 외부 IPA Modules는 open-source 또는 closed-source일 수 있습니다.</span></td>
+<td><a href="../../reader-archive/team-overview.html#source-1f130cc8640ef810">Documentation/libcamera_architecture.rst:109</a> · <a href="../../reader-archive/team-overview.html#source-341442e08591ef50">Documentation/introduction.rst:200</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="External closed-source IPA Modules distributed by third parties must not include libcamera project source code.">third parties가 배포하는 외부 closed-source IPA Modules에는 libcamera 프로젝트의 소스 코드가 없어야 합니다.</span></td>
+<td><a href="../../reader-archive/team-overview.html#source-341442e08591ef50">Documentation/introduction.rst:200</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Applications and upper-level frameworks are based on the libcamera framework or adaptation.">애플리케이션과 상위 프레임워크는 libcamera 프레임워크 또는 adaptation을 기반으로 합니다.</span></td>
+<td><a href="../../reader-archive/team-overview.html#source-9e653b8ff755db78">Documentation/introduction.rst:163</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Handlers are part of the libcamera code base.">Handlers는 libcamera 코드 기반의 일부입니다.</span></td>
+<td><a href="../../reader-archive/team-overview.html#source-341442e08591ef50">Documentation/introduction.rst:200</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Device vendors must contribute Handlers upstream.">장치 제조사는 Handlers를 upstream에 기여해야 합니다.</span></td>
+<td><a href="../../reader-archive/team-overview.html#source-341442e08591ef50">Documentation/introduction.rst:200</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Device-specific Handlers derive from the Pipeline Handler base class.">장치별 Handlers는 Pipeline Handler 기본 클래스를 상속합니다.</span></td>
+<td><a href="../../reader-archive/team-overview.html#source-8bd888bd0473995e">Documentation/libcamera_architecture.rst:87</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="IPA algorithms are loaded as external plugins named IPA Modules.">IPA 알고리즘은 IPA Modules라는 외부 플러그인으로 로드됩니다.</span></td>
+<td><a href="../../reader-archive/team-overview.html#source-1f130cc8640ef810">Documentation/libcamera_architecture.rst:109</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Third parties may develop and distribute external IPA Modules.">third parties는 외부 IPA Modules를 개발하고 배포할 수 있습니다.</span></td>
+<td><a href="../../reader-archive/team-overview.html#source-341442e08591ef50">Documentation/introduction.rst:200</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="IPA Modules use only the Pipeline Handler API to interact with libcamera and cannot directly access kernel camera devices.">IPA Modules는 Pipeline Handler API로만 libcamera와 상호작용하며 kernel camera devices에 직접 접근할 수 없습니다.</span></td>
+<td><a href="../../reader-archive/team-overview.html#source-6c10d5aeb8fc7ca9">Documentation/libcamera_architecture.rst:120</a> · <a href="../../reader-archive/team-overview.html#source-1f130cc8640ef810">Documentation/libcamera_architecture.rst:109</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:item-boundaries -->
+
+<p data-sdd-evidence='[["Documentation/libcamera_architecture.rst:87", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/libcamera_architecture.rst#L87\"><code>Documentation/libcamera_architecture.rst:87</code></a>"], ["Documentation/libcamera_architecture.rst:109", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/libcamera_architecture.rst#L109\"><code>Documentation/libcamera_architecture.rst:109</code></a>"], ["Documentation/introduction.rst:200", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/introduction.rst#L200\"><code>Documentation/introduction.rst:200</code></a>"], ["Documentation/libcamera_architecture.rst:120", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/libcamera_architecture.rst#L120\"><code>Documentation/libcamera_architecture.rst:120</code></a>"]]' data-sdd-excerpts='{"Documentation/libcamera_architecture.rst:87": ["reader-archive/team-overview.html#source-8bd888bd0473995e"], "Documentation/libcamera_architecture.rst:109": ["reader-archive/team-overview.html#source-1f130cc8640ef810"], "Documentation/introduction.rst:200": ["reader-archive/team-overview.html#source-341442e08591ef50"], "Documentation/libcamera_architecture.rst:120": ["reader-archive/team-overview.html#source-6c10d5aeb8fc7ca9"]}'>Pipeline Handler(파이프라인 처리기)는 장치별 파이프라인을 관리하며, 장치 제조사는 이를 libcamera에 기여해야 합니다. 이미지 처리 알고리즘(<code>Image</code> Processing Algorithms, IPA)은 상위 계층의 매개변수를 바탕으로 하드웨어 이미지 처리를 제어하며, IPA <code>Module</code>(IPA 모듈)은 외부에서 별도로 제공할 수 있습니다. libcamera에 포함된 IPA <code>Module</code>에는 자유 소프트웨어 라이선스가 적용되며, 외부 모듈은 libcamera 프로젝트의 소스 코드를 포함하지 않는 조건으로 비공개 소스 라이선스로 배포할 수 있습니다. IPA <code>Module</code>은 libcamera와 Pipeline Handler가 제공하는 API(응용 프로그램 인터페이스)로만 상호작용하며 kernel camera devices(커널 카메라 장치)에 직접 접근할 수 없습니다.</p>
+
+
+<details open class="evidence-links evidence-section"><summary>절 전체 근거 <span>5</span>개</summary><ul><li><code>Documentation/introduction.rst</code><span class="evidence-lines"><a href="../../reader-archive/team-overview.html#source-9e653b8ff755db78" aria-label="Documentation/introduction.rst:163 발췌"><code>L163</code> 발췌</a> · <a aria-label="Documentation/introduction.rst:163" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/introduction.rst#L163">전체 소스 <code>L163</code></a> · <a href="../../reader-archive/team-overview.html#source-341442e08591ef50" aria-label="Documentation/introduction.rst:200 발췌"><code>L200</code> 발췌</a> · <a aria-label="Documentation/introduction.rst:200" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/introduction.rst#L200">전체 소스 <code>L200</code></a></span></li><li><code>Documentation/libcamera_architecture.rst</code><span class="evidence-lines"><a href="../../reader-archive/team-overview.html#source-8bd888bd0473995e" aria-label="Documentation/libcamera_architecture.rst:87 발췌"><code>L87</code> 발췌</a> · <a aria-label="Documentation/libcamera_architecture.rst:87" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/libcamera_architecture.rst#L87">전체 소스 <code>L87</code></a> · <a href="../../reader-archive/team-overview.html#source-1f130cc8640ef810" aria-label="Documentation/libcamera_architecture.rst:109 발췌"><code>L109</code> 발췌</a> · <a aria-label="Documentation/libcamera_architecture.rst:109" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/libcamera_architecture.rst#L109">전체 소스 <code>L109</code></a> · <a href="../../reader-archive/team-overview.html#source-6c10d5aeb8fc7ca9" aria-label="Documentation/libcamera_architecture.rst:120 발췌"><code>L120</code> 발췌</a> · <a aria-label="Documentation/libcamera_architecture.rst:120" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/libcamera_architecture.rst#L120">전체 소스 <code>L120</code></a></span></li></ul></details><h2 id="d1-reading-code">선택한 시나리오의 코드 읽기 순서</h2>
+<ol>
+<li>진입점 <code>Camera::queueRequest(Request *)</code>의 입력 검사와 반환 조건을 확인합니다.</li>
+<li><a href="../../request-flow.html">요청 제출 (Camera::queueRequest)</a>에서 주요 호출과 추적 경계를 확인합니다.</li>
+<li>예약된 호출과 완료 통지를 구분하고, 실행 스레드는 연결 코드와 대조합니다.</li>
+</ol>
+
+</article><section class="evidence"><h2 id="d1-page-evidence">원고와 검토 기록</h2><details open><summary>libcamera 설계 문서</summary><section><dl><dt>문서 간 계약</dt><dd><a href="../../contract-consistency.json">자동 대조 보고서</a> · 사람 검토 전</dd></dl></section><p><a href="../../reader-archive/index.html#page-evidence">이전 주소의 상세 내용 열기</a></p></details><details open><summary>시스템 개요</summary><section><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>사람 검토</dt><dd>사람 검토 전</dd><dt>분석 기준 커밋</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>문서 생성 시각</dt><dd><code>2026-11-20 17:39:13+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>문서 간 계약</dt><dd><a href="../../contract-consistency.json">자동 대조 보고서</a> · 사람 검토 전</dd><dt>독자 범위</dt><dd><a href="../../reader-scope.json">과업별 답변과 미검토 범위</a></dd></dl><details open class="note manuscript-record"><summary>원고 작성 당시 기록</summary><p>원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.</p><ul><li>근거 파일: <code>include/libcamera/camera.h</code>, <code>include/libcamera/camera_manager.h</code>, <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/pipeline_handler.h</code>, <code>include/libcamera/request.h</code>, <code>src/libcamera/base/log.cpp</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/camera_manager.cpp</code>, <code>src/libcamera/controls.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code>, <code>src/libcamera/request.cpp</code></li><li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>adfa719f8e</code>)</li><li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li><li>검토 상태 기록일: 2026-11-21 · 사람 검토 전</li></ul></details><a href="../../overview.md">Markdown 원문 ↗</a> <a href="../../overview.mmd">Mermaid 원문 ↗</a></section><p><a href="../../reader-archive/overview.html#page-evidence">이전 주소의 상세 내용 열기</a></p></details><details open><summary>이 프로젝트가 하는 일</summary><section><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>사람 검토</dt><dd>사람 검토 전</dd><dt>분석 기준 커밋</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>문서 생성 시각</dt><dd><code>2026-11-11 20:35:47+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>문서 간 계약</dt><dd><a href="../../contract-consistency.json">자동 대조 보고서</a> · 사람 검토 전</dd><dt>독자 범위</dt><dd><a href="../../reader-scope.json">과업별 답변과 미검토 범위</a></dd></dl><details open class="note manuscript-record"><summary>원고 작성 당시 기록</summary><p>원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.</p><ul><li>근거 파일: <code>Documentation/introduction.rst</code>, <code>Documentation/libcamera_architecture.rst</code>, <code>include/libcamera/camera.h</code>, <code>include/libcamera/camera_manager.h</code>, <code>include/libcamera/internal/pipeline_handler.h</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/camera_manager.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code></li><li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>c19d05128f</code>)</li><li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li><li>검토 상태 기록일: 2026-11-12 · 사람 검토 전</li></ul></details><a href="../../team-overview.md">Markdown 원문 ↗</a></section><p><a href="../../reader-archive/team-overview.html#page-evidence">이전 주소의 상세 내용 열기</a></p></details></section><p><a href="../../architecture.md" download>이 페이지 Markdown 받기</a> · <a href="../../reader-edition.json">독자용 문서의 원본 위치</a></p></section></main>
+<script id="site-config" type="application/json">{"root": "../../", "mermaid": "assets/mermaid/mermaid.esm.min.mjs"}</script><script>(() => {
+  'use strict';
+  const config = JSON.parse(document.querySelector('#site-config').textContent);
+  const english = config.language === 'en';
+  const t = (ko, en) => english ? en : ko;
+  const root = new URL(config.root, location.href);
+  const button = document.querySelector('#print-document');
+  const status = document.querySelector('#print-status');
+  const diagrams = [...document.querySelectorAll('.mermaid')];
+  button.addEventListener('click', () => window.print());
+  function finish(failed) {
+    button.disabled = false;
+    status.textContent = failed
+      ? t(`그림 ${failed}개를 그리지 못해 Mermaid 원문으로 표시합니다. 원문도 PDF에 포함됩니다.`,
+          `${failed} diagram(s) could not be drawn and are shown as Mermaid source, which the PDF includes.`)
+      : t(`인쇄 준비가 끝났습니다. 그림 ${diagrams.length}개를 모두 그렸습니다.`,
+          `Ready to print. All ${diagrams.length} diagram(s) are drawn.`);
+    if (new URLSearchParams(location.search).has('print')) window.print();
+  }
+  if (!diagrams.length) { finish(0); return; }
+  import(new URL(config.mermaid, root).href).then(async ({default: mermaid}) => {
+    mermaid.initialize({startOnLoad: false, securityLevel: 'strict', theme: 'base',
+      themeVariables: {background: '#ffffff', primaryColor: '#edf5f1', primaryTextColor: '#17201e',
+        primaryBorderColor: '#8ba99e', lineColor: '#66766f', secondaryColor: '#f6f7f8',
+        tertiaryColor: '#ffffff', edgeLabelBackground: '#ffffff',
+        fontFamily: 'Geist, Malgun Gothic, system-ui, sans-serif', fontSize: '14px'},
+      flowchart: {htmlLabels: false, curve: 'basis', nodeSpacing: 38, rankSpacing: 65, padding: 16}});
+    let failed = 0;
+    // Hide the long body while drawing: otherwise every render re-lays out the whole document
+    // (31 pages took over six minutes for 164 diagrams; hidden, about five seconds).
+    // Mermaid measures text in its own container under body, so sizes are unaffected.
+    const body = document.querySelector('main');
+    body.style.display = 'none';
+    try {
+    for (const [i, diagram] of diagrams.entries()) {
+      status.textContent = t(`그림을 그리는 중입니다 (${i + 1}/${diagrams.length}). 다 그리면 본문을 표시합니다.`,
+                             `Drawing diagrams (${i + 1}/${diagrams.length}). The document appears when they are done.`);
+      const source = diagram.textContent;
+      try {
+        const {svg} = await mermaid.render(`sdd-print-${i}`, source);
+        diagram.innerHTML = svg;
+        diagram.dataset.ready = 'true';
+      } catch (_) {
+        failed += 1;
+        diagram.textContent = source;
+        diagram.classList.add('diagram-error');
+      }
+    }
+    } finally {
+      body.style.display = '';
+    }
+    finish(failed);
+  }).catch(() => finish(diagrams.length));
+})();</script></body></html>

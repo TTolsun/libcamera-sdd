@@ -1,0 +1,720 @@
+<!doctype html>
+<html data-sdd-page-copy lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Request Flow and Core Concepts</title><link rel="stylesheet" href="../../../assets/reading.css?v=dd3415510a"><style>.full-document-bar{position:sticky;top:0;z-index:10;display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px;padding:10px max(16px,calc((100vw - 900px)/2));background:#fff;border-bottom:1px solid var(--line);font-size:14px}.full-document-bar p{margin:0;color:var(--muted)}.full-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin-left:auto}.full-document-bar .full-hint{flex:1 1 100%;font-size:12px}#print-document{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}#print-document:disabled{background:var(--soft);border-color:var(--line);color:var(--muted);cursor:progress}.full-document main{max-width:900px;margin:0 auto;padding:32px 16px 64px}.full-cover dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 16px;font-size:14px}.full-cover dd{margin:0}.full-notice{border-left:3px solid #8ba99e;padding:4px 0 4px 14px;color:var(--muted);font-size:14px}.full-contents ol ol{padding-left:20px}.full-page{border-top:2px solid var(--line);margin-top:56px;padding-top:8px}.full-page>.breadcrumb{margin-bottom:0}@media print{.full-document-bar{display:none}.full-document main{padding:0;max-width:none}.full-cover{break-after:page}.full-page{break-before:page;border:0;margin:0;padding:0}pre{white-space:pre-wrap;overflow:visible}pre code{overflow-wrap:anywhere}.mermaid{overflow:visible;break-inside:avoid}.mermaid svg{max-width:100%!important;height:auto!important}.full-page details>summary{list-style:none}.full-page details>summary::-webkit-details-marker{display:none}}.full-page{margin:0;border:0;padding:0;break-before:auto}</style></head>
+<body class="full-document"><div class="full-document-bar"><a href="../../request-flow.html">← Back to the site</a><p id="print-status" role="status">Drawing diagrams.</p>
+<div class="full-actions"><button id="print-document" type="button" disabled>Save as PDF</button><a href="request-flow.md" download="request-flow.en.md">Download Markdown</a></div><p class="full-hint">In the print dialog, choose Save as PDF as the destination.</p></div>
+<main id="main"><section class="full-page" id="doc-1"><h1>Request Flow and Core Concepts</h1><p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><article><p>Follow a request from creation and submission through buffer completion, return to the caller, and cancellation during stop.</p><h2 id="d1-request-creation">Request creation and ownership</h2>
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:1243", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1243\"><code>src/libcamera/camera.cpp:1243</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:1243": ["reader-archive/overview.html#source-d61960ed2545ba78"]}'>The <code>cookie</code> of <code>Camera::createRequest(cookie)</code> is an opaque input used by the application. The value is stored in the request, can be read at any time through <code>Request::cookie()</code>, and is completely opaque to <code>libcamera</code>. The application typically uses this value in the request completion handler to associate the request with an external resource. <code>Camera::createRequest()</code> may be called only when the camera is in the <code>Configured</code> or <code>Running</code> state and returns <code>nullptr</code> if an error occurs.</p>
+<!-- sdd:visual:item-creation -->
+<h3 id="d1-요청-생성과-소유권의-관계와-경계">The relationship and boundaries between request creation and ownership</h3>
+<pre class="mermaid">flowchart TB
+
+  v_create["Camera::createRequest &lt;br/&gt;creates an empty request in &lt;br/&gt;Configured or Running and &lt;br/&gt;returns nullptr on error."]
+  v_caller["The caller owns and must &lt;br/&gt;delete the request; it may &lt;br/&gt;delete it on completion or &lt;br/&gt;reset and reuse it."]
+  v_reuse["Call Request::reuse before &lt;br/&gt;queueing the request again."]
+  v_flags{"Flags choose buffer reuse. &lt;br/&gt;Avoid ReuseBuffers when &lt;br/&gt;using fences."}
+  v_buffer["Each existing buffer gets &lt;br/&gt;the request and enters &lt;br/&gt;pending#95;; the loop then &lt;br/&gt;ends."]
+  v_map["bufferMap#95; is cleared, &lt;br/&gt;removing the previous &lt;br/&gt;buffer associations."]
+  v_reset["After buffer handling, set &lt;br/&gt;RequestPending and clear &lt;br/&gt;controls and metadata."]
+  v_create --&gt;|"The returned request#39;s &lt;br/&gt;ownership passes to the &lt;br/&gt;caller."| v_caller
+  v_caller --&gt;|"The caller may reset and &lt;br/&gt;reuse the request instead &lt;br/&gt;of deleting it."| v_reuse
+  v_reuse --&gt;|"The flags of Request::reuse &lt;br/&gt;indicate whether to reuse &lt;br/&gt;buffers."| v_flags
+  v_flags --&gt;|"With ReuseBuffers, the &lt;br/&gt;existing buffers are &lt;br/&gt;associated again. #91;true#93;"| v_buffer
+  v_flags --&gt;|"Without ReuseBuffers, the &lt;br/&gt;buffer map is cleared. &lt;br/&gt;#91;false#93;"| v_map
+  v_buffer --&gt;|"Reset after buffer handling."| v_reset
+  v_map --&gt;|"Reset after buffer handling."| v_reset</pre>
+<p><a href="../../overview.item-creation.mmd">Mermaid source</a></p>
+<details open class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>How does the caller create, own, delete, or reuse requests, and what happens to the buffers depending on whether ReuseBuffers is specified?</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Camera::createRequest creates an empty request in Configured or Running and returns nullptr on error.">Camera::createRequest creates an empty request in Configured or Running and returns nullptr on error.</span></td>
+<td><a href="../../reader-archive/overview.html#source-d61960ed2545ba78">src/libcamera/camera.cpp:1243</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The caller owns and must delete the request; it may delete it on completion or reset and reuse it.">The caller owns and must delete the request; it may delete it on completion or reset and reuse it.</span></td>
+<td><a href="../../reader-archive/overview.html#source-d61960ed2545ba78">src/libcamera/camera.cpp:1243</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Call Request::reuse before queueing the request again.">Call Request::reuse before queueing the request again.</span></td>
+<td><a href="../../reader-archive/overview.html#source-0556d5e91908d040">src/libcamera/request.cpp:376</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Flags choose buffer reuse. Avoid ReuseBuffers when using fences.">Flags choose buffer reuse. Avoid ReuseBuffers when using fences.</span></td>
+<td><a href="../../reader-archive/overview.html#source-0556d5e91908d040">src/libcamera/request.cpp:376</a> · <a href="../../reader-archive/overview.html#source-99c7ceeed4e79b3a">src/libcamera/request.cpp:326</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Each existing buffer gets the request and enters pending_; the loop then ends.">Each existing buffer gets the request and enters pending_; the loop then ends.</span></td>
+<td><a href="../../reader-archive/overview.html#source-0556d5e91908d040">src/libcamera/request.cpp:376</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="bufferMap_ is cleared, removing the previous buffer associations.">bufferMap_ is cleared, removing the previous buffer associations.</span></td>
+<td><a href="../../reader-archive/overview.html#source-0556d5e91908d040">src/libcamera/request.cpp:376</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After buffer handling, set RequestPending and clear controls and metadata.">After buffer handling, set RequestPending and clear controls and metadata.</span></td>
+<td><a href="../../reader-archive/overview.html#source-0556d5e91908d040">src/libcamera/request.cpp:376</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The returned request's ownership passes to the caller.">The returned request's ownership passes to the caller.</span></td>
+<td><a href="../../reader-archive/overview.html#source-d61960ed2545ba78">src/libcamera/camera.cpp:1243</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The caller may reset and reuse the request instead of deleting it.">The caller may reset and reuse the request instead of deleting it.</span></td>
+<td><a href="../../reader-archive/overview.html#source-d61960ed2545ba78">src/libcamera/camera.cpp:1243</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The flags of Request::reuse indicate whether to reuse buffers.">The flags of Request::reuse indicate whether to reuse buffers.</span></td>
+<td><a href="../../reader-archive/overview.html#source-0556d5e91908d040">src/libcamera/request.cpp:376</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="With ReuseBuffers, the existing buffers are associated again. · flags &amp; ReuseBuffers [true]">With ReuseBuffers, the existing buffers are associated again. · flags &amp; ReuseBuffers [true]</span></td>
+<td><a href="../../reader-archive/overview.html#source-0556d5e91908d040">src/libcamera/request.cpp:376</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Without ReuseBuffers, the buffer map is cleared. · flags &amp; ReuseBuffers [false]">Without ReuseBuffers, the buffer map is cleared. · flags &amp; ReuseBuffers [false]</span></td>
+<td><a href="../../reader-archive/overview.html#source-0556d5e91908d040">src/libcamera/request.cpp:376</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Reset after buffer handling.">Reset after buffer handling.</span></td>
+<td><a href="../../reader-archive/overview.html#source-0556d5e91908d040">src/libcamera/request.cpp:376</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Reset after buffer handling.">Reset after buffer handling.</span></td>
+<td><a href="../../reader-archive/overview.html#source-0556d5e91908d040">src/libcamera/request.cpp:376</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:item-creation -->
+
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:1243", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1243\"><code>src/libcamera/camera.cpp:1243</code></a>"], ["src/libcamera/request.cpp:376", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L376\"><code>src/libcamera/request.cpp:376</code></a>"], ["src/libcamera/request.cpp:326", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L326\"><code>src/libcamera/request.cpp:326</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:1243": ["reader-archive/overview.html#source-d61960ed2545ba78"], "src/libcamera/request.cpp:376": ["reader-archive/overview.html#source-0556d5e91908d040"], "src/libcamera/request.cpp:326": ["reader-archive/overview.html#source-99c7ceeed4e79b3a"]}'>Ownership of the request returned by <code>Camera::createRequest()</code> passes to the caller, who is responsible for deleting it. To requeue the same request without creating a new one, the caller must call <code>Request::reuse()</code> before queueing it to reset the request state and associated controls. When <code>ReuseBuffers</code> is specified, <code>Request::reuse()</code> reattaches and reuses the existing buffers added by <code>addBuffer()</code>; otherwise, it clears <code>bufferMap_</code>. Fences associated with the buffers are not reused, so <code>ReuseBuffers</code> should not be used when fences are used.</p>
+
+<details open class="evidence-links evidence-section"><summary>Section-wide evidence: <span>3</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="../../reader-archive/overview.html#source-d61960ed2545ba78" aria-label="src/libcamera/camera.cpp:1243 excerpt"><code>L1243</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:1243" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1243">Full source <code>L1243</code></a></span></li><li><code>src/libcamera/request.cpp</code><span class="evidence-lines"><a href="../../reader-archive/overview.html#source-0556d5e91908d040" aria-label="src/libcamera/request.cpp:376 excerpt"><code>L376</code> excerpt</a> · <a aria-label="src/libcamera/request.cpp:376" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L376">Full source <code>L376</code></a> · <a href="../../reader-archive/overview.html#source-99c7ceeed4e79b3a" aria-label="src/libcamera/request.cpp:326 excerpt"><code>L326</code> excerpt</a> · <a aria-label="src/libcamera/request.cpp:326" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L326">Full source <code>L326</code></a></span></li></ul></details><h2 id="d1-submission">Request submission and completion</h2>
+<p class="reading-links">See also: <a href="#d1-completion">Distinguishing buffer completion from completion of the entire request</a> · <a href="#d1-callback-thread">Completion caller and thread obligations</a></p>
+
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:1308", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1308\"><code>src/libcamera/camera.cpp:1308</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:1308": ["reader-archive/overview.html#source-2f880c124115c9c4"]}'>The application must attach at least one capture buffer to the request object returned by <code>createRequest()</code> before submitting it with <code>Camera::queueRequest()</code>. When processing of a request queued with <code>Camera::queueRequest()</code> finishes, the camera notifies the application of completion through the <code>requestCompleted</code> signal. <code>Camera::queueRequest()</code> must be called only when the camera is in the <code>Running</code> state.</p>
+<!-- sdd:visual:submission-completion -->
+<h3 id="d1-요청-접수와-버퍼-완료-요청-완료">Request acceptance, buffer completion, and request completion</h3>
+<pre class="mermaid">flowchart TB
+
+  v_request["Request with capture buffers"]
+  v_queue["queueRequest#40;#41;"]
+  v_accepted["Return 0: submission &lt;br/&gt;accepted"]
+  v_signal["requestCompleted signal"]
+  v_complete-buffer["completeBuffer#40;#41;: buffer &lt;br/&gt;completion notification and &lt;br/&gt;tracking"]
+  v_complete-request["completeRequest#40;#41;: explicit &lt;br/&gt;request completion by the &lt;br/&gt;pipeline handler"]
+  v_rejected["Negative error. Empty &lt;br/&gt;requests are not queued"]
+  v_request --&gt;|"Submit in Running state"| v_queue
+  v_queue --&gt;|"Accepted"| v_accepted
+  v_accepted --&gt;|"Notify completion separately"| v_signal
+  v_complete-buffer --&gt;|"Even the last buffer does &lt;br/&gt;not automatically complete &lt;br/&gt;the request; the handler &lt;br/&gt;must complete it separately"| v_complete-request
+  v_queue --&gt;|"Rejected"| v_rejected</pre>
+<p><a href="../../overview.submission-completion.mmd">Mermaid source</a></p>
+<details open class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>The return value of queueRequest() is the acceptance result. completeBuffer() reports and tracks buffer completion, and the pipeline handler must separately complete the request using completeRequest(). The requestCompleted signal separately reports request completion.</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Request with capture buffers">Request with capture buffers</span></td>
+<td><a href="../../reader-archive/overview.html#source-2f880c124115c9c4">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="queueRequest()">queueRequest()</span></td>
+<td><a href="../../reader-archive/overview.html#source-2f880c124115c9c4">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return 0: submission accepted">Return 0: submission accepted</span></td>
+<td><a href="../../reader-archive/overview.html#source-2f880c124115c9c4">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="requestCompleted signal">requestCompleted signal</span></td>
+<td><a href="../../reader-archive/overview.html#source-2f880c124115c9c4">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="completeBuffer(): buffer completion notification and tracking">completeBuffer(): buffer completion notification and tracking</span></td>
+<td><a href="../../reader-archive/overview.html#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="completeRequest(): explicit request completion by the pipeline handler">completeRequest(): explicit request completion by the pipeline handler</span></td>
+<td><a href="../../reader-archive/overview.html#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Negative error. Empty requests are not queued">Negative error. Empty requests are not queued</span></td>
+<td><a href="../../reader-archive/overview.html#source-2f880c124115c9c4">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Submit in Running state">Submit in Running state</span></td>
+<td><a href="../../reader-archive/overview.html#source-2f880c124115c9c4">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Accepted">Accepted</span></td>
+<td><a href="../../reader-archive/overview.html#source-2f880c124115c9c4">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Notify completion separately">Notify completion separately</span></td>
+<td><a href="../../reader-archive/overview.html#source-2f880c124115c9c4">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Even the last buffer does not automatically complete the request; the handler must complete it separately">Even the last buffer does not automatically complete the request; the handler must complete it separately</span></td>
+<td><a href="../../reader-archive/overview.html#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Rejected">Rejected</span></td>
+<td><a href="../../reader-archive/overview.html#source-2f880c124115c9c4">src/libcamera/camera.cpp:1308</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:submission-completion -->
+
+
+<details open class="evidence-links evidence-section"><summary>Section-wide evidence: <span>1</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="../../reader-archive/overview.html#source-2f880c124115c9c4" aria-label="src/libcamera/camera.cpp:1308 excerpt"><code>L1308</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:1308" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1308">Full source <code>L1308</code></a></span></li></ul></details><h2 id="d1-resource-lifetime">Lifetime of requests, buffers, and fences</h2>
+<h3 id="d1-소유권과-두-완료-경계">Ownership and the two completion boundaries</h3>
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:1243", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1243\"><code>src/libcamera/camera.cpp:1243</code></a>"], ["src/libcamera/request.cpp:376", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L376\"><code>src/libcamera/request.cpp:376</code></a>"], ["src/libcamera/request.cpp:447", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L447\"><code>src/libcamera/request.cpp:447</code></a>"], ["src/libcamera/pipeline_handler.cpp:575", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L575\"><code>src/libcamera/pipeline_handler.cpp:575</code></a>"], ["src/libcamera/pipeline_handler.cpp:610", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L610\"><code>src/libcamera/pipeline_handler.cpp:610</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:1243": ["reader-archive/request-lifecycle.html#source-0ae00d77839f61cb"], "src/libcamera/request.cpp:376": ["reader-archive/request-lifecycle.html#source-38494771cb29cc8c"], "src/libcamera/request.cpp:447": ["reader-archive/request-lifecycle.html#source-4cdce80c57526221"], "src/libcamera/pipeline_handler.cpp:575": ["reader-archive/request-lifecycle.html#source-d93a02e9220fa760"], "src/libcamera/pipeline_handler.cpp:610": ["reader-archive/request-lifecycle.html#source-52fb58c8956b1a91"]}'>The caller of <code>Camera::createRequest()</code> receives ownership of the returned <code>Request</code> and is responsible for deleting it. The caller may delete the request in the completion handler or reuse it after resetting its state with <code>Request::reuse()</code>. <code>Request::addBuffer()</code> stores a reference to the buffer in the request, and the caller must ensure that the buffer remains valid until the request completion callback is called. The pipeline handler must not access the request after <code>completeRequest()</code> or <code>cancelRequest()</code> returns.</p>
+<!-- sdd:visual:request-ownership -->
+<h4 id="d1-요청과-버퍼를-유지할-기간">Period for keeping requests and buffers</h4>
+<pre class="mermaid">flowchart TB
+
+  v_create["The createRequest caller &lt;br/&gt;receives ownership of the &lt;br/&gt;returned request and is &lt;br/&gt;responsible for deleting &lt;br/&gt;it. On error, nullptr is &lt;br/&gt;returned."]
+  v_add["The addBuffer caller must &lt;br/&gt;ensure that the buffer &lt;br/&gt;referenced by the request &lt;br/&gt;remains valid until the &lt;br/&gt;request completion callback &lt;br/&gt;is called."]
+  v_handler["The request may be deleted &lt;br/&gt;in the completion handler &lt;br/&gt;or reused after its state &lt;br/&gt;is reset. Deletion and &lt;br/&gt;reuse are alternatives."]
+  v_callback["The request completion &lt;br/&gt;callback is the point until &lt;br/&gt;which the addBuffer caller &lt;br/&gt;must keep the buffer valid."]
+  v_reuse["reuse resets the request &lt;br/&gt;status and controls. Call &lt;br/&gt;it before requeuing; &lt;br/&gt;ReuseBuffers can be used to &lt;br/&gt;reuse previously added &lt;br/&gt;buffers."]
+  v_complete["The pipeline handler must &lt;br/&gt;not access the request &lt;br/&gt;after completeRequest &lt;br/&gt;returns. This is a separate &lt;br/&gt;boundary from the &lt;br/&gt;completion handler#39;s &lt;br/&gt;deletion or reuse choice."]
+  v_cancel["cancelRequest cancels and &lt;br/&gt;completes the request. The &lt;br/&gt;same rules as &lt;br/&gt;completeRequest apply, &lt;br/&gt;including the prohibition &lt;br/&gt;on access after return."]
+  v_signal["An emitter passing a &lt;br/&gt;pointer or reference &lt;br/&gt;through Signal::emit must &lt;br/&gt;ensure that its target &lt;br/&gt;remains valid after &lt;br/&gt;emission."]
+  v_queued["If a separate Queued &lt;br/&gt;receiver continues to use a &lt;br/&gt;pointer, verify its &lt;br/&gt;lifetime through the last &lt;br/&gt;use and coordination &lt;br/&gt;between parties. Do not &lt;br/&gt;assume one completion &lt;br/&gt;callback or stop return &lt;br/&gt;waits for all receivers."]
+  v_create --&gt;|"The returned request may be &lt;br/&gt;deleted in the completion &lt;br/&gt;handler."| v_handler
+  v_handler --&gt;|"As an alternative to &lt;br/&gt;deletion, the request may &lt;br/&gt;be reused after its state &lt;br/&gt;is reset."| v_reuse
+  v_add --&gt;|"The caller must ensure that &lt;br/&gt;the buffer remains valid &lt;br/&gt;until the request &lt;br/&gt;completion callback is &lt;br/&gt;called."| v_callback
+  v_cancel --&gt;|"cancelRequest calls &lt;br/&gt;completeRequest and follows &lt;br/&gt;the same completion rules."| v_complete
+  v_signal --&gt;|"Queued delivery is &lt;br/&gt;asynchronous and the sender &lt;br/&gt;does not wait for &lt;br/&gt;completion. Auto uses &lt;br/&gt;Direct in the same thread &lt;br/&gt;and Queued in different &lt;br/&gt;threads."| v_queued</pre>
+<p><a href="../../request-lifecycle.request-ownership.mmd">Mermaid source</a></p>
+<details open class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>How are the createRequest and addBuffer callers, deletion or reuse in the completion handler and the end of handler access, and the pointer lifetime of a separate Queued receiver distinguished?</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<p>LLM diagram draft · before human review</p>
+<p>Authoring model: <code>cli/codex/gpt-6.1-terra</code></p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="The createRequest caller receives ownership of the returned request and is responsible for deleting it. On error, nullptr is returned.">The createRequest caller receives ownership of the returned request and is responsible for deleting it. On error, nullptr is returned.</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-0ae00d77839f61cb">src/libcamera/camera.cpp:1243</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The addBuffer caller must ensure that the buffer referenced by the request remains valid until the request completion callback is called.">The addBuffer caller must ensure that the buffer referenced by the request remains valid until the request completion callback is called.</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-95ae69eeb085e3b1">src/libcamera/request.cpp:442</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The request may be deleted in the completion handler or reused after its state is reset. Deletion and reuse are alternatives.">The request may be deleted in the completion handler or reused after its state is reset. Deletion and reuse are alternatives.</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-0ae00d77839f61cb">src/libcamera/camera.cpp:1243</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The request completion callback is the point until which the addBuffer caller must keep the buffer valid.">The request completion callback is the point until which the addBuffer caller must keep the buffer valid.</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-95ae69eeb085e3b1">src/libcamera/request.cpp:442</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="reuse resets the request status and controls. Call it before requeuing; ReuseBuffers can be used to reuse previously added buffers.">reuse resets the request status and controls. Call it before requeuing; ReuseBuffers can be used to reuse previously added buffers.</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-38494771cb29cc8c">src/libcamera/request.cpp:376</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The pipeline handler must not access the request after completeRequest returns. This is a separate boundary from the completion handler's deletion or reuse choice.">The pipeline handler must not access the request after completeRequest returns. This is a separate boundary from the completion handler's deletion or reuse choice.</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a> · <a href="../../reader-archive/request-lifecycle.html#source-0ae00d77839f61cb">src/libcamera/camera.cpp:1243</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="cancelRequest cancels and completes the request. The same rules as completeRequest apply, including the prohibition on access after return.">cancelRequest cancels and completes the request. The same rules as completeRequest apply, including the prohibition on access after return.</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="An emitter passing a pointer or reference through Signal::emit must ensure that its target remains valid after emission.">An emitter passing a pointer or reference through Signal::emit must ensure that its target remains valid after emission.</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-52064eba9532db6a">src/libcamera/base/signal.cpp:73</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="If a separate Queued receiver continues to use a pointer, verify its lifetime through the last use and coordination between parties. Do not assume one completion callback or stop return waits for all receivers.">If a separate Queued receiver continues to use a pointer, verify its lifetime through the last use and coordination between parties. Do not assume one completion callback or stop return waits for all receivers.</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-52064eba9532db6a">src/libcamera/base/signal.cpp:73</a> · <a href="../../reader-archive/request-lifecycle.html#source-bfdfed92f905633d">src/libcamera/base/bound_method.cpp:22</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The returned request may be deleted in the completion handler.">The returned request may be deleted in the completion handler.</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-0ae00d77839f61cb">src/libcamera/camera.cpp:1243</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="As an alternative to deletion, the request may be reused after its state is reset.">As an alternative to deletion, the request may be reused after its state is reset.</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-0ae00d77839f61cb">src/libcamera/camera.cpp:1243</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The caller must ensure that the buffer remains valid until the request completion callback is called.">The caller must ensure that the buffer remains valid until the request completion callback is called.</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-95ae69eeb085e3b1">src/libcamera/request.cpp:442</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="cancelRequest calls completeRequest and follows the same completion rules.">cancelRequest calls completeRequest and follows the same completion rules.</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Queued delivery is asynchronous and the sender does not wait for completion. Auto uses Direct in the same thread and Queued in different threads.">Queued delivery is asynchronous and the sender does not wait for completion. Auto uses Direct in the same thread and Queued in different threads.</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-bfdfed92f905633d">src/libcamera/base/bound_method.cpp:22</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:request-ownership -->
+
+<h3 id="d1-정상-완료와-다음-요청-준비">Normal completion and preparation for the next request</h3>
+<p data-sdd-evidence='[["src/libcamera/pipeline_handler.cpp:547", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L547\"><code>src/libcamera/pipeline_handler.cpp:547</code></a>"], ["src/libcamera/request.cpp:91", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L91\"><code>src/libcamera/request.cpp:91</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline_handler.cpp:547": ["reader-archive/request-lifecycle.html#source-01ad7c6605c3296a", "reader-archive/request-lifecycle.html#source-ab8710f8a8a7905d"], "src/libcamera/request.cpp:91": ["reader-archive/request-lifecycle.html#source-a3d8389b5076975d", "reader-archive/request-lifecycle.html#source-c78836578026f078"]}'><code>completeBuffer</code> emits <code>bufferCompleted</code>, then updates the request's internal buffer tracking and returns <code>true</code> if all buffers are complete or <code>false</code> if any buffers remain. The request is not completed automatically even when the last buffer completes, so the pipeline handler must explicitly signal completion with <code>completeRequest</code> after performing any necessary operations. Both functions must be called from the <code>CameraManager</code> thread; the thread on which the callback actually runs is not established by this source. The internal <code>complete</code> called by <code>completeRequest</code> selects <code>RequestComplete</code> if <code>cancelled_</code> is <code>false</code>, or <code>RequestCancelled</code> if it is <code>true</code>.</p>
+<!-- sdd:visual:completion-notification-order -->
+<h4 id="d1-버퍼-알림에서-요청-반환까지">From buffer notification to request return</h4>
+<pre class="mermaid">flowchart TB
+
+  v_notice["bufferCompleted notification"]
+  v_tracking["Update internal buffer &lt;br/&gt;tracking"]
+  v_complete["Explicit completeRequest"]
+  v_return["Return to application in &lt;br/&gt;submission order"]
+  v_notice --&gt;|"Update after emit"| v_tracking
+  v_tracking --&gt;|"Last buffer does not &lt;br/&gt;automatically complete &lt;br/&gt;request"| v_complete
+  v_complete --&gt;|"Return completed queue heads"| v_return</pre>
+<p><a href="../../request-lifecycle.completion-notification-order.mmd">Mermaid source</a></p>
+<details open class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>This shows the call and trace sequence for the normal path. Request completion is signaled after all buffers and any required additional processing are complete; the sequence does not indicate actual execution time or the application callback thread.</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="bufferCompleted notification">bufferCompleted notification</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Update internal buffer tracking">Update internal buffer tracking</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Explicit completeRequest">Explicit completeRequest</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return to application in submission order">Return to application in submission order</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Update after emit">Update after emit</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Last buffer does not automatically complete request">Last buffer does not automatically complete request</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return completed queue heads">Return completed queue heads</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:completion-notification-order -->
+
+<p data-sdd-evidence='[["src/libcamera/request.cpp:447", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L447\"><code>src/libcamera/request.cpp:447</code></a>"], ["src/libcamera/pipeline_handler.cpp:547", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L547\"><code>src/libcamera/pipeline_handler.cpp:547</code></a>"]]' data-sdd-excerpts='{"src/libcamera/request.cpp:447": ["reader-archive/request-lifecycle.html#source-4cdce80c57526221"], "src/libcamera/pipeline_handler.cpp:547": ["reader-archive/request-lifecycle.html#source-01ad7c6605c3296a", "reader-archive/request-lifecycle.html#source-ab8710f8a8a7905d"]}'>If the last buffer notification has been observed but the request completion callback has not yet been observed, that observation alone does not establish that the internal tracking update or the <code>completeRequest</code> call is still pending. This notification is not evidence that the period for which the buffer must remain valid has ended, so the notification alone cannot establish whether releasing it in a way that invalidates the buffer or attaching it to another request is safe. Reuse is not categorically prohibited; whether it can be attached to another request must be checked separately against the applicable API and synchronization contracts and the requirement to maintain buffer validity.</p>
+<p data-sdd-evidence='[["src/libcamera/pipeline_handler.cpp:547", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L547\"><code>src/libcamera/pipeline_handler.cpp:547</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline_handler.cpp:547": ["reader-archive/request-lifecycle.html#source-01ad7c6605c3296a", "reader-archive/request-lifecycle.html#source-ab8710f8a8a7905d"]}'>As a source-based investigation plan, the investigator will observe the return value of the existing <code>completeBuffer</code> call. The investigator will also observe the <code>completeRequest</code> call itself. The investigator will then check whether the return of a completed request is delayed because of submission order and whether the request completion callback occurs.</p>
+<!-- sdd:visual:lifecycle-timeout-fence-recovery -->
+<h2 id="d1-fence-timeout">Fence reclamation after timeout</h2>
+<pre class="mermaid">flowchart TB
+
+  v_timeout["Unsignalled fence: request &lt;br/&gt;times out"]
+  v_retained["Buffer still contains its &lt;br/&gt;fence"]
+  v_retrieve["Application retrieves with &lt;br/&gt;releaseFence#40;#41;"]
+  v_reuse["Required retrieval &lt;br/&gt;condition for reuse in &lt;br/&gt;another request"]
+  v_timeout --&gt;|"Remains after request &lt;br/&gt;failure"| v_retained
+  v_retained --&gt;|"Must retrieve before reuse"| v_retrieve
+  v_retrieve --&gt;|"Retrieval is a necessary &lt;br/&gt;precondition"| v_reuse</pre>
+<p><a href="../../request-lifecycle.lifecycle-timeout-fence-recovery.mmd">Mermaid source</a></p>
+<details open class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>If a timeout occurs on an unsignaled fence, what must be done before reusing it for another request?</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="Unsignalled fence: request times out">Unsignalled fence: request times out</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-d8cf34a75a4333a7">src/libcamera/request.cpp:462</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Buffer still contains its fence">Buffer still contains its fence</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-d8cf34a75a4333a7">src/libcamera/request.cpp:462</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Application retrieves with releaseFence()">Application retrieves with releaseFence()</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-d8cf34a75a4333a7">src/libcamera/request.cpp:462</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Required retrieval condition for reuse in another request">Required retrieval condition for reuse in another request</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-d8cf34a75a4333a7">src/libcamera/request.cpp:462</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Remains after request failure">Remains after request failure</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-d8cf34a75a4333a7">src/libcamera/request.cpp:462</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Must retrieve before reuse">Must retrieve before reuse</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-d8cf34a75a4333a7">src/libcamera/request.cpp:462</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Retrieval is a necessary precondition">Retrieval is a necessary precondition</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-d8cf34a75a4333a7">src/libcamera/request.cpp:462</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:lifecycle-timeout-fence-recovery -->
+
+<h2 id="d1-completion">Buffer completion and request completion</h2>
+<p data-sdd-evidence='[["src/libcamera/pipeline_handler.cpp:547", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L547\"><code>src/libcamera/pipeline_handler.cpp:547</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline_handler.cpp:547": ["reader-archive/overview.html#source-ca3f659653ce3f6a"]}'><code>PipelineHandler::completeBuffer()</code> notifies the application that a buffer belonging to a request has completed, then updates the request's internal buffer tracking information. The pipeline handler must explicitly call <code>completeRequest()</code> even after the last buffer has completed.</p>
+<!-- sdd:visual:item-completion -->
+<h3 id="d1-버퍼-완료와-요청-완료의-관계와-경계">The relationship and boundaries between buffer completion and request completion</h3>
+<pre class="mermaid">flowchart TB
+
+  v_buffer_completion["The handler must call &lt;br/&gt;completeBuffer on the &lt;br/&gt;CameraManager thread to &lt;br/&gt;notify and track buffer &lt;br/&gt;completion."]
+  v_result{"The return value indicates &lt;br/&gt;whether all buffers in the &lt;br/&gt;request have completed."}
+  v_all_complete["It returns True if all &lt;br/&gt;buffers have completed."]
+  v_buffers_remaining["It returns false if not all &lt;br/&gt;buffers have completed."]
+  v_request_completion["The last buffer does not &lt;br/&gt;automatically complete the &lt;br/&gt;request; handlers must call &lt;br/&gt;completeRequest#40;#41;."]
+  v_buffer_completion --&gt;|"The function returns &lt;br/&gt;whether all buffers have &lt;br/&gt;completed."| v_result
+  v_result --&gt;|"It returns True if all &lt;br/&gt;buffers have completed."| v_all_complete
+  v_result --&gt;|"It returns false if not all &lt;br/&gt;buffers have completed."| v_buffers_remaining
+  v_all_complete --&gt;|"Even after the last buffer, &lt;br/&gt;the handler must complete &lt;br/&gt;the request explicitly."| v_request_completion</pre>
+<p><a href="../../overview.item-completion.mmd">Mermaid source</a></p>
+<details open class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>How are individual buffer completion and whether all buffers are complete distinguished from an explicit request completion call?</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="The handler must call completeBuffer on the CameraManager thread to notify and track buffer completion.">The handler must call completeBuffer on the CameraManager thread to notify and track buffer completion.</span></td>
+<td><a href="../../reader-archive/overview.html#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The return value indicates whether all buffers in the request have completed.">The return value indicates whether all buffers in the request have completed.</span></td>
+<td><a href="../../reader-archive/overview.html#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It returns True if all buffers have completed.">It returns True if all buffers have completed.</span></td>
+<td><a href="../../reader-archive/overview.html#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It returns false if not all buffers have completed.">It returns false if not all buffers have completed.</span></td>
+<td><a href="../../reader-archive/overview.html#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The last buffer does not automatically complete the request; handlers must call completeRequest().">The last buffer does not automatically complete the request; handlers must call completeRequest().</span></td>
+<td><a href="../../reader-archive/overview.html#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="The function returns whether all buffers have completed.">The function returns whether all buffers have completed.</span></td>
+<td><a href="../../reader-archive/overview.html#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It returns True if all buffers have completed.">It returns True if all buffers have completed.</span></td>
+<td><a href="../../reader-archive/overview.html#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="It returns false if not all buffers have completed.">It returns false if not all buffers have completed.</span></td>
+<td><a href="../../reader-archive/overview.html#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Even after the last buffer, the handler must complete the request explicitly.">Even after the last buffer, the handler must complete the request explicitly.</span></td>
+<td><a href="../../reader-archive/overview.html#source-ca3f659653ce3f6a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:item-completion -->
+
+
+<details open class="evidence-links evidence-section"><summary>Section-wide evidence: <span>1</span></summary><ul><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="../../reader-archive/overview.html#source-ca3f659653ce3f6a" aria-label="src/libcamera/pipeline_handler.cpp:547 excerpt"><code>L547</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:547" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L547">Full source <code>L547</code></a></span></li></ul></details><h2 id="d1-callback-thread">Thread boundaries and synchronization</h2>
+<p data-sdd-evidence='[["src/libcamera/camera.cpp:780", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L780\"><code>src/libcamera/camera.cpp:780</code></a>"], ["src/libcamera/pipeline_handler.cpp:571", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L571\"><code>src/libcamera/pipeline_handler.cpp:571</code></a>"]]' data-sdd-excerpts='{"src/libcamera/camera.cpp:780": ["reader-archive/overview.html#source-33ababe2a4780075"], "src/libcamera/pipeline_handler.cpp:571": ["reader-archive/overview.html#source-7ac40780a56ae3a9"]}'>When calling functions that affect <code>Camera</code> state, the caller must ensure synchronization between the functions if necessary. The pipeline handler must call <code>PipelineHandler::completeRequest()</code> on the <code>CameraManager</code> thread.</p>
+
+<details open class="evidence-links evidence-section"><summary>Section-wide evidence: <span>2</span></summary><ul><li><code>src/libcamera/camera.cpp</code><span class="evidence-lines"><a href="../../reader-archive/overview.html#source-33ababe2a4780075" aria-label="src/libcamera/camera.cpp:780 excerpt"><code>L780</code> excerpt</a> · <a aria-label="src/libcamera/camera.cpp:780" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L780">Full source <code>L780</code></a></span></li><li><code>src/libcamera/pipeline_handler.cpp</code><span class="evidence-lines"><a href="../../reader-archive/overview.html#source-7ac40780a56ae3a9" aria-label="src/libcamera/pipeline_handler.cpp:571 excerpt"><code>L571</code> excerpt</a> · <a aria-label="src/libcamera/pipeline_handler.cpp:571" class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L571">Full source <code>L571</code></a></span></li></ul></details><h2 id="d1-stop-and-disconnect">Distinguishing stop and disconnect</h2>
+<p data-sdd-evidence='[["src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:893", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L893\"><code>src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:893</code></a>"], ["src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:535", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L535\"><code>src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:535</code></a>"], ["src/libcamera/v4l2_videodevice.cpp:1814", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L1814\"><code>src/libcamera/v4l2_videodevice.cpp:1814</code></a>"], ["src/libcamera/v4l2_videodevice.cpp:2023", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L2023\"><code>src/libcamera/v4l2_videodevice.cpp:2023</code></a>"], ["include/libcamera/internal/framebuffer.h:36", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/include/libcamera/internal/framebuffer.h#L36\"><code>include/libcamera/internal/framebuffer.h:36</code></a>"], ["src/libcamera/pipeline_handler.cpp:547", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline_handler.cpp#L547\"><code>src/libcamera/pipeline_handler.cpp:547</code></a>"], ["src/libcamera/camera.cpp:1481", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1481\"><code>src/libcamera/camera.cpp:1481</code></a>"], ["src/libcamera/request.cpp:103", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/request.cpp#L103\"><code>src/libcamera/request.cpp:103</code></a>"], ["src/libcamera/framebuffer.cpp:40", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/framebuffer.cpp#L40\"><code>src/libcamera/framebuffer.cpp:40</code></a>"], ["src/libcamera/camera.cpp:1431", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1431\"><code>src/libcamera/camera.cpp:1431</code></a>"], ["src/libcamera/base/bound_method.cpp:68", "<a class=\"citation\" href=\"https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/base/bound_method.cpp#L68\"><code>src/libcamera/base/bound_method.cpp:68</code></a>"]]' data-sdd-excerpts='{"src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:893": ["reader-archive/request-lifecycle.html#source-bfa0db3a4bc7970d"], "src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:535": ["reader-archive/request-lifecycle.html#source-f9929d36ff1c1b93"], "src/libcamera/v4l2_videodevice.cpp:1814": ["reader-archive/request-lifecycle.html#source-c75cbbe9c0bd5f96"], "src/libcamera/v4l2_videodevice.cpp:2023": ["reader-archive/request-lifecycle.html#source-660c24600a4d45c9"], "include/libcamera/internal/framebuffer.h:36": ["reader-archive/request-lifecycle.html#source-5b0be54ab290f10b", "reader-archive/request-lifecycle.html#source-6700ac41898c0548"], "src/libcamera/pipeline_handler.cpp:547": ["reader-archive/request-lifecycle.html#source-01ad7c6605c3296a", "reader-archive/request-lifecycle.html#source-ab8710f8a8a7905d"], "src/libcamera/camera.cpp:1481": ["reader-archive/request-lifecycle.html#source-655b027df7d08524", "reader-archive/request-lifecycle.html#source-d53c87090347ce81"], "src/libcamera/request.cpp:103": ["reader-archive/request-lifecycle.html#source-db7f21585c4c2708"], "src/libcamera/framebuffer.cpp:40": ["reader-archive/request-lifecycle.html#source-50aa8a55cc04062e"], "src/libcamera/camera.cpp:1431": ["reader-archive/request-lifecycle.html#source-e09324743def3f09"], "src/libcamera/base/bound_method.cpp:68": ["reader-archive/request-lifecycle.html#source-0470759dc8387e9a"]}'>Normal UVC buffer returns and cancellation of remaining buffers when STREAMOFF succeeds may both lead from <code>imageBufferReady</code> through <code>completeBuffer</code> and <code>completeRequest</code> to the same <code>requestCompleted</code> notification. In this slot, the Developer must distinguish between <code>RequestComplete</code> and <code>RequestCancelled</code> and use each buffer's <code>FrameSuccess</code> to determine whether to use the image; <code>RequestComplete</code> may also have <code>FrameError</code>, and cancelled buffers are <code>FrameCancelled</code>. The Vendor's device validation plan is to capture normally on the first run, call <code>stop()</code> with incomplete requests remaining on the second run, and process the receive loop to record the number of notifications for each submission, whether any were not received, and the request and buffer states. Slots queued on another thread may execute even after <code>stop()</code> returns.</p>
+<!-- sdd:visual:stop-notification-boundary -->
+<h3 id="d1-촬영을-멈췄는데-왜-완료-알림이-오는가">Why does a completion notification arrive after capture has been stopped?</h3>
+<pre class="mermaid">flowchart TB
+
+  v_app-stop["App calls Camera::stop#40;#41;"]
+  v_camera-stop["Camera API enters &lt;br/&gt;CameraStopping"]
+  v_pipe-stop["Pipeline Handler detaches &lt;br/&gt;the waiting queue and stops &lt;br/&gt;the device"]
+  v_device-frame["Buffer dequeued during UVC &lt;br/&gt;capture: FrameSuccess or &lt;br/&gt;FrameError"]
+  v_streamoff-error["Return an error before the &lt;br/&gt;device-buffer return loop"]
+  v_device-cancel["During UVC stop, return &lt;br/&gt;buffers still queued on the &lt;br/&gt;device as FrameCancelled"]
+  v_uvc-ready["UVC handler explicitly &lt;br/&gt;completes the request after &lt;br/&gt;completing the buffer"]
+  v_waiting-cancel["Common handler cancels and &lt;br/&gt;completes the detached &lt;br/&gt;waiting requests"]
+  v_request-result["cancelled#95; selects &lt;br/&gt;RequestCancelled or &lt;br/&gt;RequestComplete"]
+  v_camera-notify["Camera API: emit &lt;br/&gt;requestCompleted in Running &lt;br/&gt;or Stopping"]
+  v_app-result["App checks request status &lt;br/&gt;and whether each buffer &lt;br/&gt;reports FrameSuccess"]
+  v_app-stop --&gt;|"Running and access check &lt;br/&gt;passes"| v_camera-stop
+  v_camera-stop --&gt;|"Blocking invocation"| v_pipe-stop
+  v_pipe-stop --&gt;|"VIDIOC#95;STREAMOFF succeeds &lt;br/&gt;in UVC"| v_device-cancel
+  v_pipe-stop --&gt;|"After the device stop call &lt;br/&gt;returns"| v_waiting-cancel
+  v_pipe-stop --&gt;|"VIDIOC#95;STREAMOFF fails in &lt;br/&gt;UVC"| v_streamoff-error
+  v_device-frame --&gt;|"bufferReady → &lt;br/&gt;imageBufferReady"| v_uvc-ready
+  v_device-cancel --&gt;|"Same bufferReady signal"| v_uvc-ready
+  v_uvc-ready --&gt;|"Apply the buffer status, &lt;br/&gt;then complete the request"| v_request-result
+  v_waiting-cancel --&gt;|"Complete in the software &lt;br/&gt;queue after marking &lt;br/&gt;cancelled"| v_request-result
+  v_request-result --&gt;|"Return in submission order; &lt;br/&gt;wait if the head is pending"| v_camera-notify
+  v_camera-notify --&gt;|"A queued slot may run after &lt;br/&gt;stop#40;#41; returns"| v_app-result</pre>
+<p><span data-sdd-label-en="The completion state check allows a disconnected camera. A state outside Running and Stopping triggers the Fatal log path.">The completion state check allows a disconnected camera. A state outside Running and Stopping triggers the Fatal log path.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1483"><code>camera.cpp:1483</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1486"><code>camera.cpp:1486</code></a></p>
+<p><a href="../../request-lifecycle.stop-notification-boundary.mmd">Mermaid source</a></p>
+<details open class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>What paths do normal capture and cancellation during stopping take to reach the app as the same completion signal?</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="App calls Camera::stop()">App calls Camera::stop()</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera API enters CameraStopping">Camera API enters CameraStopping</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Pipeline Handler detaches the waiting queue and stops the device">Pipeline Handler detaches the waiting queue and stops the device</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-eefd1bbecb1aad0a">src/libcamera/pipeline_handler.cpp:359</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Buffer dequeued during UVC capture: FrameSuccess or FrameError">Buffer dequeued during UVC capture: FrameSuccess or FrameError</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-c75cbbe9c0bd5f96">src/libcamera/v4l2_videodevice.cpp:1814</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return an error before the device-buffer return loop">Return an error before the device-buffer return loop</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-660c24600a4d45c9">src/libcamera/v4l2_videodevice.cpp:2023</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="During UVC stop, return buffers still queued on the device as FrameCancelled">During UVC stop, return buffers still queued on the device as FrameCancelled</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-660c24600a4d45c9">src/libcamera/v4l2_videodevice.cpp:2023</a> · <a href="../../reader-archive/request-lifecycle.html#source-6700ac41898c0548">include/libcamera/internal/framebuffer.h:36</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="UVC handler explicitly completes the request after completing the buffer">UVC handler explicitly completes the request after completing the buffer</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-bfa0db3a4bc7970d">src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:893</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Common handler cancels and completes the detached waiting requests">Common handler cancels and completes the detached waiting requests</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-eefd1bbecb1aad0a">src/libcamera/pipeline_handler.cpp:359</a> · <a href="../../reader-archive/request-lifecycle.html#source-8bf901f3faef18e5">src/libcamera/pipeline_handler.cpp:483</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="cancelled_ selects RequestCancelled or RequestComplete">cancelled_ selects RequestCancelled or RequestComplete</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-db7f21585c4c2708">src/libcamera/request.cpp:103</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera API: emit requestCompleted in Running or Stopping">Camera API: emit requestCompleted in Running or Stopping</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-d53c87090347ce81">src/libcamera/camera.cpp:1481</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="App checks request status and whether each buffer reports FrameSuccess">App checks request status and whether each buffer reports FrameSuccess</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-d53c87090347ce81">src/libcamera/camera.cpp:1481</a> · <a href="../../reader-archive/request-lifecycle.html#source-db7f21585c4c2708">src/libcamera/request.cpp:103</a> · <a href="../../reader-archive/request-lifecycle.html#source-50aa8a55cc04062e">src/libcamera/framebuffer.cpp:40</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Running and access check passes">Running and access check passes</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-e09324743def3f09">src/libcamera/camera.cpp:1431</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Blocking invocation">Blocking invocation</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-6191f91df6cbffa2">src/libcamera/camera.cpp:1462</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="VIDIOC_STREAMOFF succeeds in UVC">VIDIOC_STREAMOFF succeeds in UVC</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-36920038ed2e6053">src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:320</a> · <a href="../../reader-archive/request-lifecycle.html#source-660c24600a4d45c9">src/libcamera/v4l2_videodevice.cpp:2023</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="After the device stop call returns">After the device stop call returns</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-eefd1bbecb1aad0a">src/libcamera/pipeline_handler.cpp:359</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="VIDIOC_STREAMOFF fails in UVC">VIDIOC_STREAMOFF fails in UVC</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-36920038ed2e6053">src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:320</a> · <a href="../../reader-archive/request-lifecycle.html#source-660c24600a4d45c9">src/libcamera/v4l2_videodevice.cpp:2023</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="bufferReady → imageBufferReady">bufferReady → imageBufferReady</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-f9929d36ff1c1b93">src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:535</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Same bufferReady signal">Same bufferReady signal</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-660c24600a4d45c9">src/libcamera/v4l2_videodevice.cpp:2023</a> · <a href="../../reader-archive/request-lifecycle.html#source-f9929d36ff1c1b93">src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:535</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Apply the buffer status, then complete the request">Apply the buffer status, then complete the request</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-db7f21585c4c2708">src/libcamera/request.cpp:103</a> · <a href="../../reader-archive/request-lifecycle.html#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Complete in the software queue after marking cancelled">Complete in the software queue after marking cancelled</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-8bf901f3faef18e5">src/libcamera/pipeline_handler.cpp:483</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Return in submission order; wait if the head is pending">Return in submission order; wait if the head is pending</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-01ad7c6605c3296a">src/libcamera/pipeline_handler.cpp:547</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="A queued slot may run after stop() returns">A queued slot may run after stop() returns</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-d53c87090347ce81">src/libcamera/camera.cpp:1481</a> · <a href="../../reader-archive/request-lifecycle.html#source-0470759dc8387e9a">src/libcamera/base/bound_method.cpp:68</a> · <a href="../../reader-archive/request-lifecycle.html#source-6191f91df6cbffa2">src/libcamera/camera.cpp:1462</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:stop-notification-boundary -->
+
+<!-- sdd:visual:stop-disconnect-contract -->
+<h3 id="d1-정지-api-계약과-연결-해제-todo">Stop API contract and disconnect TODO</h3>
+<pre class="mermaid">flowchart TB
+
+  v_stop["PipelineHandler::stop &lt;br/&gt;contract"]
+  v_complete["Contract: cancel all &lt;br/&gt;pending requests; &lt;br/&gt;immediately complete in &lt;br/&gt;error"]
+  v_disconnect["Camera::disconnect &lt;br/&gt;notification"]
+  v_todo["Pending requests on &lt;br/&gt;disconnection while &lt;br/&gt;Running: TODO"]
+  v_stop --&gt;|"Contract in the selected &lt;br/&gt;handler source"| v_complete
+  v_disconnect --&gt;|"Distinguish unfinished TODO"| v_todo</pre>
+<p><a href="../../request-lifecycle.stop-disconnect-contract.mmd">Mermaid source</a></p>
+<details open class="note">
+<summary>Diagram evidence and verification scope</summary>
+<p>How do the two selected source passages of PipelineHandler::stop and Camera::disconnect state the handling of waiting requests differently?</p>
+<p>Source-linked interpretation · automatic link check only · meaning and device execution not yet verified</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table"><table>
+<thead>
+<tr>
+<th>Elements and transitions</th>
+<th>Source evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-sdd-label-en="PipelineHandler::stop contract">PipelineHandler::stop contract</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-eefd1bbecb1aad0a">src/libcamera/pipeline_handler.cpp:359</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Contract: cancel all pending requests; immediately complete in error">Contract: cancel all pending requests; immediately complete in error</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-eefd1bbecb1aad0a">src/libcamera/pipeline_handler.cpp:359</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Camera::disconnect notification">Camera::disconnect notification</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-839140c350119dd1">src/libcamera/camera.cpp:944</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Pending requests on disconnection while Running: TODO">Pending requests on disconnection while Running: TODO</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-839140c350119dd1">src/libcamera/camera.cpp:944</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Contract in the selected handler source">Contract in the selected handler source</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-eefd1bbecb1aad0a">src/libcamera/pipeline_handler.cpp:359</a></td>
+</tr>
+<tr>
+<td><span data-sdd-label-en="Distinguish unfinished TODO">Distinguish unfinished TODO</span></td>
+<td><a href="../../reader-archive/request-lifecycle.html#source-839140c350119dd1">src/libcamera/camera.cpp:944</a></td>
+</tr>
+</tbody>
+</table></div>
+</details>
+<!-- /sdd:visual:stop-disconnect-contract -->
+
+</article><section class="evidence"><h2 id="d1-page-evidence">Source manuscripts and review records</h2><details open><summary>System overview</summary><section><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>Document generation time</dt><dd><code>2026-11-20 17:39:13+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../../../contract-consistency.json">Automated comparison report</a> · Before human review</dd><dt>Reader scope</dt><dd><a href="../../../reader-scope.json">Answers by task and unreviewed scope</a></dd></dl><details open class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>include/libcamera/camera.h</code>, <code>include/libcamera/camera_manager.h</code>, <code>include/libcamera/internal/ipa_manager.h</code>, <code>include/libcamera/internal/pipeline_handler.h</code>, <code>include/libcamera/request.h</code>, <code>src/libcamera/base/log.cpp</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/camera_manager.cpp</code>, <code>src/libcamera/controls.cpp</code>, <code>src/libcamera/ipa_manager.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code>, <code>src/libcamera/request.cpp</code></li><li>Evidence level: code verified (static analysis, simple_compdb configuration, commit <code>adfa719f8e</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded on: 2026-11-21 · Awaiting human review</li></ul></details><a href="../../../overview.md">Markdown source ↗</a> <a href="../../overview.mmd">Mermaid source ↗</a></section><p><a href="../../reader-archive/overview.html#page-evidence">Open earlier detail</a></p></details><details open><summary>Request handling and problem diagnosis</summary><section><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>Document generation time</dt><dd><code>2026-11-21 13:28:40+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../../../contract-consistency.json">Automated comparison report</a> · Before human review</dd><dt>Enter product description</dt><dd><a href="../../../product-context.json">Scope, conditions, and sources</a></dd></dl><details open class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>Documentation/thread-safety.dox</code>, <code>include/libcamera/base/bound_method.h</code>, <code>include/libcamera/base/object.h</code>, <code>include/libcamera/base/signal.h</code>, <code>include/libcamera/base/utils.h</code>, <code>include/libcamera/camera.h</code>, <code>include/libcamera/internal/camera.h</code>, <code>include/libcamera/internal/framebuffer.h</code>, <code>include/libcamera/internal/pipeline_handler.h</code>, <code>include/libcamera/internal/request.h</code>, <code>include/libcamera/request.h</code>, <code>product-evidence/libcamera-callback-probe/callback-run.txt</code>, <code>src/libcamera/base/bound_method.cpp</code>, <code>src/libcamera/base/event_dispatcher_poll.cpp</code>, <code>src/libcamera/base/message.cpp</code>, <code>src/libcamera/base/object.cpp</code>, <code>src/libcamera/base/signal.cpp</code>, <code>src/libcamera/base/thread.cpp</code>, <code>src/libcamera/base/timer.cpp</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/framebuffer.cpp</code>, <code>src/libcamera/pipeline/uvcvideo/uvcvideo.cpp</code>, <code>src/libcamera/pipeline_handler.cpp</code>, <code>src/libcamera/request.cpp</code>, <code>src/libcamera/v4l2_device.cpp</code>, <code>src/libcamera/v4l2_videodevice.cpp</code></li><li>Evidence level: code verified (static analysis, simple_compdb configuration, commit <code>adfa719f8e</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded on: 2026-11-21 · Awaiting human review</li></ul></details><a href="../../../request-lifecycle.md">Markdown source ↗</a></section><p><a href="../../reader-archive/request-lifecycle.html#page-evidence">Open earlier detail</a></p></details></section><p><a href="../../request-flow.md" download>Download page Markdown</a> · <a href="../../../reader-edition.json">Reader edition source map</a></p></section></main>
+<script id="site-config" type="application/json">{"root": "../../", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "language": "en"}</script><script>(() => {
+  'use strict';
+  const config = JSON.parse(document.querySelector('#site-config').textContent);
+  const english = config.language === 'en';
+  const t = (ko, en) => english ? en : ko;
+  const root = new URL(config.root, location.href);
+  const button = document.querySelector('#print-document');
+  const status = document.querySelector('#print-status');
+  const diagrams = [...document.querySelectorAll('.mermaid')];
+  button.addEventListener('click', () => window.print());
+  function finish(failed) {
+    button.disabled = false;
+    status.textContent = failed
+      ? t(`그림 ${failed}개를 그리지 못해 Mermaid 원문으로 표시합니다. 원문도 PDF에 포함됩니다.`,
+          `${failed} diagram(s) could not be drawn and are shown as Mermaid source, which the PDF includes.`)
+      : t(`인쇄 준비가 끝났습니다. 그림 ${diagrams.length}개를 모두 그렸습니다.`,
+          `Ready to print. All ${diagrams.length} diagram(s) are drawn.`);
+    if (new URLSearchParams(location.search).has('print')) window.print();
+  }
+  if (!diagrams.length) { finish(0); return; }
+  import(new URL(config.mermaid, root).href).then(async ({default: mermaid}) => {
+    mermaid.initialize({startOnLoad: false, securityLevel: 'strict', theme: 'base',
+      themeVariables: {background: '#ffffff', primaryColor: '#edf5f1', primaryTextColor: '#17201e',
+        primaryBorderColor: '#8ba99e', lineColor: '#66766f', secondaryColor: '#f6f7f8',
+        tertiaryColor: '#ffffff', edgeLabelBackground: '#ffffff',
+        fontFamily: 'Geist, Malgun Gothic, system-ui, sans-serif', fontSize: '14px'},
+      flowchart: {htmlLabels: false, curve: 'basis', nodeSpacing: 38, rankSpacing: 65, padding: 16}});
+    let failed = 0;
+    // Hide the long body while drawing: otherwise every render re-lays out the whole document
+    // (31 pages took over six minutes for 164 diagrams; hidden, about five seconds).
+    // Mermaid measures text in its own container under body, so sizes are unaffected.
+    const body = document.querySelector('main');
+    body.style.display = 'none';
+    try {
+    for (const [i, diagram] of diagrams.entries()) {
+      status.textContent = t(`그림을 그리는 중입니다 (${i + 1}/${diagrams.length}). 다 그리면 본문을 표시합니다.`,
+                             `Drawing diagrams (${i + 1}/${diagrams.length}). The document appears when they are done.`);
+      const source = diagram.textContent;
+      try {
+        const {svg} = await mermaid.render(`sdd-print-${i}`, source);
+        diagram.innerHTML = svg;
+        diagram.dataset.ready = 'true';
+      } catch (_) {
+        failed += 1;
+        diagram.textContent = source;
+        diagram.classList.add('diagram-error');
+      }
+    }
+    } finally {
+      body.style.display = '';
+    }
+    finish(failed);
+  }).catch(() => finish(diagrams.length));
+})();</script></body></html>
