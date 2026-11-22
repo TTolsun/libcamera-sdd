@@ -195,7 +195,7 @@ When investigating, in `Camera::configure()`, after passing the access check and
 
 </details>
 
-## Check order by failure location
+## Request Submission Failures and Missing Completion Notifications
 
 See also: [Checking readiness waits and timeouts](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/pipeline-requests.html#%EC%9A%94%EC%B2%AD-%EC%A4%80%EB%B9%84%EC%99%80-%EC%9E%A5%EC%B9%98-%ED%81%90) · [Distinguishing request acceptance from completion notification](https://ttolsun.github.io/libcamera-sdd/en/reader-archive/request-lifecycle.html#%EC%A0%9C%EC%B6%9C%EC%97%90%EC%84%9C-%EC%99%84%EB%A3%8C%EA%B9%8C%EC%A7%80) · [Observation plan for app callback connections and threads](https://ttolsun.github.io/libcamera-sdd/en/request-flow.html#stop-and-disconnect)
 
