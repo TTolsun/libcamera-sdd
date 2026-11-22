@@ -46901,16 +46901,700 @@
           "receipt_sha256": "7e1d40289d33283cb7d13ef4ba60a33fdf7883f1c2ec48e1b77f85006e103541"
         }
       ]
+    },
+    {
+      "id": "uvc-viewfinder-configuration",
+      "input_sha256": "a3b433dfeff9e0efb969bc1155465b78217e05373810b09d56da5eaa1c262eb7",
+      "findings": [
+        {
+          "claim_id": "scenarios/uvc-viewfinder-configuration.md/uvc-viewfinder/8da203fbc3fa",
+          "peers": [
+            "catalog/fc1610ee661f8907",
+            "catalog/fc1610ee661f8907/en",
+            "scenarios/configure.md/application/fe1ae29305c5",
+            "catalog/0779e2715d57aa3c",
+            "catalog/0779e2715d57aa3c/en"
+          ],
+          "status": "compatible",
+          "condition": "The example changes the generated configuration; configure proceeds past the access check.",
+          "actor": "The application requests and checks values; UVC validates; Camera configures.",
+          "timing": "Defaults precede the request and validation; Camera revalidates after clearing associations.",
+          "scope": "One Viewfinder configuration and the general validation status contract.",
+          "reason": "The example, validation outcomes, caller check and configure rejection are supported. The Korean and English catalog peers preserve the same conditions.",
+          "sources": [
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/app-default",
+              "source_quote": "In the example application, create a new configuration variable and use the\n``Camera::generateConfiguration`` function to produce a ``CameraConfiguration``\nfor the single ``StreamRole::Viewfinder`` role.\n\n.. code:: cpp\n\n   std::unique_ptr<CameraConfiguration> config = camera->generateConfiguration( { StreamRole::Viewfinder } );\n\nThe generated ``CameraConfiguration`` has a ``StreamConfiguration`` instance for\neach ``StreamRole`` the application requested. Each of these has a default size\nand format that the camera assigned, and a list of supported pixel formats and\nsizes.\n\nThe code below accesses the first and only ``StreamConfiguration`` item in the\n``CameraConfiguration`` and outputs its parameters to standard output.\n\n.. code:: cpp\n\n   StreamConfiguration &streamConfig = config->at(0);"
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/app-request",
+              "source_quote": "With an initialized ``CameraConfiguration``, an application can make changes to\nthe parameters it contains, for example, to change the width and height, use the\nfollowing code:\n\n.. code:: cpp\n\n   streamConfig.size.width = 640;\n   streamConfig.size.height = 480;\n\nIf an application changes any parameters, it must validate the configuration\nbefore applying it to the camera using the ``CameraConfiguration::validate()``\nfunction. If the new values are not supported by the ``Camera`` device, the\nvalidation process adjusts the parameters to what it considers to be the closest\nsupported values.\n\nThe ``validate`` function returns a :doxy-pub:`CameraConfiguration::Status`\nwhich applications shall check to see if the Pipeline Handler adjusted the"
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/validation-contract",
+              "source_quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.\n * \\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully.\n * \\retval CameraConfiguration::Valid The configuration was already valid and\n * hasn't been adjusted."
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/uvc-validate",
+              "source_quote": "CameraConfiguration::Status UVCCameraConfiguration::validate()\n{\n\tStatus status = Valid;\n\n\tif (config_.empty())\n\t\treturn Invalid;\n\n\tif (sensorConfig)\n\t\treturn Invalid;\n\n\tif (orientation != Orientation::Rotate0) {\n\t\torientation = Orientation::Rotate0;\n\t\tstatus = Adjusted;\n\t}\n\n\t/* Cap the number of entries to the available streams. */\n\tif (config_.size() > 1) {\n\t\tconfig_.resize(1);\n\t\tstatus = Adjusted;\n\t}\n\n\tStreamConfiguration &cfg = config_[0];\n\tconst StreamFormats &formats = cfg.formats();\n\tconst PixelFormat pixelFormat = cfg.pixelFormat;\n\tconst Size size = cfg.size;\n\n\tconst std::vector<PixelFormat> pixelFormats = formats.pixelformats();\n\tauto iter = std::find(pixelFormats.begin(), pixelFormats.end(), pixelFormat);\n\tif (iter == pixelFormats.end()) {\n\t\tcfg.pixelFormat = pixelFormats.front();\n\t\tLOG(UVC, Debug)\n\t\t\t<< \"Adjusting pixel format from \" << pixelFormat\n\t\t\t<< \" to \" << cfg.pixelFormat;\n\t\tstatus = Adjusted;\n\t}\n\n\tconst std::vector<Size> &formatSizes = formats.sizes(cfg.pixelFormat);\n\tcfg.size = formatSizes.front();\n\tfor (const Size &formatsSize : formatSizes) {\n\t\tif (formatsSize > size)\n\t\t\tbreak;\n\n\t\tcfg.size = formatsSize;\n\t}\n\n\tif (cfg.size != size) {\n\t\tLOG(UVC, Debug)\n\t\t\t<< \"Adjusting size from \" << size << \" to \" << cfg.size;\n\t\tstatus = Adjusted;\n\t}\n\n\tcfg.bufferCount = 4;\n\n\tV4L2DeviceFormat format;\n\tformat.fourcc = data_->video_->toV4L2PixelFormat(cfg.pixelFormat);\n\tformat.size = cfg.size;\n\n\t/*\n\t * For power-consumption reasons video_ is closed when the camera is not\n\t * acquired. Open it here if necessary.\n\t */\n\t{\n\t\tbool opened = false;\n\n\t\tMutexLocker locker(data_->openLock_);\n\n\t\tif (!data_->video_->isOpen()) {\n\t\t\tint ret = data_->video_->open();\n\t\t\tif (ret)\n\t\t\t\treturn Invalid;\n\n\t\t\topened = true;\n\t\t}\n\n\t\tint ret = data_->video_->tryFormat(&format);\n\t\tif (opened)\n\t\t\tdata_->video_->close();\n\t\tif (ret)\n\t\t\treturn Invalid;\n\t}\n\n\tcfg.stride = format.planes[0].bpl;\n\tcfg.frameSize = format.planes[0].size;\n\n\tif (cfg.colorSpace != format.colorSpace) {\n\t\tcfg.colorSpace = format.colorSpace;\n\t\tstatus = Adjusted;\n\t}\n\n\treturn status;"
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/camera-configure",
+              "source_quote": "int Camera::configure(CameraConfiguration *config)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraAcquired,\n\t\t\t\t     Private::CameraConfigured);\n\tif (ret < 0)\n\t\treturn ret;\n\n\tfor (auto &cfg : *config)\n\t\tcfg.setStream(nullptr);\n\n\tif (config->validate() != CameraConfiguration::Valid) {\n\t\tLOG(Camera, Error)\n\t\t\t<< \"Can't configure camera with invalid configuration\";\n\t\treturn -EINVAL;\n\t}\n\n\tstd::ostringstream msg(\"configuring streams:\", std::ios_base::ate);\n\n\tfor (unsigned int index = 0; index < config->size(); ++index) {\n\t\tStreamConfiguration &cfg = config->at(index);\n\t\tmsg << \" (\" << index << \") \" << cfg.toString();\n\t}\n\n\tLOG(Camera, Info) << msg.str();\n\n\tret = d->pipe_->invokeMethod(&PipelineHandler::configure,\n\t\t\t\t     ConnectionTypeBlocking, this, config);\n\tif (ret)\n\t\treturn ret;\n\n\td->activeStreams_.clear();\n\tfor (const StreamConfiguration &cfg : *config) {\n\t\tStream *stream = cfg.stream();\n\t\tif (!stream) {\n\t\t\tLOG(Camera, Fatal)\n\t\t\t\t<< \"Pipeline handler failed to update stream configuration\";\n\t\t\td->activeStreams_.clear();\n\t\t\treturn -EINVAL;\n\t\t}\n\n\t\tstream->configuration_ = cfg;\n\t\td->activeStreams_.insert(stream);\n\t}\n\n\td->setState(Private::CameraConfigured);\n\n\treturn 0;\n}"
+            }
+          ],
+          "claim_quote": "앱은 `Camera::generateConfiguration()`으로 `Viewfinder` 구성 하나를 만들고 기본 크기와 픽셀 포맷을 확인한 뒤, 예시로 640×480을 요청하고 `validate()`를 호출해야 합니다. UVC 검증은 `tryFormat`을 시험하며 장치 열기나 시험이 실패하면 `Invalid`를 반환합니다. `Adjusted`는 구성이 조정되어 유효해졌다는 뜻이며 어느 스트림의 매개변수든 바뀌거나 스트림 구성이 제거되었을 수 있으므로, 앱은 검증 후 크기와 픽셀 포맷을 읽고 변경을 받아들일지 판단해야 합니다. 이후 `Camera::configure()`는 접근이 허용되면 스트림 연결을 지우고 다시 검증하며, 결과가 `Valid`가 아니면 `-EINVAL`을 반환합니다."
+        },
+        {
+          "claim_id": "scenarios/uvc-viewfinder-configuration.md/uvc-viewfinder/d281855385eb",
+          "peers": [
+            "catalog/14dc8273c52daf96",
+            "catalog/14dc8273c52daf96/en",
+            "scenarios/uvc-viewfinder-configuration.md/uvc-viewfinder/8da203fbc3fa"
+          ],
+          "status": "compatible",
+          "condition": "UVC configuration applies the validated format; successful configuration has an associated stream.",
+          "actor": "UVC applies and compares the format; Camera copies the configuration; the application reads it.",
+          "timing": "The format is tested during validation and applied during configuration; the stream is read after success.",
+          "scope": "Size, FourCC, errors and active stream configuration; target-device checking is an observation plan.",
+          "reason": "The source supports the apply, comparison, error and copy sequence. The device checks describe a plan, not measured results; both catalog versions preserve that boundary.",
+          "sources": [
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/uvc-validate",
+              "source_quote": "CameraConfiguration::Status UVCCameraConfiguration::validate()\n{\n\tStatus status = Valid;\n\n\tif (config_.empty())\n\t\treturn Invalid;\n\n\tif (sensorConfig)\n\t\treturn Invalid;\n\n\tif (orientation != Orientation::Rotate0) {\n\t\torientation = Orientation::Rotate0;\n\t\tstatus = Adjusted;\n\t}\n\n\t/* Cap the number of entries to the available streams. */\n\tif (config_.size() > 1) {\n\t\tconfig_.resize(1);\n\t\tstatus = Adjusted;\n\t}\n\n\tStreamConfiguration &cfg = config_[0];\n\tconst StreamFormats &formats = cfg.formats();\n\tconst PixelFormat pixelFormat = cfg.pixelFormat;\n\tconst Size size = cfg.size;\n\n\tconst std::vector<PixelFormat> pixelFormats = formats.pixelformats();\n\tauto iter = std::find(pixelFormats.begin(), pixelFormats.end(), pixelFormat);\n\tif (iter == pixelFormats.end()) {\n\t\tcfg.pixelFormat = pixelFormats.front();\n\t\tLOG(UVC, Debug)\n\t\t\t<< \"Adjusting pixel format from \" << pixelFormat\n\t\t\t<< \" to \" << cfg.pixelFormat;\n\t\tstatus = Adjusted;\n\t}\n\n\tconst std::vector<Size> &formatSizes = formats.sizes(cfg.pixelFormat);\n\tcfg.size = formatSizes.front();\n\tfor (const Size &formatsSize : formatSizes) {\n\t\tif (formatsSize > size)\n\t\t\tbreak;\n\n\t\tcfg.size = formatsSize;\n\t}\n\n\tif (cfg.size != size) {\n\t\tLOG(UVC, Debug)\n\t\t\t<< \"Adjusting size from \" << size << \" to \" << cfg.size;\n\t\tstatus = Adjusted;\n\t}\n\n\tcfg.bufferCount = 4;\n\n\tV4L2DeviceFormat format;\n\tformat.fourcc = data_->video_->toV4L2PixelFormat(cfg.pixelFormat);\n\tformat.size = cfg.size;\n\n\t/*\n\t * For power-consumption reasons video_ is closed when the camera is not\n\t * acquired. Open it here if necessary.\n\t */\n\t{\n\t\tbool opened = false;\n\n\t\tMutexLocker locker(data_->openLock_);\n\n\t\tif (!data_->video_->isOpen()) {\n\t\t\tint ret = data_->video_->open();\n\t\t\tif (ret)\n\t\t\t\treturn Invalid;\n\n\t\t\topened = true;\n\t\t}\n\n\t\tint ret = data_->video_->tryFormat(&format);\n\t\tif (opened)\n\t\t\tdata_->video_->close();\n\t\tif (ret)\n\t\t\treturn Invalid;\n\t}\n\n\tcfg.stride = format.planes[0].bpl;\n\tcfg.frameSize = format.planes[0].size;\n\n\tif (cfg.colorSpace != format.colorSpace) {\n\t\tcfg.colorSpace = format.colorSpace;\n\t\tstatus = Adjusted;\n\t}\n\n\treturn status;"
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/uvc-configure",
+              "source_quote": "int PipelineHandlerUVC::configure(Camera *camera, CameraConfiguration *config)\n{\n\tUVCCameraData *data = cameraData(camera);\n\tStreamConfiguration &cfg = config->at(0);\n\tint ret;\n\n\tV4L2DeviceFormat format;\n\tformat.fourcc = data->video_->toV4L2PixelFormat(cfg.pixelFormat);\n\tformat.size = cfg.size;\n\n\tret = data->video_->setFormat(&format);\n\tif (ret)\n\t\treturn ret;\n\n\tif (format.size != cfg.size ||\n\t    format.fourcc != data->video_->toV4L2PixelFormat(cfg.pixelFormat))\n\t\treturn -EINVAL;\n\n\tcfg.setStream(&data->stream_);\n\n\treturn 0;\n}"
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/v4l2-configure",
+              "source_quote": "\\brief Configure an image format on the V4L2 video device\n * \\param[inout] format The image format to apply to the video device\n *\n * Apply the supplied \\a format to the video device, and return the actually\n * applied format parameters, as \\ref V4L2VideoDevice::getFormat would do.\n *\n * \\return 0 on success or a negative error code otherwise\n */\nint V4L2VideoDevice::setFormat(V4L2DeviceFormat *format)\n{\n\tint ret;\n\n\tswitch (bufferType_) {\n\tcase V4L2_BUF_TYPE_VIDEO_CAPTURE:\n\tcase V4L2_BUF_TYPE_VIDEO_OUTPUT:\n\t\tret = trySetFormatSingleplane(format, true);\n\t\tbreak;\n\tcase V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:\n\tcase V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:\n\t\tret = trySetFormatMultiplane(format, true);\n\t\tbreak;\n\tcase V4L2_BUF_TYPE_META_CAPTURE:\n\tcase V4L2_BUF_TYPE_META_OUTPUT:\n\t\tret = trySetFormatMeta(format, true);\n\t\tbreak;\n\tdefault:\n\t\tret = -EINVAL;\n\t\tbreak;\n\t}\n\n\t/* Cache the set format on success. */\n\tif (ret)\n\t\treturn ret;\n\n\tformat_ = *format;\n\tformatInfo_ = &PixelFormatInfo::info(format_.fourcc);\n\n\treturn 0;\n}"
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/camera-configure",
+              "source_quote": "int Camera::configure(CameraConfiguration *config)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraAcquired,\n\t\t\t\t     Private::CameraConfigured);\n\tif (ret < 0)\n\t\treturn ret;\n\n\tfor (auto &cfg : *config)\n\t\tcfg.setStream(nullptr);\n\n\tif (config->validate() != CameraConfiguration::Valid) {\n\t\tLOG(Camera, Error)\n\t\t\t<< \"Can't configure camera with invalid configuration\";\n\t\treturn -EINVAL;\n\t}\n\n\tstd::ostringstream msg(\"configuring streams:\", std::ios_base::ate);\n\n\tfor (unsigned int index = 0; index < config->size(); ++index) {\n\t\tStreamConfiguration &cfg = config->at(index);\n\t\tmsg << \" (\" << index << \") \" << cfg.toString();\n\t}\n\n\tLOG(Camera, Info) << msg.str();\n\n\tret = d->pipe_->invokeMethod(&PipelineHandler::configure,\n\t\t\t\t     ConnectionTypeBlocking, this, config);\n\tif (ret)\n\t\treturn ret;\n\n\td->activeStreams_.clear();\n\tfor (const StreamConfiguration &cfg : *config) {\n\t\tStream *stream = cfg.stream();\n\t\tif (!stream) {\n\t\t\tLOG(Camera, Fatal)\n\t\t\t\t<< \"Pipeline handler failed to update stream configuration\";\n\t\t\td->activeStreams_.clear();\n\t\t\treturn -EINVAL;\n\t\t}\n\n\t\tstream->configuration_ = cfg;\n\t\td->activeStreams_.insert(stream);\n\t}\n\n\td->setState(Private::CameraConfigured);\n\n\treturn 0;\n}"
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/app-stream",
+              "source_quote": "\\fn Stream::configuration()\n * \\brief Retrieve the active configuration of the stream\n * \\return The active configuration of the stream"
+            }
+          ],
+          "claim_quote": "`tryFormat`은 형식을 시험하고, `PipelineHandlerUVC::configure()`의 `setFormat`은 형식을 장치에 실제로 적용하고 적용된 값을 반환합니다. UVC 구성은 검증된 크기와 FourCC가 장치에서 반환한 값과 같은지 대조하며, `setFormat`이 실패하면 그 오류를 반환하고 값이 다르면 `-EINVAL`을 반환합니다. 성공하면 UVC 구성은 스트림을 연결하고 공통 `Camera::configure()`는 검증된 스트림 구성을 연결된 스트림에 복사하므로, 앱은 `Stream::configuration()`에서 활성 구성을 읽을 수 있습니다. 대상 장치에서는 검증 전후의 크기와 픽셀 포맷, 적용 시도의 크기와 FourCC 및 반환값을 확인합니다."
+        },
+        {
+          "claim_id": "scenarios/configure.md/application/fe1ae29305c5",
+          "peers": [
+            "catalog/0779e2715d57aa3c",
+            "catalog/0779e2715d57aa3c/en",
+            "scenarios/uvc-viewfinder-configuration.md/uvc-viewfinder/8da203fbc3fa"
+          ],
+          "status": "compatible",
+          "condition": "The access check either returns a negative error or passes.",
+          "actor": "Camera::configure().",
+          "timing": "The access check precedes clearing stream associations and validation.",
+          "scope": "Access errors and rejection of a validation result other than Valid.",
+          "reason": "The implementation supports the stated order and return values; the related claims agree.",
+          "sources": [
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/camera-configure",
+              "source_quote": "int Camera::configure(CameraConfiguration *config)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraAcquired,\n\t\t\t\t     Private::CameraConfigured);\n\tif (ret < 0)\n\t\treturn ret;\n\n\tfor (auto &cfg : *config)\n\t\tcfg.setStream(nullptr);\n\n\tif (config->validate() != CameraConfiguration::Valid) {\n\t\tLOG(Camera, Error)\n\t\t\t<< \"Can't configure camera with invalid configuration\";\n\t\treturn -EINVAL;\n\t}\n\n\tstd::ostringstream msg(\"configuring streams:\", std::ios_base::ate);\n\n\tfor (unsigned int index = 0; index < config->size(); ++index) {\n\t\tStreamConfiguration &cfg = config->at(index);\n\t\tmsg << \" (\" << index << \") \" << cfg.toString();\n\t}\n\n\tLOG(Camera, Info) << msg.str();\n\n\tret = d->pipe_->invokeMethod(&PipelineHandler::configure,\n\t\t\t\t     ConnectionTypeBlocking, this, config);\n\tif (ret)\n\t\treturn ret;\n\n\td->activeStreams_.clear();\n\tfor (const StreamConfiguration &cfg : *config) {\n\t\tStream *stream = cfg.stream();\n\t\tif (!stream) {\n\t\t\tLOG(Camera, Fatal)\n\t\t\t\t<< \"Pipeline handler failed to update stream configuration\";\n\t\t\td->activeStreams_.clear();\n\t\t\treturn -EINVAL;\n\t\t}\n\n\t\tstream->configuration_ = cfg;\n\t\td->activeStreams_.insert(stream);\n\t}\n\n\td->setState(Private::CameraConfigured);\n\n\treturn 0;\n}"
+            }
+          ],
+          "claim_quote": "`Camera::configure()`는 접근 상태 검사에서 음수 오류가 나면 그 값을 반환합니다. 검사를 통과하면 각 `StreamConfiguration`의 이전 스트림 연결을 `nullptr`로 비운 뒤 `validate()`를 검사하고, 결과가 `Valid`가 아니면 `-EINVAL`을 반환합니다."
+        },
+        {
+          "claim_id": "scenarios/configure.md/preconditions/ef9d8356106a",
+          "peers": [
+            "catalog/4bcfb5e13874fe47",
+            "catalog/4bcfb5e13874fe47/en"
+          ],
+          "status": "compatible",
+          "condition": "A configuration is prepared before capture.",
+          "actor": "The caller prepares and validates the configuration; Camera::configure() configures the camera.",
+          "timing": "Preparation and configuration occur before capture.",
+          "scope": "The documented configuration precondition.",
+          "reason": "The API describes the stated caller preparation and requirement for a fully valid configuration; the translations agree.",
+          "sources": [
+            {
+              "source_id": "scenario-configure/preconditions/configure",
+              "source_quote": "\\brief Configure the camera prior to capture\n * \\param[in] config The camera configurations to setup\n *\n * Prior to starting capture, the camera must be configured to select a\n * group of streams to be involved in the capture and their configuration.\n * The caller specifies which streams are to be involved and their configuration\n * by populating \\a config.\n *\n * The configuration is created by generateConfiguration(), and adjusted by the\n * caller with CameraConfiguration::validate(). This function only accepts fully\n * valid configurations and returns an error if \\a config is not valid.\n *\n * Exclusive access to the camera shall be ensured by a call to acquire() prior\n * to calling this function, otherwise an -EACCES error will be returned.\n *\n * \\context This function may only be called when the camera is in the Acquired\n * or Configured state as defined in \\ref camera_operation, and shall be\n * synchronized by the caller with other functions that affect the camera\n * state.\n *\n * Upon return the StreamConfiguration entries in \\a config are associated with\n * Stream instances which can be retrieved with StreamConfiguration::stream().\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not in a state where it can be configured\n * \\retval -EINVAL The configuration is not valid\n */"
+            }
+          ],
+          "claim_quote": "`Camera::configure()`는 캡처 전에 캡처에 사용할 스트림 그룹과 각 스트림의 구성을 설정합니다. 호출자는 `generateConfiguration()`으로 구성을 만들고 `config`에 사용할 스트림과 구성을 채운 뒤 `CameraConfiguration::validate()`로 조정합니다. `Camera::configure()`에는 완전히 유효한 구성이 필요합니다."
+        },
+        {
+          "claim_id": "catalog/fc1610ee661f8907",
+          "peers": [
+            "scenarios/uvc-viewfinder-configuration.md/uvc-viewfinder/8da203fbc3fa",
+            "catalog/fc1610ee661f8907/en",
+            "scenarios/configure.md/application/fe1ae29305c5",
+            "catalog/0779e2715d57aa3c",
+            "catalog/0779e2715d57aa3c/en"
+          ],
+          "status": "compatible",
+          "condition": "The example changes the generated configuration; configure proceeds past the access check.",
+          "actor": "The application requests and checks values; UVC validates; Camera configures.",
+          "timing": "Defaults precede the request and validation; Camera revalidates after clearing associations.",
+          "scope": "One Viewfinder configuration and the general validation status contract.",
+          "reason": "The source supports the example and the stated validation and revalidation behavior. The English translation and related claims agree.",
+          "sources": [
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/app-default",
+              "source_quote": "In the example application, create a new configuration variable and use the\n``Camera::generateConfiguration`` function to produce a ``CameraConfiguration``\nfor the single ``StreamRole::Viewfinder`` role.\n\n.. code:: cpp\n\n   std::unique_ptr<CameraConfiguration> config = camera->generateConfiguration( { StreamRole::Viewfinder } );\n\nThe generated ``CameraConfiguration`` has a ``StreamConfiguration`` instance for\neach ``StreamRole`` the application requested. Each of these has a default size\nand format that the camera assigned, and a list of supported pixel formats and\nsizes.\n\nThe code below accesses the first and only ``StreamConfiguration`` item in the\n``CameraConfiguration`` and outputs its parameters to standard output.\n\n.. code:: cpp\n\n   StreamConfiguration &streamConfig = config->at(0);"
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/app-request",
+              "source_quote": "With an initialized ``CameraConfiguration``, an application can make changes to\nthe parameters it contains, for example, to change the width and height, use the\nfollowing code:\n\n.. code:: cpp\n\n   streamConfig.size.width = 640;\n   streamConfig.size.height = 480;\n\nIf an application changes any parameters, it must validate the configuration\nbefore applying it to the camera using the ``CameraConfiguration::validate()``\nfunction. If the new values are not supported by the ``Camera`` device, the\nvalidation process adjusts the parameters to what it considers to be the closest\nsupported values.\n\nThe ``validate`` function returns a :doxy-pub:`CameraConfiguration::Status`\nwhich applications shall check to see if the Pipeline Handler adjusted the"
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/validation-contract",
+              "source_quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.\n * \\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully.\n * \\retval CameraConfiguration::Valid The configuration was already valid and\n * hasn't been adjusted."
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/uvc-validate",
+              "source_quote": "CameraConfiguration::Status UVCCameraConfiguration::validate()\n{\n\tStatus status = Valid;\n\n\tif (config_.empty())\n\t\treturn Invalid;\n\n\tif (sensorConfig)\n\t\treturn Invalid;\n\n\tif (orientation != Orientation::Rotate0) {\n\t\torientation = Orientation::Rotate0;\n\t\tstatus = Adjusted;\n\t}\n\n\t/* Cap the number of entries to the available streams. */\n\tif (config_.size() > 1) {\n\t\tconfig_.resize(1);\n\t\tstatus = Adjusted;\n\t}\n\n\tStreamConfiguration &cfg = config_[0];\n\tconst StreamFormats &formats = cfg.formats();\n\tconst PixelFormat pixelFormat = cfg.pixelFormat;\n\tconst Size size = cfg.size;\n\n\tconst std::vector<PixelFormat> pixelFormats = formats.pixelformats();\n\tauto iter = std::find(pixelFormats.begin(), pixelFormats.end(), pixelFormat);\n\tif (iter == pixelFormats.end()) {\n\t\tcfg.pixelFormat = pixelFormats.front();\n\t\tLOG(UVC, Debug)\n\t\t\t<< \"Adjusting pixel format from \" << pixelFormat\n\t\t\t<< \" to \" << cfg.pixelFormat;\n\t\tstatus = Adjusted;\n\t}\n\n\tconst std::vector<Size> &formatSizes = formats.sizes(cfg.pixelFormat);\n\tcfg.size = formatSizes.front();\n\tfor (const Size &formatsSize : formatSizes) {\n\t\tif (formatsSize > size)\n\t\t\tbreak;\n\n\t\tcfg.size = formatsSize;\n\t}\n\n\tif (cfg.size != size) {\n\t\tLOG(UVC, Debug)\n\t\t\t<< \"Adjusting size from \" << size << \" to \" << cfg.size;\n\t\tstatus = Adjusted;\n\t}\n\n\tcfg.bufferCount = 4;\n\n\tV4L2DeviceFormat format;\n\tformat.fourcc = data_->video_->toV4L2PixelFormat(cfg.pixelFormat);\n\tformat.size = cfg.size;\n\n\t/*\n\t * For power-consumption reasons video_ is closed when the camera is not\n\t * acquired. Open it here if necessary.\n\t */\n\t{\n\t\tbool opened = false;\n\n\t\tMutexLocker locker(data_->openLock_);\n\n\t\tif (!data_->video_->isOpen()) {\n\t\t\tint ret = data_->video_->open();\n\t\t\tif (ret)\n\t\t\t\treturn Invalid;\n\n\t\t\topened = true;\n\t\t}\n\n\t\tint ret = data_->video_->tryFormat(&format);\n\t\tif (opened)\n\t\t\tdata_->video_->close();\n\t\tif (ret)\n\t\t\treturn Invalid;\n\t}\n\n\tcfg.stride = format.planes[0].bpl;\n\tcfg.frameSize = format.planes[0].size;\n\n\tif (cfg.colorSpace != format.colorSpace) {\n\t\tcfg.colorSpace = format.colorSpace;\n\t\tstatus = Adjusted;\n\t}\n\n\treturn status;"
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/camera-configure",
+              "source_quote": "int Camera::configure(CameraConfiguration *config)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraAcquired,\n\t\t\t\t     Private::CameraConfigured);\n\tif (ret < 0)\n\t\treturn ret;\n\n\tfor (auto &cfg : *config)\n\t\tcfg.setStream(nullptr);\n\n\tif (config->validate() != CameraConfiguration::Valid) {\n\t\tLOG(Camera, Error)\n\t\t\t<< \"Can't configure camera with invalid configuration\";\n\t\treturn -EINVAL;\n\t}\n\n\tstd::ostringstream msg(\"configuring streams:\", std::ios_base::ate);\n\n\tfor (unsigned int index = 0; index < config->size(); ++index) {\n\t\tStreamConfiguration &cfg = config->at(index);\n\t\tmsg << \" (\" << index << \") \" << cfg.toString();\n\t}\n\n\tLOG(Camera, Info) << msg.str();\n\n\tret = d->pipe_->invokeMethod(&PipelineHandler::configure,\n\t\t\t\t     ConnectionTypeBlocking, this, config);\n\tif (ret)\n\t\treturn ret;\n\n\td->activeStreams_.clear();\n\tfor (const StreamConfiguration &cfg : *config) {\n\t\tStream *stream = cfg.stream();\n\t\tif (!stream) {\n\t\t\tLOG(Camera, Fatal)\n\t\t\t\t<< \"Pipeline handler failed to update stream configuration\";\n\t\t\td->activeStreams_.clear();\n\t\t\treturn -EINVAL;\n\t\t}\n\n\t\tstream->configuration_ = cfg;\n\t\td->activeStreams_.insert(stream);\n\t}\n\n\td->setState(Private::CameraConfigured);\n\n\treturn 0;\n}"
+            }
+          ],
+          "claim_quote": "앱은 Camera::generateConfiguration()으로 Viewfinder 구성 하나를 만들고 기본 크기와 픽셀 포맷을 확인한 뒤, 예시로 640×480을 요청하고 validate()를 호출해야 합니다. UVC 검증은 tryFormat을 시험하며 장치 열기나 시험이 실패하면 Invalid를 반환합니다. Adjusted는 구성이 조정되어 유효해졌다는 뜻이며 어느 스트림의 매개변수든 바뀌거나 스트림 구성이 제거되었을 수 있으므로, 앱은 검증 후 크기와 픽셀 포맷을 읽고 변경을 받아들일지 판단해야 합니다. 이후 Camera::configure()는 접근이 허용되면 스트림 연결을 지우고 다시 검증하며, 결과가 Valid가 아니면 -EINVAL을 반환합니다."
+        },
+        {
+          "claim_id": "catalog/fc1610ee661f8907/en",
+          "peers": [
+            "scenarios/uvc-viewfinder-configuration.md/uvc-viewfinder/8da203fbc3fa",
+            "catalog/fc1610ee661f8907",
+            "scenarios/configure.md/application/fe1ae29305c5",
+            "catalog/0779e2715d57aa3c",
+            "catalog/0779e2715d57aa3c/en"
+          ],
+          "status": "compatible",
+          "condition": "The example changes the generated configuration; configure proceeds past the access check.",
+          "actor": "The application requests and checks values; UVC validates; Camera configures.",
+          "timing": "Defaults precede the request and validation; Camera revalidates after clearing associations.",
+          "scope": "One Viewfinder configuration and the general validation status contract.",
+          "reason": "The English wording preserves the supported Korean conditions, obligations and validation outcomes.",
+          "sources": [
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/app-default",
+              "source_quote": "In the example application, create a new configuration variable and use the\n``Camera::generateConfiguration`` function to produce a ``CameraConfiguration``\nfor the single ``StreamRole::Viewfinder`` role.\n\n.. code:: cpp\n\n   std::unique_ptr<CameraConfiguration> config = camera->generateConfiguration( { StreamRole::Viewfinder } );\n\nThe generated ``CameraConfiguration`` has a ``StreamConfiguration`` instance for\neach ``StreamRole`` the application requested. Each of these has a default size\nand format that the camera assigned, and a list of supported pixel formats and\nsizes.\n\nThe code below accesses the first and only ``StreamConfiguration`` item in the\n``CameraConfiguration`` and outputs its parameters to standard output.\n\n.. code:: cpp\n\n   StreamConfiguration &streamConfig = config->at(0);"
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/app-request",
+              "source_quote": "With an initialized ``CameraConfiguration``, an application can make changes to\nthe parameters it contains, for example, to change the width and height, use the\nfollowing code:\n\n.. code:: cpp\n\n   streamConfig.size.width = 640;\n   streamConfig.size.height = 480;\n\nIf an application changes any parameters, it must validate the configuration\nbefore applying it to the camera using the ``CameraConfiguration::validate()``\nfunction. If the new values are not supported by the ``Camera`` device, the\nvalidation process adjusts the parameters to what it considers to be the closest\nsupported values.\n\nThe ``validate`` function returns a :doxy-pub:`CameraConfiguration::Status`\nwhich applications shall check to see if the Pipeline Handler adjusted the"
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/validation-contract",
+              "source_quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.\n * \\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully.\n * \\retval CameraConfiguration::Valid The configuration was already valid and\n * hasn't been adjusted."
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/uvc-validate",
+              "source_quote": "CameraConfiguration::Status UVCCameraConfiguration::validate()\n{\n\tStatus status = Valid;\n\n\tif (config_.empty())\n\t\treturn Invalid;\n\n\tif (sensorConfig)\n\t\treturn Invalid;\n\n\tif (orientation != Orientation::Rotate0) {\n\t\torientation = Orientation::Rotate0;\n\t\tstatus = Adjusted;\n\t}\n\n\t/* Cap the number of entries to the available streams. */\n\tif (config_.size() > 1) {\n\t\tconfig_.resize(1);\n\t\tstatus = Adjusted;\n\t}\n\n\tStreamConfiguration &cfg = config_[0];\n\tconst StreamFormats &formats = cfg.formats();\n\tconst PixelFormat pixelFormat = cfg.pixelFormat;\n\tconst Size size = cfg.size;\n\n\tconst std::vector<PixelFormat> pixelFormats = formats.pixelformats();\n\tauto iter = std::find(pixelFormats.begin(), pixelFormats.end(), pixelFormat);\n\tif (iter == pixelFormats.end()) {\n\t\tcfg.pixelFormat = pixelFormats.front();\n\t\tLOG(UVC, Debug)\n\t\t\t<< \"Adjusting pixel format from \" << pixelFormat\n\t\t\t<< \" to \" << cfg.pixelFormat;\n\t\tstatus = Adjusted;\n\t}\n\n\tconst std::vector<Size> &formatSizes = formats.sizes(cfg.pixelFormat);\n\tcfg.size = formatSizes.front();\n\tfor (const Size &formatsSize : formatSizes) {\n\t\tif (formatsSize > size)\n\t\t\tbreak;\n\n\t\tcfg.size = formatsSize;\n\t}\n\n\tif (cfg.size != size) {\n\t\tLOG(UVC, Debug)\n\t\t\t<< \"Adjusting size from \" << size << \" to \" << cfg.size;\n\t\tstatus = Adjusted;\n\t}\n\n\tcfg.bufferCount = 4;\n\n\tV4L2DeviceFormat format;\n\tformat.fourcc = data_->video_->toV4L2PixelFormat(cfg.pixelFormat);\n\tformat.size = cfg.size;\n\n\t/*\n\t * For power-consumption reasons video_ is closed when the camera is not\n\t * acquired. Open it here if necessary.\n\t */\n\t{\n\t\tbool opened = false;\n\n\t\tMutexLocker locker(data_->openLock_);\n\n\t\tif (!data_->video_->isOpen()) {\n\t\t\tint ret = data_->video_->open();\n\t\t\tif (ret)\n\t\t\t\treturn Invalid;\n\n\t\t\topened = true;\n\t\t}\n\n\t\tint ret = data_->video_->tryFormat(&format);\n\t\tif (opened)\n\t\t\tdata_->video_->close();\n\t\tif (ret)\n\t\t\treturn Invalid;\n\t}\n\n\tcfg.stride = format.planes[0].bpl;\n\tcfg.frameSize = format.planes[0].size;\n\n\tif (cfg.colorSpace != format.colorSpace) {\n\t\tcfg.colorSpace = format.colorSpace;\n\t\tstatus = Adjusted;\n\t}\n\n\treturn status;"
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/camera-configure",
+              "source_quote": "int Camera::configure(CameraConfiguration *config)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraAcquired,\n\t\t\t\t     Private::CameraConfigured);\n\tif (ret < 0)\n\t\treturn ret;\n\n\tfor (auto &cfg : *config)\n\t\tcfg.setStream(nullptr);\n\n\tif (config->validate() != CameraConfiguration::Valid) {\n\t\tLOG(Camera, Error)\n\t\t\t<< \"Can't configure camera with invalid configuration\";\n\t\treturn -EINVAL;\n\t}\n\n\tstd::ostringstream msg(\"configuring streams:\", std::ios_base::ate);\n\n\tfor (unsigned int index = 0; index < config->size(); ++index) {\n\t\tStreamConfiguration &cfg = config->at(index);\n\t\tmsg << \" (\" << index << \") \" << cfg.toString();\n\t}\n\n\tLOG(Camera, Info) << msg.str();\n\n\tret = d->pipe_->invokeMethod(&PipelineHandler::configure,\n\t\t\t\t     ConnectionTypeBlocking, this, config);\n\tif (ret)\n\t\treturn ret;\n\n\td->activeStreams_.clear();\n\tfor (const StreamConfiguration &cfg : *config) {\n\t\tStream *stream = cfg.stream();\n\t\tif (!stream) {\n\t\t\tLOG(Camera, Fatal)\n\t\t\t\t<< \"Pipeline handler failed to update stream configuration\";\n\t\t\td->activeStreams_.clear();\n\t\t\treturn -EINVAL;\n\t\t}\n\n\t\tstream->configuration_ = cfg;\n\t\td->activeStreams_.insert(stream);\n\t}\n\n\td->setState(Private::CameraConfigured);\n\n\treturn 0;\n}"
+            }
+          ],
+          "claim_quote": "The app must use Camera::generateConfiguration() to create one Viewfinder configuration and check its default size and pixel format, then request 640×480 as an example and call validate(). UVC validation calls tryFormat and returns Invalid if opening the device or the test fails. Adjusted means the configuration was adjusted and is now valid; parameters for any stream may have changed, or stream configurations may have been removed. The app must therefore read the size and pixel format after validation and decide whether to accept the changes. Later, if access is allowed, Camera::configure() clears the stream associations and validates the configuration again; it returns -EINVAL if the result is not Valid."
+        },
+        {
+          "claim_id": "catalog/14dc8273c52daf96",
+          "peers": [
+            "scenarios/uvc-viewfinder-configuration.md/uvc-viewfinder/d281855385eb",
+            "catalog/14dc8273c52daf96/en",
+            "catalog/fc1610ee661f8907"
+          ],
+          "status": "compatible",
+          "condition": "UVC configuration applies the validated format; successful configuration has an associated stream.",
+          "actor": "UVC applies and compares the format; Camera copies the configuration; the application reads it.",
+          "timing": "Validation tests the format before configuration applies it; the stream is read after success.",
+          "scope": "Size, FourCC, errors and active configuration; the target-device check is a plan.",
+          "reason": "The source supports the stated sequence and errors. The target-device sentence requests observation without claiming a measured result; the English translation agrees.",
+          "sources": [
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/uvc-validate",
+              "source_quote": "CameraConfiguration::Status UVCCameraConfiguration::validate()\n{\n\tStatus status = Valid;\n\n\tif (config_.empty())\n\t\treturn Invalid;\n\n\tif (sensorConfig)\n\t\treturn Invalid;\n\n\tif (orientation != Orientation::Rotate0) {\n\t\torientation = Orientation::Rotate0;\n\t\tstatus = Adjusted;\n\t}\n\n\t/* Cap the number of entries to the available streams. */\n\tif (config_.size() > 1) {\n\t\tconfig_.resize(1);\n\t\tstatus = Adjusted;\n\t}\n\n\tStreamConfiguration &cfg = config_[0];\n\tconst StreamFormats &formats = cfg.formats();\n\tconst PixelFormat pixelFormat = cfg.pixelFormat;\n\tconst Size size = cfg.size;\n\n\tconst std::vector<PixelFormat> pixelFormats = formats.pixelformats();\n\tauto iter = std::find(pixelFormats.begin(), pixelFormats.end(), pixelFormat);\n\tif (iter == pixelFormats.end()) {\n\t\tcfg.pixelFormat = pixelFormats.front();\n\t\tLOG(UVC, Debug)\n\t\t\t<< \"Adjusting pixel format from \" << pixelFormat\n\t\t\t<< \" to \" << cfg.pixelFormat;\n\t\tstatus = Adjusted;\n\t}\n\n\tconst std::vector<Size> &formatSizes = formats.sizes(cfg.pixelFormat);\n\tcfg.size = formatSizes.front();\n\tfor (const Size &formatsSize : formatSizes) {\n\t\tif (formatsSize > size)\n\t\t\tbreak;\n\n\t\tcfg.size = formatsSize;\n\t}\n\n\tif (cfg.size != size) {\n\t\tLOG(UVC, Debug)\n\t\t\t<< \"Adjusting size from \" << size << \" to \" << cfg.size;\n\t\tstatus = Adjusted;\n\t}\n\n\tcfg.bufferCount = 4;\n\n\tV4L2DeviceFormat format;\n\tformat.fourcc = data_->video_->toV4L2PixelFormat(cfg.pixelFormat);\n\tformat.size = cfg.size;\n\n\t/*\n\t * For power-consumption reasons video_ is closed when the camera is not\n\t * acquired. Open it here if necessary.\n\t */\n\t{\n\t\tbool opened = false;\n\n\t\tMutexLocker locker(data_->openLock_);\n\n\t\tif (!data_->video_->isOpen()) {\n\t\t\tint ret = data_->video_->open();\n\t\t\tif (ret)\n\t\t\t\treturn Invalid;\n\n\t\t\topened = true;\n\t\t}\n\n\t\tint ret = data_->video_->tryFormat(&format);\n\t\tif (opened)\n\t\t\tdata_->video_->close();\n\t\tif (ret)\n\t\t\treturn Invalid;\n\t}\n\n\tcfg.stride = format.planes[0].bpl;\n\tcfg.frameSize = format.planes[0].size;\n\n\tif (cfg.colorSpace != format.colorSpace) {\n\t\tcfg.colorSpace = format.colorSpace;\n\t\tstatus = Adjusted;\n\t}\n\n\treturn status;"
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/uvc-configure",
+              "source_quote": "int PipelineHandlerUVC::configure(Camera *camera, CameraConfiguration *config)\n{\n\tUVCCameraData *data = cameraData(camera);\n\tStreamConfiguration &cfg = config->at(0);\n\tint ret;\n\n\tV4L2DeviceFormat format;\n\tformat.fourcc = data->video_->toV4L2PixelFormat(cfg.pixelFormat);\n\tformat.size = cfg.size;\n\n\tret = data->video_->setFormat(&format);\n\tif (ret)\n\t\treturn ret;\n\n\tif (format.size != cfg.size ||\n\t    format.fourcc != data->video_->toV4L2PixelFormat(cfg.pixelFormat))\n\t\treturn -EINVAL;\n\n\tcfg.setStream(&data->stream_);\n\n\treturn 0;\n}"
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/v4l2-configure",
+              "source_quote": "\\brief Configure an image format on the V4L2 video device\n * \\param[inout] format The image format to apply to the video device\n *\n * Apply the supplied \\a format to the video device, and return the actually\n * applied format parameters, as \\ref V4L2VideoDevice::getFormat would do.\n *\n * \\return 0 on success or a negative error code otherwise\n */\nint V4L2VideoDevice::setFormat(V4L2DeviceFormat *format)\n{\n\tint ret;\n\n\tswitch (bufferType_) {\n\tcase V4L2_BUF_TYPE_VIDEO_CAPTURE:\n\tcase V4L2_BUF_TYPE_VIDEO_OUTPUT:\n\t\tret = trySetFormatSingleplane(format, true);\n\t\tbreak;\n\tcase V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:\n\tcase V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:\n\t\tret = trySetFormatMultiplane(format, true);\n\t\tbreak;\n\tcase V4L2_BUF_TYPE_META_CAPTURE:\n\tcase V4L2_BUF_TYPE_META_OUTPUT:\n\t\tret = trySetFormatMeta(format, true);\n\t\tbreak;\n\tdefault:\n\t\tret = -EINVAL;\n\t\tbreak;\n\t}\n\n\t/* Cache the set format on success. */\n\tif (ret)\n\t\treturn ret;\n\n\tformat_ = *format;\n\tformatInfo_ = &PixelFormatInfo::info(format_.fourcc);\n\n\treturn 0;\n}"
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/camera-configure",
+              "source_quote": "int Camera::configure(CameraConfiguration *config)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraAcquired,\n\t\t\t\t     Private::CameraConfigured);\n\tif (ret < 0)\n\t\treturn ret;\n\n\tfor (auto &cfg : *config)\n\t\tcfg.setStream(nullptr);\n\n\tif (config->validate() != CameraConfiguration::Valid) {\n\t\tLOG(Camera, Error)\n\t\t\t<< \"Can't configure camera with invalid configuration\";\n\t\treturn -EINVAL;\n\t}\n\n\tstd::ostringstream msg(\"configuring streams:\", std::ios_base::ate);\n\n\tfor (unsigned int index = 0; index < config->size(); ++index) {\n\t\tStreamConfiguration &cfg = config->at(index);\n\t\tmsg << \" (\" << index << \") \" << cfg.toString();\n\t}\n\n\tLOG(Camera, Info) << msg.str();\n\n\tret = d->pipe_->invokeMethod(&PipelineHandler::configure,\n\t\t\t\t     ConnectionTypeBlocking, this, config);\n\tif (ret)\n\t\treturn ret;\n\n\td->activeStreams_.clear();\n\tfor (const StreamConfiguration &cfg : *config) {\n\t\tStream *stream = cfg.stream();\n\t\tif (!stream) {\n\t\t\tLOG(Camera, Fatal)\n\t\t\t\t<< \"Pipeline handler failed to update stream configuration\";\n\t\t\td->activeStreams_.clear();\n\t\t\treturn -EINVAL;\n\t\t}\n\n\t\tstream->configuration_ = cfg;\n\t\td->activeStreams_.insert(stream);\n\t}\n\n\td->setState(Private::CameraConfigured);\n\n\treturn 0;\n}"
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/app-stream",
+              "source_quote": "\\fn Stream::configuration()\n * \\brief Retrieve the active configuration of the stream\n * \\return The active configuration of the stream"
+            }
+          ],
+          "claim_quote": "tryFormat은 형식을 시험하고, PipelineHandlerUVC::configure()의 setFormat은 형식을 장치에 실제로 적용하고 적용된 값을 반환합니다. UVC 구성은 검증된 크기와 FourCC가 장치에서 반환한 값과 같은지 대조하며, setFormat이 실패하면 그 오류를 반환하고 값이 다르면 -EINVAL을 반환합니다. 성공하면 UVC 구성은 스트림을 연결하고 공통 Camera::configure()는 검증된 스트림 구성을 연결된 스트림에 복사하므로, 앱은 Stream::configuration()에서 활성 구성을 읽을 수 있습니다. 대상 장치에서는 검증 전후의 크기와 픽셀 포맷, 적용 시도의 크기와 FourCC 및 반환값을 확인합니다."
+        },
+        {
+          "claim_id": "catalog/14dc8273c52daf96/en",
+          "peers": [
+            "scenarios/uvc-viewfinder-configuration.md/uvc-viewfinder/d281855385eb",
+            "catalog/14dc8273c52daf96",
+            "catalog/fc1610ee661f8907/en"
+          ],
+          "status": "compatible",
+          "condition": "UVC configuration applies the validated format; successful configuration has an associated stream.",
+          "actor": "UVC applies and compares the format; Camera copies the configuration; the application reads it.",
+          "timing": "Validation tests the format before configuration applies it; the stream is read after success.",
+          "scope": "Size, FourCC, errors and active configuration; the target-device check is a plan.",
+          "reason": "The English translation preserves the supported behavior and treats the device check as an instruction for observation, not a completed test.",
+          "sources": [
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/uvc-validate",
+              "source_quote": "CameraConfiguration::Status UVCCameraConfiguration::validate()\n{\n\tStatus status = Valid;\n\n\tif (config_.empty())\n\t\treturn Invalid;\n\n\tif (sensorConfig)\n\t\treturn Invalid;\n\n\tif (orientation != Orientation::Rotate0) {\n\t\torientation = Orientation::Rotate0;\n\t\tstatus = Adjusted;\n\t}\n\n\t/* Cap the number of entries to the available streams. */\n\tif (config_.size() > 1) {\n\t\tconfig_.resize(1);\n\t\tstatus = Adjusted;\n\t}\n\n\tStreamConfiguration &cfg = config_[0];\n\tconst StreamFormats &formats = cfg.formats();\n\tconst PixelFormat pixelFormat = cfg.pixelFormat;\n\tconst Size size = cfg.size;\n\n\tconst std::vector<PixelFormat> pixelFormats = formats.pixelformats();\n\tauto iter = std::find(pixelFormats.begin(), pixelFormats.end(), pixelFormat);\n\tif (iter == pixelFormats.end()) {\n\t\tcfg.pixelFormat = pixelFormats.front();\n\t\tLOG(UVC, Debug)\n\t\t\t<< \"Adjusting pixel format from \" << pixelFormat\n\t\t\t<< \" to \" << cfg.pixelFormat;\n\t\tstatus = Adjusted;\n\t}\n\n\tconst std::vector<Size> &formatSizes = formats.sizes(cfg.pixelFormat);\n\tcfg.size = formatSizes.front();\n\tfor (const Size &formatsSize : formatSizes) {\n\t\tif (formatsSize > size)\n\t\t\tbreak;\n\n\t\tcfg.size = formatsSize;\n\t}\n\n\tif (cfg.size != size) {\n\t\tLOG(UVC, Debug)\n\t\t\t<< \"Adjusting size from \" << size << \" to \" << cfg.size;\n\t\tstatus = Adjusted;\n\t}\n\n\tcfg.bufferCount = 4;\n\n\tV4L2DeviceFormat format;\n\tformat.fourcc = data_->video_->toV4L2PixelFormat(cfg.pixelFormat);\n\tformat.size = cfg.size;\n\n\t/*\n\t * For power-consumption reasons video_ is closed when the camera is not\n\t * acquired. Open it here if necessary.\n\t */\n\t{\n\t\tbool opened = false;\n\n\t\tMutexLocker locker(data_->openLock_);\n\n\t\tif (!data_->video_->isOpen()) {\n\t\t\tint ret = data_->video_->open();\n\t\t\tif (ret)\n\t\t\t\treturn Invalid;\n\n\t\t\topened = true;\n\t\t}\n\n\t\tint ret = data_->video_->tryFormat(&format);\n\t\tif (opened)\n\t\t\tdata_->video_->close();\n\t\tif (ret)\n\t\t\treturn Invalid;\n\t}\n\n\tcfg.stride = format.planes[0].bpl;\n\tcfg.frameSize = format.planes[0].size;\n\n\tif (cfg.colorSpace != format.colorSpace) {\n\t\tcfg.colorSpace = format.colorSpace;\n\t\tstatus = Adjusted;\n\t}\n\n\treturn status;"
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/uvc-configure",
+              "source_quote": "int PipelineHandlerUVC::configure(Camera *camera, CameraConfiguration *config)\n{\n\tUVCCameraData *data = cameraData(camera);\n\tStreamConfiguration &cfg = config->at(0);\n\tint ret;\n\n\tV4L2DeviceFormat format;\n\tformat.fourcc = data->video_->toV4L2PixelFormat(cfg.pixelFormat);\n\tformat.size = cfg.size;\n\n\tret = data->video_->setFormat(&format);\n\tif (ret)\n\t\treturn ret;\n\n\tif (format.size != cfg.size ||\n\t    format.fourcc != data->video_->toV4L2PixelFormat(cfg.pixelFormat))\n\t\treturn -EINVAL;\n\n\tcfg.setStream(&data->stream_);\n\n\treturn 0;\n}"
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/v4l2-configure",
+              "source_quote": "\\brief Configure an image format on the V4L2 video device\n * \\param[inout] format The image format to apply to the video device\n *\n * Apply the supplied \\a format to the video device, and return the actually\n * applied format parameters, as \\ref V4L2VideoDevice::getFormat would do.\n *\n * \\return 0 on success or a negative error code otherwise\n */\nint V4L2VideoDevice::setFormat(V4L2DeviceFormat *format)\n{\n\tint ret;\n\n\tswitch (bufferType_) {\n\tcase V4L2_BUF_TYPE_VIDEO_CAPTURE:\n\tcase V4L2_BUF_TYPE_VIDEO_OUTPUT:\n\t\tret = trySetFormatSingleplane(format, true);\n\t\tbreak;\n\tcase V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:\n\tcase V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:\n\t\tret = trySetFormatMultiplane(format, true);\n\t\tbreak;\n\tcase V4L2_BUF_TYPE_META_CAPTURE:\n\tcase V4L2_BUF_TYPE_META_OUTPUT:\n\t\tret = trySetFormatMeta(format, true);\n\t\tbreak;\n\tdefault:\n\t\tret = -EINVAL;\n\t\tbreak;\n\t}\n\n\t/* Cache the set format on success. */\n\tif (ret)\n\t\treturn ret;\n\n\tformat_ = *format;\n\tformatInfo_ = &PixelFormatInfo::info(format_.fourcc);\n\n\treturn 0;\n}"
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/camera-configure",
+              "source_quote": "int Camera::configure(CameraConfiguration *config)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraAcquired,\n\t\t\t\t     Private::CameraConfigured);\n\tif (ret < 0)\n\t\treturn ret;\n\n\tfor (auto &cfg : *config)\n\t\tcfg.setStream(nullptr);\n\n\tif (config->validate() != CameraConfiguration::Valid) {\n\t\tLOG(Camera, Error)\n\t\t\t<< \"Can't configure camera with invalid configuration\";\n\t\treturn -EINVAL;\n\t}\n\n\tstd::ostringstream msg(\"configuring streams:\", std::ios_base::ate);\n\n\tfor (unsigned int index = 0; index < config->size(); ++index) {\n\t\tStreamConfiguration &cfg = config->at(index);\n\t\tmsg << \" (\" << index << \") \" << cfg.toString();\n\t}\n\n\tLOG(Camera, Info) << msg.str();\n\n\tret = d->pipe_->invokeMethod(&PipelineHandler::configure,\n\t\t\t\t     ConnectionTypeBlocking, this, config);\n\tif (ret)\n\t\treturn ret;\n\n\td->activeStreams_.clear();\n\tfor (const StreamConfiguration &cfg : *config) {\n\t\tStream *stream = cfg.stream();\n\t\tif (!stream) {\n\t\t\tLOG(Camera, Fatal)\n\t\t\t\t<< \"Pipeline handler failed to update stream configuration\";\n\t\t\td->activeStreams_.clear();\n\t\t\treturn -EINVAL;\n\t\t}\n\n\t\tstream->configuration_ = cfg;\n\t\td->activeStreams_.insert(stream);\n\t}\n\n\td->setState(Private::CameraConfigured);\n\n\treturn 0;\n}"
+            },
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/app-stream",
+              "source_quote": "\\fn Stream::configuration()\n * \\brief Retrieve the active configuration of the stream\n * \\return The active configuration of the stream"
+            }
+          ],
+          "claim_quote": "tryFormat tests the format, while setFormat in PipelineHandlerUVC::configure() applies the format to the device and returns the applied values. UVC configuration checks whether the validated size and FourCC match the values returned by the device. If setFormat fails, UVC configuration returns that error; if the values differ, it returns -EINVAL. On success, UVC configuration associates the stream, and the common Camera::configure() copies the validated stream configuration to the associated stream, so the app can read the active configuration from Stream::configuration(). On the target device, check the size and pixel format before and after validation, as well as the size, FourCC, and return value for the attempt to apply the format."
+        },
+        {
+          "claim_id": "catalog/4bcfb5e13874fe47",
+          "peers": [
+            "scenarios/configure.md/preconditions/ef9d8356106a",
+            "catalog/4bcfb5e13874fe47/en"
+          ],
+          "status": "compatible",
+          "condition": "A configuration is prepared before capture.",
+          "actor": "The caller prepares and validates the configuration; Camera::configure() configures the camera.",
+          "timing": "Preparation and configuration occur before capture.",
+          "scope": "The documented configuration precondition.",
+          "reason": "The API supports the caller's preparation and the fully valid configuration requirement; the English translation agrees.",
+          "sources": [
+            {
+              "source_id": "scenario-configure/preconditions/configure",
+              "source_quote": "\\brief Configure the camera prior to capture\n * \\param[in] config The camera configurations to setup\n *\n * Prior to starting capture, the camera must be configured to select a\n * group of streams to be involved in the capture and their configuration.\n * The caller specifies which streams are to be involved and their configuration\n * by populating \\a config.\n *\n * The configuration is created by generateConfiguration(), and adjusted by the\n * caller with CameraConfiguration::validate(). This function only accepts fully\n * valid configurations and returns an error if \\a config is not valid.\n *\n * Exclusive access to the camera shall be ensured by a call to acquire() prior\n * to calling this function, otherwise an -EACCES error will be returned.\n *\n * \\context This function may only be called when the camera is in the Acquired\n * or Configured state as defined in \\ref camera_operation, and shall be\n * synchronized by the caller with other functions that affect the camera\n * state.\n *\n * Upon return the StreamConfiguration entries in \\a config are associated with\n * Stream instances which can be retrieved with StreamConfiguration::stream().\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not in a state where it can be configured\n * \\retval -EINVAL The configuration is not valid\n */"
+            }
+          ],
+          "claim_quote": "Camera::configure()는 캡처 전에 캡처에 사용할 스트림 그룹과 각 스트림의 구성을 설정합니다. 호출자는 generateConfiguration()으로 구성을 만들고 config에 사용할 스트림과 구성을 채운 뒤 CameraConfiguration::validate()로 조정합니다. Camera::configure()에는 완전히 유효한 구성이 필요합니다."
+        },
+        {
+          "claim_id": "catalog/4bcfb5e13874fe47/en",
+          "peers": [
+            "scenarios/configure.md/preconditions/ef9d8356106a",
+            "catalog/4bcfb5e13874fe47"
+          ],
+          "status": "compatible",
+          "condition": "A configuration is prepared before capture.",
+          "actor": "The caller prepares and validates the configuration; Camera::configure() configures the camera.",
+          "timing": "Preparation and configuration occur before capture.",
+          "scope": "The documented configuration precondition.",
+          "reason": "The translation preserves the source-supported caller responsibilities and fully valid configuration requirement.",
+          "sources": [
+            {
+              "source_id": "scenario-configure/preconditions/configure",
+              "source_quote": "\\brief Configure the camera prior to capture\n * \\param[in] config The camera configurations to setup\n *\n * Prior to starting capture, the camera must be configured to select a\n * group of streams to be involved in the capture and their configuration.\n * The caller specifies which streams are to be involved and their configuration\n * by populating \\a config.\n *\n * The configuration is created by generateConfiguration(), and adjusted by the\n * caller with CameraConfiguration::validate(). This function only accepts fully\n * valid configurations and returns an error if \\a config is not valid.\n *\n * Exclusive access to the camera shall be ensured by a call to acquire() prior\n * to calling this function, otherwise an -EACCES error will be returned.\n *\n * \\context This function may only be called when the camera is in the Acquired\n * or Configured state as defined in \\ref camera_operation, and shall be\n * synchronized by the caller with other functions that affect the camera\n * state.\n *\n * Upon return the StreamConfiguration entries in \\a config are associated with\n * Stream instances which can be retrieved with StreamConfiguration::stream().\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not in a state where it can be configured\n * \\retval -EINVAL The configuration is not valid\n */"
+            }
+          ],
+          "claim_quote": "Camera::configure() configures the group of streams to be used for capture and the configuration of each stream before capture. The caller creates a configuration with generateConfiguration(), fills config with the streams to be used and their configurations, and then adjusts it with CameraConfiguration::validate(). Camera::configure() requires a fully valid configuration."
+        },
+        {
+          "claim_id": "catalog/0779e2715d57aa3c",
+          "peers": [
+            "catalog/0779e2715d57aa3c/en",
+            "scenarios/configure.md/application/fe1ae29305c5",
+            "scenarios/uvc-viewfinder-configuration.md/uvc-viewfinder/8da203fbc3fa",
+            "catalog/4bcfb5e13874fe47"
+          ],
+          "status": "compatible",
+          "condition": "Access must pass and validation must return Valid before the pipeline handler is invoked.",
+          "actor": "Camera::configure() invokes the pipeline handler; the API describes stream associations.",
+          "timing": "Access and validation precede the blocking invocation; the association statement describes the API's return-time contract.",
+          "scope": "Implementation error handling and the documented API association guarantee.",
+          "reason": "The implementation supports the stated calls and returns, while the API explicitly states the association guarantee. The English translation preserves both scopes.",
+          "sources": [
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/camera-configure",
+              "source_quote": "int Camera::configure(CameraConfiguration *config)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraAcquired,\n\t\t\t\t     Private::CameraConfigured);\n\tif (ret < 0)\n\t\treturn ret;\n\n\tfor (auto &cfg : *config)\n\t\tcfg.setStream(nullptr);\n\n\tif (config->validate() != CameraConfiguration::Valid) {\n\t\tLOG(Camera, Error)\n\t\t\t<< \"Can't configure camera with invalid configuration\";\n\t\treturn -EINVAL;\n\t}\n\n\tstd::ostringstream msg(\"configuring streams:\", std::ios_base::ate);\n\n\tfor (unsigned int index = 0; index < config->size(); ++index) {\n\t\tStreamConfiguration &cfg = config->at(index);\n\t\tmsg << \" (\" << index << \") \" << cfg.toString();\n\t}\n\n\tLOG(Camera, Info) << msg.str();\n\n\tret = d->pipe_->invokeMethod(&PipelineHandler::configure,\n\t\t\t\t     ConnectionTypeBlocking, this, config);\n\tif (ret)\n\t\treturn ret;\n\n\td->activeStreams_.clear();\n\tfor (const StreamConfiguration &cfg : *config) {\n\t\tStream *stream = cfg.stream();\n\t\tif (!stream) {\n\t\t\tLOG(Camera, Fatal)\n\t\t\t\t<< \"Pipeline handler failed to update stream configuration\";\n\t\t\td->activeStreams_.clear();\n\t\t\treturn -EINVAL;\n\t\t}\n\n\t\tstream->configuration_ = cfg;\n\t\td->activeStreams_.insert(stream);\n\t}\n\n\td->setState(Private::CameraConfigured);\n\n\treturn 0;\n}"
+            },
+            {
+              "source_id": "scenario-configure/preconditions/configure",
+              "source_quote": "\\brief Configure the camera prior to capture\n * \\param[in] config The camera configurations to setup\n *\n * Prior to starting capture, the camera must be configured to select a\n * group of streams to be involved in the capture and their configuration.\n * The caller specifies which streams are to be involved and their configuration\n * by populating \\a config.\n *\n * The configuration is created by generateConfiguration(), and adjusted by the\n * caller with CameraConfiguration::validate(). This function only accepts fully\n * valid configurations and returns an error if \\a config is not valid.\n *\n * Exclusive access to the camera shall be ensured by a call to acquire() prior\n * to calling this function, otherwise an -EACCES error will be returned.\n *\n * \\context This function may only be called when the camera is in the Acquired\n * or Configured state as defined in \\ref camera_operation, and shall be\n * synchronized by the caller with other functions that affect the camera\n * state.\n *\n * Upon return the StreamConfiguration entries in \\a config are associated with\n * Stream instances which can be retrieved with StreamConfiguration::stream().\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not in a state where it can be configured\n * \\retval -EINVAL The configuration is not valid\n */"
+            }
+          ],
+          "claim_quote": "Camera::configure()는 접근 상태 검사에서 음수 오류가 나면 그 값을 반환합니다. 검사를 통과하면 각 StreamConfiguration의 이전 스트림 연결을 nullptr로 비운 뒤 validate()를 검사하고, 결과가 Valid가 아니면 -EINVAL을 반환합니다. Camera::configure()는 유효한 설정에 대해 PipelineHandler::configure를 ConnectionTypeBlocking으로 호출하고, 반환값이 0이 아니면 그 값을 그대로 반환합니다. API 계약은 함수가 반환될 때 config의 각 StreamConfiguration이 Stream 인스턴스와 연결되며 stream()으로 이를 가져올 수 있다고 설명합니다."
+        },
+        {
+          "claim_id": "catalog/0779e2715d57aa3c/en",
+          "peers": [
+            "catalog/0779e2715d57aa3c",
+            "scenarios/configure.md/application/fe1ae29305c5",
+            "scenarios/uvc-viewfinder-configuration.md/uvc-viewfinder/8da203fbc3fa",
+            "catalog/4bcfb5e13874fe47/en"
+          ],
+          "status": "compatible",
+          "condition": "Access must pass and validation must return Valid before the pipeline handler is invoked.",
+          "actor": "Camera::configure() invokes the pipeline handler; the API describes stream associations.",
+          "timing": "Access and validation precede the blocking invocation; the association statement describes the API's return-time contract.",
+          "scope": "Implementation error handling and the documented API association guarantee.",
+          "reason": "The English translation faithfully preserves the implementation sequence and the explicit API guarantee stated in the Korean peer.",
+          "sources": [
+            {
+              "source_id": "uvc-viewfinder-configuration/uvc-viewfinder/camera-configure",
+              "source_quote": "int Camera::configure(CameraConfiguration *config)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraAcquired,\n\t\t\t\t     Private::CameraConfigured);\n\tif (ret < 0)\n\t\treturn ret;\n\n\tfor (auto &cfg : *config)\n\t\tcfg.setStream(nullptr);\n\n\tif (config->validate() != CameraConfiguration::Valid) {\n\t\tLOG(Camera, Error)\n\t\t\t<< \"Can't configure camera with invalid configuration\";\n\t\treturn -EINVAL;\n\t}\n\n\tstd::ostringstream msg(\"configuring streams:\", std::ios_base::ate);\n\n\tfor (unsigned int index = 0; index < config->size(); ++index) {\n\t\tStreamConfiguration &cfg = config->at(index);\n\t\tmsg << \" (\" << index << \") \" << cfg.toString();\n\t}\n\n\tLOG(Camera, Info) << msg.str();\n\n\tret = d->pipe_->invokeMethod(&PipelineHandler::configure,\n\t\t\t\t     ConnectionTypeBlocking, this, config);\n\tif (ret)\n\t\treturn ret;\n\n\td->activeStreams_.clear();\n\tfor (const StreamConfiguration &cfg : *config) {\n\t\tStream *stream = cfg.stream();\n\t\tif (!stream) {\n\t\t\tLOG(Camera, Fatal)\n\t\t\t\t<< \"Pipeline handler failed to update stream configuration\";\n\t\t\td->activeStreams_.clear();\n\t\t\treturn -EINVAL;\n\t\t}\n\n\t\tstream->configuration_ = cfg;\n\t\td->activeStreams_.insert(stream);\n\t}\n\n\td->setState(Private::CameraConfigured);\n\n\treturn 0;\n}"
+            },
+            {
+              "source_id": "scenario-configure/preconditions/configure",
+              "source_quote": "\\brief Configure the camera prior to capture\n * \\param[in] config The camera configurations to setup\n *\n * Prior to starting capture, the camera must be configured to select a\n * group of streams to be involved in the capture and their configuration.\n * The caller specifies which streams are to be involved and their configuration\n * by populating \\a config.\n *\n * The configuration is created by generateConfiguration(), and adjusted by the\n * caller with CameraConfiguration::validate(). This function only accepts fully\n * valid configurations and returns an error if \\a config is not valid.\n *\n * Exclusive access to the camera shall be ensured by a call to acquire() prior\n * to calling this function, otherwise an -EACCES error will be returned.\n *\n * \\context This function may only be called when the camera is in the Acquired\n * or Configured state as defined in \\ref camera_operation, and shall be\n * synchronized by the caller with other functions that affect the camera\n * state.\n *\n * Upon return the StreamConfiguration entries in \\a config are associated with\n * Stream instances which can be retrieved with StreamConfiguration::stream().\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not in a state where it can be configured\n * \\retval -EINVAL The configuration is not valid\n */"
+            }
+          ],
+          "claim_quote": "Camera::configure() returns the negative error value if the access state check produces one; if the check passes, it clears each StreamConfiguration's previous stream association to nullptr, checks validate(), and returns -EINVAL if the result is not Valid. For a valid configuration, Camera::configure() calls PipelineHandler::configure with ConnectionTypeBlocking and returns its return value unchanged if that value is nonzero. The API contract states that when the function returns, each StreamConfiguration in config is associated with a Stream instance, which can be retrieved with stream()."
+        }
+      ],
+      "claims": {
+        "scenarios/uvc-viewfinder-configuration.md/uvc-viewfinder/8da203fbc3fa": {
+          "document": "scenarios/uvc-viewfinder-configuration.md",
+          "topic": "uvc-viewfinder",
+          "language": "ko",
+          "text": "앱은 `Camera::generateConfiguration()`으로 `Viewfinder` 구성 하나를 만들고 기본 크기와 픽셀 포맷을 확인한 뒤, 예시로 640×480을 요청하고 `validate()`를 호출해야 합니다. UVC 검증은 `tryFormat`을 시험하며 장치 열기나 시험이 실패하면 `Invalid`를 반환합니다. `Adjusted`는 구성이 조정되어 유효해졌다는 뜻이며 어느 스트림의 매개변수든 바뀌거나 스트림 구성이 제거되었을 수 있으므로, 앱은 검증 후 크기와 픽셀 포맷을 읽고 변경을 받아들일지 판단해야 합니다. 이후 `Camera::configure()`는 접근이 허용되면 스트림 연결을 지우고 다시 검증하며, 결과가 `Valid`가 아니면 `-EINVAL`을 반환합니다.",
+          "evidence": [
+            "uvc-viewfinder-configuration/uvc-viewfinder/app-default",
+            "uvc-viewfinder-configuration/uvc-viewfinder/app-request",
+            "uvc-viewfinder-configuration/uvc-viewfinder/uvc-validate",
+            "uvc-viewfinder-configuration/uvc-viewfinder/validation-contract",
+            "uvc-viewfinder-configuration/uvc-viewfinder/camera-configure"
+          ],
+          "statement_kinds": [
+            "behavior"
+          ]
+        },
+        "scenarios/uvc-viewfinder-configuration.md/uvc-viewfinder/d281855385eb": {
+          "document": "scenarios/uvc-viewfinder-configuration.md",
+          "topic": "uvc-viewfinder",
+          "language": "ko",
+          "text": "`tryFormat`은 형식을 시험하고, `PipelineHandlerUVC::configure()`의 `setFormat`은 형식을 장치에 실제로 적용하고 적용된 값을 반환합니다. UVC 구성은 검증된 크기와 FourCC가 장치에서 반환한 값과 같은지 대조하며, `setFormat`이 실패하면 그 오류를 반환하고 값이 다르면 `-EINVAL`을 반환합니다. 성공하면 UVC 구성은 스트림을 연결하고 공통 `Camera::configure()`는 검증된 스트림 구성을 연결된 스트림에 복사하므로, 앱은 `Stream::configuration()`에서 활성 구성을 읽을 수 있습니다. 대상 장치에서는 검증 전후의 크기와 픽셀 포맷, 적용 시도의 크기와 FourCC 및 반환값을 확인합니다.",
+          "evidence": [
+            "uvc-viewfinder-configuration/uvc-viewfinder/uvc-validate",
+            "uvc-viewfinder-configuration/uvc-viewfinder/uvc-configure",
+            "uvc-viewfinder-configuration/uvc-viewfinder/v4l2-configure",
+            "uvc-viewfinder-configuration/uvc-viewfinder/camera-configure",
+            "uvc-viewfinder-configuration/uvc-viewfinder/app-stream"
+          ],
+          "statement_kinds": [
+            "behavior"
+          ]
+        },
+        "scenarios/configure.md/application/fe1ae29305c5": {
+          "document": "scenarios/configure.md",
+          "topic": "application",
+          "language": "ko",
+          "text": "`Camera::configure()`는 접근 상태 검사에서 음수 오류가 나면 그 값을 반환합니다. 검사를 통과하면 각 `StreamConfiguration`의 이전 스트림 연결을 `nullptr`로 비운 뒤 `validate()`를 검사하고, 결과가 `Valid`가 아니면 `-EINVAL`을 반환합니다.",
+          "evidence": [
+            "uvc-viewfinder-configuration/uvc-viewfinder/camera-configure"
+          ],
+          "statement_kinds": [
+            "behavior"
+          ]
+        },
+        "scenarios/configure.md/preconditions/ef9d8356106a": {
+          "document": "scenarios/configure.md",
+          "topic": "preconditions",
+          "language": "ko",
+          "text": "`Camera::configure()`는 캡처 전에 캡처에 사용할 스트림 그룹과 각 스트림의 구성을 설정합니다. 호출자는 `generateConfiguration()`으로 구성을 만들고 `config`에 사용할 스트림과 구성을 채운 뒤 `CameraConfiguration::validate()`로 조정합니다. `Camera::configure()`에는 완전히 유효한 구성이 필요합니다.",
+          "evidence": [
+            "scenario-configure/preconditions/configure"
+          ],
+          "statement_kinds": [
+            "behavior"
+          ]
+        },
+        "catalog/fc1610ee661f8907": {
+          "document": "scenarios/uvc-viewfinder-configuration.md",
+          "topic": null,
+          "language": "ko",
+          "text": "앱은 Camera::generateConfiguration()으로 Viewfinder 구성 하나를 만들고 기본 크기와 픽셀 포맷을 확인한 뒤, 예시로 640×480을 요청하고 validate()를 호출해야 합니다. UVC 검증은 tryFormat을 시험하며 장치 열기나 시험이 실패하면 Invalid를 반환합니다. Adjusted는 구성이 조정되어 유효해졌다는 뜻이며 어느 스트림의 매개변수든 바뀌거나 스트림 구성이 제거되었을 수 있으므로, 앱은 검증 후 크기와 픽셀 포맷을 읽고 변경을 받아들일지 판단해야 합니다. 이후 Camera::configure()는 접근이 허용되면 스트림 연결을 지우고 다시 검증하며, 결과가 Valid가 아니면 -EINVAL을 반환합니다.",
+          "evidence": [
+            "uvc-viewfinder-configuration/uvc-viewfinder/app-default",
+            "uvc-viewfinder-configuration/uvc-viewfinder/app-request",
+            "uvc-viewfinder-configuration/uvc-viewfinder/uvc-validate",
+            "uvc-viewfinder-configuration/uvc-viewfinder/validation-contract",
+            "uvc-viewfinder-configuration/uvc-viewfinder/camera-configure"
+          ],
+          "origin_claims": [
+            "scenarios/uvc-viewfinder-configuration.md/uvc-viewfinder/8da203fbc3fa"
+          ],
+          "statement_kinds": [
+            "behavior"
+          ]
+        },
+        "catalog/fc1610ee661f8907/en": {
+          "document": "scenarios/uvc-viewfinder-configuration.md",
+          "topic": null,
+          "language": "en",
+          "text": "The app must use Camera::generateConfiguration() to create one Viewfinder configuration and check its default size and pixel format, then request 640×480 as an example and call validate(). UVC validation calls tryFormat and returns Invalid if opening the device or the test fails. Adjusted means the configuration was adjusted and is now valid; parameters for any stream may have changed, or stream configurations may have been removed. The app must therefore read the size and pixel format after validation and decide whether to accept the changes. Later, if access is allowed, Camera::configure() clears the stream associations and validates the configuration again; it returns -EINVAL if the result is not Valid.",
+          "evidence": [
+            "uvc-viewfinder-configuration/uvc-viewfinder/app-default",
+            "uvc-viewfinder-configuration/uvc-viewfinder/app-request",
+            "uvc-viewfinder-configuration/uvc-viewfinder/uvc-validate",
+            "uvc-viewfinder-configuration/uvc-viewfinder/validation-contract",
+            "uvc-viewfinder-configuration/uvc-viewfinder/camera-configure"
+          ],
+          "translation_of": "catalog/fc1610ee661f8907",
+          "origin_claims": [
+            "scenarios/uvc-viewfinder-configuration.md/uvc-viewfinder/8da203fbc3fa"
+          ],
+          "statement_kinds": [
+            "behavior"
+          ]
+        },
+        "catalog/14dc8273c52daf96": {
+          "document": "scenarios/uvc-viewfinder-configuration.md",
+          "topic": null,
+          "language": "ko",
+          "text": "tryFormat은 형식을 시험하고, PipelineHandlerUVC::configure()의 setFormat은 형식을 장치에 실제로 적용하고 적용된 값을 반환합니다. UVC 구성은 검증된 크기와 FourCC가 장치에서 반환한 값과 같은지 대조하며, setFormat이 실패하면 그 오류를 반환하고 값이 다르면 -EINVAL을 반환합니다. 성공하면 UVC 구성은 스트림을 연결하고 공통 Camera::configure()는 검증된 스트림 구성을 연결된 스트림에 복사하므로, 앱은 Stream::configuration()에서 활성 구성을 읽을 수 있습니다. 대상 장치에서는 검증 전후의 크기와 픽셀 포맷, 적용 시도의 크기와 FourCC 및 반환값을 확인합니다.",
+          "evidence": [
+            "uvc-viewfinder-configuration/uvc-viewfinder/uvc-validate",
+            "uvc-viewfinder-configuration/uvc-viewfinder/uvc-configure",
+            "uvc-viewfinder-configuration/uvc-viewfinder/v4l2-configure",
+            "uvc-viewfinder-configuration/uvc-viewfinder/camera-configure",
+            "uvc-viewfinder-configuration/uvc-viewfinder/app-stream"
+          ],
+          "origin_claims": [
+            "scenarios/uvc-viewfinder-configuration.md/uvc-viewfinder/d281855385eb"
+          ],
+          "statement_kinds": [
+            "behavior"
+          ]
+        },
+        "catalog/14dc8273c52daf96/en": {
+          "document": "scenarios/uvc-viewfinder-configuration.md",
+          "topic": null,
+          "language": "en",
+          "text": "tryFormat tests the format, while setFormat in PipelineHandlerUVC::configure() applies the format to the device and returns the applied values. UVC configuration checks whether the validated size and FourCC match the values returned by the device. If setFormat fails, UVC configuration returns that error; if the values differ, it returns -EINVAL. On success, UVC configuration associates the stream, and the common Camera::configure() copies the validated stream configuration to the associated stream, so the app can read the active configuration from Stream::configuration(). On the target device, check the size and pixel format before and after validation, as well as the size, FourCC, and return value for the attempt to apply the format.",
+          "evidence": [
+            "uvc-viewfinder-configuration/uvc-viewfinder/uvc-validate",
+            "uvc-viewfinder-configuration/uvc-viewfinder/uvc-configure",
+            "uvc-viewfinder-configuration/uvc-viewfinder/v4l2-configure",
+            "uvc-viewfinder-configuration/uvc-viewfinder/camera-configure",
+            "uvc-viewfinder-configuration/uvc-viewfinder/app-stream"
+          ],
+          "translation_of": "catalog/14dc8273c52daf96",
+          "origin_claims": [
+            "scenarios/uvc-viewfinder-configuration.md/uvc-viewfinder/d281855385eb"
+          ],
+          "statement_kinds": [
+            "behavior"
+          ]
+        },
+        "catalog/4bcfb5e13874fe47": {
+          "document": "scenarios/configure.md",
+          "topic": null,
+          "language": "ko",
+          "text": "Camera::configure()는 캡처 전에 캡처에 사용할 스트림 그룹과 각 스트림의 구성을 설정합니다. 호출자는 generateConfiguration()으로 구성을 만들고 config에 사용할 스트림과 구성을 채운 뒤 CameraConfiguration::validate()로 조정합니다. Camera::configure()에는 완전히 유효한 구성이 필요합니다.",
+          "evidence": [
+            "scenario-configure/preconditions/configure"
+          ],
+          "origin_claims": [
+            "scenarios/configure.md/preconditions/ef9d8356106a"
+          ],
+          "statement_kinds": [
+            "behavior"
+          ]
+        },
+        "catalog/4bcfb5e13874fe47/en": {
+          "document": "scenarios/configure.md",
+          "topic": null,
+          "language": "en",
+          "text": "Camera::configure() configures the group of streams to be used for capture and the configuration of each stream before capture. The caller creates a configuration with generateConfiguration(), fills config with the streams to be used and their configurations, and then adjusts it with CameraConfiguration::validate(). Camera::configure() requires a fully valid configuration.",
+          "evidence": [
+            "scenario-configure/preconditions/configure"
+          ],
+          "translation_of": "catalog/4bcfb5e13874fe47",
+          "origin_claims": [
+            "scenarios/configure.md/preconditions/ef9d8356106a"
+          ],
+          "statement_kinds": [
+            "behavior"
+          ]
+        },
+        "catalog/0779e2715d57aa3c": {
+          "document": "scenarios/configure.md",
+          "topic": null,
+          "language": "ko",
+          "text": "Camera::configure()는 접근 상태 검사에서 음수 오류가 나면 그 값을 반환합니다. 검사를 통과하면 각 StreamConfiguration의 이전 스트림 연결을 nullptr로 비운 뒤 validate()를 검사하고, 결과가 Valid가 아니면 -EINVAL을 반환합니다. Camera::configure()는 유효한 설정에 대해 PipelineHandler::configure를 ConnectionTypeBlocking으로 호출하고, 반환값이 0이 아니면 그 값을 그대로 반환합니다. API 계약은 함수가 반환될 때 config의 각 StreamConfiguration이 Stream 인스턴스와 연결되며 stream()으로 이를 가져올 수 있다고 설명합니다.",
+          "evidence": [
+            "uvc-viewfinder-configuration/uvc-viewfinder/camera-configure",
+            "scenario-configure/preconditions/configure"
+          ],
+          "origin_claims": [
+            "scenarios/configure.md/application/fe1ae29305c5"
+          ],
+          "statement_kinds": [
+            "behavior"
+          ]
+        },
+        "catalog/0779e2715d57aa3c/en": {
+          "document": "scenarios/configure.md",
+          "topic": null,
+          "language": "en",
+          "text": "Camera::configure() returns the negative error value if the access state check produces one; if the check passes, it clears each StreamConfiguration's previous stream association to nullptr, checks validate(), and returns -EINVAL if the result is not Valid. For a valid configuration, Camera::configure() calls PipelineHandler::configure with ConnectionTypeBlocking and returns its return value unchanged if that value is nonzero. The API contract states that when the function returns, each StreamConfiguration in config is associated with a Stream instance, which can be retrieved with stream().",
+          "evidence": [
+            "uvc-viewfinder-configuration/uvc-viewfinder/camera-configure",
+            "scenario-configure/preconditions/configure"
+          ],
+          "translation_of": "catalog/0779e2715d57aa3c",
+          "origin_claims": [
+            "scenarios/configure.md/application/fe1ae29305c5"
+          ],
+          "statement_kinds": [
+            "behavior"
+          ]
+        }
+      },
+      "sources": {
+        "uvc-viewfinder-configuration/uvc-viewfinder/app-default": {
+          "file": "Documentation/guides/application-developer.rst",
+          "line": 167,
+          "text": "In the example application, create a new configuration variable and use the\n``Camera::generateConfiguration`` function to produce a ``CameraConfiguration``\nfor the single ``StreamRole::Viewfinder`` role.\n\n.. code:: cpp\n\n   std::unique_ptr<CameraConfiguration> config = camera->generateConfiguration( { StreamRole::Viewfinder } );\n\nThe generated ``CameraConfiguration`` has a ``StreamConfiguration`` instance for\neach ``StreamRole`` the application requested. Each of these has a default size\nand format that the camera assigned, and a list of supported pixel formats and\nsizes.\n\nThe code below accesses the first and only ``StreamConfiguration`` item in the\n``CameraConfiguration`` and outputs its parameters to standard output.\n\n.. code:: cpp\n\n   StreamConfiguration &streamConfig = config->at(0);",
+          "sha256": "4c979423c6366a0c6d46d9b4254987ba40da86687ebd4c225c51a12952d2b8ff"
+        },
+        "uvc-viewfinder-configuration/uvc-viewfinder/app-request": {
+          "file": "Documentation/guides/application-developer.rst",
+          "line": 195,
+          "text": "With an initialized ``CameraConfiguration``, an application can make changes to\nthe parameters it contains, for example, to change the width and height, use the\nfollowing code:\n\n.. code:: cpp\n\n   streamConfig.size.width = 640;\n   streamConfig.size.height = 480;\n\nIf an application changes any parameters, it must validate the configuration\nbefore applying it to the camera using the ``CameraConfiguration::validate()``\nfunction. If the new values are not supported by the ``Camera`` device, the\nvalidation process adjusts the parameters to what it considers to be the closest\nsupported values.\n\nThe ``validate`` function returns a :doxy-pub:`CameraConfiguration::Status`\nwhich applications shall check to see if the Pipeline Handler adjusted the",
+          "sha256": "8622777258c395784a04059b948b8ba00f3e130df6260b7002adb2d5b5f36ddd"
+        },
+        "uvc-viewfinder-configuration/uvc-viewfinder/app-validated-output": {
+          "file": "Documentation/guides/application-developer.rst",
+          "line": 222,
+          "text": "For this example application, the code below prints the adjusted values to\nstandard out.\n\n.. code:: cpp\n\n   config->validate();\n   std::cout << \"Validated viewfinder configuration is",
+          "sha256": "3ed668fb4de7253b807b4bbf5b17375861a56b8a311fb0588115cc7eea2b49cb"
+        },
+        "uvc-viewfinder-configuration/uvc-viewfinder/validation-contract": {
+          "file": "src/libcamera/camera.cpp",
+          "line": 323,
+          "text": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.\n * \\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully.\n * \\retval CameraConfiguration::Valid The configuration was already valid and\n * hasn't been adjusted.",
+          "sha256": "86bf9109257512866bf70a5d42cd3da29c70d851d871f0e496058141ba377623"
+        },
+        "uvc-viewfinder-configuration/uvc-viewfinder/camera-configure": {
+          "file": "src/libcamera/camera.cpp",
+          "line": 1191,
+          "text": "int Camera::configure(CameraConfiguration *config)\n{\n\tPrivate *const d = _d();\n\n\tint ret = d->isAccessAllowed(Private::CameraAcquired,\n\t\t\t\t     Private::CameraConfigured);\n\tif (ret < 0)\n\t\treturn ret;\n\n\tfor (auto &cfg : *config)\n\t\tcfg.setStream(nullptr);\n\n\tif (config->validate() != CameraConfiguration::Valid) {\n\t\tLOG(Camera, Error)\n\t\t\t<< \"Can't configure camera with invalid configuration\";\n\t\treturn -EINVAL;\n\t}\n\n\tstd::ostringstream msg(\"configuring streams:\", std::ios_base::ate);\n\n\tfor (unsigned int index = 0; index < config->size(); ++index) {\n\t\tStreamConfiguration &cfg = config->at(index);\n\t\tmsg << \" (\" << index << \") \" << cfg.toString();\n\t}\n\n\tLOG(Camera, Info) << msg.str();\n\n\tret = d->pipe_->invokeMethod(&PipelineHandler::configure,\n\t\t\t\t     ConnectionTypeBlocking, this, config);\n\tif (ret)\n\t\treturn ret;\n\n\td->activeStreams_.clear();\n\tfor (const StreamConfiguration &cfg : *config) {\n\t\tStream *stream = cfg.stream();\n\t\tif (!stream) {\n\t\t\tLOG(Camera, Fatal)\n\t\t\t\t<< \"Pipeline handler failed to update stream configuration\";\n\t\t\td->activeStreams_.clear();\n\t\t\treturn -EINVAL;\n\t\t}\n\n\t\tstream->configuration_ = cfg;\n\t\td->activeStreams_.insert(stream);\n\t}\n\n\td->setState(Private::CameraConfigured);\n\n\treturn 0;\n}",
+          "sha256": "ff6ceda14768503bdfe753d462853457743d5b46a80e0808a97375632403cd36"
+        },
+        "uvc-viewfinder-configuration/uvc-viewfinder/app-stream": {
+          "file": "src/libcamera/stream.cpp",
+          "line": 483,
+          "text": "\\fn Stream::configuration()\n * \\brief Retrieve the active configuration of the stream\n * \\return The active configuration of the stream",
+          "sha256": "3eb085cd58d1f1912392208e4a1fd6526d5fefdf597defc79f3a718152203a35"
+        },
+        "uvc-viewfinder-configuration/uvc-viewfinder/uvc-validate": {
+          "file": "src/libcamera/pipeline/uvcvideo/uvcvideo.cpp",
+          "line": 139,
+          "text": "CameraConfiguration::Status UVCCameraConfiguration::validate()\n{\n\tStatus status = Valid;\n\n\tif (config_.empty())\n\t\treturn Invalid;\n\n\tif (sensorConfig)\n\t\treturn Invalid;\n\n\tif (orientation != Orientation::Rotate0) {\n\t\torientation = Orientation::Rotate0;\n\t\tstatus = Adjusted;\n\t}\n\n\t/* Cap the number of entries to the available streams. */\n\tif (config_.size() > 1) {\n\t\tconfig_.resize(1);\n\t\tstatus = Adjusted;\n\t}\n\n\tStreamConfiguration &cfg = config_[0];\n\tconst StreamFormats &formats = cfg.formats();\n\tconst PixelFormat pixelFormat = cfg.pixelFormat;\n\tconst Size size = cfg.size;\n\n\tconst std::vector<PixelFormat> pixelFormats = formats.pixelformats();\n\tauto iter = std::find(pixelFormats.begin(), pixelFormats.end(), pixelFormat);\n\tif (iter == pixelFormats.end()) {\n\t\tcfg.pixelFormat = pixelFormats.front();\n\t\tLOG(UVC, Debug)\n\t\t\t<< \"Adjusting pixel format from \" << pixelFormat\n\t\t\t<< \" to \" << cfg.pixelFormat;\n\t\tstatus = Adjusted;\n\t}\n\n\tconst std::vector<Size> &formatSizes = formats.sizes(cfg.pixelFormat);\n\tcfg.size = formatSizes.front();\n\tfor (const Size &formatsSize : formatSizes) {\n\t\tif (formatsSize > size)\n\t\t\tbreak;\n\n\t\tcfg.size = formatsSize;\n\t}\n\n\tif (cfg.size != size) {\n\t\tLOG(UVC, Debug)\n\t\t\t<< \"Adjusting size from \" << size << \" to \" << cfg.size;\n\t\tstatus = Adjusted;\n\t}\n\n\tcfg.bufferCount = 4;\n\n\tV4L2DeviceFormat format;\n\tformat.fourcc = data_->video_->toV4L2PixelFormat(cfg.pixelFormat);\n\tformat.size = cfg.size;\n\n\t/*\n\t * For power-consumption reasons video_ is closed when the camera is not\n\t * acquired. Open it here if necessary.\n\t */\n\t{\n\t\tbool opened = false;\n\n\t\tMutexLocker locker(data_->openLock_);\n\n\t\tif (!data_->video_->isOpen()) {\n\t\t\tint ret = data_->video_->open();\n\t\t\tif (ret)\n\t\t\t\treturn Invalid;\n\n\t\t\topened = true;\n\t\t}\n\n\t\tint ret = data_->video_->tryFormat(&format);\n\t\tif (opened)\n\t\t\tdata_->video_->close();\n\t\tif (ret)\n\t\t\treturn Invalid;\n\t}\n\n\tcfg.stride = format.planes[0].bpl;\n\tcfg.frameSize = format.planes[0].size;\n\n\tif (cfg.colorSpace != format.colorSpace) {\n\t\tcfg.colorSpace = format.colorSpace;\n\t\tstatus = Adjusted;\n\t}\n\n\treturn status;",
+          "sha256": "0aa2dad19ebf8758da23af411ff5e8983d194b5566eb48902b915288aceb52e4"
+        },
+        "uvc-viewfinder-configuration/uvc-viewfinder/uvc-default": {
+          "file": "src/libcamera/pipeline/uvcvideo/uvcvideo.cpp",
+          "line": 237,
+          "text": "PipelineHandlerUVC::generateConfiguration(Camera *camera,\n\t\t\t\t\t  std::span<const StreamRole> roles)\n{\n\tUVCCameraData *data = cameraData(camera);\n\tstd::unique_ptr<CameraConfiguration> config =\n\t\tstd::make_unique<UVCCameraConfiguration>(data);\n\n\tif (roles.empty())\n\t\treturn config;\n\n\tStreamFormats formats(data->formats_);\n\tStreamConfiguration cfg(formats);\n\n\tcfg.pixelFormat = formats.pixelformats().front();\n\tcfg.size = formats.sizes(cfg.pixelFormat).back();\n\tcfg.bufferCount = 4;\n\n\tconfig->addConfiguration(cfg);\n\n\tconfig->validate();\n\n\treturn config;\n}",
+          "sha256": "22b1012c12a6a470a68df096c8e06de88ceadb99939282daea8ffddfb98d7f9e"
+        },
+        "uvc-viewfinder-configuration/uvc-viewfinder/uvc-configure": {
+          "file": "src/libcamera/pipeline/uvcvideo/uvcvideo.cpp",
+          "line": 261,
+          "text": "int PipelineHandlerUVC::configure(Camera *camera, CameraConfiguration *config)\n{\n\tUVCCameraData *data = cameraData(camera);\n\tStreamConfiguration &cfg = config->at(0);\n\tint ret;\n\n\tV4L2DeviceFormat format;\n\tformat.fourcc = data->video_->toV4L2PixelFormat(cfg.pixelFormat);\n\tformat.size = cfg.size;\n\n\tret = data->video_->setFormat(&format);\n\tif (ret)\n\t\treturn ret;\n\n\tif (format.size != cfg.size ||\n\t    format.fourcc != data->video_->toV4L2PixelFormat(cfg.pixelFormat))\n\t\treturn -EINVAL;\n\n\tcfg.setStream(&data->stream_);\n\n\treturn 0;\n}",
+          "sha256": "826ac6a4484d5becacb65c669f4f122fadbbc0e92e1f128d67490a07a33ec0cb"
+        },
+        "uvc-viewfinder-configuration/uvc-viewfinder/v4l2-configure": {
+          "file": "src/libcamera/v4l2_videodevice.cpp",
+          "line": 849,
+          "text": "\\brief Configure an image format on the V4L2 video device\n * \\param[inout] format The image format to apply to the video device\n *\n * Apply the supplied \\a format to the video device, and return the actually\n * applied format parameters, as \\ref V4L2VideoDevice::getFormat would do.\n *\n * \\return 0 on success or a negative error code otherwise\n */\nint V4L2VideoDevice::setFormat(V4L2DeviceFormat *format)\n{\n\tint ret;\n\n\tswitch (bufferType_) {\n\tcase V4L2_BUF_TYPE_VIDEO_CAPTURE:\n\tcase V4L2_BUF_TYPE_VIDEO_OUTPUT:\n\t\tret = trySetFormatSingleplane(format, true);\n\t\tbreak;\n\tcase V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:\n\tcase V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:\n\t\tret = trySetFormatMultiplane(format, true);\n\t\tbreak;\n\tcase V4L2_BUF_TYPE_META_CAPTURE:\n\tcase V4L2_BUF_TYPE_META_OUTPUT:\n\t\tret = trySetFormatMeta(format, true);\n\t\tbreak;\n\tdefault:\n\t\tret = -EINVAL;\n\t\tbreak;\n\t}\n\n\t/* Cache the set format on success. */\n\tif (ret)\n\t\treturn ret;\n\n\tformat_ = *format;\n\tformatInfo_ = &PixelFormatInfo::info(format_.fourcc);\n\n\treturn 0;\n}",
+          "sha256": "9af0934ba2b90c413087e374e9b67b49768f06adeb723a56ce45abe73a8814c9"
+        },
+        "scenario-configure/preconditions/configure": {
+          "file": "src/libcamera/camera.cpp",
+          "line": 1163,
+          "text": "\\brief Configure the camera prior to capture\n * \\param[in] config The camera configurations to setup\n *\n * Prior to starting capture, the camera must be configured to select a\n * group of streams to be involved in the capture and their configuration.\n * The caller specifies which streams are to be involved and their configuration\n * by populating \\a config.\n *\n * The configuration is created by generateConfiguration(), and adjusted by the\n * caller with CameraConfiguration::validate(). This function only accepts fully\n * valid configurations and returns an error if \\a config is not valid.\n *\n * Exclusive access to the camera shall be ensured by a call to acquire() prior\n * to calling this function, otherwise an -EACCES error will be returned.\n *\n * \\context This function may only be called when the camera is in the Acquired\n * or Configured state as defined in \\ref camera_operation, and shall be\n * synchronized by the caller with other functions that affect the camera\n * state.\n *\n * Upon return the StreamConfiguration entries in \\a config are associated with\n * Stream instances which can be retrieved with StreamConfiguration::stream().\n *\n * \\return 0 on success or a negative error code otherwise\n * \\retval -ENODEV The camera has been disconnected from the system\n * \\retval -EACCES The camera is not in a state where it can be configured\n * \\retval -EINVAL The configuration is not valid\n */",
+          "sha256": "df8c93cd701c8dd65d498d666f63dd166c4470902f254be8a251bf3f6b8f761d"
+        }
+      },
+      "source_aliases": {
+        "uvc-viewfinder-configuration/uvc-viewfinder/app-default": "uvc-viewfinder-configuration/uvc-viewfinder/app-default",
+        "uvc-viewfinder-configuration/uvc-viewfinder/app-request": "uvc-viewfinder-configuration/uvc-viewfinder/app-request",
+        "uvc-viewfinder-configuration/uvc-viewfinder/app-validated-output": "uvc-viewfinder-configuration/uvc-viewfinder/app-validated-output",
+        "uvc-viewfinder-configuration/uvc-viewfinder/validation-contract": "uvc-viewfinder-configuration/uvc-viewfinder/validation-contract",
+        "uvc-viewfinder-configuration/uvc-viewfinder/camera-configure": "uvc-viewfinder-configuration/uvc-viewfinder/camera-configure",
+        "uvc-viewfinder-configuration/uvc-viewfinder/app-stream": "uvc-viewfinder-configuration/uvc-viewfinder/app-stream",
+        "uvc-viewfinder-configuration/uvc-viewfinder/uvc-validate": "uvc-viewfinder-configuration/uvc-viewfinder/uvc-validate",
+        "uvc-viewfinder-configuration/uvc-viewfinder/uvc-default": "uvc-viewfinder-configuration/uvc-viewfinder/uvc-default",
+        "uvc-viewfinder-configuration/uvc-viewfinder/uvc-configure": "uvc-viewfinder-configuration/uvc-viewfinder/uvc-configure",
+        "uvc-viewfinder-configuration/uvc-viewfinder/v4l2-configure": "uvc-viewfinder-configuration/uvc-viewfinder/v4l2-configure",
+        "scenario-configure/application/configure": "uvc-viewfinder-configuration/uvc-viewfinder/camera-configure",
+        "scenario-configure/preconditions/configure": "scenario-configure/preconditions/configure",
+        "scenario-configure/application/association": "scenario-configure/preconditions/configure"
+      },
+      "excluded_navigation": [
+        {
+          "document": "scenarios/uvc-viewfinder-configuration.md",
+          "paragraph": 36,
+          "text": "다음 단계: [시스템 개요](../overview.md)\n",
+          "target": "overview.md",
+          "title": "시스템 개요",
+          "target_sha256": "2be7cb79a8cd1327d638a9a711d8f26d02a4ef2acc2bf5a4749b99bc1d381d54",
+          "assessment": "generated navigation; current target exists; not a runtime contract verdict"
+        },
+        {
+          "document": "scenarios/configure.md",
+          "paragraph": 72,
+          "text": "다음 단계: [캡처 시작](camera_start.md)\n",
+          "target": "scenarios/camera_start.md",
+          "title": "캡처 시작",
+          "target_sha256": "ddad5032b0a83901fe49af4744c00272603d10c68376b9bd96277c7434f9b30f",
+          "assessment": "generated navigation; current target exists; not a runtime contract verdict"
+        }
+      ],
+      "review_units": [
+        {
+          "batch": 0,
+          "request_sha256": "608ba135396fb36ba822942d9177aad322f7de9c9956031aa24d8a22826ff069",
+          "review_request_sha256": "608ba135396fb36ba822942d9177aad322f7de9c9956031aa24d8a22826ff069",
+          "current_source_commit": "adfa719f8ed67d18fd8a0739fc088a1f8b9e7252",
+          "reviewed_source_commit": "adfa719f8ed67d18fd8a0739fc088a1f8b9e7252",
+          "receipts": [
+            "dd7fe275e9c34c6680a153db916ba512/001.receipt.json"
+          ],
+          "receipt_tag": "contract-c4738ac0602f4e809d61972704e66239-0-44",
+          "receipt_sha256": "7b0040b350d271cf441b82b5ab4c755627d77bf303960bc9df5dedd1bcc11f9d"
+        }
+      ]
     }
   ],
   "fresh_batches": 0,
-  "reused_batches": 44,
+  "reused_batches": 45,
   "source_equivalent_batches": 7,
   "human_review": "pending",
   "assessment": "automatic model review; not human approval",
   "comparison_scope": "Every target is compared with supplied sources and all primary claims. Secondary pairs are compared when in the same batch; this is not an exhaustive all-pairs proof.",
   "audit_run": {
-    "id": "5574ded65a61432293801d83fc3fda66",
+    "id": "186b2b0f7dbf41b09c11edcbf7e20840",
     "document": 0,
     "phase": 0
   },
