@@ -161,6 +161,88 @@ When the pipeline call succeeds, `Camera::configure()` clears `activeStreams_` a
 
 </details>
 
+## Where can the requested 640×480 viewfinder configuration change?
+
+The app must use `Camera::generateConfiguration()` to create one `Viewfinder` configuration and check its default size and pixel format, then request 640×480 as an example and call `validate()`. UVC validation calls `tryFormat` and returns `Invalid` if opening the device or the test fails. `Adjusted` means the configuration was adjusted and is now valid; parameters for any stream may have changed, or stream configurations may have been removed. The app must therefore read the size and pixel format after validation and decide whether to accept the changes. Later, if access is allowed, `Camera::configure()` clears the stream associations and validates the configuration again; it returns `-EINVAL` if the result is not `Valid`.
+
+### Validating the UVC Viewfinder Configuration and Applying It to the Device
+
+```mermaid
+flowchart TB
+
+  v_validate{"App calls validate · UVC <br/>tryFormat"}
+  v_inspect["App checks the adjusted <br/>values"]
+  v_stop["App stops before applying"]
+  v_gate{"Camera::configure <br/>revalidates"}
+  v_reject["Common validation returns <br/>-EINVAL"]
+  v_apply{"UVC calls setFormat"}
+  v_error["Forward the format-setting <br/>error"]
+  v_compare{"Do the returned size and <br/>FourCC match?"}
+  v_mismatch["UVC returns -EINVAL"]
+  v_linked["App reads the linked Stream <br/>configuration on success"]
+  v_validate -->|"Adjusted"| v_inspect
+  v_validate -->|"Invalid"| v_stop
+  v_validate -->|"Valid"| v_gate
+  v_inspect -->|"Accept changes"| v_gate
+  v_inspect -->|"Decline changes"| v_stop
+  v_gate -->|"Valid"| v_apply
+  v_gate -->|"Invalid or Adjusted"| v_reject
+  v_apply -->|"Error"| v_error
+  v_apply -->|"Success"| v_compare
+  v_compare -->|"Mismatch"| v_mismatch
+  v_compare -->|"Match"| v_linked
+```
+
+The application decides whether to proceed with the values produced by validation. When applying the format, the UVC handler compares the returned size and FourCC. [`camera.cpp:343`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L343) · [`uvcvideo.cpp:275`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L275)
+
+Mermaid source
+
+<details open>
+<summary>Diagram evidence and verification scope</summary>
+
+Where are the values checked again, and where is an error returned?
+
+Source-linked interpretation · automatic link check only · meaning and device execution not yet verified
+
+| Elements and transitions | Source evidence |
+| --- | --- |
+| App calls validate · UVC tryFormat | src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:139 |
+| App checks the adjusted values | src/libcamera/camera.cpp:323 |
+| App stops before applying | src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:139 · src/libcamera/camera.cpp:323 |
+| Camera::configure revalidates | src/libcamera/camera.cpp:1191 |
+| Common validation returns -EINVAL | src/libcamera/camera.cpp:1191 |
+| UVC calls setFormat | src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261 · src/libcamera/v4l2_videodevice.cpp:849 |
+| Forward the format-setting error | src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261 |
+| Do the returned size and FourCC match? | src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261 |
+| UVC returns -EINVAL | src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261 |
+| App reads the linked Stream configuration on success | src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261 · src/libcamera/camera.cpp:1191 · src/libcamera/stream.cpp:483 |
+| Adjusted | src/libcamera/camera.cpp:323 |
+| Invalid | src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:139 |
+| Valid | src/libcamera/camera.cpp:1191 |
+| Accept changes | src/libcamera/camera.cpp:323 · src/libcamera/camera.cpp:1191 |
+| Decline changes | src/libcamera/camera.cpp:323 |
+| Valid | src/libcamera/camera.cpp:1191 · src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261 |
+| Invalid or Adjusted | src/libcamera/camera.cpp:1191 |
+| Error | src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261 |
+| Success | src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261 |
+| Mismatch | src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261 |
+| Match | src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261 · src/libcamera/camera.cpp:1191 |
+
+</details>
+
+`tryFormat` tests the format, while `setFormat` in `PipelineHandlerUVC::configure()` applies the format to the device and returns the applied values. UVC configuration checks whether the validated size and FourCC match the values returned by the device. If `setFormat` fails, UVC configuration returns that error; if the values differ, it returns `-EINVAL`. On success, UVC configuration associates the stream, and the common `Camera::configure()` copies the validated stream configuration to the associated stream, so the app can read the active configuration from `Stream::configuration()`. On the target device, check the size and pixel format before and after validation, as well as the size, FourCC, and return value for the attempt to apply the format.
+
+<details open>
+<summary>Section-wide evidence: 10</summary>
+
+- `Documentation/guides/application-developer.rst``L167` excerpt · [Full source `L167`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/guides/application-developer.rst#L167) · `L195` excerpt · [Full source `L195`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/guides/application-developer.rst#L195) · `L222`
+- `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp``L139` excerpt · [Full source `L139`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L139) · `L261` excerpt · [Full source `L261`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L261) · `L237`
+- `src/libcamera/camera.cpp``L323` excerpt · [Full source `L323`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L323) · `L1191` excerpt · [Full source `L1191`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1191)
+- `src/libcamera/v4l2_videodevice.cpp``L849` excerpt · [Full source `L849`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L849)
+- `src/libcamera/stream.cpp``L483` excerpt · [Full source `L483`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/stream.cpp#L483)
+
+</details>
+
 ## Reflecting start control values and pipeline results
 
 If `controls` is present, `Camera::start` makes a copy of `ControlList`, preprocesses it with `patchControlList`, and passes the copy; otherwise, it passes `nullptr`. In both branches, it calls `PipelineHandler::start` with `ConnectionTypeBlocking`, and that function is called from the `CameraManager` thread. If the call result `ret` is nonzero, `Camera::start` returns `ret` unchanged without setting the `CameraRunning` state; if `ret` is zero, it sets the `CameraRunning` state and returns 0.
@@ -336,6 +418,36 @@ This is a record saved in the manuscript as of that time. It may differ from the
 - Evidence level: code verified (static analysis, simple_compdb configuration, commit `adfa719f8e`)
 - Automated check (citation, sentence, and configured structure checks): passed
 - Review status recorded on: 2026-11-21 · Awaiting human review
+
+</details>
+
+Markdown source ↗
+
+Open earlier detail
+
+</details>
+
+<details open>
+<summary>USB UVC Viewfinder Stream Configuration</summary>
+
+- **Generation method**: Extracted facts and LLM explanation
+- **Validation scope**: Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.
+- **Automated check**: Passed (`ok`). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.
+- **Human review**: Before human review
+- **Analysis baseline commit**: `adfa719f8ed67d18fd8a0739fc088a1f8b9e7252`
+- **Document generation time**: `2026-11-22 16:46:57+00:00`
+- **Sentence generation model**: `cli/codex/gpt-6.1-terra`
+- **Contracts between documents**: Automated comparison report · Before human review
+
+<details open>
+<summary>Record from when the manuscript was written</summary>
+
+This is a record saved in the manuscript as of that time. It may differ from the current document's standards.
+
+- Evidence files: `Documentation/guides/application-developer.rst`, `src/libcamera/camera.cpp`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp`, `src/libcamera/stream.cpp`, `src/libcamera/v4l2_videodevice.cpp`
+- Evidence level: code verified (static analysis, simple_compdb configuration, commit `adfa719f8e`)
+- Automated check (citation, sentence, and configured structure checks): passed
+- Review status recorded: 2026-11-23 · Awaiting human review
 
 </details>
 

@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>USB UVC Viewfinder Stream Configuration · libcamera Design Document</title><link rel="stylesheet" href="../../../assets/reading.css?v=dd3415510a"><meta name="robots" content="noindex"><link rel="alternate" hreflang="ko" href="../../../reader-archive/scenarios/uvc-viewfinder-configuration.html"><link rel="alternate" hreflang="en" href="uvc-viewfinder-configuration.html"></head>
+<body><a class="skip" href="#main">Go to body text</a>
+<header class="site-header"><a class="brand" href="../../index.html"><span class="brand-mark" aria-hidden="true">◉</span>libcamera Design Document</a>
+<div class="header-actions"><details class="language-selector"><summary aria-label="Choose language">English ▾</summary><nav><a lang="ko" hreflang="ko" href="../../../reader-archive/scenarios/uvc-viewfinder-configuration.html">한국어</a><a lang="en" hreflang="en" href="uvc-viewfinder-configuration.html" aria-current="true">English</a></nav></details><button id="search-open" hidden>Find document <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button></div></header>
+<div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="Document menu"></nav><p class="sidebar-note">Extract the structure from the code and review it together with <br> evidence.</p></aside>
+<main id="main"><p class="breadcrumb">For Developer <span>/</span> USB UVC Viewfinder Stream Configuration</p><h1>USB UVC Viewfinder Stream Configuration</h1><div class="page-state"><span class="review-state">Before human review</span><span>Automated check passed</span><span class="generation-method">Authored: extracted structure and draft written by the model</span><a class="state-help" href="#page-evidence">State description ↓</a></div>
+<p class="translation-note">English translation · human review pending. Review states below refer to the Korean source.</p><p class="translation-note">Source material linked by earlier addresses · <a href="../../for-developer.html">Reader edition</a></p><article><p><strong>Request one viewfinder stream from a USB UVC camera, then check the values received by the app and applied by the device.</strong></p><details class="note scope-notices">
+<summary>Design questions and validation scope</summary>
+<p>The answers to each question and their evidence links were checked. The meaning and execution results require human review.</p>
+<ul class="coverage-links"><li><p>When you request one 640×480 viewfinder stream from a USB UVC camera, what values do you check in the app and on the device?</p><p><a href="../../for-developer.html#uvc-viewfinder-configuration">Where can the requested 640×480 viewfinder configuration change?</a></p></li></ul><p><span>Verification scope</span>: <span>Linking code evidence to explanations</span></p>
+</details>
+<details class="page-terms">
+<summary>Terms in this document: UVC</summary>
+<ul>
+<li><strong>UVC</strong> (USB Video Class): The standard that USB webcams follow. libcamera handles this device with the uvcvideo Pipeline Handler.</li>
+</ul>
+<p>Other terms can be found in <a href="../../glossary.html">Glossary</a>.</p>
+</details>
+<p id="요청한-640480-뷰파인더는-어디에서-달라지나요"><a href="../../for-developer.html#uvc-viewfinder-configuration">Where can the requested 640×480 viewfinder configuration change?</a></p><p id="uvc-뷰파인더의-구성-검증과-장치-적용"><a href="../../for-developer.html#uvc-%EB%B7%B0%ED%8C%8C%EC%9D%B8%EB%8D%94%EC%9D%98-%EA%B5%AC%EC%84%B1-%EA%B2%80%EC%A6%9D%EA%B3%BC-%EC%9E%A5%EC%B9%98-%EC%A0%81%EC%9A%A9">Validating the UVC Viewfinder Configuration and Applying It to the Device</a></p><h2 id="소스-근거">Source evidence</h2>
+<details class="source-excerpts"><summary>Source excerpts: <span>10</span></summary>
+<p>Include each excerpt only once. Expand the needed original text and check it against the explanation.</p>
+<p><a id="source-fa38f671a1d155da"></a></p>
+<details class="note">
+<summary>Source evidence: Documentation/guides/application-developer.rst:167</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/guides/application-developer.rst#L167"><code>Documentation/guides/application-developer.rst:167</code></a> to <code>185</code></p>
+<p>SHA-256: <code>4c979423c6366a0c6d46d9b4254987ba40da86687ebd4c225c51a12952d2b8ff</code></p>
+<div class="highlight"><pre><span></span><code>In the example application, create a new configuration variable and use the
+``Camera::generateConfiguration`` function to produce a ``CameraConfiguration``
+for the single ``StreamRole::Viewfinder`` role.
+
+.. code:: cpp
+
+   std::unique_ptr&lt;CameraConfiguration&gt; config = camera-&gt;generateConfiguration( { StreamRole::Viewfinder } );
+
+The generated ``CameraConfiguration`` has a ``StreamConfiguration`` instance for
+each ``StreamRole`` the application requested. Each of these has a default size
+and format that the camera assigned, and a list of supported pixel formats and
+sizes.
+
+The code below accesses the first and only ``StreamConfiguration`` item in the
+``CameraConfiguration`` and outputs its parameters to standard output.
+
+.. code:: cpp
+
+   StreamConfiguration &amp;streamConfig = config-&gt;at(0);
+</code></pre></div>
+</details>
+<p><a id="source-8e1f5d84ca64a38b"></a></p>
+<details class="note">
+<summary>Source evidence: Documentation/guides/application-developer.rst:195</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/guides/application-developer.rst#L195"><code>Documentation/guides/application-developer.rst:195</code></a> to <code>211</code></p>
+<p>SHA-256: <code>8622777258c395784a04059b948b8ba00f3e130df6260b7002adb2d5b5f36ddd</code></p>
+<div class="highlight"><pre><span></span><code>With an initialized ``CameraConfiguration``, an application can make changes to
+the parameters it contains, for example, to change the width and height, use the
+following code:
+
+.. code:: cpp
+
+   streamConfig.size.width = 640;
+   streamConfig.size.height = 480;
+
+If an application changes any parameters, it must validate the configuration
+before applying it to the camera using the ``CameraConfiguration::validate()``
+function. If the new values are not supported by the ``Camera`` device, the
+validation process adjusts the parameters to what it considers to be the closest
+supported values.
+
+The ``validate`` function returns a :doxy-pub:`CameraConfiguration::Status`
+which applications shall check to see if the Pipeline Handler adjusted the
+</code></pre></div>
+</details>
+<p><a id="source-480691defaa3d64b"></a></p>
+<details class="note">
+<summary>Source evidence: Documentation/guides/application-developer.rst:222</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/guides/application-developer.rst#L222"><code>Documentation/guides/application-developer.rst:222</code></a> to <code>228</code></p>
+<p>SHA-256: <code>3ed668fb4de7253b807b4bbf5b17375861a56b8a311fb0588115cc7eea2b49cb</code></p>
+<div class="highlight"><pre><span></span><code>For this example application, the code below prints the adjusted values to
+standard out.
+
+.. code:: cpp
+
+   config-&gt;validate();
+   std::cout &lt;&lt; "Validated viewfinder configuration is
+</code></pre></div>
+</details>
+<p><a id="source-2b31e92e3fb3f083"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/camera.cpp:323</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L323"><code>src/libcamera/camera.cpp:323</code></a> to <code>346</code></p>
+<p>SHA-256: <code>86bf9109257512866bf70a5d42cd3da29c70d851d871f0e496058141ba377623</code></p>
+<div class="highlight"><pre><span></span><code>\fn CameraConfiguration::validate()
+ * \brief Validate and possibly adjust the camera configuration
+ *
+ * This function adjusts the camera configuration to the closest valid
+ * configuration and returns the validation status.
+ *
+ * \todo Define exactly when to return each status code. Should stream
+ * parameters set to 0 by the caller be adjusted without returning Adjusted ?
+ * This would potentially be useful for applications but would get in the way
+ * in Camera::configure(). Do we need an extra status code to signal this ?
+ *
+ * \todo Handle validation of buffers count when refactoring the buffers API.
+ *
+ * \return A CameraConfiguration::Status value that describes the validation
+ * status.
+ * \retval CameraConfiguration::Invalid The configuration is invalid and can't
+ * be adjusted. This may only occur in extreme cases such as when the
+ * configuration is empty.
+ * \retval CameraConfiguration::Adjusted The configuration has been adjusted
+ * and is now valid. Parameters may have changed for any stream, and stream
+ * configurations may have been removed. The caller shall check the
+ * configuration carefully.
+ * \retval CameraConfiguration::Valid The configuration was already valid and
+ * hasn't been adjusted.
+</code></pre></div>
+</details>
+<p><a id="source-603af0dd7fa357d0"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/camera.cpp:1191</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1191"><code>src/libcamera/camera.cpp:1191</code></a> to <code>1240</code></p>
+<p>SHA-256: <code>ff6ceda14768503bdfe753d462853457743d5b46a80e0808a97375632403cd36</code></p>
+<div class="highlight"><pre><span></span><code>int Camera::configure(CameraConfiguration *config)
+{
+    Private *const d = _d();
+
+    int ret = d-&gt;isAccessAllowed(Private::CameraAcquired,
+                     Private::CameraConfigured);
+    if (ret &lt; 0)
+        return ret;
+
+    for (auto &amp;cfg : *config)
+        cfg.setStream(nullptr);
+
+    if (config-&gt;validate() != CameraConfiguration::Valid) {
+        LOG(Camera, Error)
+            &lt;&lt; "Can't configure camera with invalid configuration";
+        return -EINVAL;
+    }
+
+    std::ostringstream msg("configuring streams:", std::ios_base::ate);
+
+    for (unsigned int index = 0; index &lt; config-&gt;size(); ++index) {
+        StreamConfiguration &amp;cfg = config-&gt;at(index);
+        msg &lt;&lt; " (" &lt;&lt; index &lt;&lt; ") " &lt;&lt; cfg.toString();
+    }
+
+    LOG(Camera, Info) &lt;&lt; msg.str();
+
+    ret = d-&gt;pipe_-&gt;invokeMethod(&amp;PipelineHandler::configure,
+                     ConnectionTypeBlocking, this, config);
+    if (ret)
+        return ret;
+
+    d-&gt;activeStreams_.clear();
+    for (const StreamConfiguration &amp;cfg : *config) {
+        Stream *stream = cfg.stream();
+        if (!stream) {
+            LOG(Camera, Fatal)
+                &lt;&lt; "Pipeline handler failed to update stream configuration";
+            d-&gt;activeStreams_.clear();
+            return -EINVAL;
+        }
+
+        stream-&gt;configuration_ = cfg;
+        d-&gt;activeStreams_.insert(stream);
+    }
+
+    d-&gt;setState(Private::CameraConfigured);
+
+    return 0;
+}
+</code></pre></div>
+</details>
+<p><a id="source-d8739fc139164c42"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/stream.cpp:483</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/stream.cpp#L483"><code>src/libcamera/stream.cpp:483</code></a> to <code>485</code></p>
+<p>SHA-256: <code>3eb085cd58d1f1912392208e4a1fd6526d5fefdf597defc79f3a718152203a35</code></p>
+<div class="highlight"><pre><span></span><code>\fn Stream::configuration()
+ * \brief Retrieve the active configuration of the stream
+ * \return The active configuration of the stream
+</code></pre></div>
+</details>
+<p><a id="source-f9631255f305fb92"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:139</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L139"><code>src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:139</code></a> to <code>228</code></p>
+<p>SHA-256: <code>0aa2dad19ebf8758da23af411ff5e8983d194b5566eb48902b915288aceb52e4</code></p>
+<div class="highlight"><pre><span></span><code>CameraConfiguration::Status UVCCameraConfiguration::validate()
+{
+    Status status = Valid;
+
+    if (config_.empty())
+        return Invalid;
+
+    if (sensorConfig)
+        return Invalid;
+
+    if (orientation != Orientation::Rotate0) {
+        orientation = Orientation::Rotate0;
+        status = Adjusted;
+    }
+
+    /* Cap the number of entries to the available streams. */
+    if (config_.size() &gt; 1) {
+        config_.resize(1);
+        status = Adjusted;
+    }
+
+    StreamConfiguration &amp;cfg = config_[0];
+    const StreamFormats &amp;formats = cfg.formats();
+    const PixelFormat pixelFormat = cfg.pixelFormat;
+    const Size size = cfg.size;
+
+    const std::vector&lt;PixelFormat&gt; pixelFormats = formats.pixelformats();
+    auto iter = std::find(pixelFormats.begin(), pixelFormats.end(), pixelFormat);
+    if (iter == pixelFormats.end()) {
+        cfg.pixelFormat = pixelFormats.front();
+        LOG(UVC, Debug)
+            &lt;&lt; "Adjusting pixel format from " &lt;&lt; pixelFormat
+            &lt;&lt; " to " &lt;&lt; cfg.pixelFormat;
+        status = Adjusted;
+    }
+
+    const std::vector&lt;Size&gt; &amp;formatSizes = formats.sizes(cfg.pixelFormat);
+    cfg.size = formatSizes.front();
+    for (const Size &amp;formatsSize : formatSizes) {
+        if (formatsSize &gt; size)
+            break;
+
+        cfg.size = formatsSize;
+    }
+
+    if (cfg.size != size) {
+        LOG(UVC, Debug)
+            &lt;&lt; "Adjusting size from " &lt;&lt; size &lt;&lt; " to " &lt;&lt; cfg.size;
+        status = Adjusted;
+    }
+
+    cfg.bufferCount = 4;
+
+    V4L2DeviceFormat format;
+    format.fourcc = data_-&gt;video_-&gt;toV4L2PixelFormat(cfg.pixelFormat);
+    format.size = cfg.size;
+
+    /*
+     * For power-consumption reasons video_ is closed when the camera is not
+     * acquired. Open it here if necessary.
+     */
+    {
+        bool opened = false;
+
+        MutexLocker locker(data_-&gt;openLock_);
+
+        if (!data_-&gt;video_-&gt;isOpen()) {
+            int ret = data_-&gt;video_-&gt;open();
+            if (ret)
+                return Invalid;
+
+            opened = true;
+        }
+
+        int ret = data_-&gt;video_-&gt;tryFormat(&amp;format);
+        if (opened)
+            data_-&gt;video_-&gt;close();
+        if (ret)
+            return Invalid;
+    }
+
+    cfg.stride = format.planes[0].bpl;
+    cfg.frameSize = format.planes[0].size;
+
+    if (cfg.colorSpace != format.colorSpace) {
+        cfg.colorSpace = format.colorSpace;
+        status = Adjusted;
+    }
+
+    return status;
+</code></pre></div>
+</details>
+<p><a id="source-472189bfe0703702"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:237</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L237"><code>src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:237</code></a> to <code>259</code></p>
+<p>SHA-256: <code>22b1012c12a6a470a68df096c8e06de88ceadb99939282daea8ffddfb98d7f9e</code></p>
+<div class="highlight"><pre><span></span><code>PipelineHandlerUVC::generateConfiguration(Camera *camera,
+                      std::span&lt;const StreamRole&gt; roles)
+{
+    UVCCameraData *data = cameraData(camera);
+    std::unique_ptr&lt;CameraConfiguration&gt; config =
+        std::make_unique&lt;UVCCameraConfiguration&gt;(data);
+
+    if (roles.empty())
+        return config;
+
+    StreamFormats formats(data-&gt;formats_);
+    StreamConfiguration cfg(formats);
+
+    cfg.pixelFormat = formats.pixelformats().front();
+    cfg.size = formats.sizes(cfg.pixelFormat).back();
+    cfg.bufferCount = 4;
+
+    config-&gt;addConfiguration(cfg);
+
+    config-&gt;validate();
+
+    return config;
+}
+</code></pre></div>
+</details>
+<p><a id="source-be07a7077dd3d924"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L261"><code>src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261</code></a> to <code>282</code></p>
+<p>SHA-256: <code>826ac6a4484d5becacb65c669f4f122fadbbc0e92e1f128d67490a07a33ec0cb</code></p>
+<div class="highlight"><pre><span></span><code>int PipelineHandlerUVC::configure(Camera *camera, CameraConfiguration *config)
+{
+    UVCCameraData *data = cameraData(camera);
+    StreamConfiguration &amp;cfg = config-&gt;at(0);
+    int ret;
+
+    V4L2DeviceFormat format;
+    format.fourcc = data-&gt;video_-&gt;toV4L2PixelFormat(cfg.pixelFormat);
+    format.size = cfg.size;
+
+    ret = data-&gt;video_-&gt;setFormat(&amp;format);
+    if (ret)
+        return ret;
+
+    if (format.size != cfg.size ||
+        format.fourcc != data-&gt;video_-&gt;toV4L2PixelFormat(cfg.pixelFormat))
+        return -EINVAL;
+
+    cfg.setStream(&amp;data-&gt;stream_);
+
+    return 0;
+}
+</code></pre></div>
+</details>
+<p><a id="source-c073a10f1abc63b6"></a></p>
+<details class="note">
+<summary>Source evidence: src/libcamera/v4l2_videodevice.cpp:849</summary>
+<p>Excerpt range: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L849"><code>src/libcamera/v4l2_videodevice.cpp:849</code></a> to <code>887</code></p>
+<p>SHA-256: <code>9af0934ba2b90c413087e374e9b67b49768f06adeb723a56ce45abe73a8814c9</code></p>
+<div class="highlight"><pre><span></span><code>\brief Configure an image format on the V4L2 video device
+ * \param[inout] format The image format to apply to the video device
+ *
+ * Apply the supplied \a format to the video device, and return the actually
+ * applied format parameters, as \ref V4L2VideoDevice::getFormat would do.
+ *
+ * \return 0 on success or a negative error code otherwise
+ */
+int V4L2VideoDevice::setFormat(V4L2DeviceFormat *format)
+{
+    int ret;
+
+    switch (bufferType_) {
+    case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+    case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+        ret = trySetFormatSingleplane(format, true);
+        break;
+    case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+    case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+        ret = trySetFormatMultiplane(format, true);
+        break;
+    case V4L2_BUF_TYPE_META_CAPTURE:
+    case V4L2_BUF_TYPE_META_OUTPUT:
+        ret = trySetFormatMeta(format, true);
+        break;
+    default:
+        ret = -EINVAL;
+        break;
+    }
+
+    /* Cache the set format on success. */
+    if (ret)
+        return ret;
+
+    format_ = *format;
+    formatInfo_ = &amp;PixelFormatInfo::info(format_.fourcc);
+
+    return 0;
+}
+</code></pre></div>
+</details>
+</details>
+
+<p>Next step: <a href="../../architecture.html">System overview</a></p></article><section class="evidence"><h2 id="page-evidence">Document generation and review information</h2><dl><dt>Generation method</dt><dd>Extracted facts and LLM explanation</dd><dt>Validation scope</dt><dd>Tables and figures are created from facts, and the explanations are written by the LLM. Citation, sentence, and configured structure checks are applied.</dd><dt>Automated check</dt><dd>Passed (<code>ok</code>). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.</dd><dt>Human review</dt><dd>Before human review</dd><dt>Analysis baseline commit</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>Document generation time</dt><dd><code>2026-11-22 16:46:57+00:00</code></dd><dt>Sentence generation model</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>Contracts between documents</dt><dd><a href="../../../contract-consistency.json">Automated comparison report</a> · Before human review</dd></dl><details class="note manuscript-record"><summary>Record from when the manuscript was written</summary><p>This is a record saved in the manuscript as of that time. It may differ from the current document's standards.</p><ul><li>Evidence files: <code>Documentation/guides/application-developer.rst</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/pipeline/uvcvideo/uvcvideo.cpp</code>, <code>src/libcamera/stream.cpp</code>, <code>src/libcamera/v4l2_videodevice.cpp</code></li><li>Evidence level: code verified (static analysis, simple_compdb configuration, commit <code>adfa719f8e</code>)</li><li>Automated check (citation, sentence, and configured structure checks): passed</li><li>Review status recorded: 2026-11-23 · Awaiting human review</li></ul></details><a href="../../../scenarios/uvc-viewfinder-configuration.md">Markdown source ↗</a></section><nav class="pagination" aria-label="Previous and next documents"><a class="previous" href="../../request-flow.html"><small>Previous</small> capture stop request ←</a><a class="next" href="../../troubleshooting.html"><small>Next</small> IPA Module Information Check and Missing Signature File →</a></nav>
+<footer>Generated by camera-hal-sdd-generator · Citation checks and human content review are separate.</footer></main>
+<aside class="page-toc"></aside></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Find document</h2><button data-close>Close <kbd>Esc</kbd></button></div><label for="search-input">Search documents, sections, terms, and code elements</label><input id="search-input" type="search" autocomplete="off" placeholder="Example: Pipeline, IPA, class relationships"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
+<dialog id="diagram-dialog" aria-labelledby="diagram-title"><div class="dialog-head"><h2 id="diagram-title">Class relationships</h2><button data-close>Close <kbd>Esc</kbd></button></div><div class="diagram-tools"><label for="node-search">Find elements</label><input id="node-search" type="search" placeholder="Diagram element and function names"><output id="node-count" aria-live="polite"></output><button id="zoom-out" aria-label="Collapse">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit to screen</button><button id="zoom-reset">100%</button></div><p class="diagram-pan-hint">Drag with a mouse or swipe with touch to move the diagram. "Fit to screen" shows an overview of the whole diagram.</p><div id="diagram-viewport" tabindex="0" role="region" aria-label="Zoomed diagram"><div id="diagram-canvas"></div></div></dialog>
+<script id="site-config" type="application/json">{"root": "../../", "mermaid": "../assets/mermaid/mermaid.esm.min.mjs", "terms": "10c7b0ad3c", "language": "en"}</script><script defer src="../../../assets/site.js?v=dd3415510a"></script><script defer src="../../../assets/reader-tools.js?v=dd3415510a"></script></body></html>
