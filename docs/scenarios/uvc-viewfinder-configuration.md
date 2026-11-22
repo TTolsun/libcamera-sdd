@@ -1,41 +1,41 @@
 ---
-generated_at: 2026-11-22T16:46:57+00:00
+generated_at: 2026-11-22T17:38:44+00:00
 source_commit: adfa719f8ed67d18fd8a0739fc088a1f8b9e7252
 status: ok
 section: uvc-viewfinder-configuration
 generation_method: facts-and-llm
-evidence_fingerprint: 1127e96b67fa94ad0dad8752c7293b269f905670adac18d7880a328910c968f4
+evidence_fingerprint: 47169a645a6da1d6d2bd53aa3c9a992ca3a88b5976d389f0a822e305f1e0eef2
 semantic_review: human-review-required
 agent: cli/codex/gpt-6.1-terra
-generated_design: {"schema": 1, "input_fingerprint": "1127e96b67fa94ad0dad8752c7293b269f905670adac18d7880a328910c968f4", "answers": {"uvc-viewfinder": [{"text": "앱은 `Camera::generateConfiguration()`으로 `Viewfinder` 구성 하나를 만들고 기본 크기와 픽셀 포맷을 확인한 뒤, 예시로 640×480을 요청하고 `validate()`를 호출해야 합니다. UVC 검증은 `tryFormat`을 시험하며 장치 열기나 시험이 실패하면 `Invalid`를 반환합니다. `Adjusted`는 구성이 조정되어 유효해졌다는 뜻이며 어느 스트림의 매개변수든 바뀌거나 스트림 구성이 제거되었을 수 있으므로, 앱은 검증 후 크기와 픽셀 포맷을 읽고 변경을 받아들일지 판단해야 합니다. 이후 `Camera::configure()`는 접근이 허용되면 스트림 연결을 지우고 다시 검증하며, 결과가 `Valid`가 아니면 `-EINVAL`을 반환합니다.", "evidence": ["app-default", "app-request", "uvc-validate", "validation-contract", "camera-configure"], "covers": ["uvc-viewfinder"], "kind": "behavior", "quote": "\\fn CameraConfiguration::validate()\n * \\brief Validate and possibly adjust the camera configuration\n *\n * This function adjusts the camera configuration to the closest valid\n * configuration and returns the validation status.\n *\n * \\todo Define exactly when to return each status code. Should stream\n * parameters set to 0 by the caller be adjusted without returning Adjusted ?\n * This would potentially be useful for applications but would get in the way\n * in Camera::configure(). Do we need an extra status code to signal this ?\n *\n * \\todo Handle validation of buffers count when refactoring the buffers API.\n *\n * \\return A CameraConfiguration::Status value that describes the validation\n * status.\n * \\retval CameraConfiguration::Invalid The configuration is invalid and can't\n * be adjusted. This may only occur in extreme cases such as when the\n * configuration is empty.\n * \\retval CameraConfiguration::Adjusted The configuration has been adjusted\n * and is now valid. Parameters may have changed for any stream, and stream\n * configurations may have been removed. The caller shall check the\n * configuration carefully.\n * \\retval CameraConfiguration::Valid The configuration was already valid and\n * hasn't been adjusted.", "part_id": "answer"}, {"text": "`tryFormat`은 형식을 시험하고, `PipelineHandlerUVC::configure()`의 `setFormat`은 형식을 장치에 실제로 적용하고 적용된 값을 반환합니다. UVC 구성은 검증된 크기와 FourCC가 장치에서 반환한 값과 같은지 대조하며, `setFormat`이 실패하면 그 오류를 반환하고 값이 다르면 `-EINVAL`을 반환합니다. 성공하면 UVC 구성은 스트림을 연결하고 공통 `Camera::configure()`는 검증된 스트림 구성을 연결된 스트림에 복사하므로, 앱은 `Stream::configuration()`에서 활성 구성을 읽을 수 있습니다. 대상 장치에서는 검증 전후의 크기와 픽셀 포맷, 적용 시도의 크기와 FourCC 및 반환값을 확인합니다.", "evidence": ["uvc-validate", "uvc-configure", "v4l2-configure", "camera-configure", "app-stream"], "covers": ["uvc-viewfinder"], "kind": "behavior", "quote": "if (format.size != cfg.size ||\n\t    format.fourcc != data->video_->toV4L2PixelFormat(cfg.pixelFormat))\n\t\treturn -EINVAL;", "part_id": "answer"}]}, "topic_inputs": {"uvc-viewfinder": "e09134483ef57cad31aed0e694c1a5dca919a69e2baafd5ffa472dc6ff027fdc"}, "reused_topics": [], "replayed_units": [], "generated_topics": ["uvc-viewfinder"], "topic_agents": {"uvc-viewfinder": "cli/codex/gpt-6.1-terra"}, "grounding_review": "passed", "grounding_policy": "3c9673abb403dee9aa554ee5b3c549ebfe95bb18ec0e9cd7bf6e495e060439c2", "validation_policy": {"manuscript": "367d18b95f8f0d01a15ae0f4d1b70f7e13e4d0298df4215e2c449ac4905db6f9", "semantic": "571896e4854c21322a1ce4580107c235cae5a9f94e71adc8c97a7e2897405968", "duplicates": "93f0e8b5bdc1b40bf4ab38168e92c2772aa36747bec6add25921fbb90b909e38", "design_contracts": "9f54ecddce57c7a9caa6c02af77904b57eff2471f2a052951c1cffd18256a4f0", "validate": "434377186c836fa9d0ea02f9e7b91f624da454b0602ec710fa2993ed69fe1e38", "reader_profiles": "ad9005d08295212371f59e8934ace86786c0683f7a4c416301ee0e0cadc8b797", "contract_schema": "431db4b3b3c833fc43b72b53cdce2f89ac9a0b9820d80e73e991b86c44e2def5", "answer_contracts": "a39c9a8818afc47e059141d486337c0f12a7fd34319e2b6f7674fc428bc83e2b", "reader_scope": "1b9c26b10b74ae8cf034f5863cbac2114e1d844e5d8332eb1f10562a18371782", "product_context": "050c20aa2fdcceae10c6275fbb5f850f616ab5051bb67ccbcb4a204877a238d9", "explanation": "69bcaa207ef39d20f6a47ac201c3edf119f59b333e85131dea1bce85eef4006b", "design_response": "75bc218537312e8668e52aed9d6e4b214ba73fd77b90b5f87698a54187eacbbc", "design_validation": "c6102dcac1aabb437612d92870bd35551cf7990a4eaca52bfe3d9cd17697d330"}, "validation_model": "86c4e3d0d9ea368df6df9ac2535d21f0fd2f83f210acd6f3c16da880e9e9f033", "style_policy": {"fluent-korean.md": "ce5aa71e58371e3fc02ff8cb165e07c9234f5166f6541423a91cc4cb40878975", "i-have-adhd.md": "3170b16ace00aecb0dd7feb54c0b5aa642e7502acda06ecd24fd89a11c7127e9", "README.md": "b87a84b1bc31079837dc4dc4527ce02c9dc2cbc3a26ff7e99e0872941d213995"}, "checkpoint_units": [{"checkpoint": "21a9f0dfc93d113f45656e231df43a7a5c73b511865def3d3a5e362ee81b5bf6.json", "topic": "uvc-viewfinder", "part": "answer", "subpart": null, "revalidated": false, "new_grounding_review": false, "receipts": ["7782aa7f3b0d4e42806bf63c7a1ad668/001.receipt.json", "7782aa7f3b0d4e42806bf63c7a1ad668/002.receipt.json"]}], "body_sha256": "4869d04fd29173109bd71ccbc37380c128267810e119cf2f73124e56d03608fe"}
+generated_design: {"schema": 1, "input_fingerprint": "47169a645a6da1d6d2bd53aa3c9a992ca3a88b5976d389f0a822e305f1e0eef2", "answers": {"uvc-viewfinder": [{"text": "예제 앱은 `Viewfinder` 스트림 한 개를 요청하고 크기를 640×480으로 설정합니다. 앱은 변경한 구성을 카메라에 적용하기 전에 `validate()`로 검증해야 하며, 지원하지 않는 값은 가장 가까운 지원 값으로 조정됩니다. 예제 코드는 반환값을 사용하지 않고 `toString()`으로 구성을 출력하지만, 호출자는 상태를 확인해야 하며 `Adjusted`이면 스트림이 빠졌는지와 남은 스트림의 크기와 픽셀 포맷 등 매개변수가 바뀌었는지 구성 전체를 살펴 수용 여부를 결정해야 합니다. `Invalid`는 구성을 유효하게 조정할 수 없다는 뜻이며, `Valid`는 구성이 이미 유효하여 조정되지 않았다는 뜻입니다.", "evidence": ["app-default", "app-request", "app-validated-output", "validation-contract"], "covers": ["uvc-viewfinder"], "kind": "behavior", "quote": "If an application changes any parameters, it must validate the configuration\nbefore applying it to the camera using the ``CameraConfiguration::validate()``\nfunction. If the new values are not supported by the ``Camera`` device, the\nvalidation process adjusts the parameters to what it considers to be the closest\nsupported values.", "part_id": "app-validation"}, {"text": "`Camera::configure`는 접근 검사에서 음수 오류가 나면 이를 반환하고, 스트림 연결을 초기화한 뒤 재검증 결과가 `Valid`가 아니면 `-EINVAL`을 반환합니다. `UVCCameraConfiguration::validate`는 지원하지 않는 픽셀 포맷을 목록의 첫 값으로 바꾸고, 선택한 포맷의 크기 목록에서 첫 값으로 시작해 요청 크기보다 큰 값이 나오기 전까지 크기를 갱신한 뒤 `tryFormat`으로 시험하며 실패하면 `Invalid`를 반환합니다. `PipelineHandlerUVC::configure`는 포맷과 크기를 `setFormat`으로 장치에 적용하고, 호출에 실패하면 그 오류를 그대로 반환합니다. 호출이 성공한 뒤 반환된 크기 또는 `FourCC`가 재검증을 통과한 구성과 다르면 `-EINVAL`을 반환하며, 처음 요청한 크기가 640×480인 경우에도 비교 기준은 재검증을 통과한 구성입니다.", "evidence": ["camera-configure", "uvc-validate", "uvc-configure", "v4l2-configure"], "covers": ["uvc-viewfinder"], "kind": "behavior", "quote": "if (format.size != cfg.size ||\n\t    format.fourcc != data->video_->toV4L2PixelFormat(cfg.pixelFormat))\n\t\treturn -EINVAL;", "part_id": "device-apply"}, {"text": "`UVCCameraConfiguration::validate()`는 `tryFormat`이 성공하면 첫 평면의 `bpl`과 `size`를 각각 `cfg.stride`와 `cfg.frameSize`에 쓰고, `colorSpace`가 다르면 반환된 값으로 바꾸어 `Adjusted`로 표시합니다. `PipelineHandlerUVC::configure()`는 `setFormat`이 성공한 뒤 크기와 FourCC만 비교하며, `stride`, `frameSize`, `colorSpace`는 그 결과와 비교하거나 덮어쓰지 않습니다. UVC가 `cfg`에 스트림을 연결하면 `Camera::configure()`는 검증된 `cfg`를 활성 스트림에 복사하며, 성공 뒤 `Stream::configuration()`은 이 활성 설정을 반환합니다. 특정 장치의 실제 값은 이 소스만으로 정할 수 없습니다.", "evidence": ["uvc-validate", "uvc-configure", "camera-configure", "app-stream"], "covers": ["uvc-viewfinder"], "kind": "behavior", "quote": "cfg.stride = format.planes[0].bpl;\n\tcfg.frameSize = format.planes[0].size;", "part_id": "active-values"}]}, "topic_inputs": {"uvc-viewfinder": "260ce8cb8580117a74fccf1bf3772b5be838cf8fc02fdba3bb95400d0fe6f3b7"}, "reused_topics": [], "replayed_units": [], "generated_topics": ["uvc-viewfinder"], "topic_agents": {"uvc-viewfinder": "cli/codex/gpt-6.1-terra"}, "grounding_review": "passed", "grounding_policy": "3c9673abb403dee9aa554ee5b3c549ebfe95bb18ec0e9cd7bf6e495e060439c2", "validation_policy": {"manuscript": "367d18b95f8f0d01a15ae0f4d1b70f7e13e4d0298df4215e2c449ac4905db6f9", "semantic": "571896e4854c21322a1ce4580107c235cae5a9f94e71adc8c97a7e2897405968", "duplicates": "93f0e8b5bdc1b40bf4ab38168e92c2772aa36747bec6add25921fbb90b909e38", "design_contracts": "9f54ecddce57c7a9caa6c02af77904b57eff2471f2a052951c1cffd18256a4f0", "validate": "434377186c836fa9d0ea02f9e7b91f624da454b0602ec710fa2993ed69fe1e38", "reader_profiles": "ad9005d08295212371f59e8934ace86786c0683f7a4c416301ee0e0cadc8b797", "contract_schema": "431db4b3b3c833fc43b72b53cdce2f89ac9a0b9820d80e73e991b86c44e2def5", "answer_contracts": "a39c9a8818afc47e059141d486337c0f12a7fd34319e2b6f7674fc428bc83e2b", "reader_scope": "1b9c26b10b74ae8cf034f5863cbac2114e1d844e5d8332eb1f10562a18371782", "product_context": "050c20aa2fdcceae10c6275fbb5f850f616ab5051bb67ccbcb4a204877a238d9", "explanation": "69bcaa207ef39d20f6a47ac201c3edf119f59b333e85131dea1bce85eef4006b", "design_response": "75bc218537312e8668e52aed9d6e4b214ba73fd77b90b5f87698a54187eacbbc", "design_validation": "c6102dcac1aabb437612d92870bd35551cf7990a4eaca52bfe3d9cd17697d330"}, "validation_model": "86c4e3d0d9ea368df6df9ac2535d21f0fd2f83f210acd6f3c16da880e9e9f033", "style_policy": {"fluent-korean.md": "ce5aa71e58371e3fc02ff8cb165e07c9234f5166f6541423a91cc4cb40878975", "i-have-adhd.md": "3170b16ace00aecb0dd7feb54c0b5aa642e7502acda06ecd24fd89a11c7127e9", "README.md": "b87a84b1bc31079837dc4dc4527ce02c9dc2cbc3a26ff7e99e0872941d213995"}, "checkpoint_units": [{"checkpoint": "fcdbbc0f82b0ec797dadf0f464ad035aea640fec612dfa622dd863cf0554a899.json", "topic": "uvc-viewfinder", "part": "app-validation", "subpart": null, "revalidated": false, "new_grounding_review": false, "receipts": ["6c1ad49275b0469cb19da9582524b6ea/001.receipt.json", "6c1ad49275b0469cb19da9582524b6ea/002.receipt.json"]}, {"checkpoint": "71cf1c9c00d7411ce817f159b5c0f9bb7e877acb26514d37dfa5fb72b98ef505.json", "topic": "uvc-viewfinder", "part": "device-apply", "subpart": null, "revalidated": false, "new_grounding_review": false, "receipts": ["7accf3bc1cb44224a5e3113d9fca8489/005.receipt.json", "7accf3bc1cb44224a5e3113d9fca8489/006.receipt.json", "7accf3bc1cb44224a5e3113d9fca8489/007.receipt.json", "7accf3bc1cb44224a5e3113d9fca8489/008.receipt.json"]}, {"checkpoint": "f947d165cd1bac3af21b414f409e2abcab4d09cb093dbd132b96dc6f6d0f898f.json", "topic": "uvc-viewfinder", "part": "active-values", "subpart": null, "revalidated": false, "new_grounding_review": false, "receipts": ["7accf3bc1cb44224a5e3113d9fca8489/009.receipt.json", "7accf3bc1cb44224a5e3113d9fca8489/010.receipt.json"]}], "body_sha256": "62c8c622ea5ba4c1b9b4931b3f8a4a79f7b916bd9bea9eaa5c75af41b0c4b884"}
 ---
 
 # USB UVC 뷰파인더 스트림 구성
 
-**USB UVC 카메라에 뷰파인더 스트림 하나를 요청하고, 앱에서 받은 값과 장치에서 적용한 값을 확인하세요.**
+**USB UVC 뷰파인더 하나를 요청하는 예로, 소스에서 앱의 검증 결과와 장치 적용 시의 크기·FourCC 비교를 따라가세요.**
 
 
 
 ## 요청한 640×480 뷰파인더는 어디에서 달라지나요?
 
-앱은 `Camera::generateConfiguration()`으로 `Viewfinder` 구성 하나를 만들고 기본 크기와 픽셀 포맷을 확인한 뒤, 예시로 640×480을 요청하고 `validate()`를 호출해야 합니다. UVC 검증은 `tryFormat`을 시험하며 장치 열기나 시험이 실패하면 `Invalid`를 반환합니다. `Adjusted`는 구성이 조정되어 유효해졌다는 뜻이며 어느 스트림의 매개변수든 바뀌거나 스트림 구성이 제거되었을 수 있으므로, 앱은 검증 후 크기와 픽셀 포맷을 읽고 변경을 받아들일지 판단해야 합니다. 이후 `Camera::configure()`는 접근이 허용되면 스트림 연결을 지우고 다시 검증하며, 결과가 `Valid`가 아니면 `-EINVAL`을 반환합니다. `Documentation/guides/application-developer.rst:167`, `Documentation/guides/application-developer.rst:195`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:139`, `src/libcamera/camera.cpp:323`, `src/libcamera/camera.cpp:1191`
+예제 앱은 `Viewfinder` 스트림 한 개를 요청하고 크기를 640×480으로 설정합니다. 앱은 변경한 구성을 카메라에 적용하기 전에 `validate()`로 검증해야 하며, 지원하지 않는 값은 가장 가까운 지원 값으로 조정됩니다. 예제 코드는 반환값을 사용하지 않고 `toString()`으로 구성을 출력하지만, 호출자는 상태를 확인해야 하며 `Adjusted`이면 스트림이 빠졌는지와 남은 스트림의 크기와 픽셀 포맷 등 매개변수가 바뀌었는지 구성 전체를 살펴 수용 여부를 결정해야 합니다. `Invalid`는 구성을 유효하게 조정할 수 없다는 뜻이며, `Valid`는 구성이 이미 유효하여 조정되지 않았다는 뜻입니다. `Documentation/guides/application-developer.rst:167`, `Documentation/guides/application-developer.rst:195`, `Documentation/guides/application-developer.rst:222`, `src/libcamera/camera.cpp:323`
 
 <!-- sdd:visual:uvc-viewfinder-format-checks -->
 ### UVC 뷰파인더의 구성 검증과 장치 적용
 
 ```mermaid
 flowchart TB
-%% sdd:translations {"Adjusted": "Adjusted", "Camera::configure 재검증": "Camera::configure <br/>revalidates", "Invalid": "Invalid", "Invalid 또는 Adjusted": "Invalid or Adjusted", "UVC가 setFormat 호출": "UVC calls setFormat", "UVC에서 -EINVAL": "UVC returns -EINVAL", "Valid": "Valid", "공통 검증에서 -EINVAL": "Common validation returns <br/>-EINVAL", "반환 크기와 FourCC가 일치?": "Do the returned size and <br/>FourCC match?", "변경값 거절": "Decline changes", "변경값 수용": "Accept changes", "불일치": "Mismatch", "성공": "Success", "성공 뒤 앱이 연결된 Stream <br/>구성 확인": "App reads the linked Stream <br/>configuration on success", "앱이 validate 호출 · UVC <br/>tryFormat": "App calls validate · UVC <br/>tryFormat", "앱이 변경된 값을 확인": "App checks the adjusted <br/>values", "앱이 적용을 중단": "App stops before applying", "오류": "Error", "일치": "Match", "장치 적용 오류 전달": "Forward the format-setting <br/>error"}
-  v_validate{"앱이 validate 호출 · UVC <br/>tryFormat"}
-  v_inspect["앱이 변경된 값을 확인"]
-  v_stop["앱이 적용을 중단"]
+%% sdd:translations {"Adjusted": "Adjusted", "Camera::configure 재검증": "Camera::configure <br/>revalidates", "Invalid": "Invalid", "Invalid 또는 Adjusted": "Invalid or Adjusted", "UVC가 setFormat 호출": "UVC calls setFormat", "UVC에서 -EINVAL": "UVC returns -EINVAL", "Valid": "Valid", "검증 구성을 복사한 Stream을 <br/>앱에서 확인": "App reads the Stream#39;s <br/>copied validation <br/>configuration", "공통 검증에서 -EINVAL": "Common validation returns <br/>-EINVAL", "반환 크기와 FourCC가 일치?": "Do the returned size and <br/>FourCC match?", "변경값 거절": "Decline changes", "변경값 수용": "Accept changes", "불일치": "Mismatch", "성공": "Success", "앱이 validate 호출": "App calls validate", "오류": "Error", "일치": "Match", "장치 적용 오류 전달": "Forward the format-setting <br/>error", "호출자가 변경값 수용 여부 <br/>판단": "Caller decides whether to <br/>accept changes", "호출자가 적용을 진행하지 <br/>않음": "Caller stops before applying"}
+  v_validate{"앱이 validate 호출"}
+  v_inspect["호출자가 변경값 수용 여부 <br/>판단"]
+  v_stop["호출자가 적용을 진행하지 <br/>않음"]
   v_gate{"Camera::configure 재검증"}
   v_reject["공통 검증에서 -EINVAL"]
   v_apply{"UVC가 setFormat 호출"}
   v_error["장치 적용 오류 전달"]
   v_compare{"반환 크기와 FourCC가 일치?"}
   v_mismatch["UVC에서 -EINVAL"]
-  v_linked["성공 뒤 앱이 연결된 Stream <br/>구성 확인"]
+  v_linked["검증 구성을 복사한 Stream을 <br/>앱에서 확인"]
   v_validate -->|"Adjusted"| v_inspect
   v_validate -->|"Invalid"| v_stop
   v_validate -->|"Valid"| v_gate
@@ -49,7 +49,7 @@ flowchart TB
   v_compare -->|"일치"| v_linked
 ```
 
-<span data-sdd-label-en="The application decides whether to proceed with the values produced by validation. When applying the format, the UVC handler compares the returned size and FourCC.">앱은 검증이 바꾼 값을 확인해 적용할지 결정합니다. 장치 적용 때는 UVC 핸들러가 반환된 크기와 FourCC를 비교합니다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L343"><code>camera.cpp:343</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L275"><code>uvcvideo.cpp:275</code></a>
+<span data-sdd-label-en="The official guide example calls validate and prints the configuration. The accept and decline branches show decisions for the caller. UVC stores stride, frameSize, and colorSpace from tryFormat in the configuration. After setFormat succeeds, it compares only the size and FourCC.">공식 가이드 예제는 validate를 호출하고 구성을 출력합니다. 그림의 수용·거절은 호출자가 할 판단입니다. UVC는 tryFormat에서 얻은 stride·frameSize·colorSpace를 구성에 저장하고, setFormat 성공 뒤에는 크기와 FourCC만 비교합니다.</span> <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/guides/application-developer.rst#L228"><code>application-developer.rst:228</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L343"><code>camera.cpp:343</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L220"><code>uvcvideo.cpp:220</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L224"><code>uvcvideo.cpp:224</code></a> · <a data-sdd-caption-source="true" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L275"><code>uvcvideo.cpp:275</code></a>
 
 [Mermaid 원문](uvc-viewfinder-configuration.uvc-viewfinder-format-checks.mmd)
 
@@ -60,16 +60,16 @@ flowchart TB
     
     | 요소·전이 | 소스 근거 |
     |---|---|
-    | <span data-sdd-label-en="App calls validate · UVC tryFormat">앱이 validate 호출 · UVC tryFormat</span> | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:139](#source-f9631255f305fb92) |
-    | <span data-sdd-label-en="App checks the adjusted values">앱이 변경된 값을 확인</span> | [src/libcamera/camera.cpp:323](#source-2b31e92e3fb3f083) |
-    | <span data-sdd-label-en="App stops before applying">앱이 적용을 중단</span> | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:139](#source-f9631255f305fb92) · [src/libcamera/camera.cpp:323](#source-2b31e92e3fb3f083) |
+    | <span data-sdd-label-en="App calls validate">앱이 validate 호출</span> | [Documentation/guides/application-developer.rst:222](#source-b7102b06d767f1b8) |
+    | <span data-sdd-label-en="Caller decides whether to accept changes">호출자가 변경값 수용 여부 판단</span> | [src/libcamera/camera.cpp:323](#source-2b31e92e3fb3f083) |
+    | <span data-sdd-label-en="Caller stops before applying">호출자가 적용을 진행하지 않음</span> | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:139](#source-f9631255f305fb92) · [src/libcamera/camera.cpp:323](#source-2b31e92e3fb3f083) |
     | <span data-sdd-label-en="Camera::configure revalidates">Camera::configure 재검증</span> | [src/libcamera/camera.cpp:1191](#source-603af0dd7fa357d0) |
     | <span data-sdd-label-en="Common validation returns -EINVAL">공통 검증에서 -EINVAL</span> | [src/libcamera/camera.cpp:1191](#source-603af0dd7fa357d0) |
     | <span data-sdd-label-en="UVC calls setFormat">UVC가 setFormat 호출</span> | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261](#source-be07a7077dd3d924) · [src/libcamera/v4l2_videodevice.cpp:849](#source-c073a10f1abc63b6) |
     | <span data-sdd-label-en="Forward the format-setting error">장치 적용 오류 전달</span> | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261](#source-be07a7077dd3d924) |
     | <span data-sdd-label-en="Do the returned size and FourCC match?">반환 크기와 FourCC가 일치?</span> | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261](#source-be07a7077dd3d924) |
     | <span data-sdd-label-en="UVC returns -EINVAL">UVC에서 -EINVAL</span> | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261](#source-be07a7077dd3d924) |
-    | <span data-sdd-label-en="App reads the linked Stream configuration on success">성공 뒤 앱이 연결된 Stream 구성 확인</span> | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261](#source-be07a7077dd3d924) · [src/libcamera/camera.cpp:1191](#source-603af0dd7fa357d0) · [src/libcamera/stream.cpp:483](#source-d8739fc139164c42) |
+    | <span data-sdd-label-en="App reads the Stream&#x27;s copied validation configuration">검증 구성을 복사한 Stream을 앱에서 확인</span> | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261](#source-be07a7077dd3d924) · [src/libcamera/camera.cpp:1191](#source-603af0dd7fa357d0) · [src/libcamera/stream.cpp:483](#source-d8739fc139164c42) |
     | <span data-sdd-label-en="Adjusted">Adjusted</span> | [src/libcamera/camera.cpp:323](#source-2b31e92e3fb3f083) |
     | <span data-sdd-label-en="Invalid">Invalid</span> | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:139](#source-f9631255f305fb92) |
     | <span data-sdd-label-en="Valid">Valid</span> | [src/libcamera/camera.cpp:1191](#source-603af0dd7fa357d0) |
@@ -83,9 +83,11 @@ flowchart TB
     | <span data-sdd-label-en="Match">일치</span> | [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261](#source-be07a7077dd3d924) · [src/libcamera/camera.cpp:1191](#source-603af0dd7fa357d0) |
 <!-- /sdd:visual:uvc-viewfinder-format-checks -->
 
-`tryFormat`은 형식을 시험하고, `PipelineHandlerUVC::configure()`의 `setFormat`은 형식을 장치에 실제로 적용하고 적용된 값을 반환합니다. UVC 구성은 검증된 크기와 FourCC가 장치에서 반환한 값과 같은지 대조하며, `setFormat`이 실패하면 그 오류를 반환하고 값이 다르면 `-EINVAL`을 반환합니다. 성공하면 UVC 구성은 스트림을 연결하고 공통 `Camera::configure()`는 검증된 스트림 구성을 연결된 스트림에 복사하므로, 앱은 `Stream::configuration()`에서 활성 구성을 읽을 수 있습니다. 대상 장치에서는 검증 전후의 크기와 픽셀 포맷, 적용 시도의 크기와 FourCC 및 반환값을 확인합니다. `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:139`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261`, `src/libcamera/v4l2_videodevice.cpp:849`, `src/libcamera/camera.cpp:1191`, `src/libcamera/stream.cpp:483`
+`Camera::configure`는 접근 검사에서 음수 오류가 나면 이를 반환하고, 스트림 연결을 초기화한 뒤 재검증 결과가 `Valid`가 아니면 `-EINVAL`을 반환합니다. `UVCCameraConfiguration::validate`는 지원하지 않는 픽셀 포맷을 목록의 첫 값으로 바꾸고, 선택한 포맷의 크기 목록에서 첫 값으로 시작해 요청 크기보다 큰 값이 나오기 전까지 크기를 갱신한 뒤 `tryFormat`으로 시험하며 실패하면 `Invalid`를 반환합니다. `PipelineHandlerUVC::configure`는 포맷과 크기를 `setFormat`으로 장치에 적용하고, 호출에 실패하면 그 오류를 그대로 반환합니다. 호출이 성공한 뒤 반환된 크기 또는 `FourCC`가 재검증을 통과한 구성과 다르면 `-EINVAL`을 반환하며, 처음 요청한 크기가 640×480인 경우에도 비교 기준은 재검증을 통과한 구성입니다. `src/libcamera/camera.cpp:1191`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:139`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261`, `src/libcamera/v4l2_videodevice.cpp:849`
 
-근거 원문: [Documentation/guides/application-developer.rst:167](#source-fa38f671a1d155da) · [Documentation/guides/application-developer.rst:195](#source-8e1f5d84ca64a38b) · [Documentation/guides/application-developer.rst:222](#source-480691defaa3d64b) · [src/libcamera/camera.cpp:323](#source-2b31e92e3fb3f083) · [src/libcamera/camera.cpp:1191](#source-603af0dd7fa357d0) · [src/libcamera/stream.cpp:483](#source-d8739fc139164c42) · [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:139](#source-f9631255f305fb92) · [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:237](#source-472189bfe0703702) · [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261](#source-be07a7077dd3d924) · [src/libcamera/v4l2_videodevice.cpp:849](#source-c073a10f1abc63b6)
+`UVCCameraConfiguration::validate()`는 `tryFormat`이 성공하면 첫 평면의 `bpl`과 `size`를 각각 `cfg.stride`와 `cfg.frameSize`에 쓰고, `colorSpace`가 다르면 반환된 값으로 바꾸어 `Adjusted`로 표시합니다. `PipelineHandlerUVC::configure()`는 `setFormat`이 성공한 뒤 크기와 FourCC만 비교하며, `stride`, `frameSize`, `colorSpace`는 그 결과와 비교하거나 덮어쓰지 않습니다. UVC가 `cfg`에 스트림을 연결하면 `Camera::configure()`는 검증된 `cfg`를 활성 스트림에 복사하며, 성공 뒤 `Stream::configuration()`은 이 활성 설정을 반환합니다. 특정 장치의 실제 값은 이 소스만으로 정할 수 없습니다. `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:139`, `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261`, `src/libcamera/camera.cpp:1191`, `src/libcamera/stream.cpp:483`
+
+근거 원문: [Documentation/guides/application-developer.rst:167](#source-fa38f671a1d155da) · [Documentation/guides/application-developer.rst:195](#source-8e1f5d84ca64a38b) · [Documentation/guides/application-developer.rst:222](#source-b7102b06d767f1b8) · [src/libcamera/camera.cpp:323](#source-2b31e92e3fb3f083) · [src/libcamera/camera.cpp:1191](#source-603af0dd7fa357d0) · [src/libcamera/stream.cpp:483](#source-d8739fc139164c42) · [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:139](#source-f9631255f305fb92) · [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:237](#source-472189bfe0703702) · [src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261](#source-be07a7077dd3d924) · [src/libcamera/v4l2_videodevice.cpp:849](#source-c073a10f1abc63b6)
 
 ??? note "설계 질문과 검증 범위"
     질문별 답변과 근거 연결을 검사했습니다. 의미와 실행 결과는 사람 검토가 필요합니다.
@@ -154,12 +156,12 @@ flowchart TB
     which applications shall check to see if the Pipeline Handler adjusted the
     ```
 
-<a id="source-480691defaa3d64b"></a>
+<a id="source-b7102b06d767f1b8"></a>
 
 ??? note "소스 근거: Documentation/guides/application-developer.rst:222"
-    `Documentation/guides/application-developer.rst:222`에서 시작하는 발췌입니다. 종료 줄은 228이며, 아래 원문을 설명과 대조할 수 있습니다.
+    `Documentation/guides/application-developer.rst:222`에서 시작하는 발췌입니다. 종료 줄은 239이며, 아래 원문을 설명과 대조할 수 있습니다.
     
-    SHA-256: `3ed668fb4de7253b807b4bbf5b17375861a56b8a311fb0588115cc7eea2b49cb`
+    SHA-256: `7341104156eb8e07b967545a6776a355789e5e9d9006370cd378478c7f657b7b`
     
     ```text
     For this example application, the code below prints the adjusted values to
@@ -168,7 +170,18 @@ flowchart TB
     .. code:: cpp
     
        config->validate();
-       std::cout << "Validated viewfinder configuration is
+       std::cout << "Validated viewfinder configuration is: " << streamConfig.toString() << std::endl;
+    
+    For example, the output might be something like
+    
+       ``Validated viewfinder configuration is: 320x240-MJPEG``
+    
+    A validated ``CameraConfiguration`` can bet given to the ``Camera`` device to be
+    applied to the system.
+    
+    .. code:: cpp
+    
+       camera->configure(config.get());
     ```
 
 <a id="source-2b31e92e3fb3f083"></a>

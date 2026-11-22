@@ -163,23 +163,23 @@ LLM 그림 초안 · 사람 검토 전
 
 ## 요청한 640×480 뷰파인더는 어디에서 달라지나요?
 
-앱은 `Camera::generateConfiguration()`으로 `Viewfinder` 구성 하나를 만들고 기본 크기와 픽셀 포맷을 확인한 뒤, 예시로 640×480을 요청하고 `validate()`를 호출해야 합니다. UVC 검증은 `tryFormat`을 시험하며 장치 열기나 시험이 실패하면 `Invalid`를 반환합니다. `Adjusted`는 구성이 조정되어 유효해졌다는 뜻이며 어느 스트림의 매개변수든 바뀌거나 스트림 구성이 제거되었을 수 있으므로, 앱은 검증 후 크기와 픽셀 포맷을 읽고 변경을 받아들일지 판단해야 합니다. 이후 `Camera::configure()`는 접근이 허용되면 스트림 연결을 지우고 다시 검증하며, 결과가 `Valid`가 아니면 `-EINVAL`을 반환합니다.
+예제 앱은 `Viewfinder` 스트림 한 개를 요청하고 크기를 640×480으로 설정합니다. 앱은 변경한 구성을 카메라에 적용하기 전에 `validate()`로 검증해야 하며, 지원하지 않는 값은 가장 가까운 지원 값으로 조정됩니다. 예제 코드는 반환값을 사용하지 않고 `toString()`으로 구성을 출력하지만, 호출자는 상태를 확인해야 하며 `Adjusted`이면 스트림이 빠졌는지와 남은 스트림의 크기와 픽셀 포맷 등 매개변수가 바뀌었는지 구성 전체를 살펴 수용 여부를 결정해야 합니다. `Invalid`는 구성을 유효하게 조정할 수 없다는 뜻이며, `Valid`는 구성이 이미 유효하여 조정되지 않았다는 뜻입니다.
 
 ### UVC 뷰파인더의 구성 검증과 장치 적용
 
 ```mermaid
 flowchart TB
-%% sdd:translations {"Adjusted": "Adjusted", "Camera::configure 재검증": "Camera::configure <br/>revalidates", "Invalid": "Invalid", "Invalid 또는 Adjusted": "Invalid or Adjusted", "UVC가 setFormat 호출": "UVC calls setFormat", "UVC에서 -EINVAL": "UVC returns -EINVAL", "Valid": "Valid", "공통 검증에서 -EINVAL": "Common validation returns <br/>-EINVAL", "반환 크기와 FourCC가 일치?": "Do the returned size and <br/>FourCC match?", "변경값 거절": "Decline changes", "변경값 수용": "Accept changes", "불일치": "Mismatch", "성공": "Success", "성공 뒤 앱이 연결된 Stream <br/>구성 확인": "App reads the linked Stream <br/>configuration on success", "앱이 validate 호출 · UVC <br/>tryFormat": "App calls validate · UVC <br/>tryFormat", "앱이 변경된 값을 확인": "App checks the adjusted <br/>values", "앱이 적용을 중단": "App stops before applying", "오류": "Error", "일치": "Match", "장치 적용 오류 전달": "Forward the format-setting <br/>error"}
-  v_validate{"앱이 validate 호출 · UVC <br/>tryFormat"}
-  v_inspect["앱이 변경된 값을 확인"]
-  v_stop["앱이 적용을 중단"]
+%% sdd:translations {"Adjusted": "Adjusted", "Camera::configure 재검증": "Camera::configure <br/>revalidates", "Invalid": "Invalid", "Invalid 또는 Adjusted": "Invalid or Adjusted", "UVC가 setFormat 호출": "UVC calls setFormat", "UVC에서 -EINVAL": "UVC returns -EINVAL", "Valid": "Valid", "검증 구성을 복사한 Stream을 <br/>앱에서 확인": "App reads the Stream#39;s <br/>copied validation <br/>configuration", "공통 검증에서 -EINVAL": "Common validation returns <br/>-EINVAL", "반환 크기와 FourCC가 일치?": "Do the returned size and <br/>FourCC match?", "변경값 거절": "Decline changes", "변경값 수용": "Accept changes", "불일치": "Mismatch", "성공": "Success", "앱이 validate 호출": "App calls validate", "오류": "Error", "일치": "Match", "장치 적용 오류 전달": "Forward the format-setting <br/>error", "호출자가 변경값 수용 여부 <br/>판단": "Caller decides whether to <br/>accept changes", "호출자가 적용을 진행하지 <br/>않음": "Caller stops before applying"}
+  v_validate{"앱이 validate 호출"}
+  v_inspect["호출자가 변경값 수용 여부 <br/>판단"]
+  v_stop["호출자가 적용을 진행하지 <br/>않음"]
   v_gate{"Camera::configure 재검증"}
   v_reject["공통 검증에서 -EINVAL"]
   v_apply{"UVC가 setFormat 호출"}
   v_error["장치 적용 오류 전달"]
   v_compare{"반환 크기와 FourCC가 일치?"}
   v_mismatch["UVC에서 -EINVAL"]
-  v_linked["성공 뒤 앱이 연결된 Stream <br/>구성 확인"]
+  v_linked["검증 구성을 복사한 Stream을 <br/>앱에서 확인"]
   v_validate -->|"Adjusted"| v_inspect
   v_validate -->|"Invalid"| v_stop
   v_validate -->|"Valid"| v_gate
@@ -193,7 +193,7 @@ flowchart TB
   v_compare -->|"일치"| v_linked
 ```
 
-앱은 검증이 바꾼 값을 확인해 적용할지 결정합니다. 장치 적용 때는 UVC 핸들러가 반환된 크기와 FourCC를 비교합니다. [`camera.cpp:343`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L343) · [`uvcvideo.cpp:275`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L275)
+공식 가이드 예제는 validate를 호출하고 구성을 출력합니다. 그림의 수용·거절은 호출자가 할 판단입니다. UVC는 tryFormat에서 얻은 stride·frameSize·colorSpace를 구성에 저장하고, setFormat 성공 뒤에는 크기와 FourCC만 비교합니다. [`application-developer.rst:228`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/guides/application-developer.rst#L228) · [`camera.cpp:343`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L343) · [`uvcvideo.cpp:220`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L220) · [`uvcvideo.cpp:224`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L224) · [`uvcvideo.cpp:275`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L275)
 
 Mermaid 원문
 
@@ -206,16 +206,16 @@ Mermaid 원문
 
 | 요소·전이 | 소스 근거 |
 | --- | --- |
-| 앱이 validate 호출 · UVC tryFormat | src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:139 |
-| 앱이 변경된 값을 확인 | src/libcamera/camera.cpp:323 |
-| 앱이 적용을 중단 | src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:139 · src/libcamera/camera.cpp:323 |
+| 앱이 validate 호출 | Documentation/guides/application-developer.rst:222 |
+| 호출자가 변경값 수용 여부 판단 | src/libcamera/camera.cpp:323 |
+| 호출자가 적용을 진행하지 않음 | src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:139 · src/libcamera/camera.cpp:323 |
 | Camera::configure 재검증 | src/libcamera/camera.cpp:1191 |
 | 공통 검증에서 -EINVAL | src/libcamera/camera.cpp:1191 |
 | UVC가 setFormat 호출 | src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261 · src/libcamera/v4l2_videodevice.cpp:849 |
 | 장치 적용 오류 전달 | src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261 |
 | 반환 크기와 FourCC가 일치? | src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261 |
 | UVC에서 -EINVAL | src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261 |
-| 성공 뒤 앱이 연결된 Stream 구성 확인 | src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261 · src/libcamera/camera.cpp:1191 · src/libcamera/stream.cpp:483 |
+| 검증 구성을 복사한 Stream을 앱에서 확인 | src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:261 · src/libcamera/camera.cpp:1191 · src/libcamera/stream.cpp:483 |
 | Adjusted | src/libcamera/camera.cpp:323 |
 | Invalid | src/libcamera/pipeline/uvcvideo/uvcvideo.cpp:139 |
 | Valid | src/libcamera/camera.cpp:1191 |
@@ -230,14 +230,16 @@ Mermaid 원문
 
 </details>
 
-`tryFormat`은 형식을 시험하고, `PipelineHandlerUVC::configure()`의 `setFormat`은 형식을 장치에 실제로 적용하고 적용된 값을 반환합니다. UVC 구성은 검증된 크기와 FourCC가 장치에서 반환한 값과 같은지 대조하며, `setFormat`이 실패하면 그 오류를 반환하고 값이 다르면 `-EINVAL`을 반환합니다. 성공하면 UVC 구성은 스트림을 연결하고 공통 `Camera::configure()`는 검증된 스트림 구성을 연결된 스트림에 복사하므로, 앱은 `Stream::configuration()`에서 활성 구성을 읽을 수 있습니다. 대상 장치에서는 검증 전후의 크기와 픽셀 포맷, 적용 시도의 크기와 FourCC 및 반환값을 확인합니다.
+`Camera::configure`는 접근 검사에서 음수 오류가 나면 이를 반환하고, 스트림 연결을 초기화한 뒤 재검증 결과가 `Valid`가 아니면 `-EINVAL`을 반환합니다. `UVCCameraConfiguration::validate`는 지원하지 않는 픽셀 포맷을 목록의 첫 값으로 바꾸고, 선택한 포맷의 크기 목록에서 첫 값으로 시작해 요청 크기보다 큰 값이 나오기 전까지 크기를 갱신한 뒤 `tryFormat`으로 시험하며 실패하면 `Invalid`를 반환합니다. `PipelineHandlerUVC::configure`는 포맷과 크기를 `setFormat`으로 장치에 적용하고, 호출에 실패하면 그 오류를 그대로 반환합니다. 호출이 성공한 뒤 반환된 크기 또는 `FourCC`가 재검증을 통과한 구성과 다르면 `-EINVAL`을 반환하며, 처음 요청한 크기가 640×480인 경우에도 비교 기준은 재검증을 통과한 구성입니다.
+
+`UVCCameraConfiguration::validate()`는 `tryFormat`이 성공하면 첫 평면의 `bpl`과 `size`를 각각 `cfg.stride`와 `cfg.frameSize`에 쓰고, `colorSpace`가 다르면 반환된 값으로 바꾸어 `Adjusted`로 표시합니다. `PipelineHandlerUVC::configure()`는 `setFormat`이 성공한 뒤 크기와 FourCC만 비교하며, `stride`, `frameSize`, `colorSpace`는 그 결과와 비교하거나 덮어쓰지 않습니다. UVC가 `cfg`에 스트림을 연결하면 `Camera::configure()`는 검증된 `cfg`를 활성 스트림에 복사하며, 성공 뒤 `Stream::configuration()`은 이 활성 설정을 반환합니다. 특정 장치의 실제 값은 이 소스만으로 정할 수 없습니다.
 
 <details open>
 <summary>절 전체 근거 10개</summary>
 
-- `Documentation/guides/application-developer.rst``L167` 발췌 · [전체 소스 `L167`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/guides/application-developer.rst#L167) · `L195` 발췌 · [전체 소스 `L195`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/guides/application-developer.rst#L195) · `L222`
-- `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp``L139` 발췌 · [전체 소스 `L139`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L139) · `L261` 발췌 · [전체 소스 `L261`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L261) · `L237`
+- `Documentation/guides/application-developer.rst``L167` 발췌 · [전체 소스 `L167`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/guides/application-developer.rst#L167) · `L195` 발췌 · [전체 소스 `L195`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/guides/application-developer.rst#L195) · `L222` 발췌 · [전체 소스 `L222`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/guides/application-developer.rst#L222)
 - `src/libcamera/camera.cpp``L323` 발췌 · [전체 소스 `L323`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L323) · `L1191` 발췌 · [전체 소스 `L1191`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/camera.cpp#L1191)
+- `src/libcamera/pipeline/uvcvideo/uvcvideo.cpp``L139` 발췌 · [전체 소스 `L139`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L139) · `L261` 발췌 · [전체 소스 `L261`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/pipeline/uvcvideo/uvcvideo.cpp#L261) · `L237`
 - `src/libcamera/v4l2_videodevice.cpp``L849` 발췌 · [전체 소스 `L849`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/v4l2_videodevice.cpp#L849)
 - `src/libcamera/stream.cpp``L483` 발췌 · [전체 소스 `L483`](https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/src/libcamera/stream.cpp#L483)
 
@@ -435,7 +437,7 @@ Markdown 원문 ↗
 - **자동 검사**: 통과 (`ok`). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.
 - **사람 검토**: 사람 검토 전
 - **분석 기준 커밋**: `adfa719f8ed67d18fd8a0739fc088a1f8b9e7252`
-- **문서 생성 시각**: `2026-11-22 16:46:57+00:00`
+- **문서 생성 시각**: `2026-11-22 17:38:44+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
 - **문서 간 계약**: 자동 대조 보고서 · 사람 검토 전
 
