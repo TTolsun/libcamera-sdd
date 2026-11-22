@@ -6,15 +6,16 @@
 <div class="header-actions"><details class="language-selector"><summary aria-label="언어 선택">한국어 ▾</summary><nav><a lang="ko" hreflang="ko" href="uvc-viewfinder-configuration.html" aria-current="true">한국어</a><a lang="en" hreflang="en" href="../../en/reader-archive/scenarios/uvc-viewfinder-configuration.html">English</a></nav></details><button id="search-open" hidden>문서 찾기 <kbd>Ctrl K</kbd></button><button id="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>메뉴</button></div></header>
 <div class="layout"><aside id="sidebar"><p class="edition">DESIGN DOCUMENTATION</p><nav aria-label="문서 메뉴"></nav><p class="sidebar-note">코드에서 구조를 추출하고<br>근거와 함께 검토합니다.</p></aside>
 <main id="main"><p class="breadcrumb">For Developer <span>/</span> USB UVC 뷰파인더 스트림 구성</p><h1>USB UVC 뷰파인더 스트림 구성</h1><div class="page-state"><span class="review-state">사람 검토 전</span><span>자동 검사 통과</span><span class="generation-method">작성: 추출한 구조와 모델이 쓴 초안</span><a class="state-help" href="#page-evidence">상태 설명 ↓</a></div>
-<p class="translation-note">이전 주소에서 연결하는 원본 자료 · <a href="../../for-developer.html">독자용 문서로 이동</a></p><article><p><strong>USB UVC 카메라에 뷰파인더 스트림 하나를 요청하고, 앱에서 받은 값과 장치에서 적용한 값을 확인하세요.</strong></p><details class="note scope-notices">
+<p class="translation-note">이전 주소에서 연결하는 원본 자료 · <a href="../../for-developer.html">독자용 문서로 이동</a></p><article><p><strong>USB UVC 뷰파인더 하나를 요청하는 예로, 소스에서 앱의 검증 결과와 장치 적용 시의 크기·FourCC 비교를 따라가세요.</strong></p><details class="note scope-notices">
 <summary>설계 질문과 검증 범위</summary>
 <p>질문별 답변과 근거 연결을 검사했습니다. 의미와 실행 결과는 사람 검토가 필요합니다.</p>
 <ul class="coverage-links"><li><p>USB UVC에 뷰파인더 스트림 하나를 640×480으로 요청하면 앱과 장치에서 어떤 값을 확인합니까?</p><p><a href="../../for-developer.html#uvc-viewfinder-configuration">요청한 640×480 뷰파인더는 어디에서 달라지나요?</a></p></li></ul><p><span>확인 범위</span>: <span>코드 근거와 설명 연결</span></p>
 </details>
 <details class="page-terms">
-<summary>이 문서의 용어: UVC</summary>
+<summary>이 문서의 용어: UVC, 활성 스트림</summary>
 <ul>
 <li><strong>UVC</strong> (USB Video Class): USB 웹캠이 따르는 표준입니다. libcamera는 이 장치를 uvcvideo Pipeline Handler로 다룹니다.</li>
+<li><strong>활성 스트림</strong>: 현재 카메라 구성에 연결된 Stream입니다. 요청 버퍼가 다른 구성의 스트림을 가리키면 제출 검사에서 거절됩니다.</li>
 </ul>
 <p>다른 용어는 <a href="../../glossary.html">용어집</a>에서 찾을 수 있습니다.</p>
 </details>
@@ -71,18 +72,29 @@ The ``validate`` function returns a :doxy-pub:`CameraConfiguration::Status`
 which applications shall check to see if the Pipeline Handler adjusted the
 </code></pre></div>
 </details>
-<p><a id="source-480691defaa3d64b"></a></p>
+<p><a id="source-b7102b06d767f1b8"></a></p>
 <details class="note">
 <summary>소스 근거: Documentation/guides/application-developer.rst:222</summary>
-<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/guides/application-developer.rst#L222"><code>Documentation/guides/application-developer.rst:222</code></a> ~ <code>228</code></p>
-<p>SHA-256: <code>3ed668fb4de7253b807b4bbf5b17375861a56b8a311fb0588115cc7eea2b49cb</code></p>
+<p>발췌 범위: <a class="citation" href="https://github.com/TTolsun/libcamera-sdd/blob/adfa719f8ed67d18fd8a0739fc088a1f8b9e7252/Documentation/guides/application-developer.rst#L222"><code>Documentation/guides/application-developer.rst:222</code></a> ~ <code>239</code></p>
+<p>SHA-256: <code>7341104156eb8e07b967545a6776a355789e5e9d9006370cd378478c7f657b7b</code></p>
 <div class="highlight"><pre><span></span><code>For this example application, the code below prints the adjusted values to
 standard out.
 
 .. code:: cpp
 
    config-&gt;validate();
-   std::cout &lt;&lt; "Validated viewfinder configuration is
+   std::cout &lt;&lt; "Validated viewfinder configuration is: " &lt;&lt; streamConfig.toString() &lt;&lt; std::endl;
+
+For example, the output might be something like
+
+   ``Validated viewfinder configuration is: 320x240-MJPEG``
+
+A validated ``CameraConfiguration`` can bet given to the ``Camera`` device to be
+applied to the system.
+
+.. code:: cpp
+
+   camera-&gt;configure(config.get());
 </code></pre></div>
 </details>
 <p><a id="source-2b31e92e3fb3f083"></a></p>
@@ -387,7 +399,7 @@ int V4L2VideoDevice::setFormat(V4L2DeviceFormat *format)
 </details>
 </details>
 
-<p>다음 단계: <a href="../../architecture.html">시스템 개요</a></p></article><section class="evidence"><h2 id="page-evidence">문서 생성·검토 정보</h2><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>사람 검토</dt><dd>사람 검토 전</dd><dt>분석 기준 커밋</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>문서 생성 시각</dt><dd><code>2026-11-22 16:46:57+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>문서 간 계약</dt><dd><a href="../../contract-consistency.json">자동 대조 보고서</a> · 사람 검토 전</dd></dl><details class="note manuscript-record"><summary>원고 작성 당시 기록</summary><p>원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.</p><ul><li>근거 파일: <code>Documentation/guides/application-developer.rst</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/pipeline/uvcvideo/uvcvideo.cpp</code>, <code>src/libcamera/stream.cpp</code>, <code>src/libcamera/v4l2_videodevice.cpp</code></li><li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>adfa719f8e</code>)</li><li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li><li>검토 상태 기록일: 2026-11-23 · 사람 검토 전</li></ul></details><a href="../../scenarios/uvc-viewfinder-configuration.md">Markdown 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="../../request-flow.html"><small>이전</small>캡처 종료 요청 ←</a><a class="next" href="../../troubleshooting.html"><small>다음</small>IPA 모듈 정보 검사와 서명 파일 누락 →</a></nav>
+<p>다음 단계: <a href="../../architecture.html">시스템 개요</a></p></article><section class="evidence"><h2 id="page-evidence">문서 생성·검토 정보</h2><dl><dt>생성 방식</dt><dd>추출 사실과 LLM 설명</dd><dt>검증 범위</dt><dd>표·그림은 facts로 만들고 설명은 LLM이 작성합니다. 인용·문장 및 설정된 구조 검사를 적용합니다.</dd><dt>자동 검사</dt><dd>통과 (<code>ok</code>). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.</dd><dt>사람 검토</dt><dd>사람 검토 전</dd><dt>분석 기준 커밋</dt><dd><code>adfa719f8ed67d18fd8a0739fc088a1f8b9e7252</code></dd><dt>문서 생성 시각</dt><dd><code>2026-11-22 17:38:44+00:00</code></dd><dt>문장 생성 모델</dt><dd><code>cli/codex/gpt-6.1-terra</code></dd><dt>문서 간 계약</dt><dd><a href="../../contract-consistency.json">자동 대조 보고서</a> · 사람 검토 전</dd></dl><details class="note manuscript-record"><summary>원고 작성 당시 기록</summary><p>원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.</p><ul><li>근거 파일: <code>Documentation/guides/application-developer.rst</code>, <code>src/libcamera/camera.cpp</code>, <code>src/libcamera/pipeline/uvcvideo/uvcvideo.cpp</code>, <code>src/libcamera/stream.cpp</code>, <code>src/libcamera/v4l2_videodevice.cpp</code></li><li>근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit <code>adfa719f8e</code>)</li><li>자동 검사 (인용·문장 및 설정된 구조 검사): 통과</li><li>검토 상태 기록일: 2026-11-23 · 사람 검토 전</li></ul></details><a href="../../scenarios/uvc-viewfinder-configuration.md">Markdown 원문 ↗</a></section><nav class="pagination" aria-label="이전과 다음 문서"><a class="previous" href="../../request-flow.html"><small>이전</small>캡처 종료 요청 ←</a><a class="next" href="../../troubleshooting.html"><small>다음</small>IPA 모듈 정보 검사와 서명 파일 누락 →</a></nav>
 <footer>Generated by camera-hal-sdd-generator · 인용 검사와 사람의 내용 검토는 별도입니다.</footer></main>
 <aside class="page-toc"></aside></div>
 <dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">문서 찾기</h2><button data-close>닫기 <kbd>Esc</kbd></button></div><label for="search-input">문서·절·용어·코드 요소 검색</label><input id="search-input" type="search" autocomplete="off" placeholder="예: Pipeline, IPA, 클래스 관계"><p id="search-count" role="status"></p><ul id="search-results"></ul></dialog>
