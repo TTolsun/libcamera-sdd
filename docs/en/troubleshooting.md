@@ -193,7 +193,7 @@ When investigating, in `Camera::configure()`, after passing the access check and
 
 </details>
 
-## Check order by failure location
+## Request Submission Failures and Missing Completion Notifications
 
 See also: Checking readiness waits and timeouts · Distinguishing request acceptance from completion notification · Observation plan for app callback connections and threads
 

@@ -193,7 +193,7 @@ flowchart TB
 
 </details>
 
-## 실패 위치별 확인 순서
+## 요청 제출 실패와 완료 알림 누락
 
 함께 확인: [준비 대기와 타임아웃 확인](https://ttolsun.github.io/libcamera-sdd/reader-archive/pipeline-requests.html#%EC%9A%94%EC%B2%AD-%EC%A4%80%EB%B9%84%EC%99%80-%EC%9E%A5%EC%B9%98-%ED%81%90) · [요청 접수와 완료 통지 구분](https://ttolsun.github.io/libcamera-sdd/reader-archive/request-lifecycle.html#%EC%A0%9C%EC%B6%9C%EC%97%90%EC%84%9C-%EC%99%84%EB%A3%8C%EA%B9%8C%EC%A7%80) · [앱 콜백 연결·스레드의 관찰 계획](https://ttolsun.github.io/libcamera-sdd/request-flow.html#stop-and-disconnect)
 
