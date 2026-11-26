@@ -56,6 +56,64 @@ flowchart TB
 
 </details>
 
+## 빌드와 지원 조건
+
+이 자료는 2026년 11월 25일의 libcamera upstream 커밋 `7ae183f`를 대상으로 합니다. 빌드 관찰일은 2026년 11월 27일입니다.
+
+### R-Car Gen4 빌드와 보드 확인
+
+```mermaid
+flowchart TB
+%% sdd:translations {"IPA 초기화와 센서 YAML 확인": "Check IPA initialization <br/>and sensor YAML", "WSL2에서 ipa#95;rppx1.so 빌드 <br/>확인": "The WSL2 build produced <br/>ipa#95;rppx1.so", "rcar-gen4 파이프라인과 <br/>rppx1 IPA 선택": "Select the rcar-gen4 <br/>pipeline and rppx1 IPA", "기기에서 확인할 결과": "Check the observed device <br/>outcome", "대상 보드에서 <br/>rcar#95;vin·rcar#95;isp 확인": "Check rcar#95;vin and rcar#95;isp <br/>on the target board", "실행은 별도 검증": "Verify operation separately", "첫 촬영·보정 품질은 미검증": "First capture and <br/>calibration remain <br/>unverified", "카메라 등록의 전제": "Prerequisites for camera <br/>setup", "컴파일·링크 관찰": "Observed compilation and <br/>linking"}
+  v_options["rcar-gen4 파이프라인과 <br/>rppx1 IPA 선택"]
+  v_host["WSL2에서 ipa#95;rppx1.so 빌드 <br/>확인"]
+  v_board["대상 보드에서 <br/>rcar#95;vin·rcar#95;isp 확인"]
+  v_ipa["IPA 초기화와 센서 YAML 확인"]
+  v_capture["첫 촬영·보정 품질은 미검증"]
+  v_options -->|"컴파일·링크 관찰"| v_host
+  v_host -->|"실행은 별도 검증"| v_board
+  v_board -->|"카메라 등록의 전제"| v_ipa
+  v_ipa -->|"기기에서 확인할 결과"| v_capture
+```
+
+[Mermaid 원문](https://ttolsun.github.io/libcamera-sdd/vendor-integration.rcar-build-boundary.mmd)
+
+<details open>
+<summary>그림 근거와 확인 범위</summary>
+
+빌드에서 확인한 결과와 대상 보드에서 별도로 확인할 조건은 무엇입니까?
+
+소스 연결 해석 · 자동 연결 검사만 통과 · 의미와 기기 실행은 검증 전
+
+| 요소·전이 | 소스 근거 |
+| --- | --- |
+| rcar-gen4 파이프라인과 rppx1 IPA 선택 | [product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt:1](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-integration.html#source-ad5d622c32f4ff6b) |
+| WSL2에서 ipa_rppx1.so 빌드 확인 | [product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt:1](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-integration.html#source-ad5d622c32f4ff6b) |
+| 대상 보드에서 rcar_vin·rcar_isp 확인 | [product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt:1](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-integration.html#source-ad5d622c32f4ff6b) |
+| IPA 초기화와 센서 YAML 확인 | [product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt:1](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-integration.html#source-ad5d622c32f4ff6b) |
+| 첫 촬영·보정 품질은 미검증 | [product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt:1](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-integration.html#source-ad5d622c32f4ff6b) |
+| 컴파일·링크 관찰 | [product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt:1](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-integration.html#source-ad5d622c32f4ff6b) |
+| 실행은 별도 검증 | [product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt:1](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-integration.html#source-ad5d622c32f4ff6b) |
+| 카메라 등록의 전제 | [product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt:1](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-integration.html#source-ad5d622c32f4ff6b) |
+| 기기에서 확인할 결과 | [product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt:1](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-integration.html#source-ad5d622c32f4ff6b) |
+
+</details>
+
+R-Car Gen4를 따로 빌드하려면 `-Dpipelines=rcar-gen4 -Dipas=rppx1`을 지정해야 합니다. IPA 빌드는 활성화된 파이프라인과 `-Dipas`에 명시된 모듈을 대조하며, `rcar-gen4`에 대응하는 IPA는 `rppx1`입니다. 파이프라인 옵션의 `auto`는 대상 아키텍처에 적용되는 파이프라인을 선택하고, `all`은 모든 파이프라인을 선택합니다.
+
+R-Car Gen4 파이프라인은 `rcar_vin` 미디어 장치를 확보하고 `rcar_isp` 코어 엔티티를 찾아 카메라 생성을 시도합니다. 대응 IPA 모듈이 없으면 초기화가 실패합니다. IPA 구성 파일은 센서 모델의 YAML을 사용하고, 대체 파일은 `uncalibrated.yaml`입니다. 대체 파일이 있다는 사실은 렌즈나 센서의 보정 상태를 보증하지 않습니다.
+
+Ubuntu WSL2 `x86_64`, Clang 21.1.8, Meson 1.10.1 환경에서 `pipelines=all`과 `rppx1`을 포함한 기록된 IPA 목록, GStreamer·V4L2·cam 활성화 구성의 Ninja 빌드가 완료됐습니다. 같은 고정 커밋에서 별도로 `-Dpipelines=rcar-gen4 -Dipas=rppx1`을 지정한 Ninja 빌드도 완료됐고 `ipa_rppx1.so`가 생성됐습니다. 이 관찰은 기록된 환경의 컴파일과 링크를 뒷받침합니다.
+
+실행 확인 항목: 대상 보드·커널·센서 조합의 장치 탐색, 카메라 등록, 첫 촬영과 보정 품질은 아직 확인하지 않았습니다. 이 자료는 전체 커널 헤더 변경이나 새 소스 커밋의 나머지 동작을 검토하는 시험에 해당하지 않습니다.
+
+<details open>
+<summary>절 전체 근거 1개</summary>
+
+- `product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt`[`L1`](https://ttolsun.github.io/libcamera-sdd/reader-archive/vendor-integration.html#source-ad5d622c32f4ff6b)
+
+</details>
+
 ## 고객 보드의 첫 촬영을 검증했습니까?
 
 이 기록으로 고객 보드의 첫 촬영을 검증했다고 보고할 수 없습니다. WSL2 시험 구성에서 물리 센서 대신 가상 카메라 Virtual2를 사용했으며, 고객 보드의 물리 센서로 촬영한 기록은 없습니다.
@@ -374,19 +432,20 @@ cancelRequest는 내부 취소를 호출하여 각 대기 버퍼를 취소하고
 - **자동 검사**: 통과 (`ok`). 검사한 항목은 검증 범위에 적혀 있습니다. 설명 내용이 맞는지는 사람이 확인합니다.
 - **사람 검토**: 사람 검토 전
 - **분석 기준 커밋**: `adfa719f8ed67d18fd8a0739fc088a1f8b9e7252`
-- **문서 생성 시각**: `2026-11-20 16:39:26+00:00`
+- **문서 생성 시각**: `2026-11-26 16:20:34+00:00`
 - **문장 생성 모델**: `cli/codex/gpt-6.1-terra`
 - **문서 간 계약**: [자동 대조 보고서](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · 사람 검토 전
+- **제품 설명 입력**: [적용 범위·조건·자료](https://ttolsun.github.io/libcamera-sdd/product-context.json)
 
 <details open>
 <summary>원고 작성 당시 기록</summary>
 
 원고에 저장된 당시 기록입니다. 현재 문서의 기준과 다를 수 있습니다.
 
-- 근거 파일: `include/libcamera/camera.h`, `include/libcamera/internal/ipa_manager.h`, `include/libcamera/internal/pipeline_handler.h`, `src/libcamera/camera.cpp`, `src/libcamera/ipa_manager.cpp`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/pipeline_handler.cpp`
+- 근거 파일: `include/libcamera/camera.h`, `include/libcamera/internal/ipa_manager.h`, `include/libcamera/internal/pipeline_handler.h`, `product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt`, `src/libcamera/camera.cpp`, `src/libcamera/ipa_manager.cpp`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/pipeline_handler.cpp`
 - 근거 수준: 코드 확인 (정적 분석, simple_compdb 구성, commit `adfa719f8e`)
 - 자동 검사 (인용·문장 및 설정된 구조 검사): 통과
-- 검토 상태 기록일: 2026-11-21 · 사람 검토 전
+- 검토 상태 기록일: 2026-11-27 · 사람 검토 전
 
 </details>
 

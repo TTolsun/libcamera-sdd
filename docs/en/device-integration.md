@@ -56,6 +56,64 @@ Source-linked interpretation · automatic link check only · meaning and device 
 
 </details>
 
+## Build and support conditions
+
+This material covers libcamera upstream commit `7ae183f` from November 25, 2026. The build was observed on November 27, 2026.
+
+### R-Car Gen4 build and board verification
+
+```mermaid
+flowchart TB
+
+  v_options["Select the rcar-gen4 <br/>pipeline and rppx1 IPA"]
+  v_host["The WSL2 build produced <br/>ipa#95;rppx1.so"]
+  v_board["Check rcar#95;vin and rcar#95;isp <br/>on the target board"]
+  v_ipa["Check IPA initialization <br/>and sensor YAML"]
+  v_capture["First capture and <br/>calibration remain <br/>unverified"]
+  v_options -->|"Observed compilation and <br/>linking"| v_host
+  v_host -->|"Verify operation separately"| v_board
+  v_board -->|"Prerequisites for camera <br/>setup"| v_ipa
+  v_ipa -->|"Check the observed device <br/>outcome"| v_capture
+```
+
+Mermaid source
+
+<details open>
+<summary>Diagram evidence and verification scope</summary>
+
+What did the build verification confirm, and what conditions need to be checked separately on the target board?
+
+Source-linked interpretation · automatic link check only · meaning and device execution not yet verified
+
+| Elements and transitions | Source evidence |
+| --- | --- |
+| Select the rcar-gen4 pipeline and rppx1 IPA | product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt:1 |
+| The WSL2 build produced ipa_rppx1.so | product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt:1 |
+| Check rcar_vin and rcar_isp on the target board | product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt:1 |
+| Check IPA initialization and sensor YAML | product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt:1 |
+| First capture and calibration remain unverified | product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt:1 |
+| Observed compilation and linking | product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt:1 |
+| Verify operation separately | product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt:1 |
+| Prerequisites for camera setup | product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt:1 |
+| Check the observed device outcome | product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt:1 |
+
+</details>
+
+To build R-Car Gen4 separately, you must specify `-Dpipelines=rcar-gen4 -Dipas=rppx1`. The IPA build compares the enabled pipelines with the modules specified in `-Dipas`; the IPA corresponding to `rcar-gen4` is `rppx1`. In the pipeline option, `auto` selects the pipelines applicable to the target architecture, while `all` selects all pipelines.
+
+The R-Car Gen4 pipeline acquires the `rcar_vin` media device, finds the `rcar_isp` core entity, and attempts to create a camera. Initialization fails if the corresponding IPA module is missing. The IPA configuration uses the sensor model's YAML file, with `uncalibrated.yaml` as the fallback. The existence of the fallback file does not guarantee that the lens or sensor is calibrated.
+
+A Ninja build completed on Ubuntu WSL2 `x86_64`, Clang 21.1.8, and Meson 1.10.1, using `pipelines=all`, the recorded IPA list including `rppx1`, and GStreamer, V4L2, and cam enabled. A separate Ninja build at the same pinned commit also completed with `-Dpipelines=rcar-gen4 -Dipas=rppx1` specified, producing `ipa_rppx1.so`. These observations support compilation and linking in the recorded environment.
+
+Runtime checks: Device discovery, camera registration, the first capture, and calibration quality have not yet been verified for the target board, kernel, and sensor combination. This material does not constitute a test of the full kernel header changes or the remaining behavior of a new source commit.
+
+<details open>
+<summary>Section-wide evidence: 1</summary>
+
+- `product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt``L1`
+
+</details>
+
 ## Has the first capture on the customer board been validated?
 
 This record cannot be used to report that the first capture on the customer board has been validated. The WSL2 test configuration used the Virtual2 virtual camera instead of a physical sensor, and there is no record of a capture using the customer board's physical sensor.
@@ -374,19 +432,20 @@ cancelRequest calls the internal cancellation function, which cancels each pendi
 - **Automated check**: Passed (`ok`). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.
 - **Human review**: Before human review
 - **Analysis baseline commit**: `adfa719f8ed67d18fd8a0739fc088a1f8b9e7252`
-- **Document generation time**: `2026-11-20 16:39:26+00:00`
+- **Document generation time**: `2026-11-26 16:20:34+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
 - **Contracts between documents**: Automated comparison report · Before human review
+- **Enter product description**: Scope, conditions, and sources
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
 
 This is a record saved in the manuscript as of that time. It may differ from the current document's standards.
 
-- Evidence files: `include/libcamera/camera.h`, `include/libcamera/internal/ipa_manager.h`, `include/libcamera/internal/pipeline_handler.h`, `src/libcamera/camera.cpp`, `src/libcamera/ipa_manager.cpp`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/pipeline_handler.cpp`
+- Evidence files: `include/libcamera/camera.h`, `include/libcamera/internal/ipa_manager.h`, `include/libcamera/internal/pipeline_handler.h`, `product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt`, `src/libcamera/camera.cpp`, `src/libcamera/ipa_manager.cpp`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/pipeline_handler.cpp`
 - Evidence level: code verified (static analysis, simple_compdb configuration, commit `adfa719f8e`)
 - Automated check (citation, sentence, and configured structure checks): passed
-- Review status recorded on: 2026-11-21 · Awaiting human review
+- Review status recorded: 2026-11-27 · Awaiting human review
 
 </details>
 
