@@ -139,19 +139,20 @@ Source-linked interpretation · automatic link check only · meaning and device 
 - **Automated check**: Passed (`ok`). The items checked are listed in the verification scope. Whether the explanation content is correct is checked by a human reviewer.
 - **Human review**: Before human review
 - **Analysis baseline commit**: `adfa719f8ed67d18fd8a0739fc088a1f8b9e7252`
-- **Document generation time**: `2026-11-20 16:39:26+00:00`
+- **Document generation time**: `2026-11-26 16:20:34+00:00`
 - **Sentence generation model**: `cli/codex/gpt-6.1-terra`
 - **Contracts between documents**: [Automated comparison report](https://ttolsun.github.io/libcamera-sdd/contract-consistency.json) · Before human review
+- **Enter product description**: [Scope, conditions, and sources](https://ttolsun.github.io/libcamera-sdd/product-context.json)
 
 <details open>
 <summary>Record from when the manuscript was written</summary>
 
 This is a record saved in the manuscript as of that time. It may differ from the current document's standards.
 
-- Evidence files: `include/libcamera/camera.h`, `include/libcamera/internal/ipa_manager.h`, `include/libcamera/internal/pipeline_handler.h`, `src/libcamera/camera.cpp`, `src/libcamera/ipa_manager.cpp`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/pipeline_handler.cpp`
+- Evidence files: `include/libcamera/camera.h`, `include/libcamera/internal/ipa_manager.h`, `include/libcamera/internal/pipeline_handler.h`, `product-evidence/libcamera-rcar-gen4-build/rcar-gen4-build-record.txt`, `src/libcamera/camera.cpp`, `src/libcamera/ipa_manager.cpp`, `src/libcamera/pipeline/ipu3/ipu3.cpp`, `src/libcamera/pipeline/rkisp1/rkisp1.cpp`, `src/libcamera/pipeline_handler.cpp`
 - Evidence level: code verified (static analysis, simple_compdb configuration, commit `adfa719f8e`)
 - Automated check (citation, sentence, and configured structure checks): passed
-- Review status recorded on: 2026-11-21 · Awaiting human review
+- Review status recorded: 2026-11-27 · Awaiting human review
 
 </details>
 

@@ -1,5 +1,7 @@
 # libcamera SDD
 
+- [R-Car Gen4 빌드와 지원 조건](https://ttolsun.github.io/libcamera-sdd/device-integration.html#build-support) · [English](https://ttolsun.github.io/libcamera-sdd/en/device-integration.html#build-support) · [빌드 근거](publication/rcar-gen4-build-conditions/README.md)
+
 - [공개 시작 화면](https://ttolsun.github.io/libcamera-sdd/) · [English](https://ttolsun.github.io/libcamera-sdd/en/) · [장치 검증과 취소 코드 경로](publication/issue347-reader-entries/README.md)
 
 - [실제 UVC 장치에서 요청을 대조하는 절차](https://ttolsun.github.io/libcamera-sdd/request-lifecycle.html#실제-uvc-장치에서-같은-요청의-완료-기록을-대조하는-절차) · [English field procedure](https://ttolsun.github.io/libcamera-sdd/en/request-lifecycle.html#실제-uvc-장치에서-같은-요청의-완료-기록을-대조하는-절차) · [검증 기록](publication/uvc-device-request-observation/README.md)
